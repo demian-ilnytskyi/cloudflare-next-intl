@@ -31,7 +31,7 @@
             "category": "Пакет",
             "title": {
                 "default": "Тест заголовок",
-                "template": "%s | optimized-next-intl"
+                "template": "%s | cloudflare-next-intl"
             },
             "description": "Тест Опис"
         }
