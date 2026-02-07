@@ -1,102 +1,89 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": false,
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.js"
     },
     "./client": {
       "types": "./dist/src/client/index.d.ts",
-      "import": "./dist/src/client/index.js",
-      "require": "./dist/src/client/index.cjs"
+      "import": "./dist/src/client/index.js"
     },
     "./server": {
       "types": "./dist/src/server/index.d.ts",
-      "import": "./dist/src/server/index.js",
-      "require": "./dist/src/server/index.cjs"
+      "import": "./dist/src/server/index.js"
     },
     "./middleware": {
       "types": "./dist/src/config/middleware.d.ts",
-      "import": "./dist/src/config/middleware.js",
-      "require": "./dist/src/config/middleware.cjs"
+      "import": "./dist/src/config/middleware.js"
     },
     "./setIntlConfig": {
       "types": "./dist/src/config/init_config.d.ts",
-      "import": "./dist/src/config/init_config.js",
-      "require": "./dist/src/config/init_config.cjs"
+      "import": "./dist/src/config/init_config.js"
     },
     "./serverProvider": {
       "types": "./dist/src/server/components/server_provider.d.ts",
-      "import": "./dist/src/server/components/server_provider.js",
-      "require": "./dist/src/server/components/server_provider.cjs"
+      "import": "./dist/src/server/components/server_provider.js"
     },
     "./Link": {
       "types": "./dist/src/server/components/link.d.ts",
-      "import": "./dist/src/server/components/link.js",
-      "require": "./dist/src/server/components/link.cjs"
+      "import": "./dist/src/server/components/link.js"
     },
     "./IntlHelperScript": {
       "types": "./dist/src/server/components/helper_script.d.ts",
-      "import": "./dist/src/server/components/helper_script.js",
-      "require": "./dist/src/server/components/helper_script.cjs"
+      "import": "./dist/src/server/components/helper_script.js"
     },
     "./LocaleLink": {
       "types": "./dist/src/client/components/locale_link.d.ts",
-      "import": "./dist/src/client/components/locale_link.js",
-      "require": "./dist/src/client/components/locale_link.cjs"
+      "import": "./dist/src/client/components/locale_link.js"
     },
     "./usePathname": {
       "types": "./dist/src/client/hooks/use_path_name.d.ts",
-      "import": "./dist/src/client/hooks/use_path_name.js",
-      "require": "./dist/src/client/hooks/use_path_name.cjs"
+      "import": "./dist/src/client/hooks/use_path_name.js"
     },
     "./metadata": {
       "types": "./dist/src/general/metadata.d.ts",
-      "import": "./dist/src/general/metadata.js",
-      "require": "./dist/src/general/metadata.cjs"
+      "import": "./dist/src/general/metadata.js"
     },
     "./getLayoutStates": {
       "types": "./dist/src/general/get_layout_states.d.ts",
-      "import": "./dist/src/general/get_layout_states.js",
-      "require": "./dist/src/general/get_layout_states.cjs"
+      "import": "./dist/src/general/get_layout_states.js"
     },
     "./setCookieClient": {
       "types": "./dist/src/client/functions/set_cookie.d.ts",
-      "import": "./dist/src/client/functions/set_cookie.js",
-      "require": "./dist/src/client/functions/set_cookie.cjs"
+      "import": "./dist/src/client/functions/set_cookie.js"
     },
     "./getCookieClient": {
       "types": "./dist/src/client/functions/get_cookie.d.ts",
-      "import": "./dist/src/client/functions/get_cookie.js",
-      "require": "./dist/src/client/functions/get_cookie.cjs"
+      "import": "./dist/src/client/functions/get_cookie.js"
     },
     "./localeStaticParams": {
       "types": "./dist/src/server/functions/locale_static_params.d.ts",
-      "import": "./dist/src/server/functions/locale_static_params.js",
-      "require": "./dist/src/server/functions/locale_static_params.cjs"
+      "import": "./dist/src/server/functions/locale_static_params.js"
     },
     "./use": {
       "react-server": {
         "types": "./dist/src/server/functions/use_functions.d.ts",
-        "import": "./dist/src/server/functions/use_functions.js",
-        "require": "./dist/src/server/functions/use_functions.cjs"
+        "import": "./dist/src/server/functions/use_functions.js"
       },
       "default": {
         "types": "./dist/src/client/hooks/client_hooks.d.ts",
-        "import": "./dist/src/client/hooks/client_hooks.js",
-        "require": "./dist/src/client/hooks/client_hooks.cjs"
+        "import": "./dist/src/client/hooks/client_hooks.js"
       }
     },
     "./ThemeSwitcher": {
       "types": "./dist/src/theme_switcher/components/theme_switcher.d.ts",
-      "import": "./dist/src/theme_switcher/components/theme_switcher.js",
-      "require": "./dist/src/theme_switcher/components/theme_switcher.cjs"
+      "import": "./dist/src/theme_switcher/components/theme_switcher.js"
     }
   },
   "scripts": {
@@ -149,19 +136,20 @@
     }
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@eslint/js": "^9.27.0",
     "@types/node": "^20.14.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript-eslint": "^8.33.1",
     "eslint": "^9.28.0",
     "eslint-config-next": "15.3.3",
     "eslint-config-prettier": "^10.1.2",
-    "@eslint/eslintrc": "^3",
-    "@eslint/js": "^9.27.0",
     "next": "^15.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "tsup": "^8.5.1",
     "typescript": "^5.5.3",
+    "typescript-eslint": "^8.33.1",
     "vitest": "^3.0.8"
   }
 }
