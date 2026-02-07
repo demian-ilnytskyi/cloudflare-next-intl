@@ -30,7 +30,7 @@
 		"@eslint/eslintrc": "^3",
 		"@eslint/js": "^9.27.0",
 		"@next/bundle-analyzer": "^15.5.4",
-		"@opennextjs/cloudflare": "^1.10.1",
+		"@opennextjs/cloudflare": "^1.11.0",
 		"@tailwindcss/postcss": "^4",
 		"@types/node": "^24",
 		"@types/react": "^19",
