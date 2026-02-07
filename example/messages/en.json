@@ -31,7 +31,7 @@
             "category": "Package",
             "title": {
                 "default": "Test Title",
-                "template": "%s | optimized-next-intl"
+                "template": "%s | cloudflare-next-intl"
             },
             "description": "Test Description"
         }
