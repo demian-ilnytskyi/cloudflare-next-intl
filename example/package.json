@@ -3,24 +3,23 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"dev": "next dev",
+		"dev": "next dev --turbopack",
 		"build": "next build",
 		"analyze": "ANALYZE=true next build",
 		"start": "next start",
 		"lint": "next lint",
-		"preview": "chmod +x ./cloudflare_set_up.sh && ./cloudflare_set_up.sh \"opennextjs-cloudflare build && opennextjs-cloudflare preview\"",
+		"preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
 		"deploy": "opennextjs-cloudflare deploy && wrangler deploy",
-		"pre-deploy": "chmod +x ./cloudflare_set_up.sh && ./cloudflare_set_up.sh \"next build && opennextjs-cloudflare build\"",
+		"pre-deploy": "next build && opennextjs-cloudflare build",
 		"cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
 		"check-size": "wrangler deploy --outdir boundled/ --dry-run"
 	},
 	"dependencies": {
-		"@next/third-parties": "^15.3.2",
 		"clsx": "^2.1.1",
 		"lucide-react": "^0.515.0",
 		"markdown-to-jsx": "^7.7.6",
 		"next": "^15.5.6",
-		"optimized-next-intl": "file:../package",
+		"cloudflare-next-intl": "file:../package",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
 		"tailwind-merge": "^3.2.0",
@@ -30,7 +29,7 @@
 		"@eslint/eslintrc": "^3",
 		"@eslint/js": "^9.27.0",
 		"@next/bundle-analyzer": "^15.3.2",
-		"@opennextjs/cloudflare": "^1.1.0",
+		"@opennextjs/cloudflare": "^1.11.0",
 		"@tailwindcss/postcss": "^4",
 		"@types/node": "^24",
 		"@types/react": "^19",
@@ -43,6 +42,6 @@
 		"typescript": "^5.8.3",
 		"typescript-eslint": "^8.33.1",
 		"vercel": "^43.1.0",
-		"wrangler": "^4.19.1"
+		"wrangler": "^4.43.0"
 	}
 }

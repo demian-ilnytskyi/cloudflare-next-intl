@@ -1,7 +1,6 @@
 import { getTranslationsImpl } from "../../general/general_functions";
 import { getLocale, getMessage } from "./server";
 import { cache, use } from "react";
-const isDev = process.env.NODE_ENV === 'development';
 export function useLocaleImpl() {
     const language = use(getLocale());
     if (language === undefined) {
@@ -9,7 +8,7 @@ export function useLocaleImpl() {
     }
     return language;
 }
-export const useLocale = isDev ? useLocaleImpl : cache(useLocaleImpl);
+export const useLocale = cache(useLocaleImpl);
 function useTranslationsImpl(namespace) {
     const language = use(getLocale());
     const messages = use(getMessage(language));
@@ -18,4 +17,4 @@ function useTranslationsImpl(namespace) {
     }
     return getTranslationsImpl(language, messages, namespace);
 }
-export const useTranslations = isDev ? useTranslationsImpl : cache(useTranslationsImpl);
+export const useTranslations = cache(useTranslationsImpl);

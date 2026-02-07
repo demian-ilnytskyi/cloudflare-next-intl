@@ -10,7 +10,7 @@ import {
 import LocaleLinkClient from './locale_link_client';
 
 type NextLinkProps = Omit<ComponentProps<'a'>, keyof LinkProps> &
-    Omit<LinkProps, 'locale' | 'href' | 'prefetch' | 'onNavigate' | 'hrefLang'>;
+    Omit<LinkProps, 'locale' | 'href' | 'prefetch' | 'onNavigate' | 'hrefLang' | 'replace' | 'scroll'>;
 
 export type LocaleLinkProps = NextLinkProps & {
     locale: string;

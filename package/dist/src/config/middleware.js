@@ -55,7 +55,7 @@ export default async function intlMiddleware(request) {
         const effectiveLocaleForRequest = urlLocale ?? initialChosenLocale;
         let response;
         if (!urlLocale) {
-            const targetPath = `/${effectiveLocaleForRequest}${pathWithoutLocale}`;
+            const targetPath = `/${effectiveLocaleForRequest}${pathWithoutLocale === '/' ? '' : pathWithoutLocale}`;
             const targetUrl = new URL(`${targetPath}${search}${hash}`, request.url);
             if (initialChosenLocale === config.defaultLocale) {
                 response = NextResponse.rewrite(targetUrl, { request });

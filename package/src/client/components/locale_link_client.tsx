@@ -1,6 +1,5 @@
 "use client";
 
-import LinkComponent from 'next/link';
 import {
     forwardRef,
     useEffect,
@@ -18,7 +17,6 @@ import type { LocaleLinkProps } from './locale_link';
 function ClientLocaleLinkComponent(
     {
         locale,
-        scroll,
         className,
         ...rest
     }: LocaleLinkProps,
@@ -41,18 +39,18 @@ function ClientLocaleLinkComponent(
 
     const href = `${localePrefix}${newPathname}${search ? `?${search}` : ''}${hash}`;
 
-    function handleNavigate() {
+    function handleNavigate(e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) {
+        e.preventDefault();
         setCookie({ name: localeCookieName, value: locale });
+        window.location.replace(href);
     };
 
-    return <LinkComponent
+    return <a
         ref={ref}
         hrefLang={locale}
-        scroll={scroll}
         className={className}
         {...rest}
         href={href}
-        prefetch={false}
         onClick={handleNavigate}
     />;
 }

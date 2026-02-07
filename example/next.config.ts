@@ -5,6 +5,8 @@ import KTextConstants from "./src/shared/constants/variables/text_constants";
 
 const isDev = process.env.NODE_ENV === "development";
 
+initOpenNextCloudflareForDev();
+
 /**
  * Generates a Cache-Control header value.
  * @param seconds The maximum age for the cache in seconds.
@@ -191,5 +193,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-
-initOpenNextCloudflareForDev();

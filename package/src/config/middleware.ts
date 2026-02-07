@@ -70,7 +70,7 @@ export default async function intlMiddleware(request: NextRequest): Promise<Next
         let response: NextResponse;
 
         if (!urlLocale) {
-            const targetPath = `/${effectiveLocaleForRequest}${pathWithoutLocale}`;
+            const targetPath = `/${effectiveLocaleForRequest}${pathWithoutLocale === '/' ? '' : pathWithoutLocale}`;
             const targetUrl = new URL(`${targetPath}${search}${hash}`, request.url);
             if (initialChosenLocale === config.defaultLocale) {
                 response = NextResponse.rewrite(targetUrl, { request });

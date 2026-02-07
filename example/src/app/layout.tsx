@@ -17,13 +17,10 @@ export const metadata: Metadata = {
   },
 };
 
-// export const experimental_ppr = true;
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>): React.ReactNode {
-  // const nonce = (await headers()).get('x-nonce') ?? undefined;
   return children;
 }
