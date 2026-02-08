@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import AppTextStyle from "@/shared/constants/styles/app_text_styles";
 import type { Metadata } from "next";
 import metadataHelper from "@/shared/helpers/metadata_helper";
-import { getTranslations, setLocale } from "cloudflare-next-intl";
+import { getTranslations } from "cloudflare-next-intl";
 import Link from "cloudflare-next-intl/Link";
 import KTextConstants from "@/shared/constants/variables/text_constants";
 
@@ -29,7 +29,6 @@ export default async function NotFound({ params }: {
 }): Promise<Component> {
   const result = await params;
   const locale = result?.locale ?? KTextConstants.defaultLocale;
-  setLocale(locale);
   const t = await getTranslations("NotFound.General");
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-4 text-center">

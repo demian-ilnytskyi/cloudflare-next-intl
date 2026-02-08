@@ -9,7 +9,6 @@ export default async function Home({ params }: {
 
   return (
     <main className="flex-1 flex flex-col mt-5">
-      <Link href="/#test" className={AppTextStyle.h1}>Test</Link>
       <h1 className={AppTextStyle.h1}>{t("title")}</h1>
       <h2 className={AppTextStyle.h1Mob}>{t("description")}</h2>
     </main>
