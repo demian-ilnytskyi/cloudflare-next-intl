@@ -1,7 +1,24 @@
 import intlMiddleware from "cloudflare-next-intl/middleware";
-// This middleware function runs for every incoming request
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-export const middleware = intlMiddleware;
+// This middleware function runs for every incoming request
+export function middleware(request: NextRequest) {
+    return intlMiddleware(request, {
+        // Runs when the locale is resolved and no redirect happened (rewrite or next).
+        // Return a NextResponse to override the default response, or null to fall back to it.
+        middlewareHandler: (req, locale, targetUrl) => {
+            // Example: custom auth check using Supabase (or any other) session cookie
+            // const session = req.cookies.get("session")?.value;
+            // if (!session) {
+            //     return NextResponse.redirect(new URL(`/${locale}/login`, req.url));
+            // }
+            return null;
+        },
+        // Set to true to also run middlewareHandler when a locale redirect happens (default: false)
+        runHandlerOnRedirect: false,
+    });
+}
 
 // Configuration for the middleware
 export const config = {
