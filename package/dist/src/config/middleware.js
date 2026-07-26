@@ -26,10 +26,10 @@ export const localesSet = new Set(config.locales);
  * @param request The incoming request (pass through from your `middleware.ts`).
  * @param options.middlewareHandler  Your own logic (auth, feature flags, etc.),
  *   run alongside locale routing — see {@link MiddlewareCustomHandler} for the
- *   full contract (when it runs, what `targetUrl` means, what to return).
- * @param options.runHandlerOnRedirect  By default, `middlewareHandler` only
- *   runs when the library is NOT performing a locale redirect (i.e. on
- *   rewrite or `next()`). Set to `true` to also run it on redirects.
+ *   full contract (`rewriteUrl` / `redirectUrl` and what to return).
+ * @param options.runHandlerOnRedirect  By default, `middlewareHandler` does
+ *   NOT run for the locale-redirect case (so it never receives a
+ *   `redirectUrl`). Set to `true` to also run it on redirects.
  *   Defaults to `false`.
  */
 export default async function intlMiddleware(request, options) {
@@ -67,16 +67,19 @@ export default async function intlMiddleware(request, options) {
         const effectiveLocaleForRequest = urlLocale ?? initialChosenLocale;
         let response;
         let isRedirect = false;
-        let targetUrl;
+        let rewriteUrl;
+        let redirectUrl;
         if (!urlLocale) {
             const targetPath = `/${effectiveLocaleForRequest}${pathWithoutLocale === '/' ? '' : pathWithoutLocale}`;
-            targetUrl = new URL(`${targetPath}${search}${hash}`, request.url);
+            const localeUrl = new URL(`${targetPath}${search}${hash}`, request.url);
             if (initialChosenLocale === config.defaultLocale) {
-                response = NextResponse.rewrite(targetUrl, { request });
+                rewriteUrl = localeUrl;
+                response = NextResponse.rewrite(localeUrl, { request });
             }
             else {
                 isRedirect = true;
-                response = NextResponse.redirect(targetUrl, request);
+                redirectUrl = localeUrl;
+                response = NextResponse.redirect(localeUrl, request);
             }
         }
         else {
@@ -85,7 +88,7 @@ export default async function intlMiddleware(request, options) {
             });
         }
         if (options?.middlewareHandler && (!isRedirect || options.runHandlerOnRedirect)) {
-            const customResponse = await options.middlewareHandler(request, effectiveLocaleForRequest, targetUrl);
+            const customResponse = await options.middlewareHandler(effectiveLocaleForRequest, rewriteUrl, redirectUrl);
             if (customResponse) {
                 response = customResponse;
             }

@@ -5,17 +5,28 @@ import { NextResponse } from "next/server";
 // This middleware function runs for every incoming request
 export function middleware(request: NextRequest) {
     return intlMiddleware(request, {
-        // Runs when the locale is resolved and no redirect happened (rewrite or next).
-        // Return a NextResponse to override the default response, or null to fall back to it.
-        middlewareHandler: (req, locale, targetUrl) => {
-            // Example: custom auth check using Supabase (or any other) session cookie
-            if (!targetUrl) {
-                return NextResponse.rewrite(targetUrl!, {request});
+        // STRICT RULE: at most one of rewriteUrl / redirectUrl is ever set.
+        //   rewriteUrl set   -> NextResponse.rewrite(rewriteUrl, { request })
+        //   redirectUrl set  -> NextResponse.redirect(redirectUrl, request)
+        //   both undefined   -> no locale routing needed. Your own logic
+        //                       (auth, feature flags, ...) goes here.
+        middlewareHandler: (locale, rewriteUrl, redirectUrl) => {
+            if (rewriteUrl) {
+                return NextResponse.rewrite(rewriteUrl, {
+                    request,
+                });
             }
-            return NextResponse.next({request});
+            if (redirectUrl) {
+                return NextResponse.redirect(redirectUrl, request);
+            }
+            // Example: send a specific locale to a maintenance page.
+            if (locale === "de") {
+                return NextResponse.redirect(new URL(`/${locale}/maintenance`, request.url));
+            }
+            return NextResponse.next({ request });
         },
         // Set to true to also run middlewareHandler when a locale redirect happens (default: false)
-        runHandlerOnRedirect: false,
+        runHandlerOnRedirect: true,
     });
 }
 

@@ -1,4 +1,4 @@
-import type { NextRequest, NextResponse } from 'next/server';
+import type { NextResponse } from 'next/server';
 import type { Languages } from 'next/dist/lib/metadata/types/alternative-urls-types';
 import type { Videos } from 'next/dist/lib/metadata/types/metadata-types';
 
@@ -7,47 +7,40 @@ import type { Videos } from 'next/dist/lib/metadata/types/metadata-types';
  * (e.g. auth, feature flags, A/B tests) — on top of the library's own
  * locale routing (locale-prefix rewrite/redirect).
  *
- * Called AFTER the library has resolved the locale for this request, but
- * BEFORE it builds its own `NextResponse`:
- * - When `targetUrl` is `undefined`: the request already had a valid
- *   locale prefix (e.g. `/en/about`) — the library would otherwise call
- *   `NextResponse.next()`.
- * - When `targetUrl` is set: the library resolved a locale-prefixed URL
- *   the request should be routed to (e.g. `/` -> `/en/`). By default the
- *   library still performs this rewrite/redirect itself — `targetUrl` is
- *   informational, so you can react to it (e.g. log it, add a header),
- *   NOT something you are required to apply yourself.
- *   - If `initialChosenLocale === defaultLocale`, the library rewrites to
- *     `targetUrl` (URL bar unchanged).
- *   - Otherwise, the library redirects to `targetUrl` (only when
- *     `runHandlerOnRedirect: true` is also passed — by default this
- *     handler does NOT run on redirects).
+ * STRICT RULE — at most ONE of `rewriteUrl` / `redirectUrl` is ever set, and
+ * whichever is set tells you exactly what to do:
+ * - `rewriteUrl` set: apply `NextResponse.rewrite(rewriteUrl, { request })`
+ *   (locale matches the default locale — URL bar stays unchanged).
+ * - `redirectUrl` set: apply `NextResponse.redirect(redirectUrl, request)`
+ *   (locale differs from the URL — visible redirect). The handler only runs
+ *   for this case when `runHandlerOnRedirect: true` is passed.
+ * - BOTH undefined: no locale routing needed (URL already has the right
+ *   locale prefix). This is where your own logic belongs — return
+ *   `NextResponse.next({ request })`, or your own redirect (e.g. auth).
  *
- * @param request   The incoming request.
- * @param locale    The resolved locale for this request (e.g. `"en"`).
- * @param targetUrl The locale-prefixed URL the library will rewrite/redirect
- *                  to, or `undefined` when no rewrite/redirect is needed.
- * @returns          - A `NextResponse` to fully REPLACE the library's default
- *                      response (e.g. `NextResponse.redirect(...)` to send an
- *                      unauthenticated user to `/login` instead).
- *                    - `null` to keep the library's default response
- *                      (rewrite/redirect/`next()`) as-is — this is the common case.
+ * Returning `null` in any case makes the library apply its own default,
+ * which is the same rewrite/redirect/`next()` described above.
+ *
+ * @param locale      The resolved locale for this request (e.g. `"en"`).
+ * @param rewriteUrl  URL to rewrite to, or `undefined`.
+ * @param redirectUrl URL to redirect to, or `undefined`.
+ * @returns           A `NextResponse` to use for this request, or `null` to
+ *                    let the library build the default one.
  *
  * @example
  * ```ts
- * middlewareHandler: (request, locale, targetUrl) => {
- *   const session = request.cookies.get("session")?.value;
- *   if (!session) {
- *     return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
- *   }
- *   return null; // keep default locale routing
+ * middlewareHandler: (locale, rewriteUrl, redirectUrl) => {
+ *   if (rewriteUrl) return NextResponse.rewrite(rewriteUrl, { request });
+ *   if (redirectUrl) return NextResponse.redirect(redirectUrl, request);
+ *   // No locale routing needed — your own logic goes here.
+ *   return NextResponse.next({ request });
  * }
  * ```
  */
 export type MiddlewareCustomHandler = (
-    request: NextRequest,
     locale: string,
-    targetUrl: URL | undefined,
+    rewriteUrl: URL | undefined,
+    redirectUrl: URL | undefined,
 ) => NextResponse<unknown> | null | Promise<NextResponse<unknown> | null>;
 
 /** Your app's list of supported locale codes, e.g. `["en", "de"] as const`. */
