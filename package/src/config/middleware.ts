@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { languageDetecotr } from '../server/functions/get_user_locale';
-import type { CookieAttributes } from '../types/types';
+import type { CookieAttributes, MiddlewareCustomHandler } from '../types/types';
 import config from './intl_config';
 import { isBotCookieKey, localeCookieName } from './cookie_key';
 import { cache } from 'react';
@@ -27,7 +27,10 @@ const getIsBotValueCache = cache(getIsBotValue);
 export const localesSet = new Set(config.locales);
 
 // This middleware function runs for every incoming request
-export default async function intlMiddleware(request: NextRequest): Promise<NextResponse<unknown>> {
+export default async function intlMiddleware(
+    request: NextRequest,
+    options?: { middlewareHandler?: MiddlewareCustomHandler; runHandlerOnRedirect?: boolean },
+): Promise<NextResponse<unknown>> {
     try {
         let initialChosenLocale: string;
         const existingLocaleCookie = request.cookies.get(localeCookieName)?.value;
@@ -68,20 +71,29 @@ export default async function intlMiddleware(request: NextRequest): Promise<Next
         const effectiveLocaleForRequest = urlLocale ?? initialChosenLocale;
 
         let response: NextResponse;
+        let isRedirect = false;
+        let targetUrl: URL | undefined;
 
         if (!urlLocale) {
             const targetPath = `/${effectiveLocaleForRequest}${pathWithoutLocale === '/' ? '' : pathWithoutLocale}`;
-            const targetUrl = new URL(`${targetPath}${search}${hash}`, request.url);
+            targetUrl = new URL(`${targetPath}${search}${hash}`, request.url);
             if (initialChosenLocale === config.defaultLocale) {
                 response = NextResponse.rewrite(targetUrl, { request });
             } else {
-
+                isRedirect = true;
                 response = NextResponse.redirect(targetUrl, request,);
             }
         } else {
             response = NextResponse.next({
                 request,
             });
+        }
+
+        if (options?.middlewareHandler && (!isRedirect || options.runHandlerOnRedirect)) {
+            const customResponse = await options.middlewareHandler(request, effectiveLocaleForRequest, targetUrl);
+            if (customResponse) {
+                response = customResponse;
+            }
         }
 
         if (!existingLocaleCookie ||

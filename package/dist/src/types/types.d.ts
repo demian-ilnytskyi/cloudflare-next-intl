@@ -1,5 +1,7 @@
+import type { NextRequest, NextResponse } from 'next/server';
 import type { Languages } from 'next/dist/lib/metadata/types/alternative-urls-types';
 import type { Videos } from 'next/dist/lib/metadata/types/metadata-types';
+export type MiddlewareCustomHandler = (request: NextRequest, locale: string, targetUrl: URL | undefined) => NextResponse<unknown> | null | Promise<NextResponse<unknown> | null>;
 export type Locales = readonly string[];
 export type LocalePrefixMode = 'always' | 'as-needed' | 'never';
 export interface RoutingConfig<AppLocales extends Locales, AppLocalePrefixMode extends LocalePrefixMode> {
