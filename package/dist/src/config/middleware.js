@@ -20,7 +20,7 @@ async function getIsBotValue(userAgent) {
 const getIsBotValueCache = cache(getIsBotValue);
 export const localesSet = new Set(config.locales);
 // This middleware function runs for every incoming request
-export default async function intlMiddleware(request) {
+export default async function intlMiddleware(request, options) {
     try {
         let initialChosenLocale;
         const existingLocaleCookie = request.cookies.get(localeCookieName)?.value;
@@ -54,13 +54,16 @@ export default async function intlMiddleware(request) {
         }
         const effectiveLocaleForRequest = urlLocale ?? initialChosenLocale;
         let response;
+        let isRedirect = false;
+        let targetUrl;
         if (!urlLocale) {
             const targetPath = `/${effectiveLocaleForRequest}${pathWithoutLocale === '/' ? '' : pathWithoutLocale}`;
-            const targetUrl = new URL(`${targetPath}${search}${hash}`, request.url);
+            targetUrl = new URL(`${targetPath}${search}${hash}`, request.url);
             if (initialChosenLocale === config.defaultLocale) {
                 response = NextResponse.rewrite(targetUrl, { request });
             }
             else {
+                isRedirect = true;
                 response = NextResponse.redirect(targetUrl, request);
             }
         }
@@ -68,6 +71,12 @@ export default async function intlMiddleware(request) {
             response = NextResponse.next({
                 request,
             });
+        }
+        if (options?.middlewareHandler && (!isRedirect || options.runHandlerOnRedirect)) {
+            const customResponse = await options.middlewareHandler(request, effectiveLocaleForRequest, targetUrl);
+            if (customResponse) {
+                response = customResponse;
+            }
         }
         if (!existingLocaleCookie ||
             existingLocaleCookie !== effectiveLocaleForRequest) {
