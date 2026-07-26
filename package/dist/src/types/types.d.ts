@@ -1,9 +1,64 @@
 import type { NextRequest, NextResponse } from 'next/server';
 import type { Languages } from 'next/dist/lib/metadata/types/alternative-urls-types';
 import type { Videos } from 'next/dist/lib/metadata/types/metadata-types';
+/**
+ * Custom middleware hook, run by `intlMiddleware` for your own logic
+ * (e.g. auth, feature flags, A/B tests) — on top of the library's own
+ * locale routing (locale-prefix rewrite/redirect).
+ *
+ * Called AFTER the library has resolved the locale for this request, but
+ * BEFORE it builds its own `NextResponse`:
+ * - When `targetUrl` is `undefined`: the request already had a valid
+ *   locale prefix (e.g. `/en/about`) — the library would otherwise call
+ *   `NextResponse.next()`.
+ * - When `targetUrl` is set: the library resolved a locale-prefixed URL
+ *   the request should be routed to (e.g. `/` -> `/en/`). By default the
+ *   library still performs this rewrite/redirect itself — `targetUrl` is
+ *   informational, so you can react to it (e.g. log it, add a header),
+ *   NOT something you are required to apply yourself.
+ *   - If `initialChosenLocale === defaultLocale`, the library rewrites to
+ *     `targetUrl` (URL bar unchanged).
+ *   - Otherwise, the library redirects to `targetUrl` (only when
+ *     `runHandlerOnRedirect: true` is also passed — by default this
+ *     handler does NOT run on redirects).
+ *
+ * @param request   The incoming request.
+ * @param locale    The resolved locale for this request (e.g. `"en"`).
+ * @param targetUrl The locale-prefixed URL the library will rewrite/redirect
+ *                  to, or `undefined` when no rewrite/redirect is needed.
+ * @returns          - A `NextResponse` to fully REPLACE the library's default
+ *                      response (e.g. `NextResponse.redirect(...)` to send an
+ *                      unauthenticated user to `/login` instead).
+ *                    - `null` to keep the library's default response
+ *                      (rewrite/redirect/`next()`) as-is — this is the common case.
+ *
+ * @example
+ * ```ts
+ * middlewareHandler: (request, locale, targetUrl) => {
+ *   const session = request.cookies.get("session")?.value;
+ *   if (!session) {
+ *     return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+ *   }
+ *   return null; // keep default locale routing
+ * }
+ * ```
+ */
 export type MiddlewareCustomHandler = (request: NextRequest, locale: string, targetUrl: URL | undefined) => NextResponse<unknown> | null | Promise<NextResponse<unknown> | null>;
+/** Your app's list of supported locale codes, e.g. `["en", "de"] as const`. */
 export type Locales = readonly string[];
+/**
+ * NOTE: currently unused by `intlMiddleware`'s actual routing logic (it
+ * always rewrites for `defaultLocale` and redirects otherwise) — reserved
+ * for future use. Setting `localePrefix` on {@link RoutingConfig} has no
+ * runtime effect yet.
+ */
 export type LocalePrefixMode = 'always' | 'as-needed' | 'never';
+/**
+ * The config object you build with `setIntlConfig` and export from the file
+ * referenced by the `@intl-config` alias in `next.config` (see the package
+ * README's Setup section). Consumed internally by `intlMiddleware`,
+ * `getLocale`, `getTranslations`, and friends.
+ */
 export interface RoutingConfig<AppLocales extends Locales, AppLocalePrefixMode extends LocalePrefixMode> {
     /**
      * All available locales.

@@ -1,6 +1,16 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Moon, Sun } from "./icons";
 import ThemeSwticherButton from "./theme_switcher_button";
+/**
+ * Light/dark theme toggle button, exported as `ThemeSwitcher` from
+ * `cloudflare-next-intl/ThemeSwitcher`. Persists the choice via the
+ * theme cookie this package's `IntlHelperScript` reads on load (so the
+ * correct theme applies before hydration, no flash).
+ *
+ * @param lightLabelText Accessible label shown/used when in light mode.
+ * @param darkLabelText  Accessible label shown/used when in dark mode.
+ * @param className      Optional class applied to the underlying button.
+ */
 export default function ThemeSwticher(params) {
     return _jsxs(ThemeSwticherButton, { ...params, children: [_jsx(Sun, { className: "transition-transform duration-500 ease-in-out" +
                     " rotate-0 scale-100 opacity-100 cursor-pointer" + // Default (light mode) state

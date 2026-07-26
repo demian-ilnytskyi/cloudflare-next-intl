@@ -1,4 +1,8 @@
 "use strict";
+// NOTE: currently disabled — this file exports nothing at runtime, even
+// though "./getLayoutStates" is listed in package.json's exports map.
+// Do not rely on `cloudflare-next-intl/getLayoutStates` until this is
+// re-enabled; use `getLocale()` + read the theme cookie manually instead.
 // "use server";
 // import { cookies } from "next/headers";
 // import { localeCookieName, isDarkCookieKey } from "../config/cookie_key";

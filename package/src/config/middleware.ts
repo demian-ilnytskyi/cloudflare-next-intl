@@ -26,7 +26,19 @@ const getIsBotValueCache = cache(getIsBotValue);
 
 export const localesSet = new Set(config.locales);
 
-// This middleware function runs for every incoming request
+/**
+ * This middleware function runs for every incoming request. Handles locale
+ * detection/routing, then optionally defers to your own custom logic.
+ *
+ * @param request The incoming request (pass through from your `middleware.ts`).
+ * @param options.middlewareHandler  Your own logic (auth, feature flags, etc.),
+ *   run alongside locale routing — see {@link MiddlewareCustomHandler} for the
+ *   full contract (when it runs, what `targetUrl` means, what to return).
+ * @param options.runHandlerOnRedirect  By default, `middlewareHandler` only
+ *   runs when the library is NOT performing a locale redirect (i.e. on
+ *   rewrite or `next()`). Set to `true` to also run it on redirects.
+ *   Defaults to `false`.
+ */
 export default async function intlMiddleware(
     request: NextRequest,
     options?: { middlewareHandler?: MiddlewareCustomHandler; runHandlerOnRedirect?: boolean },

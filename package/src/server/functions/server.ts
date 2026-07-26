@@ -34,6 +34,14 @@ async function iGetMessage(locale: string): Promise<TranslationObject> {
     }
 }
 
+/**
+ * Server-only: loads (and caches) the translation messages for a locale.
+ * Use {@link getTranslations} instead unless you need the raw message object.
+ *
+ * @param locale The locale to load messages for (e.g. `"en"`).
+ * @returns The `TranslationObject` for that locale.
+ * @throws via `notFound()` if `locale` isn't in your configured locales.
+ */
 export const getMessage = cache(iGetMessage);
 
 /**
@@ -59,6 +67,25 @@ async function iGetTranslations(namespace: string, locale?: string): Promise<Tra
     return getTranslationsImpl(effectiveLocale, serverMessages, namespace, cacheKey);
 }
 
+/**
+ * Server Component only: gets a translation function for a namespace.
+ *
+ * @param namespace Dot-separated key prefix into your messages file
+ *   (e.g. `"HomePage"`, `"Common.buttons"`).
+ * @param locale    Optional. Defaults to {@link getLocale}'s result — pass
+ *   this explicitly only if you already resolved the locale (e.g. from route
+ *   params) to avoid an extra lookup.
+ * @returns A function `(key: string) => string` that looks up `key` inside
+ *   `namespace`.
+ *
+ * @example
+ * ```tsx
+ * export default async function Page() {
+ *   const t = await getTranslations("HomePage");
+ *   return <h1>{t("title")}</h1>;
+ * }
+ * ```
+ */
 export const getTranslations = cache(iGetTranslations);
 
 /**
@@ -91,4 +118,18 @@ async function iGetLocale(): Promise<string> {
     }
 }
 
+/**
+ * Server Component only: resolves the current request's locale.
+ *
+ * Order of resolution: an explicitly-set locale (e.g. via `IntlProvider`)
+ * takes priority, then falls back to the `NEXT_LOCALE`-style cookie set by
+ * `intlMiddleware`, then to `defaultLocale` from your `setIntlConfig` config.
+ *
+ * @returns The resolved locale string (e.g. `"en"`).
+ *
+ * @example
+ * ```tsx
+ * const locale = await getLocale();
+ * ```
+ */
 export const getLocale = cache(iGetLocale);
