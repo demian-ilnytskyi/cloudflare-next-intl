@@ -6,6 +6,8 @@ import { getLocaleCache, getMessageCache, setLocaleCache, setMessageForLocaleCac
 import { cache } from "react";
 import { localesSet } from "../../config/middleware";
 
+const isDev = process.env.NODE_ENV === 'development';
+
 /**
  * Loads and caches messages for a specific locale using dynamic import.
  * Prevents redundant file loads and handles import errors gracefully.
@@ -13,7 +15,10 @@ import { localesSet } from "../../config/middleware";
  * @returns A promise that resolves to the TranslationObject for the given locale.
  */
 async function iGetMessage(locale: string): Promise<TranslationObject> {
-    const message = getMessageCache(locale);
+    // In dev, always re-import so editing a messages/*.json file takes effect
+    // on the next request without a full server restart. loadedTranslations
+    // is a module-level cache that otherwise persists for the whole process.
+    const message = isDev ? undefined : getMessageCache(locale);
     if (message) {
         return message;
     } else {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2
+
+### Fixed
+- `getTranslations`/`getMessage` no longer serve stale messages in
+  development: the module-level `loadedTranslations` cache used to persist
+  for the whole `next dev` process, so editing `messages/<locale>.json`
+  never took effect without a full server restart. In dev (`NODE_ENV=development`)
+  messages are now re-imported on every call; production behavior
+  (cached, one import per locale) is unchanged.
+
 ## 0.2.1
 
 ### Changed (breaking)
