@@ -67,6 +67,10 @@ describe('getTranslations', () => {
         const t = await getTranslations('Common');
         expect(t('title')).toBe('Hello');
     });
+
+    // Cache-hit branch (getTranslationCache read) is covered by
+    // server.perf.test.ts's "returns the cached translator function on a
+    // repeat call" test — see that file for the assertion and rationale.
 });
 
 describe('getLocale', () => {

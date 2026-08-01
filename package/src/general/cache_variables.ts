@@ -37,3 +37,7 @@ export function getMessageCache(locale?: string): TranslationObject | undefined 
 export function setTranslationCache(cache: string, value: TranslatorReturnType): void {
     translationFunctionsCache.set(cache, value);
 }
+
+export function getTranslationCache(cacheKey: string): TranslatorReturnType | undefined {
+    return translationFunctionsCache.get(cacheKey);
+}
