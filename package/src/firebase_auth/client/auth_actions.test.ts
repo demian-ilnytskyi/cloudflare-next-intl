@@ -55,6 +55,14 @@ describe('createLoginAction', () => {
         const result = await action({}, makeFormData({ email: 'a@b.com', password: 'pw' }));
         expect(result).toEqual({ error: 'translated error' });
     });
+
+    it('treats missing email/password fields as empty strings', async () => {
+        signInWithEmailAndPassword.mockResolvedValue(undefined);
+        const { createLoginAction } = await import('./auth_actions');
+        const action = createLoginAction('en', {});
+        await action({}, new FormData());
+        expect(signInWithEmailAndPassword).toHaveBeenCalledWith({}, '', '');
+    });
 });
 
 describe('createSignUpAction', () => {
@@ -106,6 +114,14 @@ describe('createSignUpAction', () => {
         );
         expect(result).toEqual({ error: 'translated error' });
     });
+
+    it('treats a missing confirmPassword field as an empty string', async () => {
+        const { createSignUpAction } = await import('./auth_actions');
+        const action = createSignUpAction('en', { mismatch: 'no match' });
+        const result = await action({}, makeFormData({ email: 'a@b.com', password: 'pw' }));
+        expect(result).toEqual({ error: 'no match' });
+        expect(createUserWithEmailAndPassword).not.toHaveBeenCalled();
+    });
 });
 
 describe('createForgotPasswordAction', () => {
@@ -128,5 +144,13 @@ describe('createForgotPasswordAction', () => {
         const action = createForgotPasswordAction('en', {});
         const result = await action({}, makeFormData({ email: 'bad' }));
         expect(result).toEqual({ error: 'translated error' });
+    });
+
+    it('treats a missing email field as an empty string', async () => {
+        sendPasswordResetEmail.mockResolvedValue(undefined);
+        const { createForgotPasswordAction } = await import('./auth_actions');
+        const action = createForgotPasswordAction('en', {});
+        await action({}, new FormData());
+        expect(sendPasswordResetEmail).toHaveBeenCalledWith({}, '');
     });
 });

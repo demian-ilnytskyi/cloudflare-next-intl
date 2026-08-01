@@ -124,3 +124,68 @@ describe('intlMiddleware', () => {
         expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Middleware Error'));
     });
 });
+
+describe('intlMiddleware with firebaseAuth configured', () => {
+    beforeEach(() => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.resetModules();
+    });
+
+    it('auto-wires updateFirebaseAuthSession onto the non-redirect response', async () => {
+        vi.doMock('./intl_config', () => ({
+            default: {
+                locales: ['en', 'de'],
+                defaultLocale: 'en',
+                firebaseAuth: { middlewareEnabled: true, redirectAuthPath: '/login', homePath: '/', isAuthPath: () => false },
+            },
+        }));
+        const updateFirebaseAuthSession = vi.fn(async (_request: unknown, response: NextResponse) => {
+            response.headers.set('x-firebase-auth-applied', 'true');
+            return response;
+        });
+        vi.doMock('../firebase_auth/middleware/update_session', () => ({ default: updateFirebaseAuthSession }));
+
+        const { default: intlMiddlewareWithAuth } = await import('./middleware');
+        const req = makeRequest('https://example.com/en/dashboard');
+        const res = await intlMiddlewareWithAuth(req);
+
+        expect(updateFirebaseAuthSession).toHaveBeenCalled();
+        expect(res.headers.get('x-firebase-auth-applied')).toBe('true');
+    });
+
+    it('skips updateFirebaseAuthSession entirely on a locale-redirect response', async () => {
+        vi.doMock('./intl_config', () => ({
+            default: {
+                locales: ['en', 'de'],
+                defaultLocale: 'en',
+                firebaseAuth: { middlewareEnabled: true, redirectAuthPath: '/login', homePath: '/', isAuthPath: () => false },
+            },
+        }));
+        const updateFirebaseAuthSession = vi.fn(async (_request: unknown, response: NextResponse) => response);
+        vi.doMock('../firebase_auth/middleware/update_session', () => ({ default: updateFirebaseAuthSession }));
+
+        const { default: intlMiddlewareWithAuth } = await import('./middleware');
+        const req = makeRequest('https://example.com/about', { headers: { 'accept-language': 'de' } });
+        await intlMiddlewareWithAuth(req);
+
+        expect(updateFirebaseAuthSession).not.toHaveBeenCalled();
+    });
+
+    it('skips updateFirebaseAuthSession when middlewareEnabled is false', async () => {
+        vi.doMock('./intl_config', () => ({
+            default: {
+                locales: ['en', 'de'],
+                defaultLocale: 'en',
+                firebaseAuth: { middlewareEnabled: false, redirectAuthPath: '/login', homePath: '/', isAuthPath: () => false },
+            },
+        }));
+        const updateFirebaseAuthSession = vi.fn(async (_request: unknown, response: NextResponse) => response);
+        vi.doMock('../firebase_auth/middleware/update_session', () => ({ default: updateFirebaseAuthSession }));
+
+        const { default: intlMiddlewareWithAuth } = await import('./middleware');
+        const req = makeRequest('https://example.com/en/dashboard');
+        await intlMiddlewareWithAuth(req);
+
+        expect(updateFirebaseAuthSession).not.toHaveBeenCalled();
+    });
+});
