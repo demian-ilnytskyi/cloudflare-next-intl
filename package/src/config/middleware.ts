@@ -161,7 +161,11 @@ export default async function intlMiddleware(
 
         return response;
     } catch (e) {
-        console.error(`Middleware Error ${e}`);
+        console.error(
+            '[cloudflare-next-intl] intlMiddleware failed and fell back to passing the request through unmodified ' +
+            '(no locale rewrite/redirect, no firebase_auth session refresh). Underlying error:',
+            e,
+        );
         return NextResponse.next({
             request,
         });

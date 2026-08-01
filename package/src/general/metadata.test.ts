@@ -52,7 +52,7 @@ describe('iAlternatesLinks', () => {
         const { iAlternatesLinks: brokenAlternatesLinks } = await import('./metadata');
         const result = brokenAlternatesLinks({ url: 'https://example.com', locale: 'en' });
         expect(result).toBeUndefined();
-        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Language Helper error'));
+        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('alternatesLinks failed'), expect.any(Error));
         vi.doUnmock('@intl-config');
         vi.resetModules();
     });

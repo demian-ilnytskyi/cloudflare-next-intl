@@ -310,16 +310,14 @@ describe('AuthUserProvider', () => {
         expect(onIdTokenChanged).not.toHaveBeenCalled();
     });
 
-    it('the default context value exposes no-op async functions for consumers outside a provider', async () => {
+    it('the default context value is null for consumers outside a provider', async () => {
         const { AuthUserContext } = await import('./auth_user_provider');
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | null | undefined;
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
         }
         render(<Consumer />);
-        await expect(ctxValue!.reloadUser()).resolves.toBeUndefined();
-        await expect(ctxValue!.sendVerificationEmail()).resolves.toBeUndefined();
-        await expect(ctxValue!.logout()).resolves.toBeUndefined();
+        expect(ctxValue).toBeNull();
     });
 });

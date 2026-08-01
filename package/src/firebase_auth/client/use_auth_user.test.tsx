@@ -9,9 +9,8 @@ function Consumer() {
 }
 
 describe('useAuthUser', () => {
-    it('returns the default context value when rendered outside a provider', () => {
-        render(<Consumer />);
-        expect(screen.getByText('loading')).toBeInTheDocument();
+    it('throws when rendered outside a provider', () => {
+        expect(() => render(<Consumer />)).toThrow('useAuthUser must be used within an AuthUserProvider');
     });
 
     it('returns the value provided by AuthUserContext.Provider', () => {

@@ -1,0 +1,47 @@
+# cloudflare-next-intl
+
+Optimized next-intl-style i18n for Next.js App Router, tuned for Cloudflare
+Workers deployment (tree-shakeable, per-subpath exports instead of one big
+barrel). Requires a `@intl-config` path alias pointing at a config file built
+via `setIntlConfig` — see `src/config/README.md` / README "Setup" — before any
+other subpath can be used.
+
+## Subpaths
+
+- `.` — everything, re-exported (prefer the flat subpaths below for smaller bundles).
+- `./client` — client-side barrel: `LocaleLink`, `usePathname`, `setCookieClient`, `getCookieClient`.
+- `./server` — server-side barrel: `getMessage`, `getTranslations`, `getLocale`, `IntlProvider`, `Link`, `IntlHelperScript`, `getLocaleStaticParams`.
+- `./middleware` — `intlMiddleware` for `middleware.ts`; locale detection/rewrite/redirect.
+- `./setIntlConfig` — identity function for typed `RoutingConfig` authoring; use in your `@intl-config` file.
+- `./serverProvider` — `IntlProvider` server component (also under `./server`).
+- `./Link` — server-side locale-aware `<Link>` (also under `./server`).
+- `./IntlHelperScript` — inline script for flash-free locale/theme hydration.
+- `./LocaleLink` — client-side locale-aware link (counterpart to `./Link`).
+- `./usePathname` — client hook: pathname with locale prefix stripped.
+- `./metadata` — Next.js `generateMetadata` helper with locale alternates.
+- `./setCookieClient` / `./getCookieClient` — small client cookie utilities (not used internally for locale routing).
+- `./localeStaticParams` — `generateStaticParams` helper for locale segments.
+- `./use` — `useLocale`/`useTranslations`; resolves to the RSC or client implementation automatically via the `react-server` export condition. Both throw `"... must be used within an IntlProvider"` if called outside one.
+- `./ThemeSwitcher` — optional light/dark toggle component.
+
+## `firebaseAuth*` subpaths (require `firebaseAuth` set on your `RoutingConfig`)
+
+- `./firebaseAuthClient` — lazy Firebase client SDK getter.
+- `./firebaseAuthClientProvider` — `AuthUserProvider`: client auth-state provider (session cookie sync, auth-page redirects).
+- `./firebaseAuthServerProvider` — server-side equivalent provider (not used by the default auto-wiring path — see its doc comment).
+- `./useFirebaseAuthUser` — `useAuthUser()`; resolves to RSC or client implementation via the `react-server` condition. Client variant throws `"useAuthUser must be used within an AuthUserProvider"` if called outside one.
+- `./firebaseAuthActions` — `createLoginAction`/`createSignUpAction`/`createForgotPasswordAction`: factories returning React `useActionState`-shaped form actions.
+- `./firebaseAuthMiddleware` — `updateSession`: session-cookie refresh, called automatically by `./middleware`'s default handler.
+
+## Conventions
+
+- Every exported function/component has a JSDoc comment with an `@example` where usage isn't obvious from the signature alone.
+- Errors from missing-provider hooks name the hook and the required provider explicitly (e.g. `"useAuthUser must be used within an AuthUserProvider"`).
+- One exported concept per file/subpath; `exports` in `package.json` is the source of truth for what's public — `src/**/index.ts` barrels are internal except `./client` and `./server`, which are themselves public subpaths.
+
+## Gotchas
+
+- Missing `@intl-config` alias (see README "Setup") throws at module-load time, before any of your own code runs.
+- Missing `firebaseAuth` on `RoutingConfig` throws immediately from any `firebaseAuth*` export, naming the missing config field.
+- `useLocale`/`useTranslations` (from `./use`) and `useAuthUser` (from `./useFirebaseAuthUser`) resolve to a Server- or Client-Component implementation automatically via the `react-server` export condition — always import from the subpath, never from an internal file path.
+- No unified `useFirebaseAuthUser` re-export inside `cloudflare-next-intl/firebaseAuth`'s barrel — that barrel can't replicate the `react-server` condition split, so import `cloudflare-next-intl/useFirebaseAuthUser` directly for the hook.

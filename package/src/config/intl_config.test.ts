@@ -13,7 +13,7 @@ describe('intl_config error branch', () => {
         vi.resetModules();
         vi.doMock('@intl-config', () => ({ default: undefined }));
         await expect(import('./intl_config')).rejects.toThrow(
-            'Please set config file and set path to it in next.config as in the example',
+            'the `@intl-config` alias is not set',
         );
     });
 });

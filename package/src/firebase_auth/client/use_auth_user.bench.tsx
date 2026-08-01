@@ -4,10 +4,6 @@ import useAuthUser from './use_auth_user';
 import { AuthUserContext } from './auth_user_provider';
 
 describe('useAuthUser (client)', () => {
-    bench('reads default context value (outside provider)', () => {
-        renderHook(() => useAuthUser());
-    });
-
     bench('reads a provided context value', () => {
         renderHook(() => useAuthUser(), {
             wrapper: ({ children }) => (

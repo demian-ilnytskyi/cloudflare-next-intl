@@ -8,7 +8,8 @@
   "files": [
     "dist",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "llms.txt"
   ],
   "exports": {
     ".": {
@@ -54,10 +55,6 @@
     "./metadata": {
       "types": "./dist/src/general/metadata.d.ts",
       "import": "./dist/src/general/metadata.js"
-    },
-    "./getLayoutStates": {
-      "types": "./dist/src/general/get_layout_states.d.ts",
-      "import": "./dist/src/general/get_layout_states.js"
     },
     "./setCookieClient": {
       "types": "./dist/src/client/functions/set_cookie.d.ts",

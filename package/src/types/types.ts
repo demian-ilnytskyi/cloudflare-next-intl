@@ -245,8 +245,7 @@ export interface TranslationObject {
     [key: string]: TranslationEntry;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ReturnType = any
+export type ReturnType = string
 
 export type TranslatorReturnType = (key: string) => ReturnType;
 

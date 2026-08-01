@@ -62,7 +62,10 @@ describe('getTranslationsImpl', () => {
 
     it('returns key when translation key resolves to a nested object, not a string', () => {
         const t = getTranslationsImpl('en', messages, 'Common');
-        expect(t('nested')).toEqual({ deep: 'Deep value' });
+        expect(t('nested')).toBe('nested');
+        expect(console.warn).toHaveBeenCalledWith(
+            expect.stringContaining('resolves to a non-string value'),
+        );
     });
 
     it('warns and returns key when key path hits a string prematurely', () => {
@@ -73,9 +76,12 @@ describe('getTranslationsImpl', () => {
         );
     });
 
-    it('returns undefined when key is missing (single-part key)', () => {
+    it('returns key when key is missing (single-part key)', () => {
         const t = getTranslationsImpl('en', messages, 'Common');
-        expect(t('missingKey')).toBeUndefined();
+        expect(t('missingKey')).toBe('missingKey');
+        expect(console.warn).toHaveBeenCalledWith(
+            expect.stringContaining('resolves to a non-string value'),
+        );
     });
 
     it('warns and returns key when intermediate key segment is invalid', () => {

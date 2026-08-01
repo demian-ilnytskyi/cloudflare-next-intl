@@ -17,7 +17,7 @@ describe('useLocaleImpl', () => {
     it('throws when the resolved locale is undefined', async () => {
         vi.spyOn(ReactModule, 'use').mockReturnValue(undefined);
         const { useLocaleImpl } = await import('./use_functions');
-        expect(() => useLocaleImpl()).toThrow('Please set IntlProvider before using useLocale');
+        expect(() => useLocaleImpl()).toThrow('useLocale must be used within an IntlProvider');
     });
 });
 
@@ -36,7 +36,7 @@ describe('useTranslations (RSC)', () => {
             .mockReturnValueOnce('')
             .mockReturnValueOnce({ Common: {} });
         const { useTranslations } = await import('./use_functions');
-        expect(() => useTranslations('LanguageFalsyNs')).toThrow('Please set IntlProvider before using useTranslations');
+        expect(() => useTranslations('LanguageFalsyNs')).toThrow('useTranslations must be used within an IntlProvider');
     });
 
     it('throws when messages are falsy', async () => {
@@ -44,7 +44,7 @@ describe('useTranslations (RSC)', () => {
             .mockReturnValueOnce('en')
             .mockReturnValueOnce(undefined);
         const { useTranslations } = await import('./use_functions');
-        expect(() => useTranslations('Empty')).toThrow('Please set IntlProvider before using useTranslations');
+        expect(() => useTranslations('Empty')).toThrow('useTranslations must be used within an IntlProvider');
     });
 
     it('returns the cached translation function without reading messages', async () => {

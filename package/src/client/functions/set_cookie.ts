@@ -8,13 +8,15 @@
  *
  * @param name   Cookie name.
  * @param value  Cookie value; stringified via template literal (no encoding
- *   applied — avoid values containing `;`).
+ *   applied — avoid values containing `;`). Must be a primitive
+ *   (`string`/`number`/`boolean`) — objects would silently serialize to
+ *   `"[object Object]"`.
  * @param maxAge Seconds until expiry. Defaults to 1 year.
  *
  * Always `path=/; SameSite=Lax`. Swallows errors (e.g. in restrictive
  * environments) and logs them instead of throwing.
  */
-export default function setCookie({ name, value, maxAge }: { name: string, value: unknown, maxAge?: number }): void {
+export default function setCookie({ name, value, maxAge }: { name: string, value: string | number | boolean, maxAge?: number }): void {
     try {
         const cookieString = `${name}=${value}; path=/; max-age=${maxAge ?? 31536000}; SameSite=Lax;`;
 

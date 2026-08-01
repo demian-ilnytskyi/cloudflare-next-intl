@@ -19,11 +19,13 @@ const isDev = process.env.NODE_ENV === 'development';
  *
  * @returns The current locale (e.g. `"en"`).
  * @throws If called without an `IntlProvider` above it in the tree.
+ * @example
+ * const locale = useLocale(); // "en"
  */
 export function useLocaleImpl(): string {
     const language = use(getLocale());
     if (language === undefined) {
-        throw new Error('Please set IntlProvider before using useLocale');
+        throw new Error('useLocale must be used within an IntlProvider');
     }
     return language;
 }
@@ -37,12 +39,15 @@ export const useLocale = cache(useLocaleImpl);
  * @param namespace Dot-separated key prefix into your messages file.
  * @returns A `(key: string) => string` translation function.
  * @throws If called without an `IntlProvider` above it in the tree.
+ * @example
+ * const t = useTranslations("Index");
+ * return <h1>{t("title")}</h1>;
  */
 function useTranslationsImpl(namespace: string): TranslatorReturnType {
     const language = use(getLocale());
 
     if (!language) {
-        throw new Error('Please set IntlProvider before using useTranslations');
+        throw new Error('useTranslations must be used within an IntlProvider');
     }
 
     const cacheKey = `${language}-${namespace}`;
@@ -53,7 +58,7 @@ function useTranslationsImpl(namespace: string): TranslatorReturnType {
 
     const messages = use(getMessage(language));
     if (!messages) {
-        throw new Error('Please set IntlProvider before using useTranslations');
+        throw new Error('useTranslations must be used within an IntlProvider');
     }
 
     return getTranslationsImpl(language, messages, namespace, cacheKey);

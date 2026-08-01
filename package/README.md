@@ -65,9 +65,8 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 ```
 
-If this alias is missing, `cloudflare-next-intl/middleware` throws
-`Please set config file and set path to it in next.config as in the example`
-at startup.
+If this alias is missing, any import from `cloudflare-next-intl` throws an
+error naming the missing `@intl-config` alias at startup.
 
 ### 3. Wire up the middleware
 

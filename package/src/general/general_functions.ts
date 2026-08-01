@@ -98,6 +98,10 @@ export function getTranslationsImpl(locale: string, messages: TranslationObject,
             const value: TranslationEntry = currentTranslation[part];
 
             if (i === keyParts.length - 1) {
+                if (typeof value !== 'string') {
+                    console.warn(`Translation key "${key}" in namespace "${namespace}" resolves to a non-string value for locale "${locale}". Expected string, got "${typeof value}".`);
+                    return key;
+                }
                 return value;
             } else {
                 // Intermediate part of the key, must be an object.
