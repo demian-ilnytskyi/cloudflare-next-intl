@@ -22,5 +22,13 @@
   "include": [
     "./**/*.ts",
     "./**/*.d.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "src/test_utils/**",
+    "vitest.setup.ts",
+    "vitest.config.ts",
+    "dist/**"
   ]
 }

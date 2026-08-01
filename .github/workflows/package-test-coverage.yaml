@@ -1,0 +1,25 @@
+name: Package Test Coverage
+
+on:
+  pull_request:
+    paths:
+      - 'package/**'
+  push:
+    branches: [main]
+    paths:
+      - 'package/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: package
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.2.0'
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
