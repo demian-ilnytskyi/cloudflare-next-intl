@@ -1,19 +1,20 @@
-name: CI - Build and Test
+name: Push Code Coverage
 
 on:
   workflow_dispatch:
-  pull_request:
+  push:
     paths:
       - "package/**"
-    branches: [main]
+    branches:
+      - main
 
 concurrency:
-  group: ci-$
+  group: generate-code-coverage
   cancel-in-progress: true
 
 jobs:
-  build_tests:
-    uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
+  push_code_coverage:
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_push_code_coverage.yml@main
     secrets: inherit
     with:
       project_type: nextjs

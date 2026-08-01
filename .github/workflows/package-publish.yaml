@@ -1,0 +1,15 @@
+name: CD - Publish Package
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: cd-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_publish.yml@main
+    secrets: inherit
+    with:
+      working_directory: package
