@@ -120,7 +120,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DemienIlnutskiy/cloudflare-next-intl.git"
+    "url": "git+https://github.com/demian-ilnytskyi/cloudflare-next-intl.git"
   },
   "keywords": [
     "nextjs",
