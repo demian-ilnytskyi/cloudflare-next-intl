@@ -20,6 +20,8 @@ export default defineConfig({
                 100: true,
                 // general_functions.ts: 3 branches are unreachable defensive dead code (post-loop null-check, type guard that cannot fail, loop-exit fallback), confirmed via manual trace
                 'src/general/general_functions.ts': { statements: 87.5, branches: 85.18, functions: 100, lines: 87.5 },
+                // middleware.ts: 2 branches are unreachable defensive/structural dead code (a `?? ''` fallback after an equivalent null-guard already returned, and an empty-string check on a value that can never be empty by construction), confirmed via manual trace during Task 7 review
+                'src/config/middleware.ts': { statements: 100, branches: 93.93, functions: 100, lines: 100 },
             },
         },
     },
