@@ -1,0 +1,8 @@
+{
+  "Common": {
+    "title": "Hello",
+    "nested": {
+      "deep": "Deep value"
+    }
+  }
+}
