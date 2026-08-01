@@ -20,6 +20,7 @@ export default defineConfig({
                 'src/general/get_layout_states.ts',
                 'src/types/types.ts',
                 'src/test_utils/**',
+                'src/**/*.bench.ts',
             ],
             thresholds: {
                 perFile: true,
