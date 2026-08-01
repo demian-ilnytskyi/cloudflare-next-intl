@@ -1,20 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import intlMiddleware from './middleware';
-
-function makeRequest(url: string, init?: {
-    cookies?: Record<string, string>;
-    headers?: Record<string, string>;
-}): NextRequest {
-    const request = new NextRequest(url, { headers: init?.headers });
-    if (init?.cookies) {
-        for (const [key, value] of Object.entries(init.cookies)) {
-            request.cookies.set(key, value);
-        }
-    }
-    return request;
-}
+import { makeTestRequest as makeRequest } from '../test_utils/mock_next_server';
 
 describe('intlMiddleware', () => {
     beforeEach(() => {
@@ -57,8 +45,7 @@ describe('intlMiddleware', () => {
         const req = makeRequest('https://example.com/about');
         const res = await intlMiddleware(req);
         expect(res.headers.get('Content-Language')).toBe('en');
-        // NextResponse.rewrite sets an internal header; assert via status/type instead of internals
-        expect(res.status).toBe(200);
+        expect(res.headers.get('x-middleware-rewrite')).toContain('/en/about');
     });
 
     it('redirects when resolved locale is non-default and URL has no locale prefix', async () => {

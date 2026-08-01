@@ -34,6 +34,9 @@ describe('cache_variables', () => {
     });
 
     it('stores a translation function without throwing', () => {
+        // No exported getter exists for translationFunctionsCache, so the
+        // round-trip cannot be asserted directly; this only verifies storage
+        // doesn't throw.
         const fn = (k: string) => k;
         expect(() => setTranslationCache('en-Common', fn)).not.toThrow();
     });

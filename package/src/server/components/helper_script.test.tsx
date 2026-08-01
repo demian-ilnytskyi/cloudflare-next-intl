@@ -10,26 +10,20 @@ afterEach(() => {
 
 describe('HelperScript', () => {
     it('renders the app-state-checker script and the build-id script outside dev', () => {
-        const original = process.env.NODE_ENV;
-        // @ts-expect-error test override
-        process.env.NODE_ENV = 'production';
+        vi.stubEnv('NODE_ENV', 'production');
         const { container: root } = render(<HelperScript />);
         expect(root.querySelector('#intl-app-state-checker')).not.toBeNull();
         expect(root.querySelector('#build-id-script')).not.toBeNull();
-        // @ts-expect-error test override
-        process.env.NODE_ENV = original;
+        vi.unstubAllEnvs();
     });
 
     it('omits the build-id script in dev', async () => {
         vi.resetModules();
-        const original = process.env.NODE_ENV;
-        // @ts-expect-error test override
-        process.env.NODE_ENV = 'development';
+        vi.stubEnv('NODE_ENV', 'development');
         const { default: DevHelperScript } = await import('./helper_script');
         const { container: root } = render(<DevHelperScript />);
         expect(root.querySelector('#build-id-script')).toBeNull();
         expect(root.querySelector('#intl-app-state-checker')).not.toBeNull();
-        // @ts-expect-error test override
-        process.env.NODE_ENV = original;
+        vi.unstubAllEnvs();
     });
 });

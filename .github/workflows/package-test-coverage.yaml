@@ -22,4 +22,9 @@ jobs:
           node-version: '24.2.0'
       - run: npm ci
       - run: npm test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: package/coverage/
       - run: npm run build

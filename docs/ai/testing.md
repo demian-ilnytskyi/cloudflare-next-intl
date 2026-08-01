@@ -16,17 +16,26 @@
   not in a separate `test/` or `__tests__/` tree.
 - Run: `cd package && npm test` (= `vitest run --coverage`).
 
-## Coverage: global 100% threshold, with ONE narrow per-file exception
+## Coverage: global 100% threshold, with two narrow per-file exceptions
 
 `vitest.config.ts`'s `coverage.thresholds` sets `100: true` globally, but
-carries a keyed override for `'src/general/general_functions.ts'` (currently
-`{ statements: 87.5, branches: 85.18, functions: 100, lines: 87.5 }`, with an
-explanatory comment above it) — see
-[`docs/ai/config-and-general.md`](config-and-general.md)'s "3 confirmed-dead
-branches" section for why. **This is the only sanctioned per-file
-exception.** If you find another file that seems to need one, don't add it
-unilaterally — the correct process (established during this file's review)
-is:
+carries keyed overrides for two files:
+
+- `'src/general/general_functions.ts'` (currently
+  `{ statements: 87.5, branches: 85.18, functions: 100, lines: 87.5 }`, with
+  an explanatory comment above it) — see
+  [`docs/ai/config-and-general.md`](config-and-general.md)'s "3
+  confirmed-dead branches" section for why.
+- `'src/config/middleware.ts'` (currently
+  `{ statements: 100, branches: 93.93, functions: 100, lines: 100 }`) — 2
+  branches are unreachable defensive/structural dead code (a `?? ''`
+  fallback after an equivalent null-guard already returned, and an
+  empty-string check on a value that can never be empty by construction),
+  confirmed via manual trace during Task 7 review.
+
+**These are the only sanctioned per-file exceptions.** If you find another
+file that seems to need one, don't add it unilaterally — the correct process
+(established during this file's review) is:
 
 1. Prove the branch is truly unreachable by tracing the function's own
    control flow (not just "the current tests don't reach it").

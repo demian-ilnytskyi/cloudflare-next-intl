@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getTranslationsImpl } from './general_functions';
+import { setTranslationCache } from './cache_variables';
 import type { TranslationObject } from '../types/types';
+
+vi.mock('./cache_variables', () => ({
+    setTranslationCache: vi.fn(),
+}));
 
 const messages: TranslationObject = {
     Common: {
@@ -90,9 +95,9 @@ describe('getTranslationsImpl', () => {
     });
 
     it('uses the provided cacheKey instead of deriving one', () => {
-        // No direct observable effect other than not throwing; cache write is
-        // exercised implicitly. Assert the function still returns correctly.
-        const t = getTranslationsImpl('en', messages, 'Common', 'custom-key');
-        expect(t('title')).toBe('Hello');
+        vi.mocked(setTranslationCache).mockClear();
+        getTranslationsImpl('en', messages, 'Common', 'custom-key');
+        expect(setTranslationCache).toHaveBeenCalledWith('custom-key', expect.any(Function));
+        expect(setTranslationCache).not.toHaveBeenCalledWith('en-Common', expect.any(Function));
     });
 });
