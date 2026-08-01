@@ -16,7 +16,7 @@ const CLOCK_SKEW_MARGIN_MS = 60 * 1000;
 function isJwtExpired(token: string): boolean {
     try {
         const payload = token.split('.')[1];
-        const { exp } = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number };
+        const { exp } = JSON.parse(atob(payload.replace(/[-_]/g, (c) => c === '-' ? '+' : '/'))) as { exp?: number };
         return !exp || exp * 1000 - CLOCK_SKEW_MARGIN_MS <= Date.now();
     } catch {
         return true;
