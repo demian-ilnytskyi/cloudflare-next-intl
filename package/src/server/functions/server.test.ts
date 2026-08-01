@@ -44,14 +44,13 @@ describe('getMessage', () => {
     });
 
     it('always re-imports messages in dev mode instead of using the cache', async () => {
-        const originalEnv = process.env.NODE_ENV;
-        process.env.NODE_ENV = 'development';
+        vi.stubEnv('NODE_ENV', 'development');
         vi.resetModules();
         const { getMessage, getTranslations } = await import('./server');
         await getMessage('en');
         const t = await getTranslations('Common', 'en');
         expect(t('title')).toBe('Hello');
-        process.env.NODE_ENV = originalEnv;
+        vi.unstubAllEnvs();
     });
 });
 
