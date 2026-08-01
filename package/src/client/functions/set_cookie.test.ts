@@ -10,17 +10,22 @@ describe('setCookie', () => {
 
     it('applies a custom maxAge', () => {
         expect(() => setCookie({ name: 'theme', value: 'light', maxAge: 60 })).not.toThrow();
+        expect(getCookie('theme')).toBe('light');
     });
 
     it('logs and swallows errors when setting the cookie throws', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        const originalDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
         Object.defineProperty(document, 'cookie', {
             configurable: true,
             set() { throw new Error('boom'); },
         });
-        expect(() => setCookie({ name: 'theme', value: 'dark' })).not.toThrow();
-        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Set cookie on client side error'));
-        if (originalDescriptor) Object.defineProperty(Document.prototype, 'cookie', originalDescriptor);
+        try {
+            expect(() => setCookie({ name: 'theme', value: 'dark' })).not.toThrow();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Set cookie on client side error'));
+        } finally {
+            delete (document as unknown as { cookie?: unknown }).cookie;
+        }
+        document.cookie = 'sanity=1';
+        expect(document.cookie).toContain('sanity=1');
     });
 });

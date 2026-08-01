@@ -20,13 +20,17 @@ describe('getCookie', () => {
 
     it('returns null and logs when reading throws', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        const originalDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
         Object.defineProperty(document, 'cookie', {
             configurable: true,
             get() { throw new Error('boom'); },
         });
-        expect(getCookie('foo')).toBeNull();
-        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Get cookie on client side error'));
-        if (originalDescriptor) Object.defineProperty(Document.prototype, 'cookie', originalDescriptor);
+        try {
+            expect(getCookie('foo')).toBeNull();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Get cookie on client side error'));
+        } finally {
+            delete (document as unknown as { cookie?: unknown }).cookie;
+        }
+        document.cookie = 'sanity=1';
+        expect(document.cookie).toContain('sanity=1');
     });
 });
