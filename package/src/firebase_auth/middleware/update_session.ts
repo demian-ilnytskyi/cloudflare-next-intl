@@ -7,23 +7,90 @@ export const refreshTokenCookieName = '__fa_refresh_token__';
 const DEFAULT_SESSION_MAX_AGE = 60 * 60 * 24 * 5;
 const DEFAULT_REFRESH_MAX_AGE = 60 * 60 * 24 * 365;
 
+// Refresh slightly before the real expiry — treating a token as expired
+// right up to its last second means normal clock skew or in-flight request
+// time can hand a client a token that dies moments after this check, forcing
+// an extra round-trip on the very next request.
+const CLOCK_SKEW_MARGIN_MS = 60 * 1000;
+
+function isJwtExpired(token: string): boolean {
+    try {
+        const payload = token.split('.')[1];
+        const { exp } = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number };
+        return !exp || exp * 1000 - CLOCK_SKEW_MARGIN_MS <= Date.now();
+    } catch {
+        return true;
+    }
+}
+
+// Refreshing an ID token is a real network round-trip to Google on the
+// Edge middleware's critical path, on every request where the session
+// cookie has expired — which, for any session older than the ~1hr ID-token
+// lifetime, is every request until the client re-syncs. Firebase refresh
+// tokens don't rotate on use (the API returns the same refresh_token back)
+// — THIS is the precondition that makes caching by refresh-token identity
+// safe: if Firebase ever changed that behavior, this cache would hand out
+// a refresh token the client no longer holds. Given that precondition,
+// caching a successful refresh result is a pure memoization: a cache hit
+// skips the round-trip entirely, a miss falls through to the exact same
+// fetch this function always made. Only available on Cloudflare Workers
+// (`caches.default`); everywhere else this is a no-op and every request
+// pays the full round-trip, same as before this change. The synthetic
+// origin below is safe as a Cache API key specifically because
+// `.internal` is a non-resolvable TLD reserved by convention — no real
+// `fetch()` in this Worker could ever have populated (or could ever
+// collide with) an entry under it.
+const REFRESH_CACHE_TTL_SECONDS = 50 * 60;
+const REFRESH_CACHE_KEY_ORIGIN = 'https://firebase-auth-refresh-cache.internal';
+
+function getEdgeCache(): Cache | undefined {
+    const cachesApi = (globalThis as { caches?: { default?: Cache } }).caches;
+    return cachesApi?.default;
+}
+
+async function hashRefreshToken(refreshToken: string): Promise<string> {
+    const data = new TextEncoder().encode(refreshToken);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function getCachedRefresh(refreshToken: string): Promise<{ idToken: string; refreshToken: string } | null> {
+    const cache = getEdgeCache();
+    if (!cache) return null;
+    try {
+        const key = `${REFRESH_CACHE_KEY_ORIGIN}/${await hashRefreshToken(refreshToken)}`;
+        const cached = await cache.match(key);
+        if (!cached) return null;
+        return await cached.json() as { idToken: string; refreshToken: string };
+    } catch {
+        return null;
+    }
+}
+
+async function setCachedRefresh(refreshToken: string, refreshed: { idToken: string; refreshToken: string }): Promise<void> {
+    const cache = getEdgeCache();
+    if (!cache) return;
+    try {
+        const key = `${REFRESH_CACHE_KEY_ORIGIN}/${await hashRefreshToken(refreshToken)}`;
+        await cache.put(key, new Response(JSON.stringify(refreshed), {
+            headers: { 'Cache-Control': `max-age=${REFRESH_CACHE_TTL_SECONDS}` },
+        }));
+    } catch {
+        // Best-effort: a caching failure must never affect the actual
+        // refresh result already returned to the caller.
+    }
+}
+
 /**
  * Mints a fresh ID token from a stored refresh token via Google's Secure
  * Token API. No `firebase/auth` import: this runs in the Edge middleware
  * runtime, and `firebase/auth` pulls in Node-only APIs that break Edge
  * bundles even though this function never touches that module.
  */
-function isJwtExpired(token: string): boolean {
-    try {
-        const payload = token.split('.')[1];
-        const { exp } = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number };
-        return !exp || exp * 1000 <= Date.now();
-    } catch {
-        return true;
-    }
-}
-
 async function refreshIdToken(apiKey: string, refreshToken: string): Promise<{ idToken: string; refreshToken: string } | null> {
+    const cached = await getCachedRefresh(refreshToken);
+    if (cached) return cached;
+
     try {
         const res = await fetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
             method: 'POST',
@@ -34,7 +101,14 @@ async function refreshIdToken(apiKey: string, refreshToken: string): Promise<{ i
         if (!res.ok) return null;
 
         const data = await res.json() as { id_token: string; refresh_token: string };
-        return { idToken: data.id_token, refreshToken: data.refresh_token };
+        const refreshed = { idToken: data.id_token, refreshToken: data.refresh_token };
+        // Not awaited: the cache write is a pure optimization for FUTURE
+        // requests, not this one — blocking this response on it would
+        // reintroduce the exact latency this fix exists to remove.
+        // setCachedRefresh already swallows its own errors, so a rejected
+        // write here would otherwise surface as an unhandled rejection.
+        void setCachedRefresh(refreshToken, refreshed);
+        return refreshed;
     } catch {
         return null;
     }

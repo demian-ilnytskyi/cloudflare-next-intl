@@ -128,7 +128,62 @@ or async calls, identical args), it recomputes on every call. This means:
   — not exported, has no cache (re-parses the JWT on every request by
   design). `update_session.bench.ts` measures the parse cost end-to-end
   through the public `updateSession` entrypoint with a valid vs. malformed
-  session cookie. No `.perf.test.ts` — there is nothing to assert.
+  session cookie. No `.perf.test.ts` for the parse itself — there is nothing
+  to assert on there.
+
+## Fixes applied from performance analysis
+
+- **`update_session.ts`'s `refreshIdToken` blocking fetch, amortized via the
+  Cloudflare Workers Cache API.** The refresh call to
+  `securetoken.googleapis.com` is a genuine network round-trip on Edge
+  middleware's critical path, and — unlike most findings in this file — it
+  is NOT purely avoidable: `hasSession` gates a real redirect decision
+  (guest vs. signed-in), so skipping the refresh outright would send a
+  legitimately-signed-in user (valid refresh token, merely-expired ID
+  token — the normal steady state for any session older than Firebase's
+  ~1hr ID-token lifetime) to the login page. The fix instead memoizes a
+  successful refresh result in `caches.default` (Cloudflare's Cache API,
+  no binding/config required) keyed by `SHA-256(refreshToken)`, TTL 50min
+  (under the ~60min ID-token lifetime). Firebase refresh tokens don't
+  rotate on use (the API returns the same `refresh_token` back), so this is
+  a pure memoization: a hit skips the fetch entirely, a miss falls through
+  to the exact same fetch this function always made, and a failed refresh
+  is never cached (so an invalid/revoked token still retries and still
+  redirects correctly). `getEdgeCache()` feature-detects `caches.default`
+  and no-ops everywhere else (Node, non-Workers Edge runtimes) — those
+  environments keep today's exact behavior, paying the round-trip every
+  time, same as before this fix. Tested in
+  `update_session.test.ts`'s "refresh caching" describe block: cache
+  miss/hit/put, cache-unavailable fallback (never throws), and
+  never-caching a failed refresh — all mutation-verified.
+- **`isJwtExpired`'s clock-skew margin.** Added a 60s margin
+  (`CLOCK_SKEW_MARGIN_MS`) so a token expiring in the next minute is
+  treated as already expired and refreshed now, rather than handed to the
+  client moments from dying and forcing an extra round-trip on the very
+  next request. Independent of the caching fix above; both narrow the
+  window in which the blocking fetch actually has to run.
+- **`middleware.ts`'s per-request dynamic import, memoized.** `await
+  import('../firebase_auth/middleware/update_session')` at
+  `middleware.ts`'s auth-wiring branch ran on every request (whenever
+  `config.firebaseAuth` is set), even though Node/the runtime's own module
+  cache means the import always resolved to the same module — the cost
+  being paid was the `import()` expression's own microtask/Promise
+  overhead, not actually re-loading the module. Fixed the same way
+  `firebase_server.ts`'s `baseApp` is memoized: a module-scope
+  `updateSessionModule` variable, populated on first use, read thereafter.
+  Still fully lazy — consumers who never set `firebaseAuth` never reach the
+  branch that assigns it. **No `.perf.test.ts` for this one** — a mocked
+  module's factory only runs once per `vi.resetModules()` scope regardless
+  of whether the memoization exists (proven experimentally: Node/Vitest's
+  own module cache already dedupes repeated `import()` calls to an
+  already-loaded specifier at the factory level), so no test-observable
+  signal distinguishes memoized from non-memoized behavior in this
+  environment. Verified instead via `middleware.bench.ts`'s "firebaseAuth
+  configured" describe block, which measures actual wall-clock cost with
+  `vi.resetModules()` forcing a real fresh import on the "first call" bench
+  vs. none on the "repeat call" bench — a ~79x gap, confirming the fix has
+  a real, measurable effect that a call-count assertion could not have
+  shown.
 
 ## Verifying a perf test is load-bearing, not vacuous
 
