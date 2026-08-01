@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import LocaleLinkClient from './locale_link_client';
+import config from '../../config/intl_config';
 
 vi.mock('../hooks/use_path_name', () => ({ default: vi.fn(() => '/about') }));
 vi.mock('next/navigation', () => ({
@@ -26,6 +27,12 @@ describe('LocaleLinkClient', () => {
         const link = screen.getByRole('link', { name: 'Go' });
         expect(link).toHaveAttribute('href', '/de/about');
         expect(link).toHaveAttribute('hreflang', 'de');
+    });
+
+    it('renders an anchor with no locale prefix for the default locale', () => {
+        render(<LocaleLinkClient locale={config.defaultLocale}>Go</LocaleLinkClient>);
+        const link = screen.getByRole('link', { name: 'Go' });
+        expect(link).toHaveAttribute('href', '/about');
     });
 
     it('appends search params to the href when present', async () => {
