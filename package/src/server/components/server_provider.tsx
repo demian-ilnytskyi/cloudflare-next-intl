@@ -3,6 +3,8 @@ import { getMessage } from "../functions/server";
 import type { TranslationObject } from "../../types/types";
 import dynamic from "next/dynamic";
 import { localesSet } from "../../config/middleware";
+import config from "../../config/intl_config";
+import type { SerializedAuthUser } from "../../firebase_auth/types";
 
 const LocationzationClientProvider = dynamic(
     () => import("../../client/components/client_provider"),
@@ -51,7 +53,13 @@ export default async function LocationzationProvider({ language, messages, child
     }
     const messagesValue = messages ?? await getMessage(language);
 
-    return <LocationzationClientProvider language={language} messages={messagesValue}>
+    let initialAuthUser: SerializedAuthUser | null = null;
+    if (config.firebaseAuth) {
+        const { resolveAuthUserAndRedirect } = await import("../../firebase_auth/server/auth_user_server_provider");
+        initialAuthUser = await resolveAuthUserAndRedirect();
+    }
+
+    return <LocationzationClientProvider language={language} messages={messagesValue} initialAuthUser={initialAuthUser}>
         {children}
     </LocationzationClientProvider>
 }

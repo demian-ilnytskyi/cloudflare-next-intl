@@ -3,6 +3,7 @@ import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_va
 import { getMessage } from "../functions/server";
 import dynamic from "next/dynamic";
 import { localesSet } from "../../config/middleware";
+import config from "../../config/intl_config";
 const LocationzationClientProvider = dynamic(() => import("../../client/components/client_provider"));
 /**
  * Server component that provides locale/messages context to the rest of the
@@ -45,5 +46,10 @@ export default async function LocationzationProvider({ language, messages, child
         setMessageForLocaleCache(language, messages);
     }
     const messagesValue = messages ?? await getMessage(language);
-    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, children: children });
+    let initialAuthUser = null;
+    if (config.firebaseAuth) {
+        const { resolveAuthUserAndRedirect } = await import("../../firebase_auth/server/auth_user_server_provider");
+        initialAuthUser = await resolveAuthUserAndRedirect();
+    }
+    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, initialAuthUser: initialAuthUser, children: children });
 }

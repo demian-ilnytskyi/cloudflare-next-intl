@@ -127,6 +127,21 @@ export default async function intlMiddleware(
         }
 
         response.headers.set('Content-Language', effectiveLocaleForRequest);
+        response.headers.set('x-pathname', pathWithoutLocale);
+
+        // Auto-wires the firebase_auth submodule's redirect/session-refresh
+        // logic when `firebaseAuth` is configured — dynamic import so this
+        // file never pulls in firebase_auth/** (and transitively firebase/*)
+        // for consumers who never set `firebaseAuth` at all. Runs last, so
+        // it composes onto (rather than discards) the locale cookie, bot
+        // cookie, and Content-Language header already finalized above.
+        // Skipped entirely when a locale redirect is already happening
+        // (`isRedirect`) — the locale redirect itself is the response, same
+        // as `middlewareHandler` is also skipped on this path by default.
+        if (!isRedirect && config.firebaseAuth && config.firebaseAuth.middlewareEnabled !== false) {
+            const { default: updateFirebaseAuthSession } = await import('../firebase_auth/middleware/update_session');
+            response = await updateFirebaseAuthSession(request, response, effectiveLocaleForRequest);
+        }
 
         return response;
     } catch (e) {

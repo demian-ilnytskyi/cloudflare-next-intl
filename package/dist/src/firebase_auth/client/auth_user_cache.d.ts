@@ -1,0 +1,4 @@
+import type { AuthUser } from '../types';
+export declare function setAuthUserCache(user: AuthUser | null): void;
+export declare function getAuthUserCache(): AuthUser | null;
+export declare function isAuthUserLoadingCache(): boolean;

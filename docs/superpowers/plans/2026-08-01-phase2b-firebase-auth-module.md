@@ -2,16 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a fully optional, tree-shakeable `firebase_auth` submodule to `cloudflare-next-intl`, ported from `/Volumes/External/clarivant/CRV`'s hand-rolled Firebase auth layer, enabled via one boolean field in `setIntlConfig(...)`.
+**Goal:** Add a fully optional, tree-shakeable `firebase_auth` submodule to `cloudflare-next-intl`, ported from `/Volumes/External/clarivant/CRV`'s hand-rolled Firebase auth layer, enabled via one boolean field in `setIntlConfig(...)` with **zero other code required** — no manual middleware call, no manual provider wiring.
 
-**Architecture:** New `package/src/firebase_auth/**` tree with client/server/middleware/error-message subfolders. Nothing outside `firebase_auth/**` imports from it; nothing in it is wired into the package's existing barrel exports (`src/index.ts`, `src/client/index.ts`, `src/server/index.ts`) — each unit gets its own flat `package.json` exports subpath, matching this repo's existing convention. Config flows through the existing `@intl-config` alias by extending `RoutingConfig` with an optional `firebaseAuth` field; every exported function no-ops when `config.firebaseAuth?.enabled` is not `true`. Auth error messages resolve through the package's existing `getTranslationsImpl` under a `firebaseAuth` namespace, falling back to bundled English defaults when the consumer hasn't added that namespace to their locale files.
+**Architecture:** New `package/src/firebase_auth/**` tree with client/server/middleware/error-message subfolders. Nothing outside `firebase_auth/**` imports from it **statically** — the two auto-wire hook points (`intlMiddleware` in `src/config/middleware.ts`, `IntlProvider` in `src/server/components/server_provider.tsx`) reach into `firebase_auth/**` only via `await import(...)` (dynamic import), guarded by `config.firebaseAuth?.enabled`, so a consumer who never enables the module never triggers even a module-graph load of `firebase/app`/`firebase/auth`. Each unit also gets its own flat `package.json` exports subpath (manual-override / client-UI path), matching this repo's existing convention. Config flows through the existing `@intl-config` alias by extending `RoutingConfig` with an optional `firebaseAuth` field (including `autoWire?: boolean`, default `true`); every exported function no-ops when `config.firebaseAuth?.enabled` is not `true`. Auth error messages resolve through the package's existing `getTranslationsImpl` under a `firebaseAuth` namespace, falling back to bundled English defaults when the consumer hasn't added that namespace to their locale files.
 
 **Tech Stack:** TypeScript, React 19, Next.js (peer deps, existing), `firebase` (NEW optional peer dependency — `firebase/app` + `firebase/auth` only).
 
 ## Global Constraints
 
-- `firebase` is `peerDependenciesMeta.firebase.optional = true` — a consumer who never imports a `firebase_auth`-prefixed subpath must never have `firebase/app`/`firebase/auth` pulled into their bundle.
-- No file outside `src/firebase_auth/**` may import from `src/firebase_auth/**`.
+- `firebase` is `peerDependenciesMeta.firebase.optional = true` — a consumer who never sets `firebaseAuth.enabled: true` must never have `firebase/app`/`firebase/auth` pulled into their bundle, even though they never write an explicit `firebaseAuth*` import themselves (auto-wiring means the package's OWN code is what would otherwise import it).
+- No file outside `src/firebase_auth/**` may import from `src/firebase_auth/**` **statically**. The two auto-wire hook points (Tasks 13–14) are the sole exception, and they MUST use `await import(...)`, never a top-of-file `import`/`import type` for runtime values — a static import defeats tree-shaking for every consumer, since `middleware.ts` and `server_provider.tsx` are loaded unconditionally by anyone using `./middleware`/`./serverProvider`.
 - No file inside `src/firebase_auth/**` may import from `src/general/**`, `src/config/**` (except the shared `@intl-config` alias and `RoutingConfig` type), `src/client/**`, or `src/server/**` — duplicate the small pieces needed (e.g. its own module-scope cache) rather than coupling to package internals.
 - Config field name: `firebaseAuth` (object with `enabled: true`), added to `RoutingConfig` in `package/src/types/types.ts`.
 - No test coverage in this phase — Phase 3 (`docs/superpowers/plans/2026-08-01-phase2c-performance.md`, once written) covers `src/firebase_auth/**` tests. Each task in this plan still builds/typechecks after every step; typechecking is the verification method for this phase, not vitest.
@@ -51,6 +51,14 @@ export interface FirebaseAuthRoutingConfig {
     sessionCookieMaxAge?: number;
     /** Refresh-token cookie max-age in seconds. Defaults to 365 days (31536000). */
     refreshTokenCookieMaxAge?: number;
+    /**
+     * Default `true`: `intlMiddleware` and `IntlProvider` automatically wire
+     * in session-refresh logic and the auth server provider — no other code
+     * required beyond this config object. Set `false` to opt into manual
+     * wiring instead (import `firebaseAuthMiddleware`/
+     * `firebaseAuthServerProvider` yourself and call/render them explicitly).
+     */
+    autoWire?: boolean;
 }
 ```
 
@@ -87,7 +95,7 @@ git commit -m "feat(types): add optional firebaseAuth field to RoutingConfig"
 
 **Interfaces:**
 - Consumes: nothing (scaffolding task; file paths referenced don't exist yet, added in later tasks — `npm run build` will fail to produce those `dist/` files until then, which is expected and fine since this task doesn't run the build).
-- Produces: the public subpath names every later task's source file must match exactly: `./firebaseAuthClient`, `./firebaseAuthClientProvider`, `./firebaseAuthServerProvider`, `./useFirebaseAuthUser`, `./useFirebaseAuthUserServer`, `./firebaseAuthActions`, `./firebaseAuthMiddleware`.
+- Produces: the public subpath names every later task's source file must match exactly: `./firebaseAuthClient`, `./firebaseAuthClientProvider`, `./firebaseAuthServerProvider`, `./useFirebaseAuthUser` (conditional: `react-server` → server impl, `default` → client impl — mirrors the existing `./use` subpath's dual-environment pattern exactly, see Task 12), `./firebaseAuthActions`, `./firebaseAuthMiddleware`.
 
 - [ ] **Step 1: Add `firebase` as an optional peer dependency**
 
@@ -111,7 +119,7 @@ And to `peerDependenciesMeta` (after the `typescript` entry):
 cd package && npm install --save-dev firebase
 ```
 
-- [ ] **Step 3: Add the 7 new exports subpaths**
+- [ ] **Step 3: Add the 6 new exports subpaths**
 
 In `package/package.json`'s `"exports"` object, add after the `"./ThemeSwitcher"` entry:
 
@@ -129,12 +137,14 @@ In `package/package.json`'s `"exports"` object, add after the `"./ThemeSwitcher"
       "import": "./dist/src/firebase_auth/server/auth_user_server_provider.js"
     },
     "./useFirebaseAuthUser": {
-      "types": "./dist/src/firebase_auth/client/use_auth_user.d.ts",
-      "import": "./dist/src/firebase_auth/client/use_auth_user.js"
-    },
-    "./useFirebaseAuthUserServer": {
-      "types": "./dist/src/firebase_auth/server/use_auth_user_server.d.ts",
-      "import": "./dist/src/firebase_auth/server/use_auth_user_server.js"
+      "react-server": {
+        "types": "./dist/src/firebase_auth/server/use_auth_user_server.d.ts",
+        "import": "./dist/src/firebase_auth/server/use_auth_user_server.js"
+      },
+      "default": {
+        "types": "./dist/src/firebase_auth/client/use_auth_user.d.ts",
+        "import": "./dist/src/firebase_auth/client/use_auth_user.js"
+      }
     },
     "./firebaseAuthActions": {
       "types": "./dist/src/firebase_auth/client/auth_actions.d.ts",
@@ -145,6 +155,19 @@ In `package/package.json`'s `"exports"` object, add after the `"./ThemeSwitcher"
       "import": "./dist/src/firebase_auth/middleware/update_session.js"
     }
 ```
+
+Note: unlike this package's own `./use` subpath, whose two implementations
+(`use_functions.ts` vs `client_hooks.ts`) genuinely differ in *return
+shape's data source* (promise-based `use()` vs. context), `useAuthUser`'s
+server variant (Task 12) and client variant (Task 10) both simply return
+`{ user, loading, ... }`-equivalent shapes reading from their own
+respective per-environment state. Keeping them under ONE subpath (like
+`./use`) rather than two separate ones (`./useFirebaseAuthUser` +
+`./useFirebaseAuthUserServer`, as an earlier draft of this plan had it) is
+what makes `useAuthUser` behave identically to `useLocale`/`useTranslations`
+from the consumer's perspective: call it once, from a single import, and it
+resolves to "the right one for wherever this code runs" automatically —
+exactly the parity the user asked to double check here.
 
 - [ ] **Step 4: Verify JSON is valid**
 
@@ -582,11 +605,11 @@ git commit -m "feat(firebase_auth): add server-side session validation via getAu
 
 **Interfaces:**
 - Consumes: `getAuthenticatedAppForUser` from Task 7, `AuthUserProvider` (default export) from Task 6, `SerializedAuthUser` from Task 3, `config.firebaseAuth` via `@intl-config`.
-- Produces: default export `AuthUserServerProvider({ children })` async server component.
+- Produces: `resolveAuthUserAndRedirect(): Promise<SerializedAuthUser | null>` — a plain async function (not a component) doing the resolve-user + authoritative-redirect logic, with NO opinion on where it's rendered relative to `LocaleContext`. This is consumed directly by Task 14's auto-wiring (which needs the redirect check to run BEFORE `LocationzationClientProvider` renders, but the client `AuthUserProvider` to render AFTER it — see Task 14's nesting explanation). Also produces default export `AuthUserServerProvider({ children })`, a thin convenience component wrapping `resolveAuthUserAndRedirect` + the client `AuthUserProvider`, kept for the manual-override path (`firebaseAuth.autoWire: false`) where a consumer renders it directly with no `LocaleContext`-ordering concern of their own to manage.
 
 - [ ] **Step 1: Write the file**
 
-Ported from CRV's `auth_user_server_provider.tsx`. CRV reads `x-pathname` from a header set by its own middleware; this package's own `intlMiddleware` (`src/config/middleware.ts`) does not set such a header today, so this version resolves the path directly via `next/headers`' `headers()` `referer`-independent approach is unavailable server-side without a request object — instead this file accepts the already-locale-stripped path is unavailable without a header. Resolve this by having `update_session.ts` (Task 11) set the same `x-pathname` header pattern CRV uses, forwarded through `request.headers`, and read it here the same way CRV does — this keeps the two files' contracts identical to the proven CRV design.
+Ported from CRV's `auth_user_server_provider.tsx`, split into a logic function + a thin wrapper component (rather than one component) so the redirect-check can be called independently of where the client provider renders — see Task 14. CRV reads `x-pathname` from a header set by its own middleware. This package's `intlMiddleware` doesn't set that header today — Task 13 adds it, as a small, generally-useful addition to `intlMiddleware` itself (not gated on `firebaseAuth`, since a locale-stripped current-path header is broadly useful and costs nothing extra to always set): `requestHeaders.set('x-pathname', pathWithoutLocale)` alongside the existing `Content-Language` header set. This file reads that same header via `next/headers`' `headers()`. Forward reference: Task 13 hasn't landed yet when this task runs — if `x-pathname` is absent (e.g. this function used standalone without `intlMiddleware`, or before Task 13 lands), it falls back to `'/'`, which is a safe (if imprecise) default — every path is treated as non-auth, non-whitelisted, so a guest visiting anywhere still gets redirected to `loginPath` correctly; only the "already on an auth page" and "whitelisted" exemptions are potentially mis-evaluated until the header exists.
 
 Create `package/src/firebase_auth/server/auth_user_server_provider.tsx`:
 
@@ -601,15 +624,15 @@ import type { SerializedAuthUser } from '../types';
 const AuthUserProvider = dynamic(() => import('../client/auth_user_provider'));
 
 /**
- * Server component that resolves the signed-in user from the session cookie
- * and hands it to the client `AuthUserProvider` as `initialUser`, so first
- * paint already reflects the signed-in state. Also performs the
+ * Resolves the signed-in user from the session cookie and performs the
  * authoritative pre-render redirect (guest→login, signed-in→home on auth
- * pages) — middleware only checks cookie *presence*, not validity.
+ * pages) — middleware only checks cookie *presence*, not validity. Plain
+ * async function, not a component: callers decide where/how to use the
+ * resolved user relative to their own component tree (see
+ * `AuthUserServerProvider` below for the simple case, and `IntlProvider`'s
+ * auto-wiring for the case where ordering against `LocaleContext` matters).
  */
-export default async function AuthUserServerProvider({ children }: {
-    children: React.ReactNode;
-}) {
+export async function resolveAuthUserAndRedirect(): Promise<SerializedAuthUser | null> {
     const fa = config.firebaseAuth;
     const { currentUser } = await getAuthenticatedAppForUser();
 
@@ -624,13 +647,27 @@ export default async function AuthUserServerProvider({ children }: {
         }
     }
 
-    const initialUser: SerializedAuthUser | null = currentUser && {
+    return currentUser && {
         uid: currentUser.uid,
         email: currentUser.email,
         emailVerified: currentUser.emailVerified,
         displayName: currentUser.displayName,
     };
+}
 
+/**
+ * Convenience component for the manual-override path
+ * (`firebaseAuth.autoWire: false`): resolves + redirects, then wraps
+ * `children` in the client `AuthUserProvider` directly. NOT used by the
+ * default auto-wiring path — `IntlProvider`/`LocationzationClientProvider`
+ * call `resolveAuthUserAndRedirect` and the client `AuthUserProvider`
+ * separately instead, so the client provider can render inside
+ * `LocaleContext.Provider` rather than outside it.
+ */
+export default async function AuthUserServerProvider({ children }: {
+    children: React.ReactNode;
+}) {
+    const initialUser = await resolveAuthUserAndRedirect();
     return <AuthUserProvider initialUser={initialUser}>
         {children}
     </AuthUserProvider>;
@@ -878,11 +915,11 @@ git commit -m "feat(firebase_auth): add auth form actions and useAuthUser client
 
 **Interfaces:**
 - Consumes: `config.firebaseAuth` via `@intl-config`.
-- Produces: `sessionCookieName` (exported const, consumed by Tasks 6 and 7), `refreshTokenCookieName` (exported const), default export `updateSession(request, rewriteUrl?, locale?): Promise<NextResponse>` — the consumer wires this into their own `middleware.ts` after (or alongside) calling this package's existing `intlMiddleware`.
+- Produces: `sessionCookieName` (exported const, consumed by Tasks 6 and 7), `refreshTokenCookieName` (exported const), default export `updateSession(request, baseResponse, locale): Promise<NextResponse>` — **not** called manually by the consumer. Task 13 wires this into `intlMiddleware` itself via a dynamic import, so `intlMiddleware` remains the only middleware entry point a consumer's `middleware.ts` calls, exactly as today. `baseResponse` is whatever `intlMiddleware` already decided (its own `NextResponse.next()`/`.rewrite()`/`.redirect()` for locale routing) — this function must layer cookie set/clear onto that SAME response object for the pass-through case, and only construct a NEW response for the guest/auth-page redirect cases, so locale-routing headers/cookies from `baseResponse` are never silently dropped.
 
 - [ ] **Step 1: Write the file**
 
-Ported from CRV's `middleware_auth_util.ts`. Generalizations: `AppVariables.defaultLocale`/`AppLinks`/`isAuthPath`/`whiteListLink`/`CookieKey` (all CRV-app-specific) become `config.locales[0]`-equivalent via the existing package's own `@intl-config`, and `config.firebaseAuth`'s fields. Deliberately Edge-safe: no `firebase/auth` import (same reasoning as CRV's original — Edge runtime cannot load `firebase/auth`'s Node-only deps).
+Ported from CRV's `middleware_auth_util.ts`, adapted for response-composition (this signature differs from CRV's original, which built its own response from scratch — CRV's own middleware doesn't have a second locale-routing layer it must compose with). Generalizations: `AppVariables.defaultLocale`/`AppLinks`/`isAuthPath`/`whiteListLink`/`CookieKey` (all CRV-app-specific) become `config.locales[0]`-equivalent via the existing package's own `@intl-config`, and `config.firebaseAuth`'s fields. Deliberately Edge-safe: no `firebase/auth` import (same reasoning as CRV's original — Edge runtime cannot load `firebase/auth`'s Node-only deps).
 
 Create `package/src/firebase_auth/middleware/update_session.ts`:
 
@@ -932,45 +969,45 @@ async function refreshIdToken(refreshToken: string): Promise<{ idToken: string; 
     }
 }
 
+/**
+ * Layers Firebase session-cookie validation/refresh and auth redirects onto
+ * an already-built middleware response. Called internally by `intlMiddleware`
+ * (via dynamic import, see Task 13) when `config.firebaseAuth.enabled` is
+ * true — not intended to be called directly unless `autoWire: false` is set.
+ *
+ * @param baseResponse The response `intlMiddleware` already produced for
+ *   locale routing (its own next()/rewrite()/redirect()). On the
+ *   pass-through path this function returns `baseResponse` itself (with
+ *   cookies layered on) so locale-routing headers are never dropped; on the
+ *   guest/auth-page redirect paths it returns a NEW response instead, since
+ *   a redirect response can't also carry forward a rewrite/next decision.
+ * @param locale The effective locale `intlMiddleware` resolved for this request.
+ */
 export default async function updateSession(
     request: NextRequest,
-    rewriteUrl?: URL,
-    locale?: string,
+    baseResponse: NextResponse,
+    locale: string,
 ): Promise<NextResponse> {
     const fa = config.firebaseAuth;
-    const requestHeaders = new Headers(request.headers);
-
-    if (!fa) {
-        return rewriteUrl
-            ? NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
-            : NextResponse.next({ request: { headers: requestHeaders } });
-    }
+    if (!fa) return baseResponse;
 
     const rawPath = request.nextUrl.pathname;
-    const requestPrefix = locale ? `/${locale}` : undefined;
-    const path = requestPrefix && (rawPath === requestPrefix || rawPath.startsWith(`${requestPrefix}/`))
+    const requestPrefix = `/${locale}`;
+    const path = rawPath === requestPrefix || rawPath.startsWith(`${requestPrefix}/`)
         ? rawPath.slice(requestPrefix.length) || '/'
         : rawPath;
 
-    requestHeaders.set('x-pathname', path);
-
     const lastSegment = rawPath.slice(rawPath.lastIndexOf('/') + 1);
     if (rawPath.startsWith('/_next') || /\.[a-zA-Z0-9]+$/.test(lastSegment)) {
-        return rewriteUrl
-            ? NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
-            : NextResponse.next({ request: { headers: requestHeaders } });
+        return baseResponse;
     }
 
-    const localePrefix = locale === config.locales[0] ? '' : requestPrefix ?? '';
+    const localePrefix = locale === config.locales[0] ? '' : requestPrefix;
     const localeUrl = (target: string) =>
         new URL(`${localePrefix}${target === '/' ? '' : target}` || '/', request.url);
 
     const isWhiteListed = fa.whiteListPaths?.includes(path) ?? false;
-    if (isWhiteListed) {
-        return rewriteUrl
-            ? NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
-            : NextResponse.next({ request: { headers: requestHeaders } });
-    }
+    if (isWhiteListed) return baseResponse;
 
     const isAuthPage = fa.isAuthPath(path);
     let token = request.cookies.get(sessionCookieName)?.value;
@@ -999,17 +1036,11 @@ export default async function updateSession(
     let response: NextResponse;
 
     if (!hasSession) {
-        response = isAuthPage
-            ? (rewriteUrl
-                ? NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
-                : NextResponse.next({ request: { headers: requestHeaders } }))
-            : NextResponse.redirect(localeUrl(fa.loginPath));
+        response = isAuthPage ? baseResponse : NextResponse.redirect(localeUrl(fa.loginPath));
     } else if (isAuthPage) {
         response = NextResponse.redirect(localeUrl(fa.homePath));
     } else {
-        response = rewriteUrl
-            ? NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
-            : NextResponse.next({ request: { headers: requestHeaders } });
+        response = baseResponse;
     }
 
     if (clearInvalidSession) {
@@ -1060,7 +1091,7 @@ git commit -m "feat(firebase_auth): add updateSession middleware helper with tok
 
 **Interfaces:**
 - Consumes: `getAuthenticatedAppForUser` from Task 7; every other module's public exports (for the barrel).
-- Produces: default export `useAuthUser(): Promise<User | null>` (server variant); the `firebase_auth` "batteries-included" barrel import path (documented as opt-in only, not wired into `package.json`'s exports for the top-level `.`/`./client`/`./server` subpaths — see design spec's Public API section).
+- Produces: default export `useAuthUser(): Promise<{ user: User | null; loading: false }>` (server variant) — deliberately the SAME return shape's key names (`user`/`loading`) as the client `useAuthUser()` from Task 10, just wrapped in a `Promise` instead of read synchronously from context. This mirrors this package's own existing async/sync split for `getLocale()` (server, async) vs. `useLocale()` (client, sync context read) — same underlying concept, same field names, different calling convention per environment. An agent that has learned the client shape (`{ user, loading }`) can correctly predict the server shape by analogy (`await` it, same field names) instead of needing to learn an unrelated `Promise<User | null>` shape.
 
 - [ ] **Step 1: Write the server hook**
 
@@ -1071,13 +1102,22 @@ import type { User } from 'firebase/auth';
 import { getAuthenticatedAppForUser } from './firebase_server';
 
 /**
- * Server Component counterpart of the client `useAuthUser()` hook. Reads
- * through the same `cache()`-wrapped `getAuthenticatedAppForUser`, so every
- * server component calling this within one request shares one lookup.
+ * Server Component counterpart of the client `useAuthUser()` hook (from
+ * `cloudflare-next-intl/useFirebaseAuthUser`'s `default` condition — this
+ * file is that same subpath's `react-server` condition, resolved
+ * automatically, not a separately-imported function). Reads through the
+ * same `cache()`-wrapped `getAuthenticatedAppForUser`, so every server
+ * component calling this within one request shares one lookup.
+ *
+ * Returns the same `{ user, loading }` shape the client variant's context
+ * exposes (loading is always `false` here — server resolution is
+ * synchronous with respect to the awaited call), so code reading
+ * `const { user } = await useAuthUser()` generalizes correctly from
+ * `const { user } = useAuthUser()` on the client side.
  */
-export default async function useAuthUser(): Promise<User | null> {
+export default async function useAuthUser(): Promise<{ user: User | null; loading: false }> {
     const { currentUser } = await getAuthenticatedAppForUser();
-    return currentUser;
+    return { user: currentUser, loading: false };
 }
 ```
 
@@ -1088,7 +1128,15 @@ Create `package/src/firebase_auth/index.ts`:
 ```ts
 export { default as FirebaseAuthClientProvider } from './client/auth_user_provider';
 export { default as FirebaseAuthServerProvider } from './server/auth_user_server_provider';
-export { default as useFirebaseAuthUser } from './client/use_auth_user';
+// NOTE: no single `useFirebaseAuthUser` re-export here — the barrel is a
+// plain module graph with no bundler-conditional resolution, so it cannot
+// replicate the react-server/default split package.json's exports map
+// provides for the ./useFirebaseAuthUser subpath. A consumer wanting the
+// hook imports `cloudflare-next-intl/useFirebaseAuthUser` directly (which
+// DOES resolve correctly per-environment) rather than through this barrel.
+// This barrel re-exports the client and server hook under distinct names
+// instead, for consumers who explicitly know which one they want:
+export { default as useFirebaseAuthUserClient } from './client/use_auth_user';
 export { default as useFirebaseAuthUserServer } from './server/use_auth_user_server';
 export { createLoginAction, createSignUpAction, createForgotPasswordAction } from './client/auth_actions';
 export { default as updateFirebaseAuthSession, sessionCookieName as firebaseAuthSessionCookieName } from './middleware/update_session';
@@ -1114,10 +1162,19 @@ Run:
 cd package && node -e "
 const pkg = require('./package.json');
 const fs = require('fs');
+function checkEntry(key, val) {
+  if ('import' in val) {
+    if (!fs.existsSync(val.import)) { console.error('MISSING:', key, val.import); process.exit(1); }
+    return;
+  }
+  // Conditional export (e.g. react-server/default) — check every branch.
+  for (const [cond, branch] of Object.entries(val)) {
+    checkEntry(\`\${key} (\${cond})\`, branch);
+  }
+}
 for (const [key, val] of Object.entries(pkg.exports)) {
-  if (!key.startsWith('./firebaseAuth') && key !== './useFirebaseAuthUser' && key !== './useFirebaseAuthUserServer') continue;
-  const p = val.import.replace('./', './');
-  if (!fs.existsSync(p)) { console.error('MISSING:', key, p); process.exit(1); }
+  if (!key.startsWith('./firebaseAuth')) continue;
+  checkEntry(key, val);
 }
 console.log('all firebase_auth export subpaths resolved');
 "
@@ -1133,25 +1190,182 @@ git commit -m "feat(firebase_auth): add server useAuthUser hook and batteries-in
 
 ---
 
-### Task 13: Fill in `docs/ai/firebase-auth.md` with real content
+### Task 13: Auto-wire session refresh into `intlMiddleware`
 
 **Files:**
-- Modify: `docs/ai/firebase-auth.md` (currently Phase 2a's stub)
+- Modify: `package/src/config/middleware.ts`
 
 **Interfaces:**
-- Consumes: nothing code-facing; documents the module built in Tasks 1–12.
+- Consumes: `updateSession` default export from Task 11 (`../firebase_auth/middleware/update_session`), via **dynamic import only**.
+- Produces: `intlMiddleware`'s behavior is unchanged for any consumer without `config.firebaseAuth?.enabled` set; for consumers with it enabled, the returned response also carries Firebase session cookie validation/refresh and guest/auth-page redirects, with zero additional call in the consumer's own `middleware.ts`. Also adds an `x-pathname` request header (locale-stripped current path) consumed by Task 8's `AuthUserServerProvider`.
 
-- [ ] **Step 1: Replace the stub with real documentation**
+- [ ] **Step 1: Add the locale-stripped `x-pathname` header**
 
-Overwrite `docs/ai/firebase-auth.md`:
+In `package/src/config/middleware.ts`, find where `response.headers.set('Content-Language', effectiveLocaleForRequest);` is set near the end of `intlMiddleware` (currently the last statement before `return response;` in the try block). Just before it, add:
+
+```ts
+        response.headers.set('x-pathname', pathWithoutLocale);
+```
+
+This is a small, independently useful addition (not firebase_auth-specific) — a locale-stripped current-path header costs nothing extra to always set and Task 8's server provider already expects it.
+
+- [ ] **Step 2: Add the firebase_auth auto-wire call**
+
+Immediately after the `x-pathname` header line (and after the existing cookie-setting block), and still before `return response;`, add:
+
+```ts
+        if (config.firebaseAuth?.enabled && config.firebaseAuth.autoWire !== false) {
+            const { default: updateFirebaseAuthSession } = await import('../firebase_auth/middleware/update_session');
+            response = await updateFirebaseAuthSession(request, response, effectiveLocaleForRequest);
+        }
+```
+
+Note the dynamic `await import(...)` — this MUST NOT become a static top-of-file import. A consumer who never sets `firebaseAuth.enabled` must never have this module graph (and therefore `firebase/app`/`firebase/auth`, transitively via `firebase_server.ts`/`auth_user_provider.tsx`) loaded, even though `middleware.ts` itself is unconditionally imported by every consumer via `./middleware`.
+
+- [ ] **Step 3: Verify placement — the call must be inside the existing try block, after cookies/headers are finalized**
+
+Re-read the full function after editing to confirm: the firebase_auth call happens after `response` is fully finalized by locale routing (rewrite/redirect/next decided, locale cookie set, bot cookie set, `Content-Language` set) but still inside the same `try` — so a thrown error inside `updateFirebaseAuthSession` is caught by `intlMiddleware`'s existing catch-all and falls back to `NextResponse.next()`, same safety guarantee the rest of the function already has.
+
+- [ ] **Step 4: Typecheck**
+
+Run: `cd package && npx tsc --noEmit`
+Expected: no errors.
+
+- [ ] **Step 5: Manually verify the disabled path is unaffected**
+
+Run: `cd package && npx vitest run src/config/middleware.test.ts`
+Expected: Phase 1's existing `middleware.test.ts` suite (which uses the fixture config with no `firebaseAuth` field) still passes unmodified — proves the new block is a true no-op when disabled.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add package/src/config/middleware.ts
+git commit -m "feat(firebase_auth): auto-wire session refresh into intlMiddleware via dynamic import"
+```
+
+---
+
+### Task 14: Auto-wire Firebase auth into `IntlProvider` and its client provider
+
+**Why this needs care:** `AuthUserProvider` (Task 6, client) calls this package's own `usePathname()`/`useLocale()`-equivalent, which read from `LocaleContext` — established by `LocationzationClientProvider` (`client/components/client_provider.tsx`). If the server-side redirect-check component (`AuthUserServerProvider`, Task 8) wrapped OUTSIDE `LocationzationClientProvider` the way a naive "wrap IntlProvider's children" approach suggests, `AuthUserProvider` would render before `LocaleContext` exists and crash (Task 6's hooks throw a descriptive error when rendered outside the provider, by design — see `.agent/.sub-rules/packages/server-client-split.md`). The nesting must instead be: `IntlProvider` performs the redirect CHECK itself (a plain function call, not a wrapping component), then renders `LocationzationClientProvider` → `AuthUserProvider` → `children`, in that order. Two files change, not one.
+
+**Files:**
+- Modify: `package/src/server/components/server_provider.tsx` — inline the server-side auth redirect check (the logic Task 8's `AuthUserServerProvider` contains) directly into `IntlProvider`, dynamically imported. `AuthUserServerProvider` itself (from Task 8) remains as its own standalone exported component for the manual-override path (`firebaseAuth.autoWire: false`), but auto-wiring does NOT render it as a wrapping component — it calls the same underlying user-resolution + redirect logic inline, then separately passes the resolved `initialUser` down to `LocationzationClientProvider`.
+- Modify: `package/src/client/components/client_provider.tsx` — conditionally wraps its own children in the client `AuthUserProvider` (Task 6), dynamically imported, AFTER establishing `LocaleContext`.
+
+**Interfaces:**
+- Consumes: `getAuthenticatedAppForUser` from Task 7 and the redirect logic pattern from Task 8, both via dynamic import from `server_provider.tsx`. `AuthUserProvider` default export from Task 6, via dynamic import from `client_provider.tsx`.
+- Produces: `IntlProvider`'s and `LocationzationClientProvider`'s rendered output is unchanged for any consumer without `config.firebaseAuth?.enabled`; for consumers with it enabled, the full auth flow (server redirect check + client session sync) is wired automatically through both the server and client provider, in the correct nesting order, with zero consumer code beyond the config flag.
+
+- [ ] **Step 1: Wire the server-side check into `IntlProvider`**
+
+Task 8 already produces `resolveAuthUserAndRedirect` as a standalone exported function (kept separate from the `AuthUserServerProvider` component precisely so this task can call it without going through a wrapping component) — no refactor needed here, just the wiring below.
+
+In `package/src/server/components/server_provider.tsx`, inside `LocationzationProvider` (before its final `return`, after `messagesValue` is resolved), add:
+
+```tsx
+    let initialAuthUser: SerializedAuthUser | null = null;
+    if (config.firebaseAuth?.enabled && config.firebaseAuth.autoWire !== false) {
+        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider');
+        initialAuthUser = await resolveAuthUserAndRedirect();
+    }
+```
+
+Add `import config from '../../config/intl_config';` and `import type { SerializedAuthUser } from '../../firebase_auth/types';` at the top (the type-only import is erased at compile time and does not affect tree-shaking/bundle size — only runtime imports of `firebase_auth/**` need to stay dynamic).
+
+Then pass `initialAuthUser` down as a new, optional prop on `LocationzationClientProvider`:
+
+```tsx
+    return <LocationzationClientProvider language={language} messages={messagesValue} initialAuthUser={initialAuthUser}>
+        {children}
+    </LocationzationClientProvider>
+```
+
+- [ ] **Step 2: Wire the client-side provider into `LocationzationClientProvider`**
+
+In `package/src/client/components/client_provider.tsx`, add the new prop and the conditional client `AuthUserProvider` wrap:
+
+```tsx
+import dynamic from 'next/dynamic';
+import config from '@intl-config';
+import type { SerializedAuthUser } from '../../firebase_auth/types';
+```
+
+Update the component's props type to add `initialAuthUser?: SerializedAuthUser | null;`, then change the body:
+
+```tsx
+export default function LocationzationClientProvider({
+    language,
+    messages,
+    initialAuthUser = null,
+    children
+}: {
+    language: string;
+    messages: TranslationObject;
+    initialAuthUser?: SerializedAuthUser | null;
+    children: React.ReactNode;
+}): Component {
+    setLocaleCache(language);
+    setMessageForLocaleCache(language, messages);
+
+    let providedChildren = children;
+    if (config.firebaseAuth?.enabled && config.firebaseAuth.autoWire !== false) {
+        const AuthUserProvider = dynamic(() => import('../../firebase_auth/client/auth_user_provider'));
+        providedChildren = <AuthUserProvider initialUser={initialAuthUser}>{children}</AuthUserProvider>;
+    }
+
+    return <LocaleContext.Provider value={{ language, messages }}>
+        {providedChildren}
+    </LocaleContext.Provider>;
+}
+```
+
+`LocaleContext.Provider` remains the outermost element inside this component — `AuthUserProvider` (and therefore its own descendants calling `usePathname()`/`useLocale()`) renders as a CHILD of `LocaleContext.Provider`, so the context is already established by the time it mounts. This resolves the ordering hazard described above.
+
+Both dynamic imports (Step 1's and Step 2's) MUST stay dynamic, never static — `server_provider.tsx` and `client_provider.tsx` are loaded by every consumer using `./serverProvider`, regardless of auth usage.
+
+- [ ] **Step 3: Typecheck**
+
+Run: `cd package && npx tsc --noEmit`
+Expected: no errors.
+
+- [ ] **Step 4: Verify the disabled path is unaffected on both files**
+
+Run: `cd package && npx vitest run src/server/components/server_provider.test.tsx src/client/components/client_provider.test.tsx`
+Expected: Phase 1's existing suites (fixture config has no `firebaseAuth`) still pass unmodified — proves both new blocks are true no-ops when disabled.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add package/src/server/components/server_provider.tsx package/src/client/components/client_provider.tsx package/src/firebase_auth/server/auth_user_server_provider.tsx
+git commit -m "feat(firebase_auth): auto-wire auth into IntlProvider and its client provider, correctly nested inside LocaleContext"
+```
+
+---
+
+### Task 15: Document the module in `.agent/.sub-rules/packages/`
+
+**Files:**
+- Create: `.agent/.sub-rules/packages/firebase-auth.md`
+- Modify: `.agent/.sub-rules/packages.md` (add the index entry)
+
+**Interfaces:**
+- Consumes: nothing code-facing; documents the module built in Tasks 1–14, including the auto-wiring mechanism.
+
+- [ ] **Step 1: Write the topic file**
+
+Create `.agent/.sub-rules/packages/firebase-auth.md`:
 
 ```markdown
 # Firebase Auth Module — `package/src/firebase_auth/**`
 
+Sibling files: [structure.md](structure.md), [config-and-routing.md](config-and-routing.md),
+[nextjs.md](nextjs.md)'s "Cookies & session state (Edge-safe)" section.
+
 Optional, tree-shakeable submodule. Ported from `/Volumes/External/clarivant/CRV`'s
 hand-rolled Firebase auth layer during Phase 2b.
 
-## Enabling it
+## Enabling it — zero other code required
 
 Add to the config object passed to `setIntlConfig`:
 
@@ -1164,22 +1378,59 @@ firebaseAuth: {
 }
 ```
 
+That's the entire integration. The consumer's `middleware.ts` still just
+calls `intlMiddleware` (unchanged); the root layout still just wraps
+children in `IntlProvider` (unchanged). Both internally detect
+`config.firebaseAuth.enabled` and auto-wire session refresh / the auth
+server provider via a dynamic import — see "Auto-wiring mechanism" below.
 If `firebaseAuth` is omitted or `enabled` is not `true`, every exported
-function in this module is a documented no-op — the `firebase` peer
-dependency is never touched by this package's own code.
+function in this module is a documented no-op and the `firebase` peer
+dependency is never touched.
+
+Client-side pieces (`useAuthUser`, the login/signup form actions) are NOT
+auto-injected anywhere — the package has no way to know where a consumer
+wants login UI to render. These remain explicit imports the consumer writes
+in their own components (e.g. `cloudflare-next-intl/useFirebaseAuthUser` in
+a navbar). "Zero-code" means "auth mechanics work the instant the flag is
+on" (redirects, session persistence, token refresh), not "UI is invented
+for you."
+
+## Auto-wiring mechanism
+
+- `intlMiddleware` (`src/config/middleware.ts`), after finishing its own
+  locale-routing response, does `await import('../firebase_auth/middleware/update_session')`
+  and layers Firebase session validation/refresh/redirects onto that SAME
+  response object when `config.firebaseAuth?.enabled && autoWire !== false`.
+- `IntlProvider` (`src/server/components/server_provider.tsx`), when the
+  same condition holds, wraps its children in a dynamically-imported
+  `AuthUserServerProvider` before handing off to its own existing client
+  provider.
+- Both imports are **dynamic, never static** — this is load-bearing for
+  tree-shaking. `middleware.ts` and `server_provider.tsx` are loaded by
+  every consumer regardless of auth usage; a static import of anything
+  under `firebase_auth/**` (which transitively imports `firebase/app`/
+  `firebase/auth`) would defeat the "zero cost when unused" goal even for
+  consumers who never set `firebaseAuth.enabled`.
+- Set `firebaseAuth.autoWire: false` to opt OUT of both hooks and wire
+  `cloudflare-next-intl/firebaseAuthMiddleware` /
+  `cloudflare-next-intl/firebaseAuthServerProvider` manually instead —
+  the escape hatch for consumers needing explicit control over ordering
+  or placement.
 
 ## Isolation rules (do not violate)
 
-- Nothing outside `src/firebase_auth/**` imports from it.
+- Nothing outside `src/firebase_auth/**` imports from it **statically** —
+  the two auto-wire hook points above are the sole, dynamic-import-only
+  exception.
 - Nothing inside `src/firebase_auth/**` imports from `src/general/**`,
   `src/config/**`, `src/client/**`, `src/server/**` — with ONE sanctioned
   exception: `error_messages/firebase_auth_error_helper.ts` imports
   `getTranslationsImpl`/`getMessageCache` from `src/general/**` to reuse this
   package's existing translation resolution for localized error messages.
 - Each unit has its own flat `package.json` exports subpath
-  (`./firebaseAuthClientProvider`, etc.) — none of them are wired into the
-  top-level `.`/`./client`/`./server` barrels, to keep non-auth consumers'
-  bundles free of `firebase/app`/`firebase/auth`.
+  (`./firebaseAuthClientProvider`, etc.) for the manual-override path and
+  the client-UI pieces — none of them are wired into the top-level
+  `.`/`./client`/`./server` barrels.
 
 ## Localization
 
@@ -1192,30 +1443,31 @@ strings. Key names: `invalidEmail`, `userDisabled`, `invalidCredential`,
 `networkRequestFailed`, `requiresRecentLogin`, `expiredActionCode`,
 `invalidActionCode`, `userTokenExpired`, `unknown`.
 
-## Middleware wiring
+## Testing notes (filled in during Phase 2c)
 
-`middleware/update_session.ts`'s default export `updateSession(request,
-rewriteUrl?, locale?)` is called from the consumer's own `middleware.ts`,
-typically alongside (after) this package's existing `intlMiddleware`. It
-sets/refreshes/clears `sessionCookieName`/`refreshTokenCookieName` cookies
-and performs the guest/auth-page/signed-in redirect matrix — mirrors
-`intlMiddleware`'s own rewrite/redirect/next() decision structure.
-
-## Testing notes (filled in during Phase 3)
-
-Not yet covered — see `docs/superpowers/specs/2026-08-01-phase2c-performance-design.md`.
+Not yet covered — see `docs/superpowers/plans/2026-08-01-phase2c-performance.md`.
 Firebase itself (`firebase/app`, `firebase/auth`) must be mocked in tests;
 no real Firebase project or network calls.
 ```
 
-- [ ] **Step 2: Verify the file renders as valid markdown (no unclosed code fences)**
+- [ ] **Step 2: Add the index entry**
 
-Run: `grep -c '```' docs/ai/firebase-auth.md`
+Edit `.agent/.sub-rules/packages.md`, adding this bullet to the "Per-topic files" list (after the `testing.md` bullet):
+
+```markdown
+- [packages/firebase-auth.md](packages/firebase-auth.md) — optional
+  `firebase_auth` submodule: auto-wiring mechanism, isolation rules,
+  localization.
+```
+
+- [ ] **Step 3: Verify the file renders as valid markdown (no unclosed code fences)**
+
+Run: `grep -c '```' .agent/.sub-rules/packages/firebase-auth.md`
 Expected: an even number.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add docs/ai/firebase-auth.md
-git commit -m "docs: document the firebase_auth module in docs/ai"
+git add .agent/.sub-rules/packages/firebase-auth.md .agent/.sub-rules/packages.md
+git commit -m "docs: document the firebase_auth module and its auto-wiring mechanism"
 ```

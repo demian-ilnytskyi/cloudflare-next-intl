@@ -84,6 +84,36 @@
     "./ThemeSwitcher": {
       "types": "./dist/src/theme_switcher/components/theme_switcher.d.ts",
       "import": "./dist/src/theme_switcher/components/theme_switcher.js"
+    },
+    "./firebaseAuthClient": {
+      "types": "./dist/src/firebase_auth/client/firebase_client.d.ts",
+      "import": "./dist/src/firebase_auth/client/firebase_client.js"
+    },
+    "./firebaseAuthClientProvider": {
+      "types": "./dist/src/firebase_auth/client/auth_user_provider.d.ts",
+      "import": "./dist/src/firebase_auth/client/auth_user_provider.js"
+    },
+    "./firebaseAuthServerProvider": {
+      "types": "./dist/src/firebase_auth/server/auth_user_server_provider.d.ts",
+      "import": "./dist/src/firebase_auth/server/auth_user_server_provider.js"
+    },
+    "./useFirebaseAuthUser": {
+      "react-server": {
+        "types": "./dist/src/firebase_auth/server/use_auth_user_server.d.ts",
+        "import": "./dist/src/firebase_auth/server/use_auth_user_server.js"
+      },
+      "default": {
+        "types": "./dist/src/firebase_auth/client/use_auth_user.d.ts",
+        "import": "./dist/src/firebase_auth/client/use_auth_user.js"
+      }
+    },
+    "./firebaseAuthActions": {
+      "types": "./dist/src/firebase_auth/client/auth_actions.d.ts",
+      "import": "./dist/src/firebase_auth/client/auth_actions.js"
+    },
+    "./firebaseAuthMiddleware": {
+      "types": "./dist/src/firebase_auth/middleware/update_session.d.ts",
+      "import": "./dist/src/firebase_auth/middleware/update_session.js"
     }
   },
   "scripts": {
@@ -126,12 +156,16 @@
   },
   "homepage": "https://github.com/DemienIlnutskiy/cloudflare-next-intl#readme",
   "peerDependencies": {
+    "firebase": ">=10.0.0",
     "next": ">=12.0.0",
     "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || >=19.0.0-rc <19.0.0 || ^19.0.0",
     "typescript": ">=5.0.0"
   },
   "peerDependenciesMeta": {
     "typescript": {
+      "optional": true
+    },
+    "firebase": {
       "optional": true
     }
   },
@@ -148,6 +182,7 @@
     "eslint": "^9.28.0",
     "eslint-config-next": "15.3.3",
     "eslint-config-prettier": "^10.1.2",
+    "firebase": "^12.17.0",
     "jsdom": "^29.1.1",
     "next": "^15.3.0",
     "react": "^19.0.0",
