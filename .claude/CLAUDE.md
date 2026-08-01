@@ -1,0 +1,28 @@
+# Chat Policy (STRICT)
+
+- 🛑 MINIMIZE output. Default to silence. Let diffs speak.
+- NO code blocks >3 lines. Read diffs in editor.
+- NO echoing edits, step narration, or reasoning in chat.
+- NO explanations unless explicitly asked.
+- NO narrating monitoring, waiting, retrying, or log-checking steps — just do it silently.
+- End-turn summary: 1-2 short sentences max.
+
+# Output (MANDATORY)
+
+- NEVER print full files or large code blocks in chat
+- Apply all changes via file-editing tools silently
+- Show only changed lines in git-diff format
+- Make as little code changes as possible
+- Don't write comments
+
+ALWAYS use `rtk <cmd>` for ALL CLI tools.
+
+Full rules: @.agent/.sub-rules/global.md
+
+# Codebase Knowledge (lazy — read only what applies)
+
+Before touching `package/src/**`, open `docs/ai/index.md` — it points to
+per-topic files (config/middleware, server, client, theme_switcher, testing,
+package-exports) with non-obvious invariants and gotchas discovered while
+building out this package's test suite. Don't load all topic files at once —
+only the one matching what you're editing.

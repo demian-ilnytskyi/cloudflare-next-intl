@@ -1,0 +1,28 @@
+{
+  "_comment": "MCP servers relevant to clarivant. shadcn removed (no React/Tailwind in this project). Add your own API keys via env or secrets — do not commit them.",
+  "mcpServers": {
+    "dart-mcp-server": {
+      "command": "dart",
+      "args": ["mcp-server"],
+      "_note": "Flutter/Dart analysis. Already declared in global ~/.claude/CLAUDE.md."
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
+      "env": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      },
+      "_note": "Library docs fetcher — useful for Flutter, Firebase, Supabase, Postgres references."
+    },
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", "${SUPABASE_ACCESS_TOKEN}"],
+      "_note": "Supabase project management: DB schema, RLS policies, functions, logs."
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "_note": "Cross-session recall. Already declared in global ~/.claude/CLAUDE.md."
+    }
+  }
+}

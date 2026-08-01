@@ -1,0 +1,92 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Volumes/External/keepr-dating/keepr-dating-flutter/lib/core/repositories/**)",
+      "Bash(cd /Volumes/External/keepr-dating/keepr-dating-flutter && rtk grep -rl \"deep_link\\\\|deeplink\\\\|DeepLink\" lib --include=*.dart -i | head -30)",
+      "Read(//Volumes/External/keepr-dating/keepr-dating-flutter/**)",
+      "Bash(cd /Volumes/External/keepr-dating/keepr-dating-flutter && rtk grep -rl \"email.*verif\\\\|EmailVerif\" lib --include=*.dart -i | head -30)",
+      "Bash(cd /Volumes/External/keepr-dating/keepr-dating-flutter && rtk grep -rl \"reset.*password\\\\|ResetPassword\\\\|password.*reset\" lib --include=*.dart -i | head -30)",
+      "Bash(rtk grep *)",
+      "Bash(grep -n \"deeplink\\\\|initialLink\\\\|AppLinks\\\\|onAuthStateChange\" lib/main.dart)",
+      "Read(//Volumes/External/keepr-dating/keepr-dating-flutter/lib/routes/**)",
+      "Bash(git -C /Volumes/External/ice_cream/ice-cream diff lib/shared/repositories/i_app_authentication_repository.dart)",
+      "Bash(git -C /Volumes/External/ice_cream/ice-cream status --short)",
+      "Bash(rtk grep -n \"app_links\\\\|uni_links\\\\|firebase_dynamic\" /Volumes/External/keepr-dating/keepr-dating-flutter/pubspec.yaml /Volumes/External/ice_cream/ice-cream/pubspec.yaml *)",
+      "Read(//Volumes/External/keepr-dating/keepr-dating-flutter/ios/Runner/**)",
+      "Bash(echo \"=== ios entitlements ice-cream ===\"; rtk find /Volumes/External/ice_cream/ice-cream/ios -iname \"*.entitlements\" -exec cat {} \\\\; *)",
+      "Read(//Volumes/External/keepr-dating/keepr-dating-flutter/android/app/src/main/**)",
+      "Bash(rtk grep -n \"messagingSenderId\\\\|appId\" /Volumes/External/ice_cream/ice-cream/lib/firebase_options.dart | head -10 *)",
+      "Bash(rtk find /Volumes/External/keepr-dating/keepr-dating-flutter/lib/presentation/reset_password -type f *)",
+      "Read(//Volumes/External/keepr-dating/keepr-dating-flutter/lib/presentation/verify_email/**)",
+      "Read(//Volumes/External/keepr-dating/keepr-dating-flutter/lib/presentation/reset_password/bloc/password_reset/**)",
+      "Read(//Volumes/External/keepr-dating/keepr-dating-flutter/lib/presentation/verify_email/bloc/**)",
+      "Bash(find /Volumes/External/clarivant/clarivant -type f \\\\\\( -iname \"*deep*link*\" -o -iname \"*verif*\" -o -iname \"*reset*password*\" -o -iname \"*password*reset*\" \\\\\\) 2>/dev/null | grep -v node_modules | grep -v \"/\\\\.git/\" | grep -v /build/)",
+      "Read(//Volumes/External/clarivant/clarivant/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/**)",
+      "Bash(rtk grep -rn \"verify-email\\\\|reset-password\\\\|verifyEmail\\\\|resetPassword\\\\|oobCode\\\\|mode=\" /Volumes/External/clarivant/clarivant/lib --include=*.dart -l 2>/dev/null *)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/shared/navigation/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/shared/constants/**)",
+      "Bash(rtk find /Volumes/External/clarivant/clarivant/lib/shared/navigation -type f *)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/shared/constants/text/**)",
+      "Read(//Volumes/External/clarivant/clarivant/files/**)",
+      "Bash(rtk grep -rln \"AuthenticationStatus\" /Volumes/External/clarivant/clarivant/lib --include=*.dart 2>/dev/null *)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/shared/bloc/authentication/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/shared/repositories/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/shared/models/**)",
+      "Bash(find /Volumes/External/clarivant/clarivant/lib/components/reset_password/ /Volumes/External/clarivant/clarivant/lib/components/verify_email/ -type f | sort)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/components/reset_password/**)",
+      "Bash(find /Volumes/External/clarivant/clarivant/lib/components/reset_password/ -type f | sort)",
+      "Bash(find /Volumes/External/clarivant/clarivant/lib/components/verify_email/ -type f | sort)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/components/verify_email/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/components/verify_email/view/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/components/verify_email/bloc/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/components/verify_email/widget/bloc_provider/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/components/verify_email/widget/body/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/components/reset_password/bloc/password_reset/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/components/reset_password/bloc/check_code/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/components/reset_password/widget/body/**)",
+      "Bash(xargs -n1 basename)",
+      "Bash(find /Volumes/External/clarivant/clarivant/lib/components/reset_password /Volumes/External/clarivant/clarivant/lib/components/verify_email -type f | sort *)",
+      "Bash(flutter test *)",
+      "Bash(echo \"=== ice_cream ===\"; sed -n '1,15p' /Volumes/External/ice_cream/ice-cream/android/app/src/main/AndroidManifest.xml *)",
+      "Read(//Volumes/External/clarivant/clarivant/android/app/src/main/**)",
+      "Bash(cd /Volumes/External/clarivant/clarivant && rtk grep -rl -i \"verif\\\\|emailVerif\\\\|email_verif\" lib/ | head -40)",
+      "Bash(sed -n '50,140p' /Volumes/External/clarivant/clarivant/lib/shared/navigation/redirect_authenticate_guard.dart)",
+      "Bash(awk 'NR>=58 && NR<=232 {n=gsub\\(/GoRoute\\\\\\(/,\"&\"\\); if\\(n\\)print NR\": \"$0}' /Volumes/External/ice_cream/ice-cream/lib/shared/navigation/router_go.dart)",
+      "Bash(sed -n '36,49p' /Volumes/External/clarivant/clarivant/lib/shared/navigation/redirect_authenticate_guard.dart)",
+      "Bash(cd /Volumes/External/hive/hive_mobile && rtk grep -rli \"permission\" lib/ | grep -v '\\\\.g\\\\.dart\\\\|\\\\.freezed\\\\.dart\\\\|/generated/\\\\|l10n' | head -50)",
+      "Read(//Volumes/External/hive/hive_mobile/**)",
+      "Bash(cd /Volumes/External/hive/hive_mobile *)",
+      "Bash(grep -vi \"MallocStackLogging\\\\|outdated\\\\|^Analyzing\\\\|^$\")",
+      "Bash(cd /Volumes/External/clarivant/clarivant *)",
+      "Bash(rtk npm *)",
+      "Bash(flutter gen-l10n *)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/shared/widget/**)",
+      "Bash(rtk wc *)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/shared/models/helper_models/**)",
+      "Read(//Volumes/External/clarivant/clarivant/lib/shared/data_provider/**)",
+      "Bash(rtk find /Volumes/External/clarivant/clarivant/assets/images -iname \"image_error*\" 2>&1 *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(p['name'],p.get\\('version',''\\)\\) for p in d['packages'] if 'firebase_app_check' in p['name']]\")",
+      "Bash(python3 -c \"import uuid; print\\(str\\(uuid.uuid4\\(\\)\\)\\)\")",
+      "Bash(jobs)",
+      "Bash(rtk ps *)",
+      "Bash(rtk grep -n \"isApk\" /Volumes/External/ice_cream/ice-cream/lib/shared/constants/config.dart 2>&1 *)"
+    ],
+    "additionalDirectories": [
+      "/Volumes/External/clarivant/clarivant/assets/images"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -Rs '{hookSpecificOutput: {hookEventName: \"SessionStart\", additionalContext: (\"Caveman mode ON. Follow this skill fully every response:\\n\\n\" + .)}}' \"$CLAUDE_PROJECT_DIR/.agent/skills/caveman/SKILL.md\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
