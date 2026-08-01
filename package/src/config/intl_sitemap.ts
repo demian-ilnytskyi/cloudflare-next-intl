@@ -33,7 +33,7 @@ function generateIntlSitemapIml({
         }
     }
 
-    sitemap.sort((a, b) => a.url.localeCompare(b.url));
+    sitemap.sort((a, b) => (a.url < b.url ? -1 : a.url > b.url ? 1 : 0));
 
     return sitemap;
 }

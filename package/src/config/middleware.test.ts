@@ -116,6 +116,42 @@ describe('intlMiddleware', () => {
         expect(res.headers.get('location')).toBe('https://example.com/de');
     });
 
+    it('sets x-pathname to "/" for the bare locale-prefixed root', async () => {
+        const req = makeRequest('https://example.com/de');
+        const res = await intlMiddleware(req);
+        expect(res.headers.get('x-pathname')).toBe('/');
+    });
+
+    it('sets x-pathname to the remaining path for a nested locale-prefixed URL', async () => {
+        const req = makeRequest('https://example.com/de/blog/post-1');
+        const res = await intlMiddleware(req);
+        expect(res.headers.get('x-pathname')).toBe('/blog/post-1');
+    });
+
+    it('sets x-pathname to the full path when there is no locale prefix', async () => {
+        const req = makeRequest('https://example.com/about');
+        const res = await intlMiddleware(req);
+        expect(res.headers.get('x-pathname')).toBe('/about');
+    });
+
+    it('does not treat a locale-named string as a locale prefix mid-path', async () => {
+        const req = makeRequest('https://example.com/blog/de/post-1');
+        const res = await intlMiddleware(req);
+        expect(res.headers.get('x-pathname')).toBe('/blog/de/post-1');
+    });
+
+    it('handles a locale-prefixed path with a trailing slash', async () => {
+        const req = makeRequest('https://example.com/de/blog/');
+        const res = await intlMiddleware(req);
+        expect(res.headers.get('x-pathname')).toBe('/blog');
+    });
+
+    it('collapses duplicate slashes in a locale-prefixed path, matching split/filter(Boolean) semantics', async () => {
+        const req = makeRequest('https://example.com/de//blog//post');
+        const res = await intlMiddleware(req);
+        expect(res.headers.get('x-pathname')).toBe('/blog/post');
+    });
+
     it('catches internal errors and falls back to NextResponse.next', async () => {
         const req = makeRequest('https://example.com/about');
         const handler = vi.fn().mockImplementation(() => { throw new Error('boom'); });

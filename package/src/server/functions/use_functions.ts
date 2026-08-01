@@ -1,7 +1,10 @@
 import type { TranslatorReturnType } from "../../types/types";
 import { getTranslationsImpl } from "../../general/general_functions";
 import { getLocale, getMessage } from "./server";
+import { getTranslationCache } from "../../general/cache_variables";
 import { cache, use } from "react";
+
+const isDev = process.env.NODE_ENV === 'development';
 
 /**
  * React Server Component `useLocale`, reached via the `cloudflare-next-intl/use`
@@ -37,13 +40,23 @@ export const useLocale = cache(useLocaleImpl);
  */
 function useTranslationsImpl(namespace: string): TranslatorReturnType {
     const language = use(getLocale());
-    const messages = use(getMessage(language));
 
-    if (!language || !messages) {
+    if (!language) {
         throw new Error('Please set IntlProvider before using useTranslations');
     }
 
-    return getTranslationsImpl(language, messages, namespace);
+    const cacheKey = `${language}-${namespace}`;
+    const cachedTranslation = isDev ? undefined : getTranslationCache(cacheKey);
+    if (cachedTranslation) {
+        return cachedTranslation;
+    }
+
+    const messages = use(getMessage(language));
+    if (!messages) {
+        throw new Error('Please set IntlProvider before using useTranslations');
+    }
+
+    return getTranslationsImpl(language, messages, namespace, cacheKey);
 }
 
 export const useTranslations = cache(useTranslationsImpl);

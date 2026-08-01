@@ -1,0 +1,28 @@
+import { bench, describe } from 'vitest';
+import { renderHook } from '@testing-library/react';
+import useAuthUser from './use_auth_user';
+import { AuthUserContext } from './auth_user_provider';
+
+describe('useAuthUser (client)', () => {
+    bench('reads default context value (outside provider)', () => {
+        renderHook(() => useAuthUser());
+    });
+
+    bench('reads a provided context value', () => {
+        renderHook(() => useAuthUser(), {
+            wrapper: ({ children }) => (
+                <AuthUserContext.Provider
+                    value={{
+                        user: { uid: 'bench-user' } as never,
+                        loading: false,
+                        reloadUser: async () => {},
+                        sendVerificationEmail: async () => {},
+                        logout: async () => {},
+                    }}
+                >
+                    {children}
+                </AuthUserContext.Provider>
+            ),
+        });
+    });
+});

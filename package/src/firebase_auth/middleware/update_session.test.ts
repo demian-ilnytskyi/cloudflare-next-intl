@@ -165,6 +165,31 @@ describe('updateSession', () => {
         expect(res.status).toBe(307);
     });
 
+    it('treats a token expiring within the clock-skew margin as already expired', async () => {
+        const { default: updateSession } = await import('./update_session');
+        // Real expiry is 30s in the future — inside the 60s clock-skew
+        // margin, so this must be refreshed/redirected now rather than
+        // handed to the client one request away from dying.
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 30);
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: token },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(307);
+    });
+
+    it('treats a token expiring well beyond the clock-skew margin as still valid', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 300);
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: token },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res).toBe(base);
+    });
+
     it('refreshes the session using a valid refresh token when no session cookie is present', async () => {
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
@@ -220,5 +245,116 @@ describe('updateSession', () => {
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
         expect(res.status).toBe(307);
+    });
+});
+
+describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
+    let store: Map<string, Response>;
+
+    function makeFakeCache() {
+        store = new Map();
+        return {
+            match: vi.fn(async (key: string) => store.get(key)?.clone()),
+            put: vi.fn(async (key: string, res: Response) => {
+                store.set(key, res.clone());
+            }),
+        };
+    }
+
+    beforeEach(() => {
+        currentConfig = { locales: ['en', 'de'], firebaseAuth: { ...baseFa } };
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('falls through to the real fetch and populates the cache on a miss', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: 'fresh-id-token', refresh_token: 'same-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const fakeCache = makeFakeCache();
+        vi.stubGlobal('caches', { default: fakeCache });
+
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'a-refresh-token' },
+        });
+        const res = await updateSession(req, NextResponse.next(), 'en');
+        // The cache write is fire-and-forget (not awaited by updateSession,
+        // so this response doesn't block on it) — flush pending microtasks
+        // so the write has settled before asserting on it.
+        await vi.waitFor(() => expect(fakeCache.put).toHaveBeenCalledTimes(1));
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(res.cookies.get('__fa_session__')?.value).toBe('fresh-id-token');
+    });
+
+    it('skips the fetch entirely on a cache hit for the same refresh token', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: 'first-call-id-token', refresh_token: 'a-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const fakeCache = makeFakeCache();
+        vi.stubGlobal('caches', { default: fakeCache });
+
+        const { default: updateSession } = await import('./update_session');
+        const makeReq = () => makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'a-refresh-token' },
+        });
+
+        await updateSession(makeReq(), NextResponse.next(), 'en');
+        // Same fire-and-forget write as above — wait for it to land in the
+        // fake cache before the second call, or the second call would also
+        // miss and this test would pass for the wrong reason.
+        await vi.waitFor(() => expect(fakeCache.put).toHaveBeenCalledTimes(1));
+        const res2 = await updateSession(makeReq(), NextResponse.next(), 'en');
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(res2.cookies.get('__fa_session__')?.value).toBe('first-call-id-token');
+    });
+
+    it('falls back to a real fetch (no throw) when caches.default.match rejects', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: 'fresh-id-token', refresh_token: 'a-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        vi.stubGlobal('caches', {
+            default: {
+                match: vi.fn().mockRejectedValue(new Error('cache unavailable')),
+                put: vi.fn().mockRejectedValue(new Error('cache unavailable')),
+            },
+        });
+
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'a-refresh-token' },
+        });
+        const res = await updateSession(req, NextResponse.next(), 'en');
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(res.cookies.get('__fa_session__')?.value).toBe('fresh-id-token');
+    });
+
+    it('a failed refresh is never cached, so a subsequent request retries the fetch', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({ ok: false });
+        vi.stubGlobal('fetch', fetchMock);
+        const fakeCache = makeFakeCache();
+        vi.stubGlobal('caches', { default: fakeCache });
+
+        const { default: updateSession } = await import('./update_session');
+        const makeReq = () => makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'a-refresh-token' },
+        });
+
+        await updateSession(makeReq(), NextResponse.next(), 'en');
+        await updateSession(makeReq(), NextResponse.next(), 'en');
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(fakeCache.put).not.toHaveBeenCalled();
     });
 });

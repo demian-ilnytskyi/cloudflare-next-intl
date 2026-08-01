@@ -2,7 +2,7 @@ import { getTranslationsImpl } from "../../general/general_functions";
 import config from "../../config/intl_config";
 import { localeCookieName } from "../../config/cookie_key";
 import type { TranslationObject, TranslatorReturnType } from "../../types/types";
-import { getLocaleCache, getMessageCache, setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables";
+import { getLocaleCache, getMessageCache, getTranslationCache, setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables";
 import { cache } from "react";
 import { localesSet } from "../../config/middleware";
 
@@ -61,10 +61,14 @@ async function iGetTranslations(namespace: string, locale?: string): Promise<Tra
     const effectiveLocale = locale ?? (await getLocale());
     const cacheKey = `${effectiveLocale}-${namespace}`;
 
-    // Return cached translation function immediately if available.
-    // if (translationFunctionsCache.has(cacheKey)) {
-    //     return translationFunctionsCache.get(cacheKey)!;
-    // }
+    // Return cached translation function immediately if available. Skipped
+    // in dev for the same reason iGetMessage skips its own cache read: a
+    // stale translator function built from a since-edited messages/*.json
+    // must not survive across requests during local development.
+    const cachedTranslation = isDev ? undefined : getTranslationCache(cacheKey);
+    if (cachedTranslation) {
+        return cachedTranslation;
+    }
 
     // Load messages for the effective locale. This also benefits from caching.
     const serverMessages = await iGetMessage(effectiveLocale);

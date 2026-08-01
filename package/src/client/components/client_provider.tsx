@@ -2,7 +2,7 @@
 
 import type { TranslationObject } from "../../types/types";
 import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables";
-import { createContext } from "react";
+import { createContext, useMemo } from "react";
 import dynamic from "next/dynamic";
 import config from "@intl-config";
 import type { SerializedAuthUser } from "../../firebase_auth/types";
@@ -39,7 +39,9 @@ export default function LocationzationClientProvider({
         providedChildren = <AuthUserProvider initialUser={initialAuthUser}>{children}</AuthUserProvider>;
     }
 
-    return <LocaleContext.Provider value={{ language, messages }}>
+    const contextValue = useMemo(() => ({ language, messages }), [language, messages]);
+
+    return <LocaleContext.Provider value={contextValue}>
         {providedChildren}
     </LocaleContext.Provider>;
 }

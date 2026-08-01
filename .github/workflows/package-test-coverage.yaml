@@ -20,3 +20,4 @@ jobs:
       working_directory: package
       test_path: src
       min_coverage: 100
+      run_bench: true
