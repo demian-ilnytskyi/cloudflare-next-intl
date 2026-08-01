@@ -21,6 +21,7 @@ export default defineConfig({
                 'src/types/types.ts',
                 'src/test_utils/**',
                 'src/**/*.bench.ts',
+                'src/**/*.bench.tsx',
             ],
             thresholds: {
                 perFile: true,

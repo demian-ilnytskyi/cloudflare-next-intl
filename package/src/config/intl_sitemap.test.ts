@@ -34,4 +34,19 @@ describe('generateIntlSitemap', () => {
             'x-default': 'https://example.com/about',
         });
     });
+
+    it('keeps stable order for entries with equal urls', () => {
+        const routes: IntlSitemap[] = [
+            { link: '/same', lastModified: '2024-01-01' },
+            { link: '/same', lastModified: '2024-01-02' },
+        ];
+        const result = generateIntlSitemap({ intlSitemap: routes, url: 'https://unique-equal.example.com' });
+
+        expect(result.map((r) => r.url)).toEqual([
+            'https://unique-equal.example.com/de/same',
+            'https://unique-equal.example.com/de/same',
+            'https://unique-equal.example.com/same',
+            'https://unique-equal.example.com/same',
+        ]);
+    });
 });
