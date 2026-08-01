@@ -73,6 +73,53 @@ export interface RoutingConfig<AppLocales extends Locales, AppLocalePrefixMode e
      * By setting this to `false`, the cookie as well as the `accept-language` header will no longer be used for locale detection.
      **/
     localeDetection?: boolean;
+    /**
+     * Configures the optional `firebase_auth` submodule. Omit entirely (or
+     * leave undefined) to keep it fully disabled — no file in this package
+     * ever imports `firebase/app`/`firebase/auth` unless a firebase_auth
+     * export is actually called, and every such export throws a clear error
+     * if this field is missing at call time rather than silently no-op'ing.
+     */
+    firebaseAuth?: FirebaseAuthRoutingConfig;
+}
+export interface FirebaseAuthRoutingConfig {
+    /**
+     * Whether `intlMiddleware` should automatically run the firebase_auth
+     * redirect/session-refresh logic (guest→`redirectAuthPath`, signed-in→
+     * `homePath` on auth pages, ID-token refresh) for every request.
+     * Defaults to `true` — set `false` to keep `firebaseAuth` configured
+     * (e.g. for the client/server providers, actions) while driving the
+     * middleware redirect logic yourself instead.
+     */
+    middlewareEnabled?: boolean;
+    /** Firebase project's Web API key (`NEXT_PUBLIC_FIREBASE_API_KEY` equivalent). */
+    apiKey: string;
+    /** Firebase project's auth domain, e.g. "my-app.firebaseapp.com". */
+    authDomain: string;
+    /** Firebase project ID. */
+    projectId: string;
+    /** Firebase project's storage bucket. */
+    storageBucket?: string;
+    /** Firebase project's messaging sender ID. */
+    messagingSenderId?: string;
+    /** Firebase app ID. */
+    appId: string;
+    /** Firebase Analytics measurement ID. */
+    measurementId?: string;
+    /** Path to redirect signed-out users to, e.g. "/login". */
+    redirectAuthPath: string;
+    /** Path to redirect signed-in users away from auth pages to, e.g. "/". */
+    homePath: string;
+    /** Path to redirect unverified-email users to. Omit to skip email-verification redirects. */
+    verifyEmailPath?: string;
+    /** Returns true if the given (locale-stripped) path is an auth page (login/signup/etc). */
+    isAuthPath: (path: string) => boolean;
+    /** Locale-stripped paths exempt from all auth redirects (e.g. public marketing pages). */
+    whiteListPaths?: readonly string[];
+    /** Session cookie max-age in seconds. Defaults to 5 days (432000). */
+    sessionCookieMaxAge?: number;
+    /** Refresh-token cookie max-age in seconds. Defaults to 365 days (31536000). */
+    refreshTokenCookieMaxAge?: number;
 }
 export interface CookieAttributes {
     /**

@@ -710,16 +710,16 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.resetModules());
 
 describe('useAuthUser (server)', () => {
-    it('returns currentUser from getAuthenticatedAppForUser', async () => {
+    it('returns { user, loading: false } from getAuthenticatedAppForUser', async () => {
         mockGetAuthenticatedAppForUser.mockResolvedValue({ firebaseServerApp: null, currentUser: { uid: 'u1' } });
         const useAuthUser = (await import('./use_auth_user_server')).default;
-        expect(await useAuthUser()).toEqual({ uid: 'u1' });
+        expect(await useAuthUser()).toEqual({ user: { uid: 'u1' }, loading: false });
     });
 
-    it('returns null when there is no authenticated user', async () => {
+    it('returns { user: null, loading: false } when there is no authenticated user', async () => {
         mockGetAuthenticatedAppForUser.mockResolvedValue({ firebaseServerApp: null, currentUser: null });
         const useAuthUser = (await import('./use_auth_user_server')).default;
-        expect(await useAuthUser()).toBeNull();
+        expect(await useAuthUser()).toEqual({ user: null, loading: false });
     });
 });
 ```

@@ -20,6 +20,9 @@ under [`packages/`](packages/).
   `LocaleContext`, cookie flows, `Link` vs `LocaleLink`.
 - [packages/testing.md](packages/testing.md) — vitest setup, 100% coverage
   policy, mocking conventions, known dead-code exceptions.
+- [packages/firebase-auth.md](packages/firebase-auth.md) — optional
+  `firebase_auth` submodule: enabling it, isolation rules, localization,
+  middleware wiring.
 
 ## Repo shape (always relevant)
 
