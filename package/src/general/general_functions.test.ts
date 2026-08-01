@@ -81,6 +81,14 @@ describe('getTranslationsImpl', () => {
         );
     });
 
+    it('falls back when namespace is an empty string', () => {
+        const t = getTranslationsImpl('en', messages, '');
+        expect(t('anything')).toBe('anything');
+        expect(console.error).toHaveBeenCalledWith(
+            expect.stringContaining('does not resolve to an object'),
+        );
+    });
+
     it('uses the provided cacheKey instead of deriving one', () => {
         // No direct observable effect other than not throwing; cache write is
         // exercised implicitly. Assert the function still returns correctly.
