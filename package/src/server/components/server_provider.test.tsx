@@ -18,9 +18,10 @@ vi.mock('next/dynamic', () => ({
 vi.mock('../functions/server', () => ({ getMessage: vi.fn(async () => ({ Common: { title: 'Hello' } })) }));
 
 let firebaseAuthValue: Record<string, unknown> | undefined;
+let cookieConsentValue: Record<string, unknown> | undefined;
 vi.mock('@intl-config', () => ({
     get default() {
-        return { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: firebaseAuthValue };
+        return { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: firebaseAuthValue, cookieConsent: cookieConsentValue };
     },
 }));
 
@@ -32,9 +33,20 @@ vi.mock('../../firebase_auth/client/auth_user_provider', () => ({
     default: ({ children }: { children: React.ReactNode }) => <div data-testid="auth-provider">{children}</div>,
 }));
 
+vi.mock('../../cookie_consent/client/cookie_consent_provider', () => ({
+    default: ({ children }: { children: React.ReactNode }) => <div data-testid="cookie-consent-provider">{children}</div>,
+}));
+
+vi.mock('../../cookie_consent/client/components/cookie_consent_analytics', () => ({
+    default: ({ secrets }: { secrets: Record<string, unknown> }) => (
+        <div data-testid="cookie-consent-analytics">{JSON.stringify(secrets)}</div>
+    ),
+}));
+
 describe('LocationzationProvider', () => {
     beforeEach(() => {
         firebaseAuthValue = undefined;
+        cookieConsentValue = undefined;
     });
 
 
@@ -80,5 +92,45 @@ describe('LocationzationProvider', () => {
         expect(resolveAuthUserAndRedirect).not.toHaveBeenCalled();
         expect(screen.queryByTestId('auth-provider')).not.toBeInTheDocument();
         expect(await screen.findByText('child')).toBeInTheDocument();
+    });
+
+    it('wraps children in CookieConsentProvider and passes resolved static secrets when cookieConsent.secrets is configured', async () => {
+        cookieConsentValue = { secrets: { googleAnalyticsId: 'G-XXX' } };
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        const provider = await screen.findByTestId('cookie-consent-provider');
+        expect(provider).toHaveTextContent('child');
+        expect(await screen.findByTestId('cookie-consent-analytics')).toHaveTextContent('G-XXX');
+    });
+
+    it('resolves secrets via getSecrets, taking precedence over static secrets', async () => {
+        const getSecrets = vi.fn(async () => ({ googleAdsId: 'AW-YYY' }));
+        cookieConsentValue = { secrets: { googleAnalyticsId: 'G-XXX' }, getSecrets };
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(getSecrets).toHaveBeenCalled();
+        expect(await screen.findByTestId('cookie-consent-analytics')).toHaveTextContent('AW-YYY');
+    });
+
+    it('does not resolve or render analytics when autoWireAnalytics is false', async () => {
+        const getSecrets = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
+        cookieConsentValue = { getSecrets, autoWireAnalytics: false };
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(getSecrets).not.toHaveBeenCalled();
+        await screen.findByTestId('cookie-consent-provider');
+        expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
+    });
+
+    it('renders CookieConsentProvider without analytics when cookieConsent has no secrets configured', async () => {
+        cookieConsentValue = {};
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        await screen.findByTestId('cookie-consent-provider');
+        expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
     });
 });

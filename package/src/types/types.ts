@@ -88,7 +88,68 @@ export interface RoutingConfig<AppLocales extends Locales, AppLocalePrefixMode e
      * if this field is missing at call time rather than silently no-op'ing.
      */
     firebaseAuth?: FirebaseAuthRoutingConfig;
+    /**
+     * Configures the optional `cookie_consent` submodule (cookie-consent +
+     * privacy-policy-update banners). Omit entirely to keep it disabled —
+     * `useCookieConsent()`/`CookieConsentProvider` will throw a descriptive
+     * error if called without this set.
+     */
+    cookieConsent?: CookieConsentRoutingConfig;
 };
+
+export interface CookieConsentRoutingConfig {
+    /**
+     * Date the current privacy policy was last modified, e.g. `"2026-07-20"`
+     * or a `Date`. When set, the "privacy policy updated" banner
+     * automatically shows to any visitor whose stored consent predates this
+     * date. Omit to disable the privacy-policy-update banner entirely (the
+     * cookie-consent banner still works independently).
+     */
+    privacyPolicyDate?: string | Date;
+    /** Cookie-consent cookie name. Defaults to `'__cookie_consent_key__'`. */
+    consentCookieName?: string;
+    /** Privacy-policy-date cookie name. Defaults to `'__privacy_policy_date_key__'`. */
+    privacyPolicyDateCookieName?: string;
+    /** Cookie max-age in seconds for both cookies above. Defaults to 1 year (31536000). */
+    cookieMaxAge?: number;
+    /**
+     * Whether `IntlProvider` should automatically render the analytics/ads
+     * scripts (Cloudflare Web Analytics beacon, Google Consent Mode + gtag,
+     * Microsoft Clarity — whichever secrets resolve below) once consent is
+     * granted, and gate them behind the cookie-consent banner otherwise.
+     * Defaults to `true` when `secrets`/`getSecrets` is set; set `false` to
+     * keep `cookieConsent` configured for the dialogs/hook only and wire
+     * analytics yourself.
+     */
+    autoWireAnalytics?: boolean;
+    /**
+     * Static secrets/IDs for the analytics providers below. Use this OR
+     * `getSecrets`, not both — `getSecrets` takes precedence when both are
+     * set (e.g. secrets only available at request time from a Cloudflare
+     * `env` binding).
+     */
+    secrets?: CookieConsentAnalyticsSecrets;
+    /**
+     * Resolves the same secrets at request time — e.g. from Cloudflare's
+     * `getCloudflareContext().env` (via `@opennextjs/cloudflare`, not a
+     * dependency of this package — pass your own getter). Any field left
+     * `undefined` in the returned object disables that provider's script.
+     */
+    getSecrets?: () => CookieConsentAnalyticsSecrets | Promise<CookieConsentAnalyticsSecrets>;
+}
+
+export interface CookieConsentAnalyticsSecrets {
+    /** Cloudflare Web Analytics beacon token, e.g. `'{"token": "..."}'` (the raw `data-cf-beacon` attribute value). */
+    cloudflareBeaconToken?: string;
+    /** Google Analytics measurement ID, e.g. `"G-XXXXXXX"`. */
+    googleAnalyticsId?: string;
+    /** Google Ads conversion ID, e.g. `"AW-XXXXXXXXX"`. */
+    googleAdsId?: string;
+    /** Google AdSense publisher ID, e.g. `"ca-pub-XXXXXXXXXXXXXXXX"`. */
+    googleAdSenseId?: string;
+    /** Microsoft Clarity project ID. */
+    clarityProjectId?: string;
+}
 
 export interface FirebaseAuthRoutingConfig {
     /**

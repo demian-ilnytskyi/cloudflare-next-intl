@@ -11,4 +11,6 @@ export type {
     Alternates,
     changeFrequency,
     IntlSitemap,
+    CookieConsentRoutingConfig,
+    CookieConsentAnalyticsSecrets,
 } from './types';

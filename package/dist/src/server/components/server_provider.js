@@ -55,5 +55,11 @@ export default async function LocationzationProvider({ language, messages, child
         }
         initialAuthUser = await authUserServerProviderModule.resolveAuthUserAndRedirect();
     }
-    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, initialAuthUser: initialAuthUser, skipAuthProvider: !autoWireClientProvider, children: children });
+    let analyticsSecrets;
+    if (config.cookieConsent && config.cookieConsent.autoWireAnalytics !== false) {
+        analyticsSecrets = config.cookieConsent.getSecrets
+            ? await config.cookieConsent.getSecrets()
+            : config.cookieConsent.secrets;
+    }
+    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, initialAuthUser: initialAuthUser, skipAuthProvider: !autoWireClientProvider, analyticsSecrets: analyticsSecrets, children: children });
 }

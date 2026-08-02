@@ -1,5 +1,5 @@
 "use client";
-import { jsx as _jsx } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables";
 import { createContext, useMemo } from "react";
 import dynamic from "next/dynamic";
@@ -13,7 +13,9 @@ export const LocaleContext = createContext(undefined);
 // update (and a `getIdToken(true)` refresh) that causes another render —
 // an infinite loop of session-cookie writes, one per render.
 const AuthUserProvider = dynamic(() => import("../../firebase_auth/client/auth_user_provider"));
-export default function LocationzationClientProvider({ language, messages, initialAuthUser = null, skipAuthProvider = false, children }) {
+const CookieConsentProvider = dynamic(() => import("../../cookie_consent/client/cookie_consent_provider"));
+const CookieConsentAnalytics = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_analytics"));
+export default function LocationzationClientProvider({ language, messages, initialAuthUser = null, skipAuthProvider = false, analyticsSecrets, children }) {
     setLocaleCache(language);
     setMessageForLocaleCache(language, messages);
     // `LocaleContext.Provider` stays the outermost element here — the
@@ -24,6 +26,9 @@ export default function LocationzationClientProvider({ language, messages, initi
     let providedChildren = children;
     if (config.firebaseAuth && !skipAuthProvider) {
         providedChildren = _jsx(AuthUserProvider, { initialUser: initialAuthUser, children: children });
+    }
+    if (config.cookieConsent) {
+        providedChildren = _jsxs(CookieConsentProvider, { children: [providedChildren, analyticsSecrets && _jsx(CookieConsentAnalytics, { secrets: analyticsSecrets })] });
     }
     const contextValue = useMemo(() => ({ language, messages }), [language, messages]);
     return _jsx(LocaleContext.Provider, { value: contextValue, children: providedChildren });

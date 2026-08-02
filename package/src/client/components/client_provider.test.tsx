@@ -8,7 +8,7 @@ vi.mock('../../general/cache_variables', () => ({
     setMessageForLocaleCache: vi.fn(),
 }));
 
-let currentConfig: { firebaseAuth?: Record<string, unknown> };
+let currentConfig: { firebaseAuth?: Record<string, unknown>; cookieConsent?: Record<string, unknown> };
 vi.mock('@intl-config', () => ({
     get default() {
         return currentConfig;
@@ -37,6 +37,14 @@ vi.mock('../../firebase_auth/client/auth_user_provider', () => ({
         }, []);
         return <div data-testid="auth-provider">{children}</div>;
     },
+}));
+
+vi.mock('../../cookie_consent/client/cookie_consent_provider', () => ({
+    default: ({ children }: { children: React.ReactNode }) => <div data-testid="cookie-consent-provider">{children}</div>,
+}));
+
+vi.mock('../../cookie_consent/client/components/cookie_consent_analytics', () => ({
+    default: () => <div data-testid="cookie-consent-analytics" />,
 }));
 
 function Consumer() {
@@ -116,5 +124,43 @@ describe('LocationzationClientProvider', () => {
         );
         expect(screen.queryByTestId('auth-provider')).not.toBeInTheDocument();
         expect(await screen.findByText('child')).toBeInTheDocument();
+    });
+
+    it('wraps children in CookieConsentProvider when cookieConsent is configured, without analytics when no secrets resolve', async () => {
+        currentConfig = { cookieConsent: {} };
+        const { default: LocationzationClientProvider } = await import('./client_provider');
+        render(
+            <LocationzationClientProvider language="en" messages={{ Common: {} }}>
+                <span>child</span>
+            </LocationzationClientProvider>,
+        );
+        const provider = await screen.findByTestId('cookie-consent-provider');
+        expect(provider).toHaveTextContent('child');
+        expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
+    });
+
+    it('renders CookieConsentAnalytics when analyticsSecrets resolve', async () => {
+        currentConfig = { cookieConsent: {} };
+        const { default: LocationzationClientProvider } = await import('./client_provider');
+        render(
+            <LocationzationClientProvider language="en" messages={{ Common: {} }} analyticsSecrets={{ googleAnalyticsId: 'G-XXX' }}>
+                <span>child</span>
+            </LocationzationClientProvider>,
+        );
+        expect(await screen.findByTestId('cookie-consent-analytics')).toBeInTheDocument();
+    });
+
+    it('nests AuthUserProvider inside CookieConsentProvider when both are configured', async () => {
+        currentConfig = { firebaseAuth: {}, cookieConsent: {} };
+        const { default: LocationzationClientProvider } = await import('./client_provider');
+        render(
+            <LocationzationClientProvider language="en" messages={{ Common: {} }}>
+                <span>child</span>
+            </LocationzationClientProvider>,
+        );
+        const cookieProvider = await screen.findByTestId('cookie-consent-provider');
+        const authProvider = await screen.findByTestId('auth-provider');
+        expect(cookieProvider).toContainElement(authProvider);
+        expect(authProvider).toHaveTextContent('child');
     });
 });

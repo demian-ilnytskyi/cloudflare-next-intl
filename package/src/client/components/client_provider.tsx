@@ -6,6 +6,7 @@ import { createContext, useMemo } from "react";
 import dynamic from "next/dynamic";
 import config from "@intl-config";
 import type { SerializedAuthUser } from "../../firebase_auth/types";
+import type { CookieConsentAnalyticsSecrets } from "../../types/types";
 
 interface LocaleContextType {
     language: string;
@@ -22,12 +23,15 @@ export const LocaleContext = createContext<LocaleContextType | undefined>(undefi
 // update (and a `getIdToken(true)` refresh) that causes another render —
 // an infinite loop of session-cookie writes, one per render.
 const AuthUserProvider = dynamic(() => import("../../firebase_auth/client/auth_user_provider"));
+const CookieConsentProvider = dynamic(() => import("../../cookie_consent/client/cookie_consent_provider"));
+const CookieConsentAnalytics = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_analytics"));
 
 export default function LocationzationClientProvider({
     language,
     messages,
     initialAuthUser = null,
     skipAuthProvider = false,
+    analyticsSecrets,
     children
 }: {
     language: string;
@@ -35,6 +39,8 @@ export default function LocationzationClientProvider({
     initialAuthUser?: SerializedAuthUser | null;
     /** Set when `firebaseAuth.autoWireClientProvider` is `false` — skips wrapping `children` in the client `AuthUserProvider` entirely. */
     skipAuthProvider?: boolean;
+    /** Resolved server-side from `cookieConsent.secrets`/`getSecrets` when `autoWireAnalytics` isn't `false`. */
+    analyticsSecrets?: CookieConsentAnalyticsSecrets;
     children: React.ReactNode;
 }): Component {
     setLocaleCache(language);
@@ -48,6 +54,12 @@ export default function LocationzationClientProvider({
     let providedChildren = children;
     if (config.firebaseAuth && !skipAuthProvider) {
         providedChildren = <AuthUserProvider initialUser={initialAuthUser}>{children}</AuthUserProvider>;
+    }
+    if (config.cookieConsent) {
+        providedChildren = <CookieConsentProvider>
+            {providedChildren}
+            {analyticsSecrets && <CookieConsentAnalytics secrets={analyticsSecrets} />}
+        </CookieConsentProvider>;
     }
 
     const contextValue = useMemo(() => ({ language, messages }), [language, messages]);

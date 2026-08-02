@@ -115,6 +115,30 @@
     "./firebaseAuthMiddleware": {
       "types": "./dist/src/firebase_auth/middleware/update_session.d.ts",
       "import": "./dist/src/firebase_auth/middleware/update_session.js"
+    },
+    "./cookieConsent": {
+      "types": "./dist/src/cookie_consent/index.d.ts",
+      "import": "./dist/src/cookie_consent/index.js"
+    },
+    "./CookieConsentProvider": {
+      "types": "./dist/src/cookie_consent/client/cookie_consent_provider.d.ts",
+      "import": "./dist/src/cookie_consent/client/cookie_consent_provider.js"
+    },
+    "./useCookieConsent": {
+      "types": "./dist/src/cookie_consent/client/use_cookie_consent.d.ts",
+      "import": "./dist/src/cookie_consent/client/use_cookie_consent.js"
+    },
+    "./CookieConsentDialog": {
+      "types": "./dist/src/cookie_consent/client/components/cookie_consent_dialog.d.ts",
+      "import": "./dist/src/cookie_consent/client/components/cookie_consent_dialog.js"
+    },
+    "./PrivacyPolicyUpdateDialog": {
+      "types": "./dist/src/cookie_consent/client/components/privacy_policy_update_dialog.d.ts",
+      "import": "./dist/src/cookie_consent/client/components/privacy_policy_update_dialog.js"
+    },
+    "./cookieConsentAnalytics": {
+      "types": "./dist/src/cookie_consent/client/components/cookie_consent_analytics.d.ts",
+      "import": "./dist/src/cookie_consent/client/components/cookie_consent_analytics.js"
     }
   },
   "scripts": {
@@ -158,6 +182,7 @@
   },
   "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl#readme",
   "peerDependencies": {
+    "@microsoft/clarity": ">=1.0.0",
     "firebase": ">=10.0.0",
     "next": ">=12.0.0",
     "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || >=19.0.0-rc <19.0.0 || ^19.0.0",
@@ -169,11 +194,15 @@
     },
     "firebase": {
       "optional": true
+    },
+    "@microsoft/clarity": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@eslint/js": "^9.27.0",
+    "@microsoft/clarity": "^1.0.2",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",

@@ -1,0 +1,49 @@
+# `src/cookie_consent`
+
+Optional module, active only when `cookieConsent` is set on the
+`RoutingConfig` passed to `setIntlConfig` (see `../config/README.md`).
+`CookieConsentProvider`/`useCookieConsent` call `requireCookieConsentConfig`
+first, which throws a descriptive error instead of no-op'ing if that config
+is missing.
+
+## Layout
+
+- `client/cookie_consent_provider.tsx` — context provider; reads/writes the
+  consent + privacy-policy-date cookies via `client/functions/get_cookie` and
+  `set_cookie`.
+- `client/use_cookie_consent.ts` — context hook.
+- `client/components/cookie_consent_dialog.tsx` — cookie-consent banner.
+- `client/components/privacy_policy_update_dialog.tsx` — "privacy policy
+  updated" banner; auto-enabled only when `cookieConsent.privacyPolicyDate`
+  is set.
+- `types.ts` — `CookieConsentContextType`, per-slot `CookieDialogClassNames`/
+  `CookieDialogStyles`.
+
+## Auto-wiring
+
+When `cookieConsent` is set, `IntlProvider` (`server/components/server_provider.tsx`)
+automatically wraps `children` in `CookieConsentProvider` — no manual setup
+needed for `useCookieConsent()`/the dialog components. If `cookieConsent.secrets`
+or `getSecrets` is also set (and `autoWireAnalytics` isn't `false`), it
+additionally resolves those secrets server-side (`getSecrets` takes
+precedence when both are set — use it for values only available at request
+time, e.g. from a Cloudflare `env` binding via your own
+`getCloudflareContext()` call) and renders `CookieConsentAnalytics`, which
+gates Cloudflare Web Analytics / Google Ads / Google Analytics / AdSense /
+Microsoft Clarity behind consent. Any field left out of the resolved secrets
+just skips that provider's script.
+
+## Customization
+
+Both dialog components accept per-slot `classNames`/`styles` (root, message,
+link, actions, buttons), or a `render` prop for fully bespoke markup that
+bypasses the default DOM entirely — no Tailwind or other design-system
+dependency is baked in.
+
+## Gotchas
+
+- The privacy-policy-update banner only turns on when
+  `cookieConsent.privacyPolicyDate` is configured; otherwise
+  `privacyPolicyUpdated` stays `false` forever.
+- `useCookieConsent` throws `"useCookieConsent must be used within a
+  CookieConsentProvider"` if called outside the provider.

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { localesSet } from "../../config/middleware";
 import config from "../../config/intl_config";
 import type { SerializedAuthUser } from "../../firebase_auth/types";
+import type { CookieConsentAnalyticsSecrets } from "../../types/types";
 
 const LocationzationClientProvider = dynamic(
     () => import("../../client/components/client_provider"),
@@ -64,7 +65,19 @@ export default async function LocationzationProvider({ language, messages, child
         initialAuthUser = await authUserServerProviderModule.resolveAuthUserAndRedirect();
     }
 
-    return <LocationzationClientProvider language={language} messages={messagesValue} initialAuthUser={initialAuthUser} skipAuthProvider={!autoWireClientProvider}>
+    let analyticsSecrets: CookieConsentAnalyticsSecrets | undefined;
+    if (config.cookieConsent && config.cookieConsent.autoWireAnalytics !== false) {
+        analyticsSecrets = config.cookieConsent.getSecrets
+            ? await config.cookieConsent.getSecrets()
+            : config.cookieConsent.secrets;
+    }
+
+    return <LocationzationClientProvider
+        language={language}
+        messages={messagesValue}
+        initialAuthUser={initialAuthUser}
+        skipAuthProvider={!autoWireClientProvider}
+        analyticsSecrets={analyticsSecrets}>
         {children}
     </LocationzationClientProvider>
 }
