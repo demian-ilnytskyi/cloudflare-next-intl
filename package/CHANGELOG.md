@@ -3,6 +3,16 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.1] - 2026-08-02
+
+### Added
+
+- `CookieConsentDialog` and `PrivacyPolicyUpdateDialog` now ship default
+  styling (Tailwind classes) and default English/Ukrainian copy, so both
+  render a usable, styled banner out of the box with zero props. Passing
+  `message`/`acceptText`/`declineText`/`closeText`/`classNames`/`styles`
+  still overrides the defaults per slot as before.
+
 ## [0.5.0] - 2026-08-02
 
 ### Fixed

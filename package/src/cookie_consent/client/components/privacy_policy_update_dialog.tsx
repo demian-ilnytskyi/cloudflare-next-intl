@@ -2,6 +2,9 @@
 
 import useCookieConsent from '../use_cookie_consent';
 import DefaultPrivacyPolicyLink from './default_privacy_policy_link';
+import { getLocaleCache } from '../../../general/cache_variables';
+import { defaultPrivacyPolicyUpdateText } from './default_dialog_text';
+import { defaultCookieDialogClassNames } from './default_dialog_styles';
 import type { CookieDialogClassNames, CookieDialogStyles } from '../../types';
 
 export interface PrivacyPolicyUpdateDialogProps {
@@ -33,10 +36,10 @@ export interface PrivacyPolicyUpdateDialogProps {
  * via `classNames`/`styles` (per-slot) or `render` (full custom markup).
  */
 export default function PrivacyPolicyUpdateDialog({
-    message = 'Our privacy policy has been updated.',
+    message,
     link,
-    privacyPolicyLinkText = 'Learn more',
-    closeText = 'Got it',
+    privacyPolicyLinkText,
+    closeText,
     id = 'privacy-policy-update-dialog',
     classNames,
     styles,
@@ -48,9 +51,15 @@ export default function PrivacyPolicyUpdateDialog({
 
     if (render) return <>{render({ acknowledge: acknowledgePrivacyPolicyUpdate })}</>;
 
+    const text = defaultPrivacyPolicyUpdateText[getLocaleCache() ?? 'en'] ?? defaultPrivacyPolicyUpdateText.en;
+    const resolvedMessage = message ?? text.message;
+    const resolvedPrivacyPolicyLinkText = privacyPolicyLinkText ?? text.privacyPolicyLinkText;
+    const resolvedCloseText = closeText ?? text.closeText;
+    const resolvedClassNames = { ...defaultCookieDialogClassNames, ...classNames };
+
     const resolvedLink = link !== undefined
         ? link
-        : <DefaultPrivacyPolicyLink privacyPolicyPath={privacyPolicyPath} text={privacyPolicyLinkText} />;
+        : <DefaultPrivacyPolicyLink privacyPolicyPath={privacyPolicyPath} text={resolvedPrivacyPolicyLinkText} className={resolvedClassNames.link} />;
 
     return (
         <div
@@ -58,19 +67,19 @@ export default function PrivacyPolicyUpdateDialog({
             role="dialog"
             aria-modal="false"
             aria-labelledby={`${id}-title`}
-            className={classNames?.root}
+            className={resolvedClassNames.root}
             style={styles?.root}>
-            <p id={`${id}-title`} className={classNames?.message} style={styles?.message}>
-                {message}
-                {resolvedLink ? <span className={classNames?.link} style={styles?.link}> {resolvedLink}</span> : null}
+            <p id={`${id}-title`} className={resolvedClassNames.message} style={styles?.message}>
+                {resolvedMessage}
+                {resolvedLink ? <span> {resolvedLink}</span> : null}
             </p>
             <button
                 type="button"
                 onClick={acknowledgePrivacyPolicyUpdate}
-                aria-label={closeText}
-                className={classNames?.closeButton}
+                aria-label={resolvedCloseText}
+                className={resolvedClassNames.closeButton}
                 style={styles?.closeButton}>
-                {closeText}
+                {resolvedCloseText}
             </button>
         </div>
     );

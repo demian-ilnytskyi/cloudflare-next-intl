@@ -84,7 +84,7 @@ export default async function LocationzationProvider({ language, messages, child
                 config.cookieConsent.getCloudflareContext,
                 config.cookieConsent.gdprCountries,
             )
-            : true;
+            : false;
 
         const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
 

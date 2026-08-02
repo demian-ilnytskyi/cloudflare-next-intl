@@ -2,6 +2,9 @@
 
 import useCookieConsent from '../use_cookie_consent';
 import DefaultPrivacyPolicyLink from './default_privacy_policy_link';
+import { getLocaleCache } from '../../../general/cache_variables';
+import { defaultCookieConsentText } from './default_dialog_text';
+import { defaultCookieDialogClassNames } from './default_dialog_styles';
 import type { CookieDialogClassNames, CookieDialogStyles } from '../../types';
 
 export interface CookieConsentDialogProps {
@@ -37,11 +40,11 @@ export interface CookieConsentDialogProps {
  * particular design system.
  */
 export default function CookieConsentDialog({
-    message = 'We use cookies to improve your experience.',
+    message,
     link,
-    privacyPolicyLinkText = 'Privacy Policy',
-    acceptText = 'Accept',
-    declineText = 'Necessary only',
+    privacyPolicyLinkText,
+    acceptText,
+    declineText,
     hideDecline = false,
     id = 'cookie-consent-dialog',
     classNames,
@@ -54,9 +57,16 @@ export default function CookieConsentDialog({
 
     if (render) return <>{render({ setConsent })}</>;
 
+    const text = defaultCookieConsentText[getLocaleCache() ?? 'en'] ?? defaultCookieConsentText.en;
+    const resolvedMessage = message ?? text.message;
+    const resolvedPrivacyPolicyLinkText = privacyPolicyLinkText ?? text.privacyPolicyLinkText;
+    const resolvedAcceptText = acceptText ?? text.acceptText;
+    const resolvedDeclineText = declineText ?? text.declineText;
+    const resolvedClassNames = { ...defaultCookieDialogClassNames, ...classNames };
+
     const resolvedLink = link !== undefined
         ? link
-        : <DefaultPrivacyPolicyLink privacyPolicyPath={privacyPolicyPath} text={privacyPolicyLinkText} />;
+        : <DefaultPrivacyPolicyLink privacyPolicyPath={privacyPolicyPath} text={resolvedPrivacyPolicyLinkText} className={resolvedClassNames.link} />;
 
     return (
         <div
@@ -64,28 +74,28 @@ export default function CookieConsentDialog({
             role="dialog"
             aria-modal="false"
             aria-labelledby={`${id}-title`}
-            className={classNames?.root}
+            className={resolvedClassNames.root}
             style={styles?.root}>
-            <p id={`${id}-title`} className={classNames?.message} style={styles?.message}>
-                {message}
-                {resolvedLink ? <span className={classNames?.link} style={styles?.link}> {resolvedLink}</span> : null}
+            <p id={`${id}-title`} className={resolvedClassNames.message} style={styles?.message}>
+                {resolvedMessage}
+                {resolvedLink ? <span> {resolvedLink}</span> : null}
             </p>
-            <div className={classNames?.actions} style={styles?.actions}>
+            <div className={resolvedClassNames.actions} style={styles?.actions}>
                 {!hideDecline && (
                     <button
                         type="button"
                         onClick={() => setConsent(false)}
-                        className={classNames?.declineButton}
+                        className={resolvedClassNames.declineButton}
                         style={styles?.declineButton}>
-                        {declineText}
+                        {resolvedDeclineText}
                     </button>
                 )}
                 <button
                     type="button"
                     onClick={() => setConsent(true)}
-                    className={classNames?.acceptButton}
+                    className={resolvedClassNames.acceptButton}
                     style={styles?.acceptButton}>
-                    {acceptText}
+                    {resolvedAcceptText}
                 </button>
             </div>
         </div>
