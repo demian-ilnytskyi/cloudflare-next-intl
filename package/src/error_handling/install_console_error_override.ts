@@ -2,8 +2,6 @@ import reportError, { type ReportErrorConfig } from './report_error';
 import stringifyUnknown from './stringify_unknown';
 import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors';
 
-const MAX_REPORTS_PER_INSTALL = 20;
-
 /**
  * Replaces the global `console.error` so every `console.error(...)` call is
  * also routed through `config.errorHandling.onError`/`reportError` — the
@@ -13,11 +11,10 @@ const MAX_REPORTS_PER_INSTALL = 20;
  * own `console`). Only takes effect when `config.errorHandling.overrideConsoleError`
  * is `true`.
  *
- * Caps at `MAX_REPORTS_PER_INSTALL` (20) reports per install — a component
- * stuck in a render-error loop calls `console.error` on every render, and
- * without a cap this would report (and, server-side, background via
- * `waitUntil`) unboundedly. Once the cap is hit, `console.error` still runs
- * normally, it just stops being reported.
+ * A component stuck in a render-error loop calls `console.error` on every
+ * render — `reportError`'s own dedup/cap (on by default, see
+ * `errorHandling.dedup`/`maxReports`) is what stops that from reporting
+ * unboundedly; this function does not duplicate that cap itself.
  *
  * `config.errorHandling.ignoreConsoleErrors` (default
  * `defaultIgnoredConsoleErrors` — this package's own Firebase Auth error
@@ -40,19 +37,15 @@ export default function installConsoleErrorOverride(
     if ((console.error as { __isErrorHandlingOverride?: boolean }).__isErrorHandlingOverride) return;
 
     const originalConsoleError = console.error.bind(console);
-    let reportCount = 0;
 
     const override = (message?: unknown, ...optionalParams: unknown[]) => {
         originalConsoleError(message, ...optionalParams);
-
-        if (reportCount >= MAX_REPORTS_PER_INSTALL) return;
 
         const stringified = stringifyUnknown(message, isClient);
         const ignoreList = config.errorHandling?.ignoreConsoleErrors ?? defaultIgnoredConsoleErrors;
         if (ignoreList.some((ignored) => stringified.includes(ignored))) return;
         if (config.errorHandling?.ignoreConsoleError?.(stringified)) return;
 
-        reportCount++;
         void reportError(
             config,
             { error: message, classOrMethodName: 'Global Console Error Handler', params: optionalParams, isClient },

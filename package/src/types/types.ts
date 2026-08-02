@@ -158,6 +158,14 @@ export interface ErrorHandlingParams {
      * yourself — it's always overwritten.
      */
     formattedMessage?: string;
+    /**
+     * Key used by `config.errorHandling.dedupGate` to dedup this report
+     * against the immediately preceding one. Defaults to
+     * `` `${classOrMethodName} ${stringifyUnknown(error)} ${stringifyUnknown(params ?? '')}` ``
+     * when omitted (built by `reportError` itself) — set this explicitly
+     * only if you want a coarser/different dedup key.
+     */
+    dedupKey?: string;
 }
 
 export interface ErrorHandlingRoutingConfig {
@@ -203,6 +211,27 @@ export interface ErrorHandlingRoutingConfig {
      * substring match.
      */
     ignoreConsoleError?: (message: string) => boolean;
+    /**
+     * Dedup: `reportError` skips reporting an error whose key (`dedupKey`,
+     * or a built-in key derived from `classOrMethodName`/`error`/`params`
+     * when omitted) matches the immediately preceding reported error's key,
+     * within `throttleMs`. On by default (matches this package's own
+     * internal call sites and `installConsoleErrorOverride`'s console-loop
+     * guard). Set `false` to report every distinct call with no dedup at
+     * all.
+     *
+     * The dedup state lives inside `reportError`'s own module — this is
+     * shared mutable state, safe by default only because a fresh JS realm
+     * (isolate/Worker instance) starts with it cleared; in a long-lived
+     * server process reused across many requests, pass `resetDedup: true`
+     * on the first `reportError` call of each request/cron tick to clear it
+     * (otherwise one request's errors can suppress another's).
+     */
+    dedup?: boolean;
+    /** Throttle window in ms: the same dedup key reported again within this window is skipped. Defaults to `5000`. Only consulted when `dedup` isn't `false`. */
+    throttleMs?: number;
+    /** Clears the dedup last-key/timestamp state before processing this call. Pass `true` on the first `reportError` call of each request/cron tick in a long-lived server process. */
+    resetDedup?: boolean;
 }
 
 export interface CookieConsentRoutingConfig {

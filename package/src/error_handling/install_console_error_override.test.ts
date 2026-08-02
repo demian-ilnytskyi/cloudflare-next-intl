@@ -76,15 +76,27 @@ describe('installConsoleErrorOverride', () => {
         expect(onError).toHaveBeenCalled();
     });
 
-    it('stops reporting after MAX_REPORTS_PER_INSTALL calls, but keeps logging', async () => {
+    it('always logs every call, even ones reportError throttles away', async () => {
         vi.resetModules();
         const { default: install } = await import('./install_console_error_override');
         const onError = vi.fn();
         const original = vi.fn();
         console.error = original;
         install({ errorHandling: { overrideConsoleError: true, onError } });
-        for (let i = 0; i < 25; i++) console.error(`err ${i}`);
+        for (let i = 0; i < 25; i++) console.error('same error, repeated in a tight loop');
         expect(original).toHaveBeenCalledTimes(25);
-        expect(onError).toHaveBeenCalledTimes(20);
+        // reportError's own default 5s dedup throttles the repeat reports —
+        // this only asserts logging is never affected by that.
+        expect(onError.mock.calls.length).toBeLessThan(25);
+    });
+
+    it('reports distinct messages individually — no count-based cap', async () => {
+        vi.resetModules();
+        const { default: install } = await import('./install_console_error_override');
+        const onError = vi.fn();
+        console.error = vi.fn();
+        install({ errorHandling: { overrideConsoleError: true, onError } });
+        for (let i = 0; i < 25; i++) console.error(`distinct error ${i}`);
+        expect(onError).toHaveBeenCalledTimes(25);
     });
 });

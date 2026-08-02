@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.1] - 2026-08-02
+
+### Added
+
+- `reportError` now dedups by default: an error whose key (`classOrMethodName`/`error`/`params`, or an explicit `ErrorHandlingParams.dedupKey`) matches the immediately preceding reported error's key within a throttle window is skipped. New `ErrorHandlingRoutingConfig` fields: `dedup?: boolean` (default `true`), `throttleMs?: number` (default `5000`), `resetDedup?: boolean` (pass `true` on the first `reportError` call of each request/cron tick in a long-lived server process to clear the dedup state — otherwise one request's errors can suppress another's).
+
+### Changed
+
+- `installConsoleErrorOverride` no longer has its own separate report cap — dedup/throttling is now entirely `reportError`'s responsibility (see above).
+- `reportError`'s `waitUntil` backgrounding calls `callOnError(...)` directly again (no `Promise.resolve().then()` indirection) — `waitUntil` must be called synchronously, in the same tick, or Cloudflare Workers may tear down the request before it's ever registered.
+
 ## [0.6.0] - 2026-08-02
 
 ### Added

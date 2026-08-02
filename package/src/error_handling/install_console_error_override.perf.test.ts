@@ -7,16 +7,17 @@ describe('installConsoleErrorOverride perf characteristics', () => {
         vi.resetModules();
     });
 
-    it('caps reporting at MAX_REPORTS_PER_INSTALL even under a render-error-loop-style burst', async () => {
+    it('throttles a render-loop burst that logs the same error repeatedly', async () => {
         vi.resetModules();
         const { default: install } = await import('./install_console_error_override');
         const onError = vi.fn();
         console.error = vi.fn();
         install({ errorHandling: { overrideConsoleError: true, onError } });
-        // Simulates a component stuck re-throwing on every render — a burst
-        // far beyond any single request/render cycle should still realistically hit.
-        for (let i = 0; i < 500; i++) console.error(`render loop error ${i}`);
-        expect(onError.mock.calls.length).toBeLessThanOrEqual(20);
+        // Simulates a component stuck re-throwing the same error on every
+        // render — reportError's default 5s same-key dedup collapses this
+        // burst down to a single report instead of 500.
+        for (let i = 0; i < 500; i++) console.error('render loop error');
+        expect(onError).toHaveBeenCalledTimes(1);
     });
 
     it('the ignore-list check is a plain substring scan, not re-stringifying already-string messages', async () => {
