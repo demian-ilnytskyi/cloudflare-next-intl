@@ -3,6 +3,19 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.2] - 2026-08-02
+
+### Fixed
+
+- `CookieConsentProvider`'s `consent` (and derived `privacyPolicyUpdated`)
+  state used to resolve only inside a client-only `useEffect`, so
+  `CookieConsentDialog`/`PrivacyPolicyUpdateDialog` briefly rendered with
+  `consent = null` on first paint before the effect corrected it — a visible
+  "flash" of the cookie banner for returning visitors who had already
+  decided. Added `isMounted` to `CookieConsentContextType`, set once the
+  effect has read the stored cookies; both default dialog components now
+  render `null` until `isMounted` is `true`, removing the flash entirely.
+
 ## [0.5.1] - 2026-08-02
 
 ### Added
