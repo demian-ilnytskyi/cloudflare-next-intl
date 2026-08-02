@@ -5,9 +5,14 @@ import CookieConsentDialog from './cookie_consent_dialog';
 const setConsent = vi.fn();
 let consent: boolean | null = null;
 let privacyPolicyPath: string | false = '/privacy-policy';
+let locale: string | undefined = undefined;
 
 vi.mock('../use_cookie_consent', () => ({
     default: () => ({ consent, setConsent, privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn(), privacyPolicyPath }),
+}));
+
+vi.mock('../../../general/cache_variables', () => ({
+    getLocaleCache: () => locale,
 }));
 
 vi.mock('./default_privacy_policy_link', () => ({
@@ -19,6 +24,7 @@ describe('CookieConsentDialog', () => {
     beforeEach(() => {
         consent = null;
         privacyPolicyPath = '/privacy-policy';
+        locale = undefined;
         setConsent.mockClear();
     });
 
@@ -101,6 +107,19 @@ describe('CookieConsentDialog', () => {
         expect(screen.getByText('custom message')).toBeInTheDocument();
         expect(screen.getByText('Yes')).toBeInTheDocument();
         expect(screen.getByText('No')).toBeInTheDocument();
+    });
+
+    it('uses Ukrainian default text when locale is uk', () => {
+        locale = 'uk';
+        render(<CookieConsentDialog />);
+        expect(screen.getByText('Прийняти')).toBeInTheDocument();
+        expect(screen.getByText('Тільки необхідні')).toBeInTheDocument();
+    });
+
+    it('falls back to English default text for an unsupported locale', () => {
+        locale = 'fr';
+        render(<CookieConsentDialog />);
+        expect(screen.getByText('Accept')).toBeInTheDocument();
     });
 
     it('uses the render prop to bypass the default markup', () => {

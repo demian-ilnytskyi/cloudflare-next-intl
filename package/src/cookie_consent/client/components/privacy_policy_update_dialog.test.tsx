@@ -5,9 +5,14 @@ import PrivacyPolicyUpdateDialog from './privacy_policy_update_dialog';
 const acknowledgePrivacyPolicyUpdate = vi.fn();
 let privacyPolicyUpdated = false;
 let privacyPolicyPath: string | false = '/privacy-policy';
+let locale: string | undefined = undefined;
 
 vi.mock('../use_cookie_consent', () => ({
     default: () => ({ consent: true, setConsent: vi.fn(), privacyPolicyUpdated, acknowledgePrivacyPolicyUpdate, privacyPolicyPath }),
+}));
+
+vi.mock('../../../general/cache_variables', () => ({
+    getLocaleCache: () => locale,
 }));
 
 vi.mock('./default_privacy_policy_link', () => ({
@@ -19,6 +24,7 @@ describe('PrivacyPolicyUpdateDialog', () => {
     beforeEach(() => {
         privacyPolicyUpdated = false;
         privacyPolicyPath = '/privacy-policy';
+        locale = undefined;
         acknowledgePrivacyPolicyUpdate.mockClear();
     });
 
@@ -90,6 +96,20 @@ describe('PrivacyPolicyUpdateDialog', () => {
         render(<PrivacyPolicyUpdateDialog message="custom message" closeText="Close" />);
         expect(screen.getByText('custom message')).toBeInTheDocument();
         expect(screen.getByText('Close')).toBeInTheDocument();
+    });
+
+    it('uses Ukrainian default text when locale is uk', () => {
+        privacyPolicyUpdated = true;
+        locale = 'uk';
+        render(<PrivacyPolicyUpdateDialog />);
+        expect(screen.getByText('Зрозуміло')).toBeInTheDocument();
+    });
+
+    it('falls back to English default text for an unsupported locale', () => {
+        privacyPolicyUpdated = true;
+        locale = 'fr';
+        render(<PrivacyPolicyUpdateDialog />);
+        expect(screen.getByText('Got it')).toBeInTheDocument();
     });
 
     it('uses the render prop to bypass the default markup', () => {
