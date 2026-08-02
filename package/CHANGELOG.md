@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.3] - 2026-08-02
+
+### Added
+
+- `createServerErrorAction(config)` (`cloudflare-next-intl/errorHandling`'s `createServerErrorAction` subpath) — creates a `"use server"` action that reports a client-originated error via `reportError`, so server-only config (secrets your `onError` reads, etc.) never has to be imported into client-side code. Call once, server-side, and pass the returned `(error, classOrMethodName, params?)` function to client components. Stringifies the error before it crosses the client→server action boundary and sets `isClient: true` automatically.
+
 ## [0.6.2] - 2026-08-02
 
 ### Added

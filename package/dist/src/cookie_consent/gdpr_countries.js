@@ -1,3 +1,4 @@
+import reportError from '../error_handling/report_error';
 /**
  * Default `cookieConsent.gdprCountries` — EU/EEA member states (GDPR),
  * Iceland/Liechtenstein/Norway (EEA), the UK (UK-GDPR), and Switzerland
@@ -40,12 +41,22 @@ function getGdprCountriesSet(gdprCountries) {
  *   `gdprCountries` skips the banner. `getCountryCode` takes precedence
  *   over `getCloudflareContext` when both are set.
  */
-export default async function resolveRequiresConsent(getCountryCode, getCloudflareContext, gdprCountries) {
+export default async function resolveRequiresConsent(getCountryCode, getCloudflareContext, gdprCountries, errorHandlingConfig) {
     if (!getCountryCode && !getCloudflareContext)
         return true;
-    const countryCode = getCountryCode
-        ? await getCountryCode()
-        : (await getCloudflareContext({ async: true }))?.cf?.country;
+    let countryCode;
+    if (getCountryCode) {
+        countryCode = await getCountryCode();
+    }
+    else {
+        try {
+            countryCode = (await getCloudflareContext({ async: true }))?.cf?.country;
+        }
+        catch (error) {
+            await reportError({ errorHandling: errorHandlingConfig, generate: { getCloudflareContext } }, { error, classOrMethodName: 'resolveRequiresConsent' });
+            return true;
+        }
+    }
     if (typeof countryCode !== 'string' || !countryCode)
         return true;
     return getGdprCountriesSet(gdprCountries).has(countryCode);

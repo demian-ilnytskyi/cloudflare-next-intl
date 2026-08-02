@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { localesSet } from "../../config/middleware";
 import config from "../../config/intl_config";
 import resolveRequiresConsent from "../../cookie_consent/gdpr_countries";
+import installConsoleErrorOverride from "../../error_handling/install_console_error_override";
+import reportError from "../../error_handling/report_error";
 const LocationzationClientProvider = dynamic(() => import("../../client/components/client_provider"));
 let authUserServerProviderModule;
 /**
@@ -48,6 +50,7 @@ export default async function LocationzationProvider({ language, messages, child
         setMessageForLocaleCache(language, messages);
     }
     const messagesValue = messages ?? await getMessage(language);
+    installConsoleErrorOverride(config);
     let initialAuthUser = null;
     const autoWireClientProvider = config.firebaseAuth?.autoWireClientProvider !== false;
     if (config.firebaseAuth && autoWireClientProvider) {
@@ -68,13 +71,21 @@ export default async function LocationzationProvider({ language, messages, child
         // `getCloudflareContext` path in dev; fail-safe to `true`
         // (banner shown) same as an unresolved country would.
         requiresConsent = !isDevEnvironment
-            ? await resolveRequiresConsent(config.cookieConsent.getCountryCode, config.cookieConsent.getCloudflareContext, config.cookieConsent.gdprCountries)
+            ? await resolveRequiresConsent(config.cookieConsent.getCountryCode, config.generate?.getCloudflareContext, config.cookieConsent.gdprCountries, config.errorHandling)
             : false;
         const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
         if (config.cookieConsent.autoWireAnalytics !== false && analyticsAllowedInEnv) {
-            analyticsConfig = config.cookieConsent.getAnalytics
-                ? await config.cookieConsent.getAnalytics()
-                : config.cookieConsent.analytics;
+            if (config.cookieConsent.getAnalytics) {
+                try {
+                    analyticsConfig = await config.cookieConsent.getAnalytics();
+                }
+                catch (error) {
+                    await reportError(config, { error, classOrMethodName: 'getAnalytics' });
+                }
+            }
+            else {
+                analyticsConfig = config.cookieConsent.analytics;
+            }
         }
     }
     return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, initialAuthUser: initialAuthUser, skipAuthProvider: !autoWireClientProvider, analyticsConfig: analyticsConfig, requiresConsent: requiresConsent, autoWireDialogs: config.cookieConsent?.autoWireDialogs !== false, dialogProps: config.cookieConsent?.dialogProps, updateDialogProps: config.cookieConsent?.updateDialogProps, children: children });

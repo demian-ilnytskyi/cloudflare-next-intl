@@ -4,6 +4,7 @@ import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_va
 import { createContext, useMemo } from "react";
 import dynamic from "next/dynamic";
 import config from "@intl-config";
+import installConsoleErrorOverride from "../../error_handling/install_console_error_override";
 export const LocaleContext = createContext(undefined);
 // Hoisted to module scope — calling `dynamic()` inside the component body
 // creates a brand-new component identity every render, forcing React to
@@ -20,6 +21,7 @@ const PrivacyPolicyUpdateDialog = dynamic(() => import("../../cookie_consent/cli
 export default function LocationzationClientProvider({ language, messages, initialAuthUser = null, skipAuthProvider = false, analyticsConfig, requiresConsent = true, autoWireDialogs = true, dialogProps, updateDialogProps, children }) {
     setLocaleCache(language);
     setMessageForLocaleCache(language, messages);
+    installConsoleErrorOverride(config, true);
     // `LocaleContext.Provider` stays the outermost element here — the
     // client `AuthUserProvider` (and its descendants calling
     // usePathname()/useLocale()) must render as a CHILD of it, not a
