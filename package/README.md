@@ -193,6 +193,8 @@ auto-wires `CookieConsentProvider` (and `CookieConsentAnalytics`, if
 
 ```typescript
 // intl-config.ts
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
 export default setIntlConfig({
     locales: ["en", "de"],
     defaultLocale: "en",
@@ -200,7 +202,10 @@ export default setIntlConfig({
         privacyPolicyDate: "2026-01-01",
         // Optional: gate the banner to GDPR-region visitors only. Omit both
         // getters to disable country-based gating (consent always implicit).
-        getCloudflareContext: () => getCloudflareContext(),
+        // Pass @opennextjs/cloudflare's getCloudflareContext directly — its
+        // exact overloaded signature is accepted as-is, called internally
+        // with { async: true }.
+        getCloudflareContext,
         // gdprCountries: [...], // defaults to EU/EEA + UK + Switzerland
         // enableAnalyticsInDevMode: true, // analytics stay off in dev otherwise
     },

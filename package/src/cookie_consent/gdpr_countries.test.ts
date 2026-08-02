@@ -26,6 +26,14 @@ describe('resolveRequiresConsent', () => {
         expect(await resolveRequiresConsent(undefined, () => ({}), undefined)).toBe(true);
     });
 
+    it('requires consent when getCloudflareContext resolves null (e.g. @opennextjs/cloudflare outside a Cloudflare runtime)', async () => {
+        expect(await resolveRequiresConsent(undefined, () => null, undefined)).toBe(true);
+    });
+
+    it('supports an async getCloudflareContext resolving null', async () => {
+        expect(await resolveRequiresConsent(undefined, async () => null, undefined)).toBe(true);
+    });
+
     it('requires consent when getCloudflareContext resolves cf.country inside the default GDPR list', async () => {
         expect(await resolveRequiresConsent(undefined, () => ({ cf: { country: 'DE' } }), undefined)).toBe(true);
     });

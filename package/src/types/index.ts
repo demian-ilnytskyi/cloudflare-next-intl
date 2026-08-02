@@ -14,4 +14,5 @@ export type {
     CookieConsentRoutingConfig,
     CookieConsentAnalyticsSecrets,
     CookieConsentCloudflareContext,
+    CookieConsentGetCloudflareContext,
 } from './types';

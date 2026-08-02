@@ -41,9 +41,12 @@ never shown and consent is treated as implicitly granted for everyone — the
 simplest setup when you don't need real GDPR-region gating. Set one of the
 two getters to turn it on: `getCountryCode` resolves the country directly
 (simplest, if you already have it from a header/KV/your own logic);
-`getCloudflareContext` takes your own `getCloudflareContext()` call (not a
-dependency of this package) and reads `cf.country` from it — ignored when
-`getCountryCode` is also set. Once gating is on, countries outside
+`getCloudflareContext` accepts `@opennextjs/cloudflare`'s `getCloudflareContext`
+function directly — not a dependency of this package, so pass your own
+import — matching its exact overloaded signature
+(`CookieConsentGetCloudflareContext`); called internally with
+`{ async: true }`, and only `cf.country` is read from the resolved context.
+Ignored when `getCountryCode` is also set. Once gating is on, countries outside
 `gdprCountries` (defaults to EU/EEA + UK + Switzerland) skip the banner and
 get consent seeded to `true` immediately; a country that can't be resolved
 still requires consent (fail-safe).

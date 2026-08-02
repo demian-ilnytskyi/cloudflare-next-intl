@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.2] - 2026-08-02
+
+### Changed
+
+- `cookieConsent.getCloudflareContext` now types as
+  `CookieConsentGetCloudflareContext`, matching `@opennextjs/cloudflare`'s
+  exact overloaded `getCloudflareContext` signature — pass that function
+  directly (no wrapping closure needed); it's called internally with
+  `{ async: true }`. Also now accepts a `null` resolved context (treated
+  as an unresolved country, so consent is still required).
+
 ## [0.4.1] - 2026-08-02
 
 ### Added

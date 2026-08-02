@@ -1,5 +1,11 @@
 import { bench, describe } from 'vitest';
 import resolveRequiresConsent, { defaultGdprCountries } from './gdpr_countries';
+import type { CookieConsentGetCloudflareContext } from '../types/types';
+
+const fakeGetCloudflareContext: CookieConsentGetCloudflareContext = ((options?: { async?: boolean }) => {
+    const context = { cf: { country: 'DE' } };
+    return options?.async === false ? context : Promise.resolve(context);
+}) as CookieConsentGetCloudflareContext;
 
 const customList = ['US', 'CA', 'MX'];
 
@@ -27,7 +33,7 @@ describe('resolveRequiresConsent: gating disabled', () => {
 
 describe('resolveRequiresConsent: getCloudflareContext path', () => {
     bench('resolves cf.country from an async context getter', async () => {
-        await resolveRequiresConsent(undefined, async () => ({ cf: { country: 'DE' } }), undefined);
+        await resolveRequiresConsent(undefined, fakeGetCloudflareContext, undefined);
     });
 });
 

@@ -5,4 +5,9 @@ export { default as PrivacyPolicyUpdateDialog } from './client/components/privac
 export { default as CookieConsentAnalytics } from './client/components/cookie_consent_analytics';
 export { defaultGdprCountries } from './gdpr_countries';
 export type { CookieConsentContextType, ConsentValue, CookieDialogClassNames, CookieDialogStyles } from './types';
-export type { CookieConsentRoutingConfig, CookieConsentAnalyticsSecrets } from '../types/types';
+export type {
+    CookieConsentRoutingConfig,
+    CookieConsentAnalyticsSecrets,
+    CookieConsentCloudflareContext,
+    CookieConsentGetCloudflareContext,
+} from '../types/types';

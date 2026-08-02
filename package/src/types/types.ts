@@ -144,11 +144,12 @@ export interface CookieConsentRoutingConfig {
      */
     getCountryCode?: () => string | undefined | Promise<string | undefined>;
     /**
-     * Returns the Cloudflare request context — e.g. your own
-     * `getCloudflareContext()` call from `@opennextjs/cloudflare` (not a
-     * dependency of this package, so bring your own). Only `cf.country`
-     * is read from the resolved context. Ignored when `getCountryCode` is
-     * also set.
+     * Pass `getCloudflareContext` from `@opennextjs/cloudflare` directly
+     * (not a dependency of this package, so bring your own import) — its
+     * exact overloaded signature is accepted as-is; called internally with
+     * `{ async: true }`, so you never need to wrap it yourself. Only
+     * `cf.country` is read from the resolved context. Ignored when
+     * `getCountryCode` is also set.
      *
      * Country-based gating (via either `getCountryCode` or
      * `getCloudflareContext`) decides whether the cookie-consent banner is
@@ -159,7 +160,7 @@ export interface CookieConsentRoutingConfig {
      * is the simplest opt-in-by-default setup; set one of the two getters
      * once you need real GDPR-region gating.
      */
-    getCloudflareContext?: () => CookieConsentCloudflareContext | Promise<CookieConsentCloudflareContext>;
+    getCloudflareContext?: CookieConsentGetCloudflareContext;
     /**
      * Country codes (ISO 3166-1 alpha-2) for which the cookie-consent banner
      * is required. Only consulted when `getCountryCode` or
@@ -191,6 +192,20 @@ export interface CookieConsentCloudflareContext {
     cf?: {
         country?: string;
     };
+}
+
+/**
+ * Matches `@opennextjs/cloudflare`'s `getCloudflareContext` overloaded
+ * signature exactly, so that function can be passed as
+ * `cookieConsent.getCloudflareContext` directly — this package always
+ * calls it with `{ async: true }` internally (the first overload), which is
+ * why that overload's return type drives `resolveRequiresConsent`'s
+ * awaited result; the sync overload is accepted structurally only so the
+ * real function's type (which has both) is assignable as-is.
+ */
+export interface CookieConsentGetCloudflareContext {
+    (options: { async: true }): Promise<CookieConsentCloudflareContext | null>;
+    (options?: { async: false }): CookieConsentCloudflareContext | null;
 }
 
 export interface CookieConsentAnalyticsSecrets {
