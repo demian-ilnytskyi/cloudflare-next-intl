@@ -7,7 +7,9 @@
  *
  * @param name   Cookie name.
  * @param value  Cookie value; stringified via template literal (no encoding
- *   applied — avoid values containing `;`).
+ *   applied — avoid values containing `;`). Must be a primitive
+ *   (`string`/`number`/`boolean`) — objects would silently serialize to
+ *   `"[object Object]"`.
  * @param maxAge Seconds until expiry. Defaults to 1 year.
  *
  * Always `path=/; SameSite=Lax`. Swallows errors (e.g. in restrictive

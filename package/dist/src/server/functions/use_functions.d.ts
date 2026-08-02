@@ -12,6 +12,8 @@ import type { TranslatorReturnType } from "../../types/types";
  *
  * @returns The current locale (e.g. `"en"`).
  * @throws If called without an `IntlProvider` above it in the tree.
+ * @example
+ * const locale = useLocale(); // "en"
  */
 export declare function useLocaleImpl(): string;
 export declare const useLocale: typeof useLocaleImpl;
@@ -22,6 +24,9 @@ export declare const useLocale: typeof useLocaleImpl;
  * @param namespace Dot-separated key prefix into your messages file.
  * @returns A `(key: string) => string` translation function.
  * @throws If called without an `IntlProvider` above it in the tree.
+ * @example
+ * const t = useTranslations("Index");
+ * return <h1>{t("title")}</h1>;
  */
 declare function useTranslationsImpl(namespace: string): TranslatorReturnType;
 export declare const useTranslations: typeof useTranslationsImpl;

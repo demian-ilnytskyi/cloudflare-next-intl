@@ -20,13 +20,11 @@ export function setMessageForLocaleCache(locale, message) {
     loadedTranslations.set(locale, message);
 }
 export function getMessageCache(locale) {
-    if (locale && loadedTranslations.has(locale)) {
-        return loadedTranslations.get(locale);
-    }
-    else {
-        return undefined;
-    }
+    return locale ? loadedTranslations.get(locale) : undefined;
 }
 export function setTranslationCache(cache, value) {
     translationFunctionsCache.set(cache, value);
+}
+export function getTranslationCache(cacheKey) {
+    return translationFunctionsCache.get(cacheKey);
 }

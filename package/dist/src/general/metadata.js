@@ -34,7 +34,7 @@ export function iAlternatesLinks({ locale, url, canonical, linkPart }) {
         };
     }
     catch (e) {
-        console.error(`Language Helper error for Metadata, link: ${url}, linkPart: ${linkPart}, Error: ${e}`);
+        console.error(`[cloudflare-next-intl] alternatesLinks failed for url="${url}" linkPart="${linkPart}" — returning undefined, so "alternates" will be omitted from your metadata. Underlying error:`, e);
         return undefined;
     }
 }

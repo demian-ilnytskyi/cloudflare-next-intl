@@ -7,21 +7,36 @@ import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
 import { getFirebaseAuthClient } from './firebase_client';
 import { setAuthUserCache } from './auth_user_cache';
-import { sessionCookieName } from '../middleware/update_session';
-const noop = async () => { };
-export const AuthUserContext = createContext({
-    user: null,
-    loading: true,
-    reloadUser: noop,
-    sendVerificationEmail: noop,
-    logout: noop,
-});
-function writeSessionCookie(idToken, maxAge) {
-    document.cookie = `${sessionCookieName}=${idToken}; path=/; max-age=${maxAge}`;
+import { defaultSessionCookieName } from '../middleware/update_session';
+import setCookie from '../../client/functions/set_cookie';
+// `null` default (instead of a `{ loading: true, ... }` stand-in) lets
+// `useAuthUser` distinguish "not wrapped in AuthUserProvider" (throw) from
+// "wrapped, still loading" (`loading: true`).
+export const AuthUserContext = createContext(null);
+function writeSessionCookie(sessionCookieName, idToken, maxAge) {
+    setCookie({ name: sessionCookieName, value: idToken, maxAge });
 }
-function clearSessionCookie() {
-    document.cookie = `${sessionCookieName}=; path=/; max-age=0`;
+function clearSessionCookie(sessionCookieName) {
+    setCookie({ name: sessionCookieName, value: '', maxAge: 0 });
 }
+/**
+ * Client-side auth-state provider for `firebase_auth`. Wrap your root layout
+ * (or a client boundary below it) with this to make `useAuthUser()`
+ * (`cloudflare-next-intl/useFirebaseAuthUser`, client variant) resolve
+ * `{ user, loading }` from the live Firebase `onIdTokenChanged` listener,
+ * and to get automatic session-cookie sync + redirect-on-sign-out/verify
+ * behavior driven by `firebaseAuth.isAuthPath` / `whiteListPaths` /
+ * `redirectAuthPath` / `verifyEmailPath` on your `RoutingConfig`.
+ *
+ * Requires `firebaseAuth` to be set on the config passed to `setIntlConfig`
+ * — throws via {@link requireFirebaseAuthConfig} otherwise.
+ *
+ * @param initialUser Server-resolved user (e.g. from
+ *   `useFirebaseAuthUser`'s `react-server` variant) to avoid a
+ *   loading flash on first paint; pass `null`/omit if unavailable.
+ * @example
+ * <AuthUserProvider initialUser={initialUser}>{children}</AuthUserProvider>
+ */
 export default function AuthUserProvider({ initialUser = null, children }) {
     const fa = config.firebaseAuth;
     requireFirebaseAuthConfig(fa);
@@ -30,11 +45,20 @@ export default function AuthUserProvider({ initialUser = null, children }) {
     const isAuthPage = fa.isAuthPath(pathname);
     const isWhiteListed = fa.whiteListPaths?.includes(pathname) ?? false;
     const maxAge = fa.sessionCookieMaxAge ?? 60 * 60 * 24 * 5;
+    const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
     const [state, setState] = useState({
         user: initialUser,
         loading: initialUser === null,
     });
+    // The signed-in state the last successful cookie write left behind, so a
+    // plain token refresh (same state) does not trigger a needless re-render.
     const syncedSignedIn = useRef(undefined);
+    // Consecutive `onIdTokenChanged(null)` callbacks since the last confirmed
+    // user. A single null here can be a transient client-SDK hiccup (e.g. its
+    // token-refresh scheduling misbehaving under local clock skew) rather
+    // than a real sign-out — the server already proved the session valid via
+    // `initialUser`, so redirecting on the very first null caused a
+    // login-then-bounce-home flash whenever the two disagreed.
     const consecutiveNulls = useRef(0);
     const [confirmedSignedOut, setConfirmedSignedOut] = useState(initialUser === null);
     useEffect(() => {
@@ -62,10 +86,10 @@ export default function AuthUserProvider({ initialUser = null, children }) {
                 const previous = syncedSignedIn.current;
                 try {
                     if (user) {
-                        writeSessionCookie(await user.getIdToken(true), maxAge);
+                        writeSessionCookie(sessionCookieName, await user.getIdToken(true), maxAge);
                     }
                     else if (previous) {
-                        clearSessionCookie();
+                        clearSessionCookie(sessionCookieName);
                     }
                 }
                 catch (e) {
@@ -98,18 +122,23 @@ export default function AuthUserProvider({ initialUser = null, children }) {
             unsubscribe?.();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [router, isAuthPage, maxAge]);
+    }, [router, isAuthPage, maxAge, sessionCookieName]);
     const reloadUser = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();
         const user = auth.currentUser;
         if (!user)
             return;
-        const { reload } = await import('firebase/auth');
-        await reload(user);
-        writeSessionCookie(await user.getIdToken(true), maxAge);
-        setAuthUserCache(user);
-        setState({ user, loading: false });
-    }, [maxAge]);
+        try {
+            const { reload } = await import('firebase/auth');
+            await reload(user);
+            writeSessionCookie(sessionCookieName, await user.getIdToken(true), maxAge);
+            setAuthUserCache(user);
+            setState({ user, loading: false });
+        }
+        catch (e) {
+            console.error('AuthUserProvider: reloadUser failed', e);
+        }
+    }, []);
     const sendVerificationEmail = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();
         const user = auth.currentUser;
@@ -125,10 +154,10 @@ export default function AuthUserProvider({ initialUser = null, children }) {
             await signOut(auth);
         }
         finally {
-            clearSessionCookie();
+            clearSessionCookie(sessionCookieName);
             window.location.assign(fa.redirectAuthPath);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fa.redirectAuthPath]);
+    }, [fa.redirectAuthPath, sessionCookieName]);
     return _jsx(AuthUserContext.Provider, { value: { ...state, reloadUser, sendVerificationEmail, logout }, children: children });
 }

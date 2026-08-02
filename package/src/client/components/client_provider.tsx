@@ -14,15 +14,27 @@ interface LocaleContextType {
 
 export const LocaleContext = createContext<LocaleContextType | undefined>(undefined);
 
+// Hoisted to module scope — calling `dynamic()` inside the component body
+// creates a brand-new component identity every render, forcing React to
+// unmount/remount `AuthUserProvider` on every render instead of reusing the
+// existing instance. That remount re-subscribes `onIdTokenChanged`, which
+// Firebase immediately replays with the current user, triggering a state
+// update (and a `getIdToken(true)` refresh) that causes another render —
+// an infinite loop of session-cookie writes, one per render.
+const AuthUserProvider = dynamic(() => import("../../firebase_auth/client/auth_user_provider"));
+
 export default function LocationzationClientProvider({
     language,
     messages,
     initialAuthUser = null,
+    skipAuthProvider = false,
     children
 }: {
     language: string;
     messages: TranslationObject;
     initialAuthUser?: SerializedAuthUser | null;
+    /** Set when `firebaseAuth.autoWireClientProvider` is `false` — skips wrapping `children` in the client `AuthUserProvider` entirely. */
+    skipAuthProvider?: boolean;
     children: React.ReactNode;
 }): Component {
     setLocaleCache(language);
@@ -34,8 +46,7 @@ export default function LocationzationClientProvider({
     // sibling wrapping it, or those hooks would throw for running outside
     // the provider.
     let providedChildren = children;
-    if (config.firebaseAuth) {
-        const AuthUserProvider = dynamic(() => import("../../firebase_auth/client/auth_user_provider"));
+    if (config.firebaseAuth && !skipAuthProvider) {
         providedChildren = <AuthUserProvider initialUser={initialAuthUser}>{children}</AuthUserProvider>;
     }
 

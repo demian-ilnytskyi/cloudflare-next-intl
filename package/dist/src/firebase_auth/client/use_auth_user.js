@@ -1,7 +1,20 @@
 'use client';
 import { useContext } from 'react';
 import { AuthUserContext } from './auth_user_provider';
-/** Reads the current Firebase auth user and its actions from AuthUserProvider's context. */
+/**
+ * Reads the current Firebase auth user and its actions from
+ * `AuthUserProvider`'s context.
+ *
+ * @throws If called without an `AuthUserProvider` above it in the tree.
+ * @example
+ * const { user, loading, logout } = useAuthUser();
+ * if (loading) return null;
+ * return user ? <button onClick={logout}>Log out</button> : null;
+ */
 export default function useAuthUser() {
-    return useContext(AuthUserContext);
+    const context = useContext(AuthUserContext);
+    if (context === null) {
+        throw new Error('useAuthUser must be used within an AuthUserProvider');
+    }
+    return context;
 }

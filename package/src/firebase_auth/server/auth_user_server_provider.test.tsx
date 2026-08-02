@@ -113,6 +113,12 @@ describe('resolveAuthUserAndRedirect', () => {
         const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
         await expect(resolveAuthUserAndRedirect()).rejects.toThrow('NEXT_REDIRECT:/login');
     });
+
+    it('throws if firebaseAuth is not configured', async () => {
+        currentConfig = {};
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        await expect(resolveAuthUserAndRedirect()).rejects.toThrow(/firebaseAuth/);
+    });
 });
 
 describe('AuthUserServerProvider', () => {

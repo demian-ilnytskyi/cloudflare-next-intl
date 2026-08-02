@@ -8,6 +8,7 @@ import requireFirebaseAuthConfig from '../require_config';
 import { getFirebaseAuthClient } from './firebase_client';
 import { setAuthUserCache } from './auth_user_cache';
 import { defaultSessionCookieName } from '../middleware/update_session';
+import setCookie from '../../client/functions/set_cookie';
 import type { AuthUser, SerializedAuthUser } from '../types';
 
 export interface AuthUserContextType {
@@ -27,13 +28,12 @@ export interface AuthUserContextType {
 // `useAuthUser` distinguish "not wrapped in AuthUserProvider" (throw) from
 // "wrapped, still loading" (`loading: true`).
 export const AuthUserContext = createContext<AuthUserContextType | null>(null);
-
 function writeSessionCookie(sessionCookieName: string, idToken: string, maxAge: number): void {
-    document.cookie = `${sessionCookieName}=${idToken}; path=/; max-age=${maxAge}`;
+    setCookie({ name: sessionCookieName, value: idToken, maxAge });
 }
 
 function clearSessionCookie(sessionCookieName: string): void {
-    document.cookie = `${sessionCookieName}=; path=/; max-age=0`;
+    setCookie({ name: sessionCookieName, value: '', maxAge: 0 });
 }
 
 /**
@@ -67,12 +67,19 @@ export default function AuthUserProvider({ initialUser = null, children }: {
     const isWhiteListed = fa.whiteListPaths?.includes(pathname) ?? false;
     const maxAge = fa.sessionCookieMaxAge ?? 60 * 60 * 24 * 5;
     const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
-
     const [state, setState] = useState<{ user: AuthUser | null; loading: boolean }>({
         user: initialUser,
         loading: initialUser === null,
     });
+    // The signed-in state the last successful cookie write left behind, so a
+    // plain token refresh (same state) does not trigger a needless re-render.
     const syncedSignedIn = useRef<boolean | undefined>(undefined);
+    // Consecutive `onIdTokenChanged(null)` callbacks since the last confirmed
+    // user. A single null here can be a transient client-SDK hiccup (e.g. its
+    // token-refresh scheduling misbehaving under local clock skew) rather
+    // than a real sign-out — the server already proved the session valid via
+    // `initialUser`, so redirecting on the very first null caused a
+    // login-then-bounce-home flash whenever the two disagreed.
     const consecutiveNulls = useRef(0);
     const [confirmedSignedOut, setConfirmedSignedOut] = useState(initialUser === null);
 
@@ -145,12 +152,16 @@ export default function AuthUserProvider({ initialUser = null, children }: {
         const { auth } = await getFirebaseAuthClient();
         const user = auth.currentUser;
         if (!user) return;
-        const { reload } = await import('firebase/auth');
-        await reload(user);
-        writeSessionCookie(sessionCookieName, await user.getIdToken(true), maxAge);
-        setAuthUserCache(user);
-        setState({ user, loading: false });
-    }, [maxAge, sessionCookieName]);
+        try {
+            const { reload } = await import('firebase/auth');
+            await reload(user);
+            writeSessionCookie(sessionCookieName, await user.getIdToken(true), maxAge);
+            setAuthUserCache(user);
+            setState({ user, loading: false });
+        } catch (e) {
+            console.error('AuthUserProvider: reloadUser failed', e);
+        }
+    }, []);
 
     const sendVerificationEmail = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();

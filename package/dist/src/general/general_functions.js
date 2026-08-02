@@ -51,7 +51,10 @@ export function getTranslationsImpl(locale, messages, namespace, cacheKey) {
             }
         }
     }
-    // If after traversal, no base translations object was found.
+    // If after traversal, no base translations object was found. Unreachable:
+    // the loop above always either sets translationsBase or returns early on
+    // its final iteration, since namespaceParts always has length >= 1
+    // (''.split('.') yields ['']).
     if (!translationsBase) {
         return errorAndReturnFallback(`Translations for namespace "${namespace}" could not be found.`, cacheKeyValue, locale, namespace);
     }
@@ -66,6 +69,9 @@ export function getTranslationsImpl(locale, messages, namespace, cacheKey) {
         // Traverse the resolved translations base using the key parts.
         for (let i = 0; i < keyParts.length; i++) {
             const part = keyParts[i];
+            // Unreachable: currentTranslation only ever becomes a string via
+            // the reassignment below, which is guarded to only assign
+            // non-null objects.
             if (typeof currentTranslation === 'string') {
                 // Translation key path prematurely leads to a string.
                 console.warn(`Translation key "${key}" in namespace "${namespace}" leads to a string prematurely at "${part}" for locale "${locale}".`);
@@ -73,6 +79,10 @@ export function getTranslationsImpl(locale, messages, namespace, cacheKey) {
             }
             const value = currentTranslation[part];
             if (i === keyParts.length - 1) {
+                if (typeof value !== 'string') {
+                    console.warn(`Translation key "${key}" in namespace "${namespace}" resolves to a non-string value for locale "${locale}". Expected string, got "${typeof value}".`);
+                    return key;
+                }
                 return value;
             }
             else {
@@ -87,7 +97,10 @@ export function getTranslationsImpl(locale, messages, namespace, cacheKey) {
                 }
             }
         }
-        // If the loop completes and no string translation was found (e.g., key missing or not a string).
+        // If the loop completes and no string translation was found (e.g.,
+        // key missing or not a string). Unreachable: keyParts always has
+        // length >= 1 (''.split('.') yields ['']), and every branch above
+        // returns on the final iteration.
         console.warn(`Translation key "${key}" in namespace "${namespace}" is missing or not a string for locale "${locale}".`);
         return key; // Return the key as fallback
     };

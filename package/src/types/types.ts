@@ -100,6 +100,17 @@ export interface FirebaseAuthRoutingConfig {
      * middleware redirect logic yourself instead.
      */
     middlewareEnabled?: boolean;
+    /**
+     * Whether `IntlProvider` should automatically wrap your app in the
+     * client `AuthUserProvider` and call `resolveAuthUser` server-side.
+     * Defaults to `true`. Set `false` if you drive auth entirely from your
+     * own middleware (like `middlewareEnabled: false`'s manual-override
+     * case, but for the client/RSC layer) and don't want this package
+     * rendering any auth-related React tree on top of it — e.g. if you
+     * only use `intlMiddleware`'s built-in session-refresh/redirect logic
+     * and have no use for `useAuthUser()`/`AuthUserProvider` at all.
+     */
+    autoWireClientProvider?: boolean;
     /** Firebase project's Web API key (`NEXT_PUBLIC_FIREBASE_API_KEY` equivalent). */
     apiKey: string;
     /** Firebase project's auth domain, e.g. "my-app.firebaseapp.com". */

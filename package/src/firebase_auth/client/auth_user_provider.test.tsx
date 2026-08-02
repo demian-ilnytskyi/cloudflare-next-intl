@@ -41,8 +41,11 @@ vi.mock('./auth_user_cache', () => ({
     setAuthUserCache: (...args: unknown[]) => setAuthUserCache(...args),
 }));
 
-vi.mock('../middleware/update_session', () => ({
-    defaultSessionCookieName: '__fa_session__',
+const setSessionCookie = vi.fn(async () => {});
+const clearSessionCookie = vi.fn(async () => {});
+vi.mock('../middleware/session_cookie_action', () => ({
+    setSessionCookie: (...args: unknown[]) => setSessionCookie(...args),
+    clearSessionCookie: (...args: unknown[]) => clearSessionCookie(...args),
 }));
 
 let idTokenListener: ((user: unknown) => void | Promise<void>) | undefined;
@@ -80,7 +83,6 @@ async function flush() {
 describe('AuthUserProvider', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        document.cookie = '__fa_session__=; path=/; max-age=0';
         currentConfig = { firebaseAuth: { ...fa } };
         mockPathname = '/dashboard';
         idTokenListener = undefined;
@@ -143,6 +145,15 @@ describe('AuthUserProvider', () => {
         expect(routerReplace).toHaveBeenCalledWith('/login');
     });
 
+    it('redirects immediately on a single null callback when initialUser was already null (server-confirmed signed-out)', async () => {
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(null); });
+        await flush();
+        expect(routerReplace).toHaveBeenCalledWith('/login');
+    });
+
     it('redirects to verifyEmailPath when signed in but email is unverified', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         const { default: AuthUserProvider } = await import('./auth_user_provider');
@@ -170,7 +181,7 @@ describe('AuthUserProvider', () => {
         await flush();
         await act(async () => { await idTokenListener?.(makeUser()); });
         await flush();
-        expect(document.cookie).toContain('__fa_session__=id-token');
+        expect(setSessionCookie).toHaveBeenCalledWith('id-token', undefined);
         expect(setAuthUserCache).toHaveBeenCalled();
     });
 
@@ -208,7 +219,22 @@ describe('AuthUserProvider', () => {
         await flush();
         await act(async () => { await ctxValue?.reloadUser(); });
         expect(reload).toHaveBeenCalled();
-        expect(document.cookie).toContain('__fa_session__=id-token');
+        expect(setSessionCookie).toHaveBeenCalledWith('id-token');
+    });
+
+    it('reloadUser logs and swallows errors from reload/getIdToken/setSessionCookie', async () => {
+        authObj.currentUser = makeUser({ getIdToken: vi.fn(async () => { throw new Error('reload token error'); }) });
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await expect(ctxValue!.reloadUser()).resolves.toBeUndefined();
+        expect(console.error).toHaveBeenCalledWith('AuthUserProvider: reloadUser failed', expect.any(Error));
     });
 
     it('reloadUser is a no-op when there is no current user', async () => {
@@ -308,22 +334,6 @@ describe('AuthUserProvider', () => {
             await Promise.resolve();
         });
         expect(onIdTokenChanged).not.toHaveBeenCalled();
-    });
-
-    it('writes and clears the session cookie under a custom sessionCookieName instead of the default', async () => {
-        currentConfig = { firebaseAuth: { ...fa, sessionCookieName: '__session' } };
-        document.cookie = '__session=; path=/; max-age=0';
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
-        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
-        await flush();
-        await act(async () => { await idTokenListener?.(makeUser()); });
-        await flush();
-        expect(document.cookie).toContain('__session=id-token');
-        expect(document.cookie).not.toContain('__fa_session__=id-token');
-
-        await act(async () => { await idTokenListener?.(null); });
-        await flush();
-        expect(document.cookie).not.toContain('__session=id-token');
     });
 
     it('the default context value is null for consumers outside a provider', async () => {

@@ -9,6 +9,20 @@ function readCredentials(formData) {
         password: (formData.get('password')?.toString() ?? '').trim(),
     };
 }
+/**
+ * Builds a login server action for React's `useActionState` form hook.
+ * The returned function has the `(prevState, formData) => Promise<AuthFormState>`
+ * shape `useActionState` expects — pass it directly as the action.
+ *
+ * `formData` must contain `email` and `password` fields.
+ *
+ * @param locale Used to localize the returned error message.
+ * @param messages Localized action messages (currently unused by this action).
+ * @returns A form action: `{ success: true }` on success, `{ error }` on failure.
+ * @example
+ * const [state, action] = useActionState(createLoginAction(locale, messages), {});
+ * <form action={action}>...</form>
+ */
 export function createLoginAction(locale, messages) {
     return async function loginAction(_prevState, formData) {
         requireFirebaseAuthConfig(config.firebaseAuth);
@@ -24,6 +38,21 @@ export function createLoginAction(locale, messages) {
         }
     };
 }
+/**
+ * Builds a sign-up server action for React's `useActionState` form hook.
+ * Same shape as {@link createLoginAction}.
+ *
+ * `formData` must contain `email`, `password`, and `confirmPassword` fields.
+ *
+ * @param locale Used to localize the returned error message.
+ * @param messages `messages.mismatch` is returned as the error if
+ *   `password` !== `confirmPassword`; other fields on `AuthActionMessages`
+ *   are not read by this action.
+ * @returns A form action: `{ success: true }` on success, `{ error }` on failure.
+ * @example
+ * const [state, action] = useActionState(createSignUpAction(locale, messages), {});
+ * <form action={action}>...</form>
+ */
 export function createSignUpAction(locale, messages) {
     return async function signUpAction(_prevState, formData) {
         requireFirebaseAuthConfig(config.firebaseAuth);
@@ -43,6 +72,19 @@ export function createSignUpAction(locale, messages) {
         }
     };
 }
+/**
+ * Builds a forgot-password server action for React's `useActionState` form
+ * hook. Same shape as {@link createLoginAction}.
+ *
+ * `formData` must contain an `email` field.
+ *
+ * @param locale Used to localize the returned error message.
+ * @param messages Localized action messages (currently unused by this action).
+ * @returns A form action: `{ success: true }` on success, `{ error }` on failure.
+ * @example
+ * const [state, action] = useActionState(createForgotPasswordAction(locale, messages), {});
+ * <form action={action}>...</form>
+ */
 export function createForgotPasswordAction(locale, messages) {
     return async function forgotPasswordAction(_prevState, formData) {
         requireFirebaseAuthConfig(config.firebaseAuth);

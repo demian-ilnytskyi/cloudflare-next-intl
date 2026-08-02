@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { cache } from 'react';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
-import { sessionCookieName } from '../middleware/update_session';
+import { defaultSessionCookieName } from '../middleware/update_session';
 let baseApp;
 /**
  * Resolves the signed-in user on the server from the session cookie.
@@ -16,6 +16,7 @@ let baseApp;
 export const getAuthenticatedAppForUser = cache(async function getAuthenticatedAppForUser() {
     const fa = config.firebaseAuth;
     requireFirebaseAuthConfig(fa);
+    const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
     const authIdToken = (await cookies()).get(sessionCookieName)?.value;
     if (!authIdToken) {
         return { firebaseServerApp: null, currentUser: null };

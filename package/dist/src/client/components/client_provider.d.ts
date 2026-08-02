@@ -5,10 +5,12 @@ interface LocaleContextType {
     messages: TranslationObject;
 }
 export declare const LocaleContext: import("react").Context<LocaleContextType | undefined>;
-export default function LocationzationClientProvider({ language, messages, initialAuthUser, children }: {
+export default function LocationzationClientProvider({ language, messages, initialAuthUser, skipAuthProvider, children }: {
     language: string;
     messages: TranslationObject;
     initialAuthUser?: SerializedAuthUser | null;
+    /** Set when `firebaseAuth.autoWireClientProvider` is `false` — skips wrapping `children` in the client `AuthUserProvider` entirely. */
+    skipAuthProvider?: boolean;
     children: React.ReactNode;
 }): Component;
 export {};

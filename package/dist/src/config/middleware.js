@@ -15,10 +15,18 @@ async function getIsBotValue(userAgent) {
     if (userAgent === null)
         return false;
     const { isBot } = await import('next/dist/server/web/spec-extension/user-agent');
+    // Unreachable: userAgent is already narrowed to non-null string above,
+    // so the ?? '' fallback never triggers.
     return isBot(userAgent ?? '');
 }
 const getIsBotValueCache = cache(getIsBotValue);
 export const localesSet = new Set(config.locales);
+// Memoized after the first call — `import()` is not free even when the
+// module is already in the runtime's module cache (a microtask round-trip
+// plus a Promise allocation), and this middleware runs on every request.
+// Still fully lazy: consumers who never set `config.firebaseAuth` never
+// reach the branch that assigns this, so they never pay the import at all.
+let updateSessionModule;
 /**
  * This middleware function runs for every incoming request. Handles locale
  * detection/routing, then optionally defers to your own custom logic.
@@ -50,15 +58,25 @@ export default async function intlMiddleware(request, options) {
         const { pathname, search, hash } = request.nextUrl;
         let urlLocale;
         let pathWithoutLocale;
-        const pathSegments = pathname.split('/').filter(Boolean); // e.g., ['', 'en', 'about'] -> ['en', 'about']
-        const firstSegment = pathSegments[0];
-        const languageValue = firstSegment;
+        // Avoids split('/').filter(Boolean) array allocation on every request:
+        // scan for the first segment's bounds directly. Unreachable:
+        // Next.js guarantees pathname always starts with '/', so the else
+        // branch (segmentStart = 0) never runs.
+        const segmentStart = pathname.charCodeAt(0) === 47 /* '/' */ ? 1 : 0;
+        let segmentEnd = pathname.indexOf('/', segmentStart);
+        if (segmentEnd === -1)
+            segmentEnd = pathname.length;
+        const languageValue = pathname.slice(segmentStart, segmentEnd);
         // Check if the first segment of the path is one of the supported locales
-        if (pathSegments.length > 0 && localesSet.has(languageValue)) {
+        if (languageValue && localesSet.has(languageValue)) {
             urlLocale = languageValue;
-            pathWithoutLocale = '/' + pathSegments.slice(1).join('/'); // Remove the locale segment
-            if (pathWithoutLocale === '')
-                pathWithoutLocale = '/'; // Ensure it's '/' for root after removing locale
+            let rest = pathname.slice(segmentEnd);
+            if (rest.endsWith('/'))
+                rest = rest.slice(0, -1);
+            if (rest.includes('//')) {
+                rest = '/' + rest.split('/').filter(Boolean).join('/');
+            }
+            pathWithoutLocale = rest || '/';
         }
         else {
             // No locale prefix in the URL. The actual pathname is the full original pathname.
@@ -117,13 +135,16 @@ export default async function intlMiddleware(request, options) {
         // (`isRedirect`) — the locale redirect itself is the response, same
         // as `middlewareHandler` is also skipped on this path by default.
         if (!isRedirect && config.firebaseAuth && config.firebaseAuth.middlewareEnabled !== false) {
-            const { default: updateFirebaseAuthSession } = await import('../firebase_auth/middleware/update_session');
-            response = await updateFirebaseAuthSession(request, response, effectiveLocaleForRequest);
+            if (!updateSessionModule) {
+                updateSessionModule = await import('../firebase_auth/middleware/update_session');
+            }
+            response = await updateSessionModule.default(request, response, effectiveLocaleForRequest);
         }
         return response;
     }
     catch (e) {
-        console.error(`Middleware Error ${e}`);
+        console.error('[cloudflare-next-intl] intlMiddleware failed and fell back to passing the request through unmodified ' +
+            '(no locale rewrite/redirect, no firebase_auth session refresh). Underlying error:', e);
         return NextResponse.next({
             request,
         });

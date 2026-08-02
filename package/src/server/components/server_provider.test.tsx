@@ -69,4 +69,16 @@ describe('LocationzationProvider', () => {
         expect(authProvider).toBeInTheDocument();
         expect(authProvider).toHaveTextContent('child');
     });
+
+    it('does not call resolveAuthUserAndRedirect or render the auth provider when autoWireClientProvider is false', async () => {
+        firebaseAuthValue = { autoWireClientProvider: false };
+        vi.resetModules();
+        vi.clearAllMocks();
+        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(resolveAuthUserAndRedirect).not.toHaveBeenCalled();
+        expect(screen.queryByTestId('auth-provider')).not.toBeInTheDocument();
+        expect(await screen.findByText('child')).toBeInTheDocument();
+    });
 });

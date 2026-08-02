@@ -252,11 +252,7 @@ export default async function updateSession(
 
     if (refreshedToken) {
         response.cookies.set(sessionCookieName, refreshedToken.idToken, {
-            // Not httpOnly: the client provider also writes this cookie
-            // directly (via document.cookie) after `getIdToken(true)`, so it
-            // must stay client-writable — a JS cookie write can never carry
-            // httpOnly anyway, and two same-name cookies with conflicting
-            // flags is what actually caused ambiguity here.
+            httpOnly: true,
             secure: request.nextUrl.protocol === 'https',
             sameSite: 'lax',
             path: '/',

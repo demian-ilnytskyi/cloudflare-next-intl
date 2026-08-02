@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-export declare const sessionCookieName = "__fa_session__";
-export declare const refreshTokenCookieName = "__fa_refresh_token__";
+export declare const defaultSessionCookieName = "__fa_session__";
+export declare const defaultRefreshTokenCookieName = "__fa_refresh_token__";
 /**
  * Layers Firebase session-cookie validation/refresh and auth redirects onto
  * an already-built middleware response. Called internally by `intlMiddleware`

@@ -54,12 +54,13 @@ export default async function LocationzationProvider({ language, messages, child
     const messagesValue = messages ?? await getMessage(language);
 
     let initialAuthUser: SerializedAuthUser | null = null;
-    if (config.firebaseAuth) {
+    const autoWireClientProvider = config.firebaseAuth?.autoWireClientProvider !== false;
+    if (config.firebaseAuth && autoWireClientProvider) {
         const { resolveAuthUserAndRedirect } = await import("../../firebase_auth/server/auth_user_server_provider");
         initialAuthUser = await resolveAuthUserAndRedirect();
     }
 
-    return <LocationzationClientProvider language={language} messages={messagesValue} initialAuthUser={initialAuthUser}>
+    return <LocationzationClientProvider language={language} messages={messagesValue} initialAuthUser={initialAuthUser} skipAuthProvider={!autoWireClientProvider}>
         {children}
     </LocationzationClientProvider>
 }

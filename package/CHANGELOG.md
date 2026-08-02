@@ -3,6 +3,34 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.3] - 2026-08-02
+
+### Fixed
+
+- `AuthUserProvider`'s session-cookie sync now happens via a `'use server'`
+  Server Action (`next/headers`'s `cookies().set(...)`, `httpOnly: true`)
+  instead of a client-side `document.cookie` write. A client write can
+  never carry `httpOnly` and is invisible to the server until the next
+  natural request — this mismatch was the underlying reason the 0.3.2 fixes
+  below didn't fully resolve the flash in practice.
+- `LocationzationClientProvider` no longer calls `next/dynamic`'s `dynamic()`
+  inside its render body. Calling `dynamic()` per-render creates a brand
+  new component identity every time, forcing React to unmount/remount
+  `AuthUserProvider` on every render instead of reusing the existing
+  instance — each remount re-subscribed `onIdTokenChanged`, which Firebase
+  immediately replayed with the current user, triggering a forced token
+  refresh and another render: an infinite loop of session-cookie writes,
+  one per render (visible as `POST /<page>` firing every second or two).
+  `dynamic()` is now called once at module scope.
+- Reverted two 0.3.2 changes that turned out to be based on an incorrect
+  read of a dead, unused reference implementation rather than the actual
+  proven-working code: `resolveAuthUser` is renamed back to
+  `resolveAuthUserAndRedirect` and performs its authoritative redirect
+  again (middleware only checks cookie *presence*, not validity — a
+  forged/expired/invalid-but-present cookie needs this RSC-layer check to
+  catch it), and `AuthUserProvider`'s `confirmedSignedOut` again
+  initializes from `initialUser === null` rather than always `false`.
+
 ## [0.3.2] - 2026-08-02
 
 ### Fixed

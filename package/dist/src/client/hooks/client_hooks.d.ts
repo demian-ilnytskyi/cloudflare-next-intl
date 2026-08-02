@@ -9,6 +9,8 @@ import type { TranslatorReturnType } from "../../types/types";
  *
  * @returns The current locale (e.g. `"en"`).
  * @throws If rendered outside `IntlProvider`.
+ * @example
+ * const locale = useLocale(); // "en"
  */
 export declare function useLocale(): string;
 /**
@@ -19,5 +21,8 @@ export declare function useLocale(): string;
  * @returns A `(key: string) => string` translation function, memoized on
  *   `[language, messages, namespace]`.
  * @throws If rendered outside `IntlProvider`.
+ * @example
+ * const t = useTranslations("Index");
+ * return <h1>{t("title")}</h1>;
  */
 export declare function useTranslations(namespace: string): TranslatorReturnType;

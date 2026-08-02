@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { useContext, useEffect, useState } from 'react';
 import { LocaleContext } from './client_provider';
 
@@ -29,8 +29,14 @@ vi.mock('next/dynamic', () => ({
     },
 }));
 
+let authProviderMountCount = 0;
 vi.mock('../../firebase_auth/client/auth_user_provider', () => ({
-    default: ({ children }: { children: React.ReactNode }) => <div data-testid="auth-provider">{children}</div>,
+    default: ({ children }: { children: React.ReactNode }) => {
+        useEffect(() => {
+            authProviderMountCount += 1;
+        }, []);
+        return <div data-testid="auth-provider">{children}</div>;
+    },
 }));
 
 function Consumer() {
@@ -41,6 +47,7 @@ function Consumer() {
 describe('LocationzationClientProvider', () => {
     beforeEach(() => {
         currentConfig = {};
+        authProviderMountCount = 0;
     });
 
     it('provides language/messages via context to children', async () => {
@@ -65,6 +72,49 @@ describe('LocationzationClientProvider', () => {
             </LocationzationClientProvider>,
         );
         expect(await screen.findByTestId('auth-provider')).toBeInTheDocument();
+        expect(await screen.findByText('child')).toBeInTheDocument();
+    });
+
+    // Regression: `dynamic()` was previously called inside the component
+    // body, creating a brand-new component identity every render — React
+    // then unmounts/remounts AuthUserProvider on every single render of
+    // LocationzationClientProvider instead of reusing the existing
+    // instance. A remount re-subscribes AuthUserProvider's
+    // onIdTokenChanged listener, which Firebase immediately replays with
+    // the current user, triggering a state update (and a forced token
+    // refresh) that causes another render — an infinite loop of
+    // session-cookie writes, one per render. `dynamic()` must be called at
+    // module scope so the same component reference survives re-renders.
+    it('does not remount AuthUserProvider when LocationzationClientProvider re-renders (regression)', async () => {
+        currentConfig = { firebaseAuth: {} };
+        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { rerender } = render(
+            <LocationzationClientProvider language="en" messages={{ Common: {} }} initialAuthUser={null}>
+                <span>child</span>
+            </LocationzationClientProvider>,
+        );
+        await screen.findByTestId('auth-provider');
+        expect(authProviderMountCount).toBe(1);
+
+        await act(async () => {
+            rerender(
+                <LocationzationClientProvider language="en" messages={{ Common: {} }} initialAuthUser={null}>
+                    <span>child (re-rendered)</span>
+                </LocationzationClientProvider>,
+            );
+        });
+        expect(authProviderMountCount).toBe(1);
+    });
+
+    it('does not wrap children in AuthUserProvider when skipAuthProvider is true, even with firebaseAuth configured', async () => {
+        currentConfig = { firebaseAuth: {} };
+        const { default: LocationzationClientProvider } = await import('./client_provider');
+        render(
+            <LocationzationClientProvider language="en" messages={{ Common: {} }} initialAuthUser={null} skipAuthProvider>
+                <span>child</span>
+            </LocationzationClientProvider>,
+        );
+        expect(screen.queryByTestId('auth-provider')).not.toBeInTheDocument();
         expect(await screen.findByText('child')).toBeInTheDocument();
     });
 });

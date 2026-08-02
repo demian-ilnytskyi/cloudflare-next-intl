@@ -3,11 +3,16 @@ import type { SerializedAuthUser } from '../types';
  * Resolves the signed-in user from the session cookie and performs the
  * authoritative pre-render redirect (guest→`redirectAuthPath`, signed-in→
  * `homePath` on auth pages) — middleware only checks cookie *presence*, not
- * validity. Plain async function, not a component: callers decide
- * where/how to use the resolved user relative to their own component tree
- * (see `AuthUserServerProvider` below for the simple case, and
- * `IntlProvider`'s auto-wiring for the case where ordering against
- * `LocaleContext` matters).
+ * validity; a forged, expired, or otherwise invalid-but-present cookie
+ * sails through it. Only this function's token validation
+ * (`getAuthenticatedAppForUser`) catches that, so this redirect must happen
+ * here, before any HTML is sent — relying solely on the client
+ * `AuthUserProvider` effect to redirect afterwards produces a visible
+ * flash (page renders signed-in, then bounces). Plain async function, not
+ * a component: callers decide where/how to use the resolved user relative
+ * to their own component tree (see `AuthUserServerProvider` below for the
+ * simple case, and `IntlProvider`'s auto-wiring for the case where ordering
+ * against `LocaleContext` matters).
  */
 export declare function resolveAuthUserAndRedirect(): Promise<SerializedAuthUser | null>;
 /**
