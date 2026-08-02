@@ -149,11 +149,11 @@ describe('LocationzationClientProvider', () => {
         expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
     });
 
-    it('renders CookieConsentAnalytics when analyticsSecrets resolve', async () => {
+    it('renders CookieConsentAnalytics when analyticsConfig resolve', async () => {
         currentConfig = { cookieConsent: {} };
         const { default: LocationzationClientProvider } = await import('./client_provider');
         render(
-            <LocationzationClientProvider language="en" messages={{ Common: {} }} analyticsSecrets={{ googleAnalyticsId: 'G-XXX' }}>
+            <LocationzationClientProvider language="en" messages={{ Common: {} }} analyticsConfig={{ googleAnalyticsId: 'G-XXX' }}>
                 <span>child</span>
             </LocationzationClientProvider>,
         );
