@@ -189,7 +189,7 @@ import ThemeSwitcher from "cloudflare-next-intl/ThemeSwitcher";
 
 Set `cookieConsent` on your `RoutingConfig` to enable — `IntlProvider` then
 auto-wires `CookieConsentProvider`, `CookieConsentAnalytics` (if
-`cookieConsent.secrets`/`getSecrets` is set), and both `CookieConsentDialog`/
+`cookieConsent.analytics`/`getAnalytics` is set), and both `CookieConsentDialog`/
 `PrivacyPolicyUpdateDialog` (with their built-in default styling and
 English/Ukrainian copy) with no manual nesting needed.
 

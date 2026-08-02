@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { localesSet } from "../../config/middleware";
 import config from "../../config/intl_config";
 import type { SerializedAuthUser } from "../../firebase_auth/types";
-import type { CookieConsentAnalyticsSecrets } from "../../types/types";
+import type { CookieConsentAnalyticsConfig } from "../../types/types";
 import resolveRequiresConsent from "../../cookie_consent/gdpr_countries";
 
 const LocationzationClientProvider = dynamic(
@@ -66,7 +66,7 @@ export default async function LocationzationProvider({ language, messages, child
         initialAuthUser = await authUserServerProviderModule.resolveAuthUserAndRedirect();
     }
 
-    let analyticsSecrets: CookieConsentAnalyticsSecrets | undefined;
+    let analyticsConfig: CookieConsentAnalyticsConfig | undefined;
     let requiresConsent = true;
     if (config.cookieConsent) {
         const isDevEnvironment = process.env.NODE_ENV === 'development';
@@ -89,9 +89,9 @@ export default async function LocationzationProvider({ language, messages, child
         const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
 
         if (config.cookieConsent.autoWireAnalytics !== false && analyticsAllowedInEnv) {
-            analyticsSecrets = config.cookieConsent.getSecrets
-                ? await config.cookieConsent.getSecrets()
-                : config.cookieConsent.secrets;
+            analyticsConfig = config.cookieConsent.getAnalytics
+                ? await config.cookieConsent.getAnalytics()
+                : config.cookieConsent.analytics;
         }
     }
 
@@ -100,7 +100,7 @@ export default async function LocationzationProvider({ language, messages, child
         messages={messagesValue}
         initialAuthUser={initialAuthUser}
         skipAuthProvider={!autoWireClientProvider}
-        analyticsSecrets={analyticsSecrets}
+        analyticsConfig={analyticsConfig}
         requiresConsent={requiresConsent}
         autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}
         dialogProps={config.cookieConsent?.dialogProps}

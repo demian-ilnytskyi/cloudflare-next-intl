@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import useCookieConsent from '../use_cookie_consent';
-import type { CookieConsentAnalyticsSecrets } from '../../../types/types';
+import type { CookieConsentAnalyticsConfig } from '../../../types/types';
 
 // Hoisted to module scope — calling `dynamic()` inside the component body
 // creates a brand-new component identity every render, forcing a
@@ -16,11 +16,11 @@ const ClarityScript = dynamic(() => import('./clarity_script'));
  * consent: Google Consent Mode bootstrap always loads (defaults to
  * `denied`, only sends `update` once `consent` is decided); Cloudflare Web
  * Analytics beacon and Microsoft Clarity only load once `consent === true`.
- * Rendered automatically by `IntlProvider` when `cookieConsent.secrets`/
- * `getSecrets` resolves at least one field and `autoWireAnalytics` isn't
+ * Rendered automatically by `IntlProvider` when `cookieConsent.analytics`/
+ * `getAnalytics` resolves at least one field and `autoWireAnalytics` isn't
  * `false` — render manually instead if you set `autoWireAnalytics: false`.
  */
-export default function CookieConsentAnalytics({ secrets }: { secrets: CookieConsentAnalyticsSecrets }): React.ReactElement | null {
+export default function CookieConsentAnalytics({ config }: { config: CookieConsentAnalyticsConfig }): React.ReactElement | null {
     const { consent } = useCookieConsent();
 
     useEffect(() => {
@@ -36,22 +36,22 @@ export default function CookieConsentAnalytics({ secrets }: { secrets: CookieCon
         });
     }, [consent]);
 
-    const hasGoogle = Boolean(secrets.googleAnalyticsId || secrets.googleAdsId || secrets.googleAdSenseId);
+    const hasGoogle = Boolean(config.googleAnalyticsId || config.googleAdsId || config.googleAdSenseId);
 
     return (
         <>
             {hasGoogle && (
                 <script
                     id="cookie-consent-google-consent-mode"
-                    dangerouslySetInnerHTML={{ __html: googleConsentModeBootstrapScript(secrets) }} />
+                    dangerouslySetInnerHTML={{ __html: googleConsentModeBootstrapScript(config) }} />
             )}
-            {consent === true && secrets.cloudflareBeaconToken && (
+            {consent === true && config.cloudflareBeaconToken && (
                 <script
                     defer
                     src="https://static.cloudflareinsights.com/beacon.min.js"
-                    data-cf-beacon={secrets.cloudflareBeaconToken} />
+                    data-cf-beacon={config.cloudflareBeaconToken} />
             )}
-            {consent === true && secrets.clarityProjectId && <ClarityScript projectId={secrets.clarityProjectId} />}
+            {consent === true && config.clarityProjectId && <ClarityScript projectId={config.clarityProjectId} />}
         </>
     );
 }
@@ -59,29 +59,29 @@ export default function CookieConsentAnalytics({ secrets }: { secrets: CookieCon
 /**
  * Denies storage by default and loads the configured Google tags; the
  * effect above sends the `update` once consent is known. Only IDs present
- * in `secrets` are included.
+ * in `config` are included.
  */
-export function googleConsentModeBootstrapScript(secrets: CookieConsentAnalyticsSecrets): string {
-    const configCalls = [secrets.googleAnalyticsId, secrets.googleAdsId]
+export function googleConsentModeBootstrapScript(config: CookieConsentAnalyticsConfig): string {
+    const configCalls = [config.googleAnalyticsId, config.googleAdsId]
         .filter(Boolean)
         .map((id) => `gtag('config', '${id}');`)
         .join('\n');
 
-    const gtagLoader = secrets.googleAnalyticsId || secrets.googleAdsId
+    const gtagLoader = config.googleAnalyticsId || config.googleAdsId
         ? `(function(){
   var s = document.createElement('script');
   s.async = true;
-  s.src = 'https://www.googletagmanager.com/gtag/js?id=${secrets.googleAnalyticsId ?? secrets.googleAdsId}';
+  s.src = 'https://www.googletagmanager.com/gtag/js?id=${config.googleAnalyticsId ?? config.googleAdsId}';
   document.head.appendChild(s);
 })();`
         : '';
 
-    const adSenseLoader = secrets.googleAdSenseId
+    const adSenseLoader = config.googleAdSenseId
         ? `(function(){
   var a = document.createElement('script');
   a.async = true;
   a.crossOrigin = 'anonymous';
-  a.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${secrets.googleAdSenseId}';
+  a.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${config.googleAdSenseId}';
   document.head.appendChild(a);
 })();`
         : '';

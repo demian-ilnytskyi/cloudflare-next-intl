@@ -22,9 +22,9 @@ describe('CookieConsentAnalytics perf characteristics', () => {
         (window as unknown as { gtag: typeof gtag }).gtag = gtag;
 
         return import('./cookie_consent_analytics').then(({ default: CookieConsentAnalytics }) => {
-            const { rerender } = render(<CookieConsentAnalytics secrets={{ googleAnalyticsId: 'G-XXX' }} />);
+            const { rerender } = render(<CookieConsentAnalytics config={{ googleAnalyticsId: 'G-XXX' }} />);
             for (let i = 0; i < 10; i++) {
-                rerender(<CookieConsentAnalytics secrets={{ googleAnalyticsId: 'G-XXX' }} />);
+                rerender(<CookieConsentAnalytics config={{ googleAnalyticsId: 'G-XXX' }} />);
             }
             expect(gtag).not.toHaveBeenCalled();
             delete (window as unknown as { gtag?: unknown }).gtag;

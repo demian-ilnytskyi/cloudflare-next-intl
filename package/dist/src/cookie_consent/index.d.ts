@@ -7,4 +7,4 @@ export { defaultGdprCountries } from './gdpr_countries';
 export type { CookieConsentContextType, ConsentValue, CookieDialogClassNames, CookieDialogStyles } from './types';
 export type { CookieConsentDialogProps } from './client/components/cookie_consent_dialog';
 export type { PrivacyPolicyUpdateDialogProps } from './client/components/privacy_policy_update_dialog';
-export type { CookieConsentRoutingConfig, CookieConsentAnalyticsSecrets, CookieConsentCloudflareContext, CookieConsentGetCloudflareContext, } from '../types/types';
+export type { CookieConsentRoutingConfig, CookieConsentAnalyticsConfig, CookieConsentCloudflareContext, CookieConsentGetCloudflareContext, } from '../types/types';

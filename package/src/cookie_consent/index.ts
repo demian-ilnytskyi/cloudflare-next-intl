@@ -9,7 +9,7 @@ export type { CookieConsentDialogProps } from './client/components/cookie_consen
 export type { PrivacyPolicyUpdateDialogProps } from './client/components/privacy_policy_update_dialog';
 export type {
     CookieConsentRoutingConfig,
-    CookieConsentAnalyticsSecrets,
+    CookieConsentAnalyticsConfig,
     CookieConsentCloudflareContext,
     CookieConsentGetCloudflareContext,
 } from '../types/types';

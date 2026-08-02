@@ -136,7 +136,7 @@ describe('LocationzationClientProvider', () => {
         expect(await screen.findByText('child')).toBeInTheDocument();
     });
 
-    it('wraps children in CookieConsentProvider when cookieConsent is configured, without analytics when no secrets resolve', async () => {
+    it('wraps children in CookieConsentProvider when cookieConsent is configured, without analytics when no analytics resolve', async () => {
         currentConfig = { cookieConsent: {} };
         const { default: LocationzationClientProvider } = await import('./client_provider');
         render(

@@ -6,7 +6,7 @@ import { createContext, useMemo } from "react";
 import dynamic from "next/dynamic";
 import config from "@intl-config";
 import type { SerializedAuthUser } from "../../firebase_auth/types";
-import type { CookieConsentAnalyticsSecrets } from "../../types/types";
+import type { CookieConsentAnalyticsConfig } from "../../types/types";
 import type { CookieConsentDialogProps } from "../../cookie_consent/client/components/cookie_consent_dialog";
 import type { PrivacyPolicyUpdateDialogProps } from "../../cookie_consent/client/components/privacy_policy_update_dialog";
 
@@ -35,7 +35,7 @@ export default function LocationzationClientProvider({
     messages,
     initialAuthUser = null,
     skipAuthProvider = false,
-    analyticsSecrets,
+    analyticsConfig,
     requiresConsent = true,
     autoWireDialogs = true,
     dialogProps,
@@ -47,8 +47,8 @@ export default function LocationzationClientProvider({
     initialAuthUser?: SerializedAuthUser | null;
     /** Set when `firebaseAuth.autoWireClientProvider` is `false` — skips wrapping `children` in the client `AuthUserProvider` entirely. */
     skipAuthProvider?: boolean;
-    /** Resolved server-side from `cookieConsent.secrets`/`getSecrets` when `autoWireAnalytics` isn't `false`. */
-    analyticsSecrets?: CookieConsentAnalyticsSecrets;
+    /** Resolved server-side from `cookieConsent.analytics`/`getAnalytics` when `autoWireAnalytics` isn't `false`. */
+    analyticsConfig?: CookieConsentAnalyticsConfig;
     /**
      * Resolved server-side from `cookieConsent.getCountryCode`/`gdprCountries`.
      * `false` means the visitor's country doesn't require the consent
@@ -79,7 +79,7 @@ export default function LocationzationClientProvider({
     if (config.cookieConsent) {
         providedChildren = <CookieConsentProvider requiresConsent={requiresConsent}>
             {providedChildren}
-            {analyticsSecrets && <CookieConsentAnalytics secrets={analyticsSecrets} />}
+            {analyticsConfig && <CookieConsentAnalytics config={analyticsConfig} />}
             {autoWireDialogs && <CookieConsentDialog {...dialogProps} />}
             {autoWireDialogs && <PrivacyPolicyUpdateDialog {...updateDialogProps} />}
         </CookieConsentProvider>;

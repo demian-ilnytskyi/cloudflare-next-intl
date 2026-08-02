@@ -12,7 +12,7 @@ export type {
     changeFrequency,
     IntlSitemap,
     CookieConsentRoutingConfig,
-    CookieConsentAnalyticsSecrets,
+    CookieConsentAnalyticsConfig,
     CookieConsentCloudflareContext,
     CookieConsentGetCloudflareContext,
 } from './types';

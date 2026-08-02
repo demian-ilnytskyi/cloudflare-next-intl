@@ -13,11 +13,11 @@ const ClarityScript = dynamic(() => import('./clarity_script'));
  * consent: Google Consent Mode bootstrap always loads (defaults to
  * `denied`, only sends `update` once `consent` is decided); Cloudflare Web
  * Analytics beacon and Microsoft Clarity only load once `consent === true`.
- * Rendered automatically by `IntlProvider` when `cookieConsent.secrets`/
- * `getSecrets` resolves at least one field and `autoWireAnalytics` isn't
+ * Rendered automatically by `IntlProvider` when `cookieConsent.analytics`/
+ * `getAnalytics` resolves at least one field and `autoWireAnalytics` isn't
  * `false` — render manually instead if you set `autoWireAnalytics: false`.
  */
-export default function CookieConsentAnalytics({ secrets }) {
+export default function CookieConsentAnalytics({ config }) {
     const { consent } = useCookieConsent();
     useEffect(() => {
         if (consent === null)
@@ -33,33 +33,33 @@ export default function CookieConsentAnalytics({ secrets }) {
             analytics_storage: state,
         });
     }, [consent]);
-    const hasGoogle = Boolean(secrets.googleAnalyticsId || secrets.googleAdsId || secrets.googleAdSenseId);
-    return (_jsxs(_Fragment, { children: [hasGoogle && (_jsx("script", { id: "cookie-consent-google-consent-mode", dangerouslySetInnerHTML: { __html: googleConsentModeBootstrapScript(secrets) } })), consent === true && secrets.cloudflareBeaconToken && (_jsx("script", { defer: true, src: "https://static.cloudflareinsights.com/beacon.min.js", "data-cf-beacon": secrets.cloudflareBeaconToken })), consent === true && secrets.clarityProjectId && _jsx(ClarityScript, { projectId: secrets.clarityProjectId })] }));
+    const hasGoogle = Boolean(config.googleAnalyticsId || config.googleAdsId || config.googleAdSenseId);
+    return (_jsxs(_Fragment, { children: [hasGoogle && (_jsx("script", { id: "cookie-consent-google-consent-mode", dangerouslySetInnerHTML: { __html: googleConsentModeBootstrapScript(config) } })), consent === true && config.cloudflareBeaconToken && (_jsx("script", { defer: true, src: "https://static.cloudflareinsights.com/beacon.min.js", "data-cf-beacon": config.cloudflareBeaconToken })), consent === true && config.clarityProjectId && _jsx(ClarityScript, { projectId: config.clarityProjectId })] }));
 }
 /**
  * Denies storage by default and loads the configured Google tags; the
  * effect above sends the `update` once consent is known. Only IDs present
- * in `secrets` are included.
+ * in `config` are included.
  */
-export function googleConsentModeBootstrapScript(secrets) {
-    const configCalls = [secrets.googleAnalyticsId, secrets.googleAdsId]
+export function googleConsentModeBootstrapScript(config) {
+    const configCalls = [config.googleAnalyticsId, config.googleAdsId]
         .filter(Boolean)
         .map((id) => `gtag('config', '${id}');`)
         .join('\n');
-    const gtagLoader = secrets.googleAnalyticsId || secrets.googleAdsId
+    const gtagLoader = config.googleAnalyticsId || config.googleAdsId
         ? `(function(){
   var s = document.createElement('script');
   s.async = true;
-  s.src = 'https://www.googletagmanager.com/gtag/js?id=${secrets.googleAnalyticsId ?? secrets.googleAdsId}';
+  s.src = 'https://www.googletagmanager.com/gtag/js?id=${config.googleAnalyticsId ?? config.googleAdsId}';
   document.head.appendChild(s);
 })();`
         : '';
-    const adSenseLoader = secrets.googleAdSenseId
+    const adSenseLoader = config.googleAdSenseId
         ? `(function(){
   var a = document.createElement('script');
   a.async = true;
   a.crossOrigin = 'anonymous';
-  a.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${secrets.googleAdSenseId}';
+  a.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${config.googleAdSenseId}';
   document.head.appendChild(a);
 })();`
         : '';

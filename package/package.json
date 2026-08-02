@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -182,19 +182,16 @@
   },
   "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl#readme",
   "dependencies": {
-    "@microsoft/clarity": "^1.0.2"
+    "@microsoft/clarity": "^1.0.2",
+    "firebase": "^12.17.0"
   },
   "peerDependencies": {
-    "firebase": ">=10.0.0",
     "next": ">=12.0.0",
     "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || >=19.0.0-rc <19.0.0 || ^19.0.0",
     "typescript": ">=5.0.0"
   },
   "peerDependenciesMeta": {
     "typescript": {
-      "optional": true
-    },
-    "firebase": {
       "optional": true
     }
   },
@@ -211,7 +208,6 @@
     "eslint": "^9.28.0",
     "eslint-config-next": "15.3.3",
     "eslint-config-prettier": "^10.1.2",
-    "firebase": "^12.17.0",
     "jsdom": "^29.1.1",
     "next": "^15.3.0",
     "react": "^19.0.0",

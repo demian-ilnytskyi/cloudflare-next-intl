@@ -24,7 +24,7 @@ is missing.
   package (always installed), but this file is still loaded from
   `cookie_consent_analytics.tsx` via `next/dynamic` so its code only ships
   as a separate chunk fetched at runtime once consent is granted and
-  `secrets.clarityProjectId` is set.
+  `analytics.clarityProjectId` is set.
 - `types.ts` — `CookieConsentContextType`, per-slot `CookieDialogClassNames`/
   `CookieDialogStyles`.
 - `gdpr_countries.ts` — `defaultGdprCountries` list + `resolveRequiresConsent`,
@@ -34,14 +34,14 @@ is missing.
 
 When `cookieConsent` is set, `IntlProvider` (`server/components/server_provider.tsx`)
 automatically wraps `children` in `CookieConsentProvider` — no manual setup
-needed for `useCookieConsent()`/the dialog components. If `cookieConsent.secrets`
-or `getSecrets` is also set (and `autoWireAnalytics` isn't `false`), it
-additionally resolves those secrets server-side (`getSecrets` takes
+needed for `useCookieConsent()`/the dialog components. If `cookieConsent.analytics`
+or `getAnalytics` is also set (and `autoWireAnalytics` isn't `false`), it
+additionally resolves that analytics config server-side (`getAnalytics` takes
 precedence when both are set — use it for values only available at request
 time, e.g. from a Cloudflare `env` binding via your own
 `getCloudflareContext()` call) and renders `CookieConsentAnalytics`, which
 gates Cloudflare Web Analytics / Google Ads / Google Analytics / AdSense /
-Microsoft Clarity behind consent. Any field left out of the resolved secrets
+Microsoft Clarity behind consent. Any field left out of the resolved analytics config
 just skips that provider's script.
 
 Country-based gating is opt-in and off by default: with neither

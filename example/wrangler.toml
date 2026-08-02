@@ -15,6 +15,30 @@ binding = "NEXT_INC_CACHE_R2_BUCKET"
 bucket_name = "my-local-cache-bucket"
 preview_bucket_name = "my-local-cache-bucket-preview"
 
+[[durable_objects.bindings]]
+name = "NEXT_CACHE_DO_QUEUE"
+class_name = "DOQueueHandler"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DOQueueHandler"]
+
 [assets] # Note: The closing bracket was missing in your original input, I've corrected it.
 directory = ".open-next/assets"
 binding = "ASSETS" # This is the variable name that will be available in your Worker to access assets
+
+[env.development]
+name = "example-development"
+
+[[env.development.r2_buckets]]
+binding = "NEXT_INC_CACHE_R2_BUCKET"
+bucket_name = "my-local-cache-bucket-dev"
+preview_bucket_name = "my-local-cache-bucket-dev-preview"
+
+[[env.development.durable_objects.bindings]]
+name = "NEXT_CACHE_DO_QUEUE"
+class_name = "DOQueueHandler"
+
+[[env.development.migrations]]
+tag = "v1"
+new_sqlite_classes = ["DOQueueHandler"]

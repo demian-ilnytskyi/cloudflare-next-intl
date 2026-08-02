@@ -125,27 +125,27 @@ export interface CookieConsentRoutingConfig {
     /**
      * Whether `IntlProvider` should automatically render the analytics/ads
      * scripts (Cloudflare Web Analytics beacon, Google Consent Mode + gtag,
-     * Microsoft Clarity — whichever secrets resolve below) once consent is
+     * Microsoft Clarity — whichever config resolves below) once consent is
      * granted, and gate them behind the cookie-consent banner otherwise.
-     * Defaults to `true` when `secrets`/`getSecrets` is set; set `false` to
-     * keep `cookieConsent` configured for the dialogs/hook only and wire
+     * Defaults to `true` when `analytics`/`getAnalytics` is set; set `false`
+     * to keep `cookieConsent` configured for the dialogs/hook only and wire
      * analytics yourself.
      */
     autoWireAnalytics?: boolean;
     /**
-     * Static secrets/IDs for the analytics providers below. Use this OR
-     * `getSecrets`, not both — `getSecrets` takes precedence when both are
-     * set (e.g. secrets only available at request time from a Cloudflare
+     * Static IDs/tokens for the analytics providers below. Use this OR
+     * `getAnalytics`, not both — `getAnalytics` takes precedence when both are
+     * set (e.g. values only available at request time from a Cloudflare
      * `env` binding).
      */
-    secrets?: CookieConsentAnalyticsSecrets;
+    analytics?: CookieConsentAnalyticsConfig;
     /**
-     * Resolves the same secrets at request time — e.g. from Cloudflare's
+     * Resolves the same config at request time — e.g. from Cloudflare's
      * `getCloudflareContext().env` (via `@opennextjs/cloudflare`, not a
      * dependency of this package — pass your own getter). Any field left
      * `undefined` in the returned object disables that provider's script.
      */
-    getSecrets?: () => CookieConsentAnalyticsSecrets | Promise<CookieConsentAnalyticsSecrets>;
+    getAnalytics?: () => CookieConsentAnalyticsConfig | Promise<CookieConsentAnalyticsConfig>;
     /**
      * Resolves the visitor's country code directly (ISO 3166-1 alpha-2,
      * e.g. `"DE"`) — the simplest option when you already have it from
@@ -238,7 +238,7 @@ export interface CookieConsentGetCloudflareContext {
     (options?: { async: false }): CookieConsentCloudflareContext | null;
 }
 
-export interface CookieConsentAnalyticsSecrets {
+export interface CookieConsentAnalyticsConfig {
     /** Cloudflare Web Analytics beacon token, e.g. `'{"token": "..."}'` (the raw `data-cf-beacon` attribute value). */
     cloudflareBeaconToken?: string;
     /** Google Analytics measurement ID, e.g. `"G-XXXXXXX"`. */

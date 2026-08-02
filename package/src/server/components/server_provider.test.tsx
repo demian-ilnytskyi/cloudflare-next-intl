@@ -40,8 +40,8 @@ vi.mock('../../cookie_consent/client/cookie_consent_provider', () => ({
 }));
 
 vi.mock('../../cookie_consent/client/components/cookie_consent_analytics', () => ({
-    default: ({ secrets }: { secrets: Record<string, unknown> }) => (
-        <div data-testid="cookie-consent-analytics">{JSON.stringify(secrets)}</div>
+    default: ({ config }: { config: Record<string, unknown> }) => (
+        <div data-testid="cookie-consent-analytics">{JSON.stringify(config)}</div>
     ),
 }));
 
@@ -104,8 +104,8 @@ describe('LocationzationProvider', () => {
         expect(await screen.findByText('child')).toBeInTheDocument();
     });
 
-    it('wraps children in CookieConsentProvider and passes resolved static secrets when cookieConsent.secrets is configured', async () => {
-        cookieConsentValue = { secrets: { googleAnalyticsId: 'G-XXX' } };
+    it('wraps children in CookieConsentProvider and passes resolved static analytics config when cookieConsent.analytics is configured', async () => {
+        cookieConsentValue = { analytics: { googleAnalyticsId: 'G-XXX' } };
         vi.resetModules();
         const { default: LocationzationProvider } = await import('./server_provider');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
@@ -114,28 +114,28 @@ describe('LocationzationProvider', () => {
         expect(await screen.findByTestId('cookie-consent-analytics')).toHaveTextContent('G-XXX');
     });
 
-    it('resolves secrets via getSecrets, taking precedence over static secrets', async () => {
-        const getSecrets = vi.fn(async () => ({ googleAdsId: 'AW-YYY' }));
-        cookieConsentValue = { secrets: { googleAnalyticsId: 'G-XXX' }, getSecrets };
+    it('resolves analytics via getAnalytics, taking precedence over static analytics', async () => {
+        const getAnalytics = vi.fn(async () => ({ googleAdsId: 'AW-YYY' }));
+        cookieConsentValue = { analytics: { googleAnalyticsId: 'G-XXX' }, getAnalytics };
         vi.resetModules();
         const { default: LocationzationProvider } = await import('./server_provider');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
-        expect(getSecrets).toHaveBeenCalled();
+        expect(getAnalytics).toHaveBeenCalled();
         expect(await screen.findByTestId('cookie-consent-analytics')).toHaveTextContent('AW-YYY');
     });
 
     it('does not resolve or render analytics when autoWireAnalytics is false', async () => {
-        const getSecrets = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
-        cookieConsentValue = { getSecrets, autoWireAnalytics: false };
+        const getAnalytics = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
+        cookieConsentValue = { getAnalytics, autoWireAnalytics: false };
         vi.resetModules();
         const { default: LocationzationProvider } = await import('./server_provider');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
-        expect(getSecrets).not.toHaveBeenCalled();
+        expect(getAnalytics).not.toHaveBeenCalled();
         await screen.findByTestId('cookie-consent-provider');
         expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
     });
 
-    it('renders CookieConsentProvider without analytics when cookieConsent has no secrets configured', async () => {
+    it('renders CookieConsentProvider without analytics when cookieConsent has no analytics configured', async () => {
         cookieConsentValue = {};
         vi.resetModules();
         const { default: LocationzationProvider } = await import('./server_provider');
@@ -179,28 +179,28 @@ describe('LocationzationProvider', () => {
         expect(await screen.findByText('child')).toBeInTheDocument();
     });
 
-    it('does not resolve analytics secrets when NODE_ENV is development and enableAnalyticsInDevMode is unset', async () => {
+    it('does not resolve analytics config when NODE_ENV is development and enableAnalyticsInDevMode is unset', async () => {
         const originalEnv = process.env.NODE_ENV;
         vi.stubEnv('NODE_ENV', 'development');
-        const getSecrets = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
-        cookieConsentValue = { getSecrets };
+        const getAnalytics = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
+        cookieConsentValue = { getAnalytics };
         vi.resetModules();
         const { default: LocationzationProvider } = await import('./server_provider');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
-        expect(getSecrets).not.toHaveBeenCalled();
+        expect(getAnalytics).not.toHaveBeenCalled();
         expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
         vi.stubEnv('NODE_ENV', originalEnv ?? 'test');
     });
 
-    it('resolves analytics secrets when NODE_ENV is development and enableAnalyticsInDevMode is true', async () => {
+    it('resolves analytics config when NODE_ENV is development and enableAnalyticsInDevMode is true', async () => {
         const originalEnv = process.env.NODE_ENV;
         vi.stubEnv('NODE_ENV', 'development');
-        const getSecrets = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
-        cookieConsentValue = { getSecrets, enableAnalyticsInDevMode: true };
+        const getAnalytics = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
+        cookieConsentValue = { getAnalytics, enableAnalyticsInDevMode: true };
         vi.resetModules();
         const { default: LocationzationProvider } = await import('./server_provider');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
-        expect(getSecrets).toHaveBeenCalled();
+        expect(getAnalytics).toHaveBeenCalled();
         expect(await screen.findByTestId('cookie-consent-analytics')).toHaveTextContent('G-XXX');
         vi.stubEnv('NODE_ENV', originalEnv ?? 'test');
     });

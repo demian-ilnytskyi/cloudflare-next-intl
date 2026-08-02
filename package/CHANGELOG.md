@@ -3,6 +3,15 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.6] - 2026-08-02
+
+### Changed
+
+- Renamed `cookieConsent.secrets`/`getSecrets`/`CookieConsentAnalyticsSecrets`
+  to `analytics`/`getAnalytics`/`CookieConsentAnalyticsConfig` (and the
+  `analyticsSecrets` prop to `analyticsConfig`) to better reflect that these
+  aren't always secret values (e.g. GA measurement IDs).
+
 ## [0.5.5] - 2026-08-02
 
 ### Added

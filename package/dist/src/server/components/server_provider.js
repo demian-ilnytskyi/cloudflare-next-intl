@@ -56,7 +56,7 @@ export default async function LocationzationProvider({ language, messages, child
         }
         initialAuthUser = await authUserServerProviderModule.resolveAuthUserAndRedirect();
     }
-    let analyticsSecrets;
+    let analyticsConfig;
     let requiresConsent = true;
     if (config.cookieConsent) {
         const isDevEnvironment = process.env.NODE_ENV === 'development';
@@ -72,10 +72,10 @@ export default async function LocationzationProvider({ language, messages, child
             : false;
         const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
         if (config.cookieConsent.autoWireAnalytics !== false && analyticsAllowedInEnv) {
-            analyticsSecrets = config.cookieConsent.getSecrets
-                ? await config.cookieConsent.getSecrets()
-                : config.cookieConsent.secrets;
+            analyticsConfig = config.cookieConsent.getAnalytics
+                ? await config.cookieConsent.getAnalytics()
+                : config.cookieConsent.analytics;
         }
     }
-    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, initialAuthUser: initialAuthUser, skipAuthProvider: !autoWireClientProvider, analyticsSecrets: analyticsSecrets, requiresConsent: requiresConsent, autoWireDialogs: config.cookieConsent?.autoWireDialogs !== false, dialogProps: config.cookieConsent?.dialogProps, updateDialogProps: config.cookieConsent?.updateDialogProps, children: children });
+    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, initialAuthUser: initialAuthUser, skipAuthProvider: !autoWireClientProvider, analyticsConfig: analyticsConfig, requiresConsent: requiresConsent, autoWireDialogs: config.cookieConsent?.autoWireDialogs !== false, dialogProps: config.cookieConsent?.dialogProps, updateDialogProps: config.cookieConsent?.updateDialogProps, children: children });
 }

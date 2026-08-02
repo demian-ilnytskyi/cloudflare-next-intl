@@ -47,20 +47,20 @@ describe('CookieConsentAnalytics', () => {
         delete (window as unknown as { gtag?: unknown }).gtag;
     });
 
-    it('renders nothing when no secrets are provided', () => {
-        const { container } = render(<CookieConsentAnalytics secrets={{}} />);
+    it('renders nothing when no analytics config is provided', () => {
+        const { container } = render(<CookieConsentAnalytics config={{}} />);
         expect(container).toBeEmptyDOMElement();
     });
 
     it('renders the Google Consent Mode bootstrap script when any google id is set', () => {
-        const { container } = render(<CookieConsentAnalytics secrets={{ googleAnalyticsId: 'G-XXX' }} />);
+        const { container } = render(<CookieConsentAnalytics config={{ googleAnalyticsId: 'G-XXX' }} />);
         expect(container.querySelector('#cookie-consent-google-consent-mode')).toBeInTheDocument();
     });
 
     it('includes config calls and the gtag loader for googleAdsId and adsense loader for googleAdSenseId', () => {
         const { container } = render(
             <CookieConsentAnalytics
-                secrets={{ googleAnalyticsId: 'G-XXX', googleAdsId: 'AW-YYY', googleAdSenseId: 'ca-pub-ZZZ' }}
+                config={{ googleAnalyticsId: 'G-XXX', googleAdsId: 'AW-YYY', googleAdSenseId: 'ca-pub-ZZZ' }}
             />,
         );
         const script = container.querySelector('#cookie-consent-google-consent-mode');
@@ -71,21 +71,21 @@ describe('CookieConsentAnalytics', () => {
     });
 
     it('uses googleAdsId for the gtag loader src when googleAnalyticsId is absent', () => {
-        const { container } = render(<CookieConsentAnalytics secrets={{ googleAdsId: 'AW-YYY' }} />);
+        const { container } = render(<CookieConsentAnalytics config={{ googleAdsId: 'AW-YYY' }} />);
         const script = container.querySelector('#cookie-consent-google-consent-mode');
         expect(script?.innerHTML).toContain('id=AW-YYY');
         expect(script?.innerHTML).toContain("gtag('config', 'AW-YYY')");
     });
 
     it('omits the gtag loader entirely when only googleAdSenseId is set', () => {
-        const { container } = render(<CookieConsentAnalytics secrets={{ googleAdSenseId: 'ca-pub-ZZZ' }} />);
+        const { container } = render(<CookieConsentAnalytics config={{ googleAdSenseId: 'ca-pub-ZZZ' }} />);
         const script = container.querySelector('#cookie-consent-google-consent-mode');
         expect(script?.innerHTML).not.toContain('googletagmanager.com/gtag/js');
         expect(script?.innerHTML).toContain('client=ca-pub-ZZZ');
     });
 
     it('omits the adsense loader when googleAdSenseId is unset', () => {
-        const { container } = render(<CookieConsentAnalytics secrets={{ googleAnalyticsId: 'G-XXX' }} />);
+        const { container } = render(<CookieConsentAnalytics config={{ googleAnalyticsId: 'G-XXX' }} />);
         const script = container.querySelector('#cookie-consent-google-consent-mode');
         expect(script?.innerHTML).not.toContain('adsbygoogle.js');
     });
@@ -93,7 +93,7 @@ describe('CookieConsentAnalytics', () => {
     it('does not render the cloudflare beacon or clarity scripts before consent is granted', () => {
         consent = false;
         const { container } = render(
-            <CookieConsentAnalytics secrets={{ cloudflareBeaconToken: '{"token":"abc"}', clarityProjectId: 'proj' }} />,
+            <CookieConsentAnalytics config={{ cloudflareBeaconToken: '{"token":"abc"}', clarityProjectId: 'proj' }} />,
         );
         expect(container.querySelector('script[data-cf-beacon]')).not.toBeInTheDocument();
         expect(clarityInit).not.toHaveBeenCalled();
@@ -101,7 +101,7 @@ describe('CookieConsentAnalytics', () => {
 
     it('renders the cloudflare beacon script once consent is granted', () => {
         consent = true;
-        const { container } = render(<CookieConsentAnalytics secrets={{ cloudflareBeaconToken: '{"token":"abc"}' }} />);
+        const { container } = render(<CookieConsentAnalytics config={{ cloudflareBeaconToken: '{"token":"abc"}' }} />);
         const script = container.querySelector('script[data-cf-beacon]');
         expect(script).toBeInTheDocument();
         expect(script).toHaveAttribute('data-cf-beacon', '{"token":"abc"}');
@@ -109,7 +109,7 @@ describe('CookieConsentAnalytics', () => {
 
     it('loads and initializes clarity once consent is granted', async () => {
         consent = true;
-        render(<CookieConsentAnalytics secrets={{ clarityProjectId: 'proj-123' }} />);
+        render(<CookieConsentAnalytics config={{ clarityProjectId: 'proj-123' }} />);
         await waitFor(() => expect(clarityInit).toHaveBeenCalledWith('proj-123'));
         expect(clarityConsent).toHaveBeenCalled();
     });
@@ -118,20 +118,20 @@ describe('CookieConsentAnalytics', () => {
         const gtag = vi.fn();
         (window as unknown as { gtag: typeof gtag }).gtag = gtag;
         consent = null;
-        render(<CookieConsentAnalytics secrets={{ googleAnalyticsId: 'G-XXX' }} />);
+        render(<CookieConsentAnalytics config={{ googleAnalyticsId: 'G-XXX' }} />);
         expect(gtag).not.toHaveBeenCalled();
     });
 
     it('skips the gtag update when window.gtag is not a function', () => {
         consent = true;
-        expect(() => render(<CookieConsentAnalytics secrets={{ googleAnalyticsId: 'G-XXX' }} />)).not.toThrow();
+        expect(() => render(<CookieConsentAnalytics config={{ googleAnalyticsId: 'G-XXX' }} />)).not.toThrow();
     });
 
     it('sends granted consent state to gtag once consent is true', () => {
         const gtag = vi.fn();
         (window as unknown as { gtag: typeof gtag }).gtag = gtag;
         consent = true;
-        render(<CookieConsentAnalytics secrets={{ googleAnalyticsId: 'G-XXX' }} />);
+        render(<CookieConsentAnalytics config={{ googleAnalyticsId: 'G-XXX' }} />);
         expect(gtag).toHaveBeenCalledWith('consent', 'update', expect.objectContaining({ ad_storage: 'granted' }));
     });
 
@@ -139,7 +139,7 @@ describe('CookieConsentAnalytics', () => {
         const gtag = vi.fn();
         (window as unknown as { gtag: typeof gtag }).gtag = gtag;
         consent = false;
-        render(<CookieConsentAnalytics secrets={{ googleAnalyticsId: 'G-XXX' }} />);
+        render(<CookieConsentAnalytics config={{ googleAnalyticsId: 'G-XXX' }} />);
         expect(gtag).toHaveBeenCalledWith('consent', 'update', expect.objectContaining({ ad_storage: 'denied' }));
     });
 });
