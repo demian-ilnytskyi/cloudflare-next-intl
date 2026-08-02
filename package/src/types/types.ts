@@ -226,7 +226,11 @@ export interface CookieConsentAnalyticsSecrets {
     googleAdsId?: string;
     /** Google AdSense publisher ID, e.g. `"ca-pub-XXXXXXXXXXXXXXXX"`. */
     googleAdSenseId?: string;
-    /** Microsoft Clarity project ID. */
+    /**
+     * Microsoft Clarity project ID. `@microsoft/clarity` is a real
+     * dependency of this package (small, so always installed) — loaded and
+     * initialized automatically once consent is granted.
+     */
     clarityProjectId?: string;
 }
 

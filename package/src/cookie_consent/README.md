@@ -20,11 +20,11 @@ is missing.
   default link both dialogs render when their `link` prop is omitted,
   pointing at `cookieConsent.privacyPolicyPath`.
 - `client/components/clarity_script.tsx` — internal; loads/initializes
-  Microsoft Clarity. Kept in its own module and loaded from
-  `cookie_consent_analytics.tsx` via `next/dynamic` specifically so its
-  `import('@microsoft/clarity')` (an optional peer dependency) never gets
-  eagerly resolved by webpack/Turbopack for consumers who don't set
-  `secrets.clarityProjectId` — see that file's doc comment.
+  Microsoft Clarity. `@microsoft/clarity` is a real dependency of this
+  package (always installed), but this file is still loaded from
+  `cookie_consent_analytics.tsx` via `next/dynamic` so its code only ships
+  as a separate chunk fetched at runtime once consent is granted and
+  `secrets.clarityProjectId` is set.
 - `types.ts` — `CookieConsentContextType`, per-slot `CookieDialogClassNames`/
   `CookieDialogStyles`.
 - `gdpr_countries.ts` — `defaultGdprCountries` list + `resolveRequiresConsent`,

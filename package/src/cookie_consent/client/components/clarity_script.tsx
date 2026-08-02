@@ -13,14 +13,10 @@ function getClarityModule(): Promise<typeof import('@microsoft/clarity')> {
 
 /**
  * Loads and initializes Microsoft Clarity. Split into its own module and
- * loaded via `next/dynamic` from `cookie_consent_analytics.tsx` — bundlers
- * (webpack/Turbopack) resolve every literal `import()` specifier they can
- * reach at build time, so keeping this file's `import('@microsoft/clarity')`
- * out of the main analytics module means consumers who never set
- * `secrets.clarityProjectId` (and never render this component) don't need
- * `@microsoft/clarity` (an optional peer dependency) installed at all — the
- * dynamic-imported chunk containing this file is only built/requested the
- * first time it's actually rendered.
+ * loaded via `next/dynamic` from `cookie_consent_analytics.tsx` so it's
+ * only fetched as a separate chunk once actually rendered (consent granted
+ * and `secrets.clarityProjectId` set) — `@microsoft/clarity` is a real
+ * dependency of this package, so it's always installed regardless.
  */
 export default function ClarityScript({ projectId }: { projectId: string }): null {
     useEffect(() => {

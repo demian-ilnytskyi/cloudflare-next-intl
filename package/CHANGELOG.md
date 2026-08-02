@@ -3,18 +3,20 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.4.5] - 2026-08-02
+## [0.4.6] - 2026-08-02
 
-### Fixed
+### Changed
 
-- `CookieConsentAnalytics` no longer requires `@microsoft/clarity` (an
-  optional peer dependency) to be installed unless `secrets.clarityProjectId`
-  is actually set AND rendered. Its `import('@microsoft/clarity')` was
-  previously inline, which webpack/Turbopack resolve at build time for every
-  reachable module regardless of runtime branching — this broke builds for
-  consumers who never configured Clarity. The import now lives in its own
-  module (`clarity_script.tsx`), loaded via `next/dynamic` so it's only
-  built/requested as a separate chunk once actually rendered.
+- `@microsoft/clarity` moved from an optional `peerDependency` to a real
+  `dependency`. Its `import('@microsoft/clarity')` is a literal specifier
+  that webpack/Turbopack resolve at build time for every reachable module
+  regardless of runtime branching (even behind `next/dynamic`) — no
+  bundler-side trick makes that install truly optional, so every consumer
+  now gets it installed automatically instead of hitting a build error.
+  The import itself is still isolated in its own module
+  (`clarity_script.tsx`), loaded via `next/dynamic`, so the code only ships
+  as a separate chunk that's fetched at runtime once consent is granted and
+  `secrets.clarityProjectId` is set.
 
 ## [0.4.4] - 2026-08-02
 

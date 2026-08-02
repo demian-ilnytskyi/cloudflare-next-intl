@@ -3,12 +3,10 @@ import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-run
 import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import useCookieConsent from '../use_cookie_consent';
-// Hoisted to module scope, like this package's other `dynamic()` calls —
-// calling it inside the component body would create a new component
-// identity every render. Deferring to a separate chunk keeps
-// `@microsoft/clarity`'s `import()` (in `clarity_script.tsx`) out of this
-// module, so bundlers only resolve it when `ClarityScript` is actually
-// rendered — see that file's doc comment for why this matters.
+// Hoisted to module scope — calling `dynamic()` inside the component body
+// creates a brand-new component identity every render, forcing a
+// remount. Splitting into a separate chunk keeps `@microsoft/clarity`'s
+// import out of this module until `ClarityScript` is actually rendered.
 const ClarityScript = dynamic(() => import('./clarity_script'));
 /**
  * Renders whichever analytics/ads scripts have a resolved secret, gated on
