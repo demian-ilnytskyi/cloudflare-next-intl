@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.4] - 2026-08-02
+
+### Fixed
+
+- `createServerErrorAction` no longer has its own `"use server"` directive — Next.js requires every top-level export of a `"use server"` file to be an async function directly, and a factory that *returns* one doesn't qualify (`Server Actions must be async functions.`). Put `"use server"` in your OWN file that calls `createServerErrorAction` and re-exports its result instead — see the updated usage example in its doc comment.
+
 ## [0.6.3] - 2026-08-02
 
 ### Added
