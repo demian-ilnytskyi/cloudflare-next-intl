@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 describe('CookieConsentAnalytics dynamic import cost', () => {
-    it('re-imports @microsoft/clarity on every mount (no module-scope cache), so repeated mounts pay the import cost each time', async () => {
+    it('caches the @microsoft/clarity module import across mounts, so repeated mounts do not re-pay the import cost', async () => {
         const { default: CookieConsentAnalytics } = await import('./cookie_consent_analytics');
 
         for (let i = 0; i < 5; i++) {

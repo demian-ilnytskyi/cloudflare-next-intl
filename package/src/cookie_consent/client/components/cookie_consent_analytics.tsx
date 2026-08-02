@@ -49,9 +49,18 @@ export default function CookieConsentAnalytics({ secrets }: { secrets: CookieCon
     );
 }
 
+let cachedClarityModule: Promise<typeof import('@microsoft/clarity')> | undefined;
+
+function getClarityModule(): Promise<typeof import('@microsoft/clarity')> {
+    if (!cachedClarityModule) {
+        cachedClarityModule = import('@microsoft/clarity');
+    }
+    return cachedClarityModule;
+}
+
 function ClarityScript({ projectId }: { projectId: string }): null {
     useEffect(() => {
-        import('@microsoft/clarity')
+        getClarityModule()
             .then(({ default: Clarity }) => {
                 Clarity.init(projectId);
                 Clarity.consent();

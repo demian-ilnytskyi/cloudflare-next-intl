@@ -3,6 +3,24 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] - 2026-08-02
+
+### Added
+
+- `cookie_consent` module: optional cookie-consent + privacy-policy-update
+  banner, config-gated via `cookieConsent` on `RoutingConfig`. New subpaths:
+  `./cookieConsent`, `./CookieConsentProvider`, `./useCookieConsent`,
+  `./CookieConsentDialog`, `./PrivacyPolicyUpdateDialog`,
+  `./cookieConsentAnalytics`.
+- `IntlProvider` auto-wires `CookieConsentProvider` (and, when
+  `cookieConsent.secrets`/`getSecrets` is set, `CookieConsentAnalytics`)
+  whenever `cookieConsent` is configured — no manual provider nesting
+  required.
+- `CookieConsentAnalytics` gates Cloudflare Web Analytics, Google Ads,
+  Google Analytics, AdSense, and Microsoft Clarity behind visitor consent.
+- `src/cookie_consent/README.md` — module-level docs (layout, auto-wiring,
+  customization, gotchas).
+
 ## [0.3.3] - 2026-08-02
 
 ### Fixed

@@ -75,13 +75,14 @@ See [`example/`](example) for a full working Next.js app using the package.
 | `cloudflare-next-intl/IntlHelperScript` | Locale bootstrap script |
 | `cloudflare-next-intl/usePathname` | Locale-aware `usePathname` hook |
 | `cloudflare-next-intl/metadata` | Locale-aware metadata helpers |
-| `cloudflare-next-intl/getLayoutStates` | Layout locale state helper |
-| `cloudflare-next-intl/setCookieClient` / `getCookieClient` | Locale cookie helpers |
+| `cloudflare-next-intl/setCookieClient` / `getCookieClient` | Client cookie helpers |
 | `cloudflare-next-intl/localeStaticParams` | `generateStaticParams` helper |
 | `cloudflare-next-intl/use` | Universal translation hook (server/client aware) |
 | `cloudflare-next-intl/ThemeSwitcher` | Optional theme switcher component |
+| `cloudflare-next-intl/firebaseAuth*` | Optional Firebase Authentication integration (client/server providers, hooks, actions, middleware) |
+| `cloudflare-next-intl/cookieConsent` | Optional cookie-consent + privacy-policy-update banner, with analytics gating |
 
-Full reference in [`docs/ai/package-exports.md`](docs/ai/package-exports.md).
+Full reference in [`package/llms.txt`](package/llms.txt).
 
 ---
 

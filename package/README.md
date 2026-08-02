@@ -185,6 +185,46 @@ import ThemeSwitcher from "cloudflare-next-intl/ThemeSwitcher";
 <ThemeSwitcher lightLabelText="Light" darkLabelText="Dark" />
 ```
 
+### Cookie consent
+
+Set `cookieConsent` on your `RoutingConfig` to enable — `IntlProvider` then
+auto-wires `CookieConsentProvider` (and `CookieConsentAnalytics`, if
+`cookieConsent.secrets`/`getSecrets` is set) with no manual nesting needed.
+
+```typescript
+// intl-config.ts
+export default setIntlConfig({
+    locales: ["en", "de"],
+    defaultLocale: "en",
+    cookieConsent: {
+        privacyPolicyDate: "2026-01-01",
+    },
+});
+```
+
+```tsx
+import { CookieConsentDialog, PrivacyPolicyUpdateDialog, useCookieConsent } from "cloudflare-next-intl/cookieConsent";
+
+export default function Layout({ children }) {
+    return (
+        <>
+            {children}
+            <CookieConsentDialog />
+            <PrivacyPolicyUpdateDialog />
+        </>
+    );
+}
+```
+
+```tsx
+"use client";
+import { useCookieConsent } from "cloudflare-next-intl/useCookieConsent";
+
+const { consent, setConsent } = useCookieConsent();
+```
+
+See [`package/src/cookie_consent/README.md`](package/src/cookie_consent/README.md) for layout, customization, and gotchas.
+
 ## License
 
 MIT

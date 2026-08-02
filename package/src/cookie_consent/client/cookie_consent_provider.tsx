@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useEffect, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import config from '../../config/intl_config';
 import requireCookieConsentConfig from '../require_config';
 import getCookie from '../../client/functions/get_cookie';
@@ -39,12 +39,16 @@ function parseConsent(raw: string | null): ConsentValue {
  * ```
  */
 export default function CookieConsentProvider({ children }: { children: React.ReactNode }): React.ReactElement {
-    const cc = requireCookieConsentConfig(config.cookieConsent);
-
-    const consentCookieName = cc.consentCookieName ?? cookieConsentCookieKey;
-    const dateCookieName = cc.privacyPolicyDateCookieName ?? privacyPolicyDateCookieKey;
-    const maxAge = cc.cookieMaxAge ?? 31536000;
-    const policyDate = cc.privacyPolicyDate ? new Date(cc.privacyPolicyDate) : null;
+    const { consentCookieName, dateCookieName, maxAge, policyDate } = useMemo(() => {
+        const cc = requireCookieConsentConfig(config.cookieConsent);
+        return {
+            consentCookieName: cc.consentCookieName ?? cookieConsentCookieKey,
+            dateCookieName: cc.privacyPolicyDateCookieName ?? privacyPolicyDateCookieKey,
+            maxAge: cc.cookieMaxAge ?? 31536000,
+            policyDate: cc.privacyPolicyDate ? new Date(cc.privacyPolicyDate) : null,
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const [consent, setConsentState] = useState<ConsentValue>(null);
     const [privacyPolicyUpdated, setPrivacyPolicyUpdated] = useState(false);
@@ -80,9 +84,13 @@ export default function CookieConsentProvider({ children }: { children: React.Re
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const contextValue = useMemo(
+        () => ({ consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate }),
+        [consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate],
+    );
+
     return (
-        <CookieConsentContext.Provider
-            value={{ consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate }}>
+        <CookieConsentContext.Provider value={contextValue}>
             {children}
         </CookieConsentContext.Provider>
     );
