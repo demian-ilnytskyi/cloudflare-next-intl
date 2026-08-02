@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import config from '../../config/intl_config';
 import requireCookieConsentConfig from '../require_config';
 import getCookie from '../../client/functions/get_cookie';
@@ -27,7 +28,10 @@ function parseConsent(raw: string | null): ConsentValue {
  * `cookieConsent.privacyPolicyDate` is configured: once a visitor has
  * consented, if their stored consent date predates `privacyPolicyDate`,
  * `privacyPolicyUpdated` becomes `true` until they call
- * `acknowledgePrivacyPolicyUpdate()`.
+ * `acknowledgePrivacyPolicyUpdate()` — or until they navigate to
+ * `cookieConsent.privacyPolicyPath`, which auto-acknowledges it (visiting
+ * the page counts as having seen the update; skipped entirely when
+ * `privacyPolicyPath` is `false`).
  *
  * @param requiresConsent Resolved server-side from
  *   `cookieConsent.getCountryCode`/`gdprCountries` — `false` means the
@@ -65,6 +69,7 @@ export default function CookieConsentProvider({ requiresConsent = true, children
     const [consent, setConsentState] = useState<ConsentValue>(null);
     const [privacyPolicyUpdated, setPrivacyPolicyUpdated] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
+    const pathname = usePathname();
 
     useEffect(() => {
         const storedConsent = parseConsent(getCookie(consentCookieName));
@@ -99,6 +104,16 @@ export default function CookieConsentProvider({ requiresConsent = true, children
         setPrivacyPolicyUpdated(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Visiting the privacy-policy page itself counts as having seen the
+    // update — auto-acknowledge instead of also showing the banner there.
+    // `pathname` still carries the locale prefix (e.g. `/de/privacy-policy`),
+    // so match on a trailing segment rather than strict equality.
+    useEffect(() => {
+        if (privacyPolicyUpdated && privacyPolicyPath !== false && pathname.endsWith(privacyPolicyPath)) {
+            acknowledgePrivacyPolicyUpdate();
+        }
+    }, [pathname, privacyPolicyUpdated, privacyPolicyPath, acknowledgePrivacyPolicyUpdate]);
 
     const contextValue = useMemo(
         () => ({ consent, privacyPolicyUpdated, isMounted, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath }),

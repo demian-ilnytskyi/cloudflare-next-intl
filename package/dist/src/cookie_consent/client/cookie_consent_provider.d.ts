@@ -11,7 +11,10 @@ export declare const CookieConsentContext: import("react").Context<CookieConsent
  * `cookieConsent.privacyPolicyDate` is configured: once a visitor has
  * consented, if their stored consent date predates `privacyPolicyDate`,
  * `privacyPolicyUpdated` becomes `true` until they call
- * `acknowledgePrivacyPolicyUpdate()`.
+ * `acknowledgePrivacyPolicyUpdate()` — or until they navigate to
+ * `cookieConsent.privacyPolicyPath`, which auto-acknowledges it (visiting
+ * the page counts as having seen the update; skipped entirely when
+ * `privacyPolicyPath` is `false`).
  *
  * @param requiresConsent Resolved server-side from
  *   `cookieConsent.getCountryCode`/`gdprCountries` — `false` means the

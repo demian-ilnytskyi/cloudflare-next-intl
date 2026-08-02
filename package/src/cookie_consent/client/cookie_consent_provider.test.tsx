@@ -5,11 +5,16 @@ import { CookieConsentContext } from './cookie_consent_provider';
 import type { CookieConsentRoutingConfig } from '../../types/types';
 
 let currentConfig: { cookieConsent?: CookieConsentRoutingConfig };
+let pathname = '/en';
 
 vi.mock('../../config/intl_config', () => ({
     get default() {
         return currentConfig;
     },
+}));
+
+vi.mock('next/navigation', () => ({
+    usePathname: () => pathname,
 }));
 
 const cookies = new Map<string, string>();
@@ -43,6 +48,7 @@ describe('CookieConsentProvider', () => {
     beforeEach(() => {
         cookies.clear();
         currentConfig = { cookieConsent: {} };
+        pathname = '/en';
     });
 
     it('throws when cookieConsent config is missing', async () => {
@@ -214,5 +220,36 @@ describe('CookieConsentProvider', () => {
         const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
         render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
         expect(screen.getByTestId('privacy-policy-path')).toHaveTextContent('false');
+    });
+
+    it('auto-acknowledges the privacy-policy update when the visitor is on the privacy-policy page', async () => {
+        cookies.set('__cookie_consent_key__', 'true');
+        cookies.set('__privacy_policy_date_key__', '2020-01-01T00:00:00.000Z');
+        currentConfig = { cookieConsent: { privacyPolicyDate: '2026-07-20' } };
+        pathname = '/en/privacy-policy';
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
+        expect(await screen.findByTestId('updated')).toHaveTextContent('false');
+        expect(cookies.get('__privacy_policy_date_key__')).toBe(new Date('2026-07-20').toISOString());
+    });
+
+    it('does not auto-acknowledge when the visitor is on a different page', async () => {
+        cookies.set('__cookie_consent_key__', 'true');
+        cookies.set('__privacy_policy_date_key__', '2020-01-01T00:00:00.000Z');
+        currentConfig = { cookieConsent: { privacyPolicyDate: '2026-07-20' } };
+        pathname = '/en/about';
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('updated')).toHaveTextContent('true');
+    });
+
+    it('does not auto-acknowledge on the privacy-policy page when privacyPolicyPath is false', async () => {
+        cookies.set('__cookie_consent_key__', 'true');
+        cookies.set('__privacy_policy_date_key__', '2020-01-01T00:00:00.000Z');
+        currentConfig = { cookieConsent: { privacyPolicyDate: '2026-07-20', privacyPolicyPath: false } };
+        pathname = '/en/privacy-policy';
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('updated')).toHaveTextContent('true');
     });
 });

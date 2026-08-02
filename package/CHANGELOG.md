@@ -3,6 +3,15 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.5] - 2026-08-02
+
+### Added
+
+- `CookieConsentProvider` now auto-acknowledges the privacy-policy-update
+  banner (`privacyPolicyUpdated` → `false`) when the visitor navigates to
+  `cookieConsent.privacyPolicyPath` — no dedicated component needed, matches
+  by pathname internally. Skipped when `privacyPolicyPath` is `false`.
+
 ## [0.5.4] - 2026-08-02
 
 ### Fixed
