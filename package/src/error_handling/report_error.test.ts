@@ -109,4 +109,14 @@ describe('reportError', () => {
         await reportError({ errorHandling: { onError } }, { error: new Error('b'), classOrMethodName: 'y', dedupKey: 'same-key' });
         expect(onError).toHaveBeenCalledTimes(1);
     });
+
+    it('a resetDedup: true call with error null/undefined clears dedup state without calling onError', async () => {
+        const onError = vi.fn();
+        const params = { error: new Error('dedup-boom5'), classOrMethodName: 'dedupTest5' };
+        await reportError({ errorHandling: { onError } }, params);
+        await reportError({ errorHandling: { onError, resetDedup: true } }, { error: null, classOrMethodName: '__reset__' });
+        expect(onError).toHaveBeenCalledTimes(1);
+        await reportError({ errorHandling: { onError } }, params);
+        expect(onError).toHaveBeenCalledTimes(2);
+    });
 });

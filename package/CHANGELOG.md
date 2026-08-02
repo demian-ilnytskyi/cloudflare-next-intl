@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.2] - 2026-08-02
+
+### Added
+
+- `reportError` now supports a "reset-only" call: passing `params.error` as `null`/`undefined` together with `errorHandling.resetDedup: true` clears the dedup state and returns immediately, without calling `onError`. Use this once at the very start of a request/cron tick — before any handler that might call `reportError` for a real error runs — in a long-lived server process where dedup state must not leak across requests.
+
 ## [0.6.1] - 2026-08-02
 
 ### Added

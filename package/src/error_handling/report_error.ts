@@ -61,6 +61,12 @@ async function callOnError(config: ErrorHandlingRoutingConfig | undefined, param
  * `onError` directly when `getCloudflareContext`/`ctx.waitUntil` is unset or
  * unavailable (e.g. outside a Cloudflare Worker).
  *
+ * Passing `params.error` as `null`/`undefined` with `errorHandling.resetDedup: true`
+ * and nothing else is a valid "reset-only" call: the dedup state clears and
+ * `reportError` returns immediately, without calling `onError` — useful to
+ * clear dedup state once at the very start of a request/cron tick, before
+ * any handler that might call `reportError` for a real error runs.
+ *
  * @param config Pass the relevant slices of your `RoutingConfig` directly —
  *   `{ errorHandling: config.errorHandling, generate: config.generate }`.
  */
@@ -72,6 +78,7 @@ export default async function reportError(
     if (errorHandling?.resetDedup) {
         lastDedupKey = null;
         lastReportedAt = 0;
+        if (params.error === null || params.error === undefined) return;
     }
 
     if (errorHandling?.enable === false) return;
