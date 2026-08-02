@@ -72,12 +72,21 @@ export default function CookieConsentProvider({ requiresConsent = true, children
     const pathname = usePathname();
 
     useEffect(() => {
-        const storedConsent = parseConsent(getCookie(consentCookieName));
-        const autoAccepted = storedConsent === null && !requiresConsent;
+        // `undefined` (no cookie at all) means a genuine first visit — auto-
+        // accept applies. `'null'` (explicitly stored by `setConsent(null)`,
+        // e.g. a "cookie settings" button) means the visitor already decided
+        // once and is being asked to re-decide, so it must NOT auto-accept
+        // again — otherwise it'd immediately flip back to `true` whenever
+        // `requiresConsent` is `false` (e.g. always in dev, see
+        // `resolveRequiresConsent`), reopening then instantly re-closing the
+        // dialog on the next navigation/refresh.
+        const rawConsent = getCookie(consentCookieName);
+        const storedConsent = parseConsent(rawConsent);
+        const isFirstVisit = rawConsent === null;
+        const autoAccepted = isFirstVisit && !requiresConsent;
         setConsentState(autoAccepted ? true : storedConsent);
         setIsMounted(true);
 
-        const isFirstVisit = storedConsent === null && !autoAccepted;
         if (isFirstVisit || !policyDate) return;
 
         const storedDateRaw = getCookie(dateCookieName);
@@ -91,9 +100,16 @@ export default function CookieConsentProvider({ requiresConsent = true, children
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const setConsent = useCallback((value: boolean) => {
-        setCookie({ name: consentCookieName, value, maxAge });
-        if (policyDate) setCookie({ name: dateCookieName, value: policyDate.toISOString(), maxAge });
+    // `value: null` stores the literal string `'null'` (rather than clearing
+    // the cookie) so the mount effect above can tell "explicitly reset" apart
+    // from "no cookie yet" and skip auto-accept accordingly.
+    const setConsent = useCallback((value: ConsentValue) => {
+        if (value === null) {
+            setCookie({ name: consentCookieName, value: 'null', maxAge });
+        } else {
+            setCookie({ name: consentCookieName, value, maxAge });
+            if (policyDate) setCookie({ name: dateCookieName, value: policyDate.toISOString(), maxAge });
+        }
         setConsentState(value);
         setPrivacyPolicyUpdated(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.7] - 2026-08-02
+
+### Changed
+
+- `useCookieConsent().setConsent` now also accepts `null` — resets the
+  stored consent decision so the `CookieConsentDialog` banner reappears
+  (e.g. for a "cookie settings" button), and survives a refresh before the
+  visitor re-decides: it isn't re-seeded back to `true` by the auto-accept
+  path even when `requiresConsent` is `false` (e.g. always the case in
+  dev).
+
 ## [0.5.6] - 2026-08-02
 
 ### Changed

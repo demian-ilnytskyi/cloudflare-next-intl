@@ -44,6 +44,7 @@
         "darkMode": "Перейти на темну тему",
         "ukSwitcherLabel": "Змінити мову на українську",
         "enSwitcherLabel": "Змінити мову на англійську",
-        "dialogLabel": "Меню навігації"
+        "dialogLabel": "Меню навігації",
+        "cookieSettings": "Налаштування cookie"
     }
 }

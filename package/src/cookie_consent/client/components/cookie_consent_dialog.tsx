@@ -6,7 +6,7 @@ import DialogPortal from './dialog_portal';
 import { getLocaleCache } from '../../../general/cache_variables';
 import { defaultCookieConsentText } from './default_dialog_text';
 import { defaultCookieDialogClassNames } from './default_dialog_styles';
-import type { CookieDialogClassNames, CookieDialogStyles } from '../../types';
+import type { ConsentValue, CookieDialogClassNames, CookieDialogStyles } from '../../types';
 
 export interface CookieConsentDialogProps {
     /** Banner message text. */
@@ -31,7 +31,7 @@ export interface CookieConsentDialogProps {
      * Full custom render — receives the resolved consent state/actions and
      * bypasses the default markup entirely. Use for a fully bespoke dialog.
      */
-    render?: (props: { setConsent: (value: boolean) => void }) => React.ReactNode;
+    render?: (props: { setConsent: (value: ConsentValue) => void }) => React.ReactNode;
 }
 
 /**

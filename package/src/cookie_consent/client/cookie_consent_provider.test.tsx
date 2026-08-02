@@ -39,6 +39,7 @@ function Consumer() {
             <span data-testid="privacy-policy-path">{String(ctx.privacyPolicyPath)}</span>
             <button onClick={() => ctx.setConsent(true)}>accept</button>
             <button onClick={() => ctx.setConsent(false)}>decline</button>
+            <button onClick={() => ctx.setConsent(null)}>reset</button>
             <button onClick={() => ctx.acknowledgePrivacyPolicyUpdate()}>ack</button>
         </div>
     );
@@ -180,6 +181,25 @@ describe('CookieConsentProvider', () => {
             screen.getByText('ack').click();
         });
         expect(cookies.has('__privacy_policy_date_key__')).toBe(false);
+    });
+
+    it('setConsent(null) resets consent and stores the literal string "null"', async () => {
+        cookies.set('__cookie_consent_key__', 'true');
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('consent')).toHaveTextContent('true');
+        await act(async () => {
+            screen.getByText('reset').click();
+        });
+        expect(screen.getByTestId('consent')).toHaveTextContent('null');
+        expect(cookies.get('__cookie_consent_key__')).toBe('null');
+    });
+
+    it('setConsent(null) does not get re-seeded to true on remount when requiresConsent is false', async () => {
+        cookies.set('__cookie_consent_key__', 'null');
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider requiresConsent={false}><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('consent')).toHaveTextContent('null');
     });
 
     it('seeds consent to true for a first-time visitor when requiresConsent is false', async () => {

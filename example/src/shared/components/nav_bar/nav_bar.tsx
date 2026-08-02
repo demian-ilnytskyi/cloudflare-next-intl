@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import NavigationMobDialog from "./nav_mob_dialog";
+import ConsentSettingButton from "./consent_setting_button";
 import LanguageSwitcher from "../language_switcher/language_switcher";
 import { getTranslations, Link, ThemeSwitcher } from "cloudflare-next-intl";
 
@@ -45,7 +46,8 @@ export default async function NavigationBar(): Promise<Component> {
                 <div className="flex flex-row items-center not-small-mobile:w-full not-small-mobile:justify-evenly space-x-6 not-tablet:hidden">
                     <Buttons />
                 </div>
-                <div className="flex flex-row pr-3">
+                <div className="flex flex-row pr-3 items-center">
+                    <ConsentSettingButton text={t("cookieSettings")} />
                     <ThemeSwitcher
                         className="hidden tablet:flex mr-3"
                         lightLabelText={lightModeText}

@@ -18,8 +18,13 @@ export interface CookieConsentContextType {
      * acknowledged yet. Always `false` when `privacyPolicyDate` is unset.
      */
     privacyPolicyUpdated: boolean;
-    /** Accepts (or rejects, with `false`) cookie consent and persists it. */
-    setConsent: (value: boolean) => void;
+    /**
+     * Accepts (or rejects, with `false`) cookie consent and persists it.
+     * Pass `null` to clear the stored decision and reset `consent` back to
+     * `null`, so the default `CookieConsentDialog` banner reappears (e.g.
+     * for a "cookie settings" button).
+     */
+    setConsent: (value: ConsentValue) => void;
     /** Acknowledges the privacy-policy update banner and persists the new date. */
     acknowledgePrivacyPolicyUpdate: () => void;
     /**

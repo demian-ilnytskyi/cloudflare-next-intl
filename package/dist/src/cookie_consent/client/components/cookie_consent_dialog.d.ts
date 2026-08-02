@@ -1,4 +1,4 @@
-import type { CookieDialogClassNames, CookieDialogStyles } from '../../types';
+import type { ConsentValue, CookieDialogClassNames, CookieDialogStyles } from '../../types';
 export interface CookieConsentDialogProps {
     /** Banner message text. */
     message?: React.ReactNode;
@@ -23,7 +23,7 @@ export interface CookieConsentDialogProps {
      * bypasses the default markup entirely. Use for a fully bespoke dialog.
      */
     render?: (props: {
-        setConsent: (value: boolean) => void;
+        setConsent: (value: ConsentValue) => void;
     }) => React.ReactNode;
 }
 /**
