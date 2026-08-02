@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import resolveRequiresConsent, { defaultGdprCountries } from './gdpr_countries';
 
 describe('resolveRequiresConsent', () => {
-    it('does not require consent when neither getter is provided (gating off by default)', async () => {
-        expect(await resolveRequiresConsent(undefined, undefined, undefined)).toBe(false);
+    it('requires consent when neither getter is provided (fail-safe default)', async () => {
+        expect(await resolveRequiresConsent(undefined, undefined, undefined)).toBe(true);
     });
 
     it('requires consent when getCountryCode resolves no country', async () => {

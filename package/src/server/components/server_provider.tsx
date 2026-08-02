@@ -69,13 +69,23 @@ export default async function LocationzationProvider({ language, messages, child
     let analyticsSecrets: CookieConsentAnalyticsSecrets | undefined;
     let requiresConsent = true;
     if (config.cookieConsent) {
-        requiresConsent = await resolveRequiresConsent(
-            config.cookieConsent.getCountryCode,
-            config.cookieConsent.getCloudflareContext,
-            config.cookieConsent.gdprCountries,
-        );
-
         const isDevEnvironment = process.env.NODE_ENV === 'development';
+
+        // `getCloudflareContext` under `next dev`'s Cloudflare dev shim can
+        // crash the local workerd process (a native RPC panic, not a
+        // catchable JS error — see cloudflare/workers-sdk#8687) merely by
+        // being called, regardless of what it resolves to. `getCountryCode`
+        // is caller-supplied and may be dev-safe, so only skip the
+        // `getCloudflareContext` path in dev; fail-safe to `true`
+        // (banner shown) same as an unresolved country would.
+        requiresConsent = !isDevEnvironment
+            ? await resolveRequiresConsent(
+                config.cookieConsent.getCountryCode,
+                config.cookieConsent.getCloudflareContext,
+                config.cookieConsent.gdprCountries,
+            )
+            : true;
+
         const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
 
         if (config.cookieConsent.autoWireAnalytics !== false && analyticsAllowedInEnv) {

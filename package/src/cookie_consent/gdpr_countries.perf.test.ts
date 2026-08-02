@@ -9,7 +9,7 @@ describe('resolveRequiresConsent perf characteristics', () => {
         // No getter passed means none CAN be called — this asserts the
         // early-return path is taken by checking the function returns
         // synchronously fast and without touching gdprCountries lookup.
-        expect(await resolveRequiresConsent(undefined, undefined, undefined)).toBe(false);
+        expect(await resolveRequiresConsent(undefined, undefined, undefined)).toBe(true);
     });
 
     it('does not call getCloudflareContext when getCountryCode is set (precedence, no wasted context resolution)', async () => {

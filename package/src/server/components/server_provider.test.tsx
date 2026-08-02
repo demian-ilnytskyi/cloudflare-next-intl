@@ -155,12 +155,12 @@ describe('LocationzationProvider', () => {
         expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'false');
     });
 
-    it('defaults requiresConsent to false when neither getCountryCode nor getCloudflareContext is set', async () => {
+    it('defaults requiresConsent to true when neither getCountryCode nor getCloudflareContext is set', async () => {
         cookieConsentValue = {};
         vi.resetModules();
         const { default: LocationzationProvider } = await import('./server_provider');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
-        expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'false');
+        expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'true');
     });
 
     it('defaults requiresConsent to true when cookieConsent is not configured at all', async () => {

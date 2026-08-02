@@ -38,8 +38,8 @@ function getGdprCountriesSet(gdprCountries: readonly string[] | undefined): Set<
 /**
  * Resolves whether the cookie-consent banner is required for a visitor.
  *
- * - Neither getter set: country-based gating is off entirely — consent is
- *   never required (the simplest opt-in-by-default setup).
+ * - Neither getter set: fail-safe — consent is required by default since
+ *   the visitor's country can't be determined at all.
  * - Either getter set: fail-safe — a country that couldn't be resolved
  *   still requires consent; only a resolved country OUTSIDE
  *   `gdprCountries` skips the banner. `getCountryCode` takes precedence
@@ -50,7 +50,7 @@ export default async function resolveRequiresConsent(
     getCloudflareContext: CookieConsentGetCloudflareContext | undefined,
     gdprCountries: readonly string[] | undefined,
 ): Promise<boolean> {
-    if (!getCountryCode && !getCloudflareContext) return false;
+    if (!getCountryCode && !getCloudflareContext) return true;
 
     const countryCode = getCountryCode
         ? await getCountryCode()

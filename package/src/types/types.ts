@@ -163,10 +163,9 @@ export interface CookieConsentRoutingConfig {
      * `getCloudflareContext`) decides whether the cookie-consent banner is
      * required at all: visitors outside `gdprCountries` skip the banner and
      * get analytics immediately (still gated by `enableAnalyticsInDevMode`).
-     * Omit BOTH to skip country-based gating entirely — the banner is never
-     * shown and consent is treated as implicitly granted for everyone. This
-     * is the simplest opt-in-by-default setup; set one of the two getters
-     * once you need real GDPR-region gating.
+     * Omit BOTH to require consent for everyone (fail-safe default — the
+     * visitor's country can't be determined at all without either getter).
+     * Set one of the two getters to scope the banner to GDPR regions only.
      */
     getCloudflareContext?: CookieConsentGetCloudflareContext;
     /**

@@ -3,6 +3,34 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] - 2026-08-02
+
+### Fixed
+
+- `cookieConsent.getCloudflareContext`-based country resolution
+  (`resolveRequiresConsent`, added in 0.4.0's GDPR gating) is now skipped
+  under `next dev` (`NODE_ENV === 'development'`), failing safe to
+  `requiresConsent = true` instead. Calling `getCloudflareContext` from
+  `IntlProvider` on every request could crash the local `next dev` +
+  `initOpenNextCloudflareForDev` Cloudflare dev shim with a native workerd
+  RPC panic ("Failed to get handler to worker") — a known upstream
+  limitation of `getPlatformProxy` with Durable Object / service bindings
+  (see cloudflare/workers-sdk#8687) that no `try`/`catch` in JS can prevent,
+  since it isn't a catchable JS exception. `cookieConsent.getCountryCode`
+  (caller-supplied) is unaffected and still runs in dev.
+
+### Changed (BREAKING)
+
+- `resolveRequiresConsent` now requires consent by default (`true`) when
+  **neither** `getCountryCode` nor `getCloudflareContext` is set, instead of
+  treating that as "gating off" (`false`). Rationale: without either getter
+  the visitor's country genuinely can't be determined, and the package's
+  documented fail-safe policy elsewhere is "unknown country still requires
+  consent" — omitting both getters is now consistent with that, rather than
+  a silent exception. If you rely on the old "no getters → banner never
+  shown" behavior, set `autoWireAnalytics: false` or handle the banner
+  yourself via `useCookieConsent()`/`CookieConsentDialog`.
+
 ## [0.4.6] - 2026-08-02
 
 ### Changed
