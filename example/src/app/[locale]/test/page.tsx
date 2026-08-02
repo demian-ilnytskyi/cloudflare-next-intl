@@ -1,12 +1,15 @@
-import { getTranslations, setLocaleAsync } from "cloudflare-next-intl";
+import { getMessage, setLocaleAsync } from "cloudflare-next-intl";
 
 // Example if not use setLocale or setLocaleAsync
 export default async function Home({ params }: {
     params: Promise<{ locale: Language }>;
 }): Promise<Component> {
+    const { locale } = await params;
     await setLocaleAsync(params);
-    const t = await getTranslations("HomePage");
-    const list: string[] = t("list");
+    // `t()` only resolves string leaves; arrays live in raw messages instead.
+    const messages = await getMessage(locale);
+    const homePage = messages.HomePage as unknown as { list: string[] };
+    const list = homePage.list;
 
     return (
         <main className="flex-1 flex flex-col mt-5">
