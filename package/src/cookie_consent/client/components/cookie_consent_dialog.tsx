@@ -1,13 +1,21 @@
 'use client';
 
 import useCookieConsent from '../use_cookie_consent';
+import DefaultPrivacyPolicyLink from './default_privacy_policy_link';
 import type { CookieDialogClassNames, CookieDialogStyles } from '../../types';
 
 export interface CookieConsentDialogProps {
     /** Banner message text. */
     message?: React.ReactNode;
-    /** Optional link element rendered right after `message` (e.g. a privacy-policy link). */
+    /**
+     * Link element rendered right after `message`. Defaults to a link to
+     * `cookieConsent.privacyPolicyPath` (`'/privacy-policy'` unless
+     * configured otherwise) with `privacyPolicyLinkText` as its label. Pass
+     * `null` to render no link, or your own element to override it.
+     */
     link?: React.ReactNode;
+    /** Label for the default privacy-policy link. Ignored when `link` is set. */
+    privacyPolicyLinkText?: string;
     acceptText?: string;
     declineText?: string;
     /** Hides the decline ("necessary only") button, leaving only accept. */
@@ -31,6 +39,7 @@ export interface CookieConsentDialogProps {
 export default function CookieConsentDialog({
     message = 'We use cookies to improve your experience.',
     link,
+    privacyPolicyLinkText = 'Privacy Policy',
     acceptText = 'Accept',
     declineText = 'Necessary only',
     hideDecline = false,
@@ -39,11 +48,15 @@ export default function CookieConsentDialog({
     styles,
     render,
 }: CookieConsentDialogProps): React.ReactElement | null {
-    const { consent, setConsent } = useCookieConsent();
+    const { consent, setConsent, privacyPolicyPath } = useCookieConsent();
 
     if (consent !== null) return null;
 
     if (render) return <>{render({ setConsent })}</>;
+
+    const resolvedLink = link !== undefined
+        ? link
+        : <DefaultPrivacyPolicyLink privacyPolicyPath={privacyPolicyPath} text={privacyPolicyLinkText} />;
 
     return (
         <div
@@ -55,7 +68,7 @@ export default function CookieConsentDialog({
             style={styles?.root}>
             <p id={`${id}-title`} className={classNames?.message} style={styles?.message}>
                 {message}
-                {link ? <span className={classNames?.link} style={styles?.link}> {link}</span> : null}
+                {resolvedLink ? <span className={classNames?.link} style={styles?.link}> {resolvedLink}</span> : null}
             </p>
             <div className={classNames?.actions} style={styles?.actions}>
                 {!hideDecline && (

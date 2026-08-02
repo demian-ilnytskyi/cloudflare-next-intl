@@ -98,6 +98,14 @@ export interface CookieConsentRoutingConfig {
      * cookie-consent banner still works independently).
      */
     privacyPolicyDate?: string | Date;
+    /**
+     * Path to your privacy-policy page, e.g. `"/privacy-policy"`. Used by
+     * `CookieConsentDialog`/`PrivacyPolicyUpdateDialog` to render a default
+     * link automatically when their `link` prop is omitted. Defaults to
+     * `'/privacy-policy'`. Set `false` to render no link by default (still
+     * overridable per-dialog via the `link` prop).
+     */
+    privacyPolicyPath?: string | false;
     /** Cookie-consent cookie name. Defaults to `'__cookie_consent_key__'`. */
     consentCookieName?: string;
     /** Privacy-policy-date cookie name. Defaults to `'__privacy_policy_date_key__'`. */
@@ -128,6 +136,79 @@ export interface CookieConsentRoutingConfig {
      * `undefined` in the returned object disables that provider's script.
      */
     getSecrets?: () => CookieConsentAnalyticsSecrets | Promise<CookieConsentAnalyticsSecrets>;
+    /**
+     * Resolves the visitor's country code directly (ISO 3166-1 alpha-2,
+     * e.g. `"DE"`) — the simplest option when you already have it from
+     * somewhere (a header, a KV lookup, your own logic). Takes precedence
+     * over `getCloudflareContext` when both are set.
+     */
+    getCountryCode?: () => string | undefined | Promise<string | undefined>;
+    /**
+     * Pass `getCloudflareContext` from `@opennextjs/cloudflare` directly
+     * (not a dependency of this package, so bring your own import) — its
+     * exact overloaded signature is accepted as-is; called internally with
+     * `{ async: true }`, so you never need to wrap it yourself. Only
+     * `cf.country` is read from the resolved context. Ignored when
+     * `getCountryCode` is also set.
+     *
+     * Country-based gating (via either `getCountryCode` or
+     * `getCloudflareContext`) decides whether the cookie-consent banner is
+     * required at all: visitors outside `gdprCountries` skip the banner and
+     * get analytics immediately (still gated by `enableAnalyticsInDevMode`).
+     * Omit BOTH to skip country-based gating entirely — the banner is never
+     * shown and consent is treated as implicitly granted for everyone. This
+     * is the simplest opt-in-by-default setup; set one of the two getters
+     * once you need real GDPR-region gating.
+     */
+    getCloudflareContext?: CookieConsentGetCloudflareContext;
+    /**
+     * Country codes (ISO 3166-1 alpha-2) for which the cookie-consent banner
+     * is required. Only consulted when `getCountryCode` or
+     * `getCloudflareContext` is set. Defaults to the EU/EEA + UK +
+     * Switzerland (GDPR/UK-GDPR/nFADP scope). A visitor whose resolved
+     * country isn't in this set is treated as NOT requiring consent; a
+     * country that couldn't be resolved still requires it (fail-safe:
+     * unknown defaults to "ask").
+     */
+    gdprCountries?: readonly string[];
+    /**
+     * Whether the auto-wired analytics scripts (see `autoWireAnalytics`)
+     * are allowed to load in your local/dev environment. Defaults to
+     * `false` — analytics stay off during local development regardless of
+     * consent, matching most analytics providers' own recommendation not to
+     * pollute production data with dev traffic. Set `true` to test the
+     * scripts locally.
+     */
+    enableAnalyticsInDevMode?: boolean;
+}
+/**
+ * Minimal shape read from your `getCloudflareContext()` return value — only
+ * `cf.country` is consulted (read defensively at the call site, since `cf`'s
+ * real type — `@opennextjs/cloudflare`'s `CfProperties`, a union of the
+ * incoming-request and request-init variants — only has `country` on one
+ * branch). `cf` is typed loosely here so the real (generic) function is
+ * assignable to `CookieConsentGetCloudflareContext` without a hard
+ * dependency on that package.
+ */
+export interface CookieConsentCloudflareContext {
+    cf?: Record<string, unknown>;
+}
+/**
+ * Matches `@opennextjs/cloudflare`'s `getCloudflareContext` overloaded
+ * signature exactly, so that function can be passed as
+ * `cookieConsent.getCloudflareContext` directly — this package always
+ * calls it with `{ async: true }` internally (the first overload), which is
+ * why that overload's return type drives `resolveRequiresConsent`'s
+ * awaited result; the sync overload is accepted structurally only so the
+ * real function's type (which has both) is assignable as-is.
+ */
+export interface CookieConsentGetCloudflareContext {
+    (options: {
+        async: true;
+    }): Promise<CookieConsentCloudflareContext | null>;
+    (options?: {
+        async: false;
+    }): CookieConsentCloudflareContext | null;
 }
 export interface CookieConsentAnalyticsSecrets {
     /** Cloudflare Web Analytics beacon token, e.g. `'{"token": "..."}'` (the raw `data-cf-beacon` attribute value). */

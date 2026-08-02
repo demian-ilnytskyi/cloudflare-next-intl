@@ -14,6 +14,13 @@ export interface CookieConsentContextType {
     setConsent: (value: boolean) => void;
     /** Acknowledges the privacy-policy update banner and persists the new date. */
     acknowledgePrivacyPolicyUpdate: () => void;
+    /**
+     * Resolved from `cookieConsent.privacyPolicyPath` (defaults to
+     * `'/privacy-policy'`; `false` disables it). Used by the default
+     * dialog components to render a privacy-policy link automatically
+     * when their `link` prop is omitted.
+     */
+    privacyPolicyPath: string | false;
 }
 /** Slot-level style/class overrides accepted by the default dialog components. */
 export interface CookieDialogClassNames {

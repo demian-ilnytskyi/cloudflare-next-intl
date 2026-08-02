@@ -16,6 +16,9 @@ is missing.
 - `client/components/privacy_policy_update_dialog.tsx` — "privacy policy
   updated" banner; auto-enabled only when `cookieConsent.privacyPolicyDate`
   is set.
+- `client/components/default_privacy_policy_link.tsx` — internal; the
+  default link both dialogs render when their `link` prop is omitted,
+  pointing at `cookieConsent.privacyPolicyPath`.
 - `types.ts` — `CookieConsentContextType`, per-slot `CookieDialogClassNames`/
   `CookieDialogStyles`.
 - `gdpr_countries.ts` — `defaultGdprCountries` list + `resolveRequiresConsent`,
@@ -61,6 +64,14 @@ Both dialog components accept per-slot `classNames`/`styles` (root, message,
 link, actions, buttons), or a `render` prop for fully bespoke markup that
 bypasses the default DOM entirely — no Tailwind or other design-system
 dependency is baked in.
+
+Both also render a privacy-policy link by default when their `link` prop is
+omitted — pointing at `cookieConsent.privacyPolicyPath` (defaults to
+`'/privacy-policy'`), locale-prefixed the same way the package's `Link`
+component does. Pass `link={null}` to render no link, `link={<...>}` for a
+fully custom element, or set `cookieConsent.privacyPolicyPath` to `false` to
+disable the default link everywhere. `privacyPolicyLinkText` overrides the
+default link's label (`"Privacy Policy"` / `"Learn more"`).
 
 ## Gotchas
 

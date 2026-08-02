@@ -50,13 +50,14 @@ export default function CookieConsentProvider({ requiresConsent = true, children
     requiresConsent?: boolean;
     children: React.ReactNode;
 }): React.ReactElement {
-    const { consentCookieName, dateCookieName, maxAge, policyDate } = useMemo(() => {
+    const { consentCookieName, dateCookieName, maxAge, policyDate, privacyPolicyPath } = useMemo(() => {
         const cc = requireCookieConsentConfig(config.cookieConsent);
         return {
             consentCookieName: cc.consentCookieName ?? cookieConsentCookieKey,
             dateCookieName: cc.privacyPolicyDateCookieName ?? privacyPolicyDateCookieKey,
             maxAge: cc.cookieMaxAge ?? 31536000,
             policyDate: cc.privacyPolicyDate ? new Date(cc.privacyPolicyDate) : null,
+            privacyPolicyPath: cc.privacyPolicyPath ?? '/privacy-policy',
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -100,8 +101,8 @@ export default function CookieConsentProvider({ requiresConsent = true, children
     }, []);
 
     const contextValue = useMemo(
-        () => ({ consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate }),
-        [consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate],
+        () => ({ consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath }),
+        [consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath],
     );
 
     return (

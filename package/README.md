@@ -200,6 +200,8 @@ export default setIntlConfig({
     defaultLocale: "en",
     cookieConsent: {
         privacyPolicyDate: "2026-01-01",
+        // privacyPolicyPath: "/privacy-policy", // default; used by the
+        // dialogs' auto-rendered link. Set false to disable that link.
         // Optional: gate the banner to GDPR-region visitors only. Omit both
         // getters to disable country-based gating (consent always implicit).
         // Pass @opennextjs/cloudflare's getCloudflareContext directly — its

@@ -1,8 +1,15 @@
 import type { CookieDialogClassNames, CookieDialogStyles } from '../../types';
 export interface PrivacyPolicyUpdateDialogProps {
     message?: React.ReactNode;
-    /** Optional link element rendered right after `message` (e.g. to your privacy-policy page). */
+    /**
+     * Link element rendered right after `message`. Defaults to a link to
+     * `cookieConsent.privacyPolicyPath` (`'/privacy-policy'` unless
+     * configured otherwise) with `privacyPolicyLinkText` as its label. Pass
+     * `null` to render no link, or your own element to override it.
+     */
     link?: React.ReactNode;
+    /** Label for the default privacy-policy link. Ignored when `link` is set. */
+    privacyPolicyLinkText?: string;
     closeText?: string;
     id?: string;
     classNames?: CookieDialogClassNames;
@@ -21,4 +28,4 @@ export interface PrivacyPolicyUpdateDialogProps {
  * `null` otherwise, or once acknowledged. Every visual aspect is overridable
  * via `classNames`/`styles` (per-slot) or `render` (full custom markup).
  */
-export default function PrivacyPolicyUpdateDialog({ message, link, closeText, id, classNames, styles, render, }: PrivacyPolicyUpdateDialogProps): React.ReactElement | null;
+export default function PrivacyPolicyUpdateDialog({ message, link, privacyPolicyLinkText, closeText, id, classNames, styles, render, }: PrivacyPolicyUpdateDialogProps): React.ReactElement | null;

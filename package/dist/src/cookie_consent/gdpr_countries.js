@@ -1,11 +1,9 @@
-import type { CookieConsentGetCloudflareContext } from '../types/types';
-
 /**
  * Default `cookieConsent.gdprCountries` — EU/EEA member states (GDPR),
  * Iceland/Liechtenstein/Norway (EEA), the UK (UK-GDPR), and Switzerland
  * (nFADP). ISO 3166-1 alpha-2.
  */
-export const defaultGdprCountries: readonly string[] = [
+export const defaultGdprCountries = [
     'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR',
     'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL',
     'PT', 'RO', 'SE', 'SI', 'SK',
@@ -13,20 +11,18 @@ export const defaultGdprCountries: readonly string[] = [
     'GB',
     'CH',
 ];
-
 // `Set.has()` is O(1) vs `Array.includes()`'s O(n) — this runs on every
 // request that has country-based gating enabled, so the lookup cost matters.
 // Mirrors this package's `localesSet` convention in `config/middleware.ts`.
 const defaultGdprCountriesSet = new Set(defaultGdprCountries);
-
 // Custom `gdprCountries` lists are typically static config passed at
 // `setIntlConfig` call time (module-scope, stable reference) — caching one
 // Set per distinct array reference avoids rebuilding it on every request
 // while still supporting a caller that legitimately swaps the array.
-const customGdprCountriesSetCache = new WeakMap<readonly string[], Set<string>>();
-
-function getGdprCountriesSet(gdprCountries: readonly string[] | undefined): Set<string> {
-    if (!gdprCountries) return defaultGdprCountriesSet;
+const customGdprCountriesSetCache = new WeakMap();
+function getGdprCountriesSet(gdprCountries) {
+    if (!gdprCountries)
+        return defaultGdprCountriesSet;
     let set = customGdprCountriesSetCache.get(gdprCountries);
     if (!set) {
         set = new Set(gdprCountries);
@@ -34,7 +30,6 @@ function getGdprCountriesSet(gdprCountries: readonly string[] | undefined): Set<
     }
     return set;
 }
-
 /**
  * Resolves whether the cookie-consent banner is required for a visitor.
  *
@@ -45,17 +40,13 @@ function getGdprCountriesSet(gdprCountries: readonly string[] | undefined): Set<
  *   `gdprCountries` skips the banner. `getCountryCode` takes precedence
  *   over `getCloudflareContext` when both are set.
  */
-export default async function resolveRequiresConsent(
-    getCountryCode: (() => string | undefined | Promise<string | undefined>) | undefined,
-    getCloudflareContext: CookieConsentGetCloudflareContext | undefined,
-    gdprCountries: readonly string[] | undefined,
-): Promise<boolean> {
-    if (!getCountryCode && !getCloudflareContext) return false;
-
+export default async function resolveRequiresConsent(getCountryCode, getCloudflareContext, gdprCountries) {
+    if (!getCountryCode && !getCloudflareContext)
+        return false;
     const countryCode = getCountryCode
         ? await getCountryCode()
-        : (await getCloudflareContext!({ async: true }))?.cf?.country;
-
-    if (typeof countryCode !== 'string' || !countryCode) return true;
+        : (await getCloudflareContext({ async: true }))?.cf?.country;
+    if (typeof countryCode !== 'string' || !countryCode)
+        return true;
     return getGdprCountriesSet(gdprCountries).has(countryCode);
 }

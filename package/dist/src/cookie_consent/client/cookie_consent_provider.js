@@ -1,6 +1,6 @@
 'use client';
 import { jsx as _jsx } from "react/jsx-runtime";
-import { createContext, useCallback, useEffect, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import config from '../../config/intl_config';
 import requireCookieConsentConfig from '../require_config';
 import getCookie from '../../client/functions/get_cookie';
@@ -27,6 +27,14 @@ function parseConsent(raw) {
  * `privacyPolicyUpdated` becomes `true` until they call
  * `acknowledgePrivacyPolicyUpdate()`.
  *
+ * @param requiresConsent Resolved server-side from
+ *   `cookieConsent.getCountryCode`/`gdprCountries` — `false` means the
+ *   visitor's country doesn't require the banner at all, so a first-time
+ *   visitor (no stored cookie) gets `consent` seeded to `true` instead of
+ *   `null`, skipping the dialog and unlocking analytics immediately.
+ *   Defaults to `true` (always show the banner) when omitted, e.g. when
+ *   `cookieConsent.getCountryCode` isn't configured.
+ *
  * @example
  * ```tsx
  * <CookieConsentProvider>
@@ -36,16 +44,26 @@ function parseConsent(raw) {
  * </CookieConsentProvider>
  * ```
  */
-export default function CookieConsentProvider({ children }) {
-    const cc = requireCookieConsentConfig(config.cookieConsent);
-    const consentCookieName = cc.consentCookieName ?? cookieConsentCookieKey;
-    const dateCookieName = cc.privacyPolicyDateCookieName ?? privacyPolicyDateCookieKey;
-    const maxAge = cc.cookieMaxAge ?? 31536000;
-    const policyDate = cc.privacyPolicyDate ? new Date(cc.privacyPolicyDate) : null;
+export default function CookieConsentProvider({ requiresConsent = true, children }) {
+    const { consentCookieName, dateCookieName, maxAge, policyDate, privacyPolicyPath } = useMemo(() => {
+        const cc = requireCookieConsentConfig(config.cookieConsent);
+        return {
+            consentCookieName: cc.consentCookieName ?? cookieConsentCookieKey,
+            dateCookieName: cc.privacyPolicyDateCookieName ?? privacyPolicyDateCookieKey,
+            maxAge: cc.cookieMaxAge ?? 31536000,
+            policyDate: cc.privacyPolicyDate ? new Date(cc.privacyPolicyDate) : null,
+            privacyPolicyPath: cc.privacyPolicyPath ?? '/privacy-policy',
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const [consent, setConsentState] = useState(null);
     const [privacyPolicyUpdated, setPrivacyPolicyUpdated] = useState(false);
     useEffect(() => {
         const storedConsent = parseConsent(getCookie(consentCookieName));
+        if (storedConsent === null && !requiresConsent) {
+            setConsentState(true);
+            return;
+        }
         setConsentState(storedConsent);
         if (storedConsent === null || !policyDate)
             return;
@@ -72,5 +90,6 @@ export default function CookieConsentProvider({ children }) {
         setPrivacyPolicyUpdated(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-    return (_jsx(CookieConsentContext.Provider, { value: { consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate }, children: children }));
+    const contextValue = useMemo(() => ({ consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath }), [consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath]);
+    return (_jsx(CookieConsentContext.Provider, { value: contextValue, children: children }));
 }

@@ -31,6 +31,7 @@ function Consumer() {
         <div>
             <span data-testid="consent">{ctx.consent === null ? 'null' : String(ctx.consent)}</span>
             <span data-testid="updated">{String(ctx.privacyPolicyUpdated)}</span>
+            <span data-testid="privacy-policy-path">{String(ctx.privacyPolicyPath)}</span>
             <button onClick={() => ctx.setConsent(true)}>accept</button>
             <button onClick={() => ctx.setConsent(false)}>decline</button>
             <button onClick={() => ctx.acknowledgePrivacyPolicyUpdate()}>ack</button>
@@ -193,5 +194,25 @@ describe('CookieConsentProvider', () => {
         const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
         render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
         expect(screen.getByTestId('consent')).toHaveTextContent('null');
+    });
+
+    it('defaults privacyPolicyPath to /privacy-policy when unconfigured', async () => {
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('privacy-policy-path')).toHaveTextContent('/privacy-policy');
+    });
+
+    it('honors a custom privacyPolicyPath', async () => {
+        currentConfig = { cookieConsent: { privacyPolicyPath: '/legal/privacy' } };
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('privacy-policy-path')).toHaveTextContent('/legal/privacy');
+    });
+
+    it('honors privacyPolicyPath set to false', async () => {
+        currentConfig = { cookieConsent: { privacyPolicyPath: false } };
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('privacy-policy-path')).toHaveTextContent('false');
     });
 });

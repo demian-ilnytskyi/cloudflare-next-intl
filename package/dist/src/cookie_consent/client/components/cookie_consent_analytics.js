@@ -30,9 +30,16 @@ export default function CookieConsentAnalytics({ secrets }) {
     const hasGoogle = Boolean(secrets.googleAnalyticsId || secrets.googleAdsId || secrets.googleAdSenseId);
     return (_jsxs(_Fragment, { children: [hasGoogle && (_jsx("script", { id: "cookie-consent-google-consent-mode", dangerouslySetInnerHTML: { __html: googleConsentModeBootstrapScript(secrets) } })), consent === true && secrets.cloudflareBeaconToken && (_jsx("script", { defer: true, src: "https://static.cloudflareinsights.com/beacon.min.js", "data-cf-beacon": secrets.cloudflareBeaconToken })), consent === true && secrets.clarityProjectId && _jsx(ClarityScript, { projectId: secrets.clarityProjectId })] }));
 }
+let cachedClarityModule;
+function getClarityModule() {
+    if (!cachedClarityModule) {
+        cachedClarityModule = import('@microsoft/clarity');
+    }
+    return cachedClarityModule;
+}
 function ClarityScript({ projectId }) {
     useEffect(() => {
-        import('@microsoft/clarity')
+        getClarityModule()
             .then(({ default: Clarity }) => {
             Clarity.init(projectId);
             Clarity.consent();

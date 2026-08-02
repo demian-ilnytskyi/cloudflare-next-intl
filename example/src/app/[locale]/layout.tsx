@@ -9,6 +9,7 @@ import {
 } from "cloudflare-next-intl";
 import { IntlProvider } from "cloudflare-next-intl";
 import KTextConstants from "@/shared/constants/variables/text_constants";
+import { CookieConsentDialog, PrivacyPolicyUpdateDialog } from "cloudflare-next-intl/cookieConsent";
 
 export async function generateMetadata({ params }: {
   params: Promise<{ locale: Language }>;
@@ -57,6 +58,8 @@ export default async function RootLayout({
             <NavigationBar />
             {children}
           </div>
+          <CookieConsentDialog />
+          <PrivacyPolicyUpdateDialog />
         </IntlProvider>
       </body>
     </html>

@@ -4,14 +4,21 @@ import CookieConsentDialog from './cookie_consent_dialog';
 
 const setConsent = vi.fn();
 let consent: boolean | null = null;
+let privacyPolicyPath: string | false = '/privacy-policy';
 
 vi.mock('../use_cookie_consent', () => ({
-    default: () => ({ consent, setConsent, privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn() }),
+    default: () => ({ consent, setConsent, privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn(), privacyPolicyPath }),
+}));
+
+vi.mock('./default_privacy_policy_link', () => ({
+    default: ({ privacyPolicyPath: path, text }: { privacyPolicyPath: string | false; text: string }) =>
+        path === false ? null : <a href={path} data-testid="default-privacy-policy-link">{text}</a>,
 }));
 
 describe('CookieConsentDialog', () => {
     beforeEach(() => {
         consent = null;
+        privacyPolicyPath = '/privacy-policy';
         setConsent.mockClear();
     });
 
@@ -30,10 +37,31 @@ describe('CookieConsentDialog', () => {
         expect(setConsent).toHaveBeenCalledWith(false);
     });
 
-    it('renders with no link, classNames, or styles provided', () => {
+    it('renders with no link override, classNames, or styles provided', () => {
         const { container } = render(<CookieConsentDialog />);
         expect(container.querySelector('#cookie-consent-dialog')).toBeInTheDocument();
         expect(screen.queryByText('Privacy')).not.toBeInTheDocument();
+    });
+
+    it('renders the default privacy-policy link when link is omitted', () => {
+        render(<CookieConsentDialog />);
+        expect(screen.getByTestId('default-privacy-policy-link')).toHaveTextContent('Privacy Policy');
+    });
+
+    it('respects a custom privacyPolicyLinkText for the default link', () => {
+        render(<CookieConsentDialog privacyPolicyLinkText="See policy" />);
+        expect(screen.getByTestId('default-privacy-policy-link')).toHaveTextContent('See policy');
+    });
+
+    it('renders no link at all when privacyPolicyPath is false and link is omitted', () => {
+        privacyPolicyPath = false;
+        render(<CookieConsentDialog />);
+        expect(screen.queryByTestId('default-privacy-policy-link')).not.toBeInTheDocument();
+    });
+
+    it('renders no link when link is explicitly null, even with a configured privacyPolicyPath', () => {
+        render(<CookieConsentDialog link={null} />);
+        expect(screen.queryByTestId('default-privacy-policy-link')).not.toBeInTheDocument();
     });
 
     it('applies classNames and styles per slot', () => {

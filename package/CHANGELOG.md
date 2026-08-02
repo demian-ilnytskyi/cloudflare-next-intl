@@ -3,6 +3,31 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.4] - 2026-08-02
+
+### Added
+
+- `cookieConsent.privacyPolicyPath` (defaults to `'/privacy-policy'`; set
+  `false` to disable) — `CookieConsentDialog`/`PrivacyPolicyUpdateDialog`
+  now render a default, locale-prefixed privacy-policy link automatically
+  when their `link` prop is omitted, instead of requiring a hardcoded link
+  element every time. Pass `link={null}` to render no link for a single
+  dialog, or your own element to override it. New `privacyPolicyLinkText`
+  prop overrides the default link's label (`"Privacy Policy"` /
+  `"Learn more"`). Exposed on `useCookieConsent()` as `privacyPolicyPath`.
+
+## [0.4.3] - 2026-08-02
+
+### Fixed
+
+- `CookieConsentCloudflareContext.cf` was typed as `{ country?: string }`,
+  which isn't structurally assignable from `@opennextjs/cloudflare`'s real
+  `cf` type (`CfProperties`, a union of the incoming-request and
+  request-init variants — `country` only exists on one branch). This made
+  `getCloudflareContext: getCloudflareContext` (passed directly, per 0.4.2)
+  fail to type-check. `cf` is now typed as `Record<string, unknown>`;
+  `resolveRequiresConsent` reads `country` defensively at the call site.
+
 ## [0.4.2] - 2026-08-02
 
 ### Changed

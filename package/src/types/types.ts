@@ -106,6 +106,14 @@ export interface CookieConsentRoutingConfig {
      * cookie-consent banner still works independently).
      */
     privacyPolicyDate?: string | Date;
+    /**
+     * Path to your privacy-policy page, e.g. `"/privacy-policy"`. Used by
+     * `CookieConsentDialog`/`PrivacyPolicyUpdateDialog` to render a default
+     * link automatically when their `link` prop is omitted. Defaults to
+     * `'/privacy-policy'`. Set `false` to render no link by default (still
+     * overridable per-dialog via the `link` prop).
+     */
+    privacyPolicyPath?: string | false;
     /** Cookie-consent cookie name. Defaults to `'__cookie_consent_key__'`. */
     consentCookieName?: string;
     /** Privacy-policy-date cookie name. Defaults to `'__privacy_policy_date_key__'`. */
@@ -184,14 +192,15 @@ export interface CookieConsentRoutingConfig {
 
 /**
  * Minimal shape read from your `getCloudflareContext()` return value — only
- * `cf.country` is consulted, so any superset (the real `CloudflareContext`
- * from `@opennextjs/cloudflare`) is accepted as-is without a hard
+ * `cf.country` is consulted (read defensively at the call site, since `cf`'s
+ * real type — `@opennextjs/cloudflare`'s `CfProperties`, a union of the
+ * incoming-request and request-init variants — only has `country` on one
+ * branch). `cf` is typed loosely here so the real (generic) function is
+ * assignable to `CookieConsentGetCloudflareContext` without a hard
  * dependency on that package.
  */
 export interface CookieConsentCloudflareContext {
-    cf?: {
-        country?: string;
-    };
+    cf?: Record<string, unknown>;
 }
 
 /**

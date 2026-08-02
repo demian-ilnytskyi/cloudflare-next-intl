@@ -13,6 +13,14 @@ export declare const CookieConsentContext: import("react").Context<CookieConsent
  * `privacyPolicyUpdated` becomes `true` until they call
  * `acknowledgePrivacyPolicyUpdate()`.
  *
+ * @param requiresConsent Resolved server-side from
+ *   `cookieConsent.getCountryCode`/`gdprCountries` — `false` means the
+ *   visitor's country doesn't require the banner at all, so a first-time
+ *   visitor (no stored cookie) gets `consent` seeded to `true` instead of
+ *   `null`, skipping the dialog and unlocking analytics immediately.
+ *   Defaults to `true` (always show the banner) when omitted, e.g. when
+ *   `cookieConsent.getCountryCode` isn't configured.
+ *
  * @example
  * ```tsx
  * <CookieConsentProvider>
@@ -22,6 +30,7 @@ export declare const CookieConsentContext: import("react").Context<CookieConsent
  * </CookieConsentProvider>
  * ```
  */
-export default function CookieConsentProvider({ children }: {
+export default function CookieConsentProvider({ requiresConsent, children }: {
+    requiresConsent?: boolean;
     children: React.ReactNode;
 }): React.ReactElement;
