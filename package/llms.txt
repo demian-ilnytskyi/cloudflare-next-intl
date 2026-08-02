@@ -30,6 +30,7 @@ other subpath can be used.
 - `./firebaseAuthClientProvider` — `AuthUserProvider`: client auth-state provider (session cookie sync, auth-page redirects).
 - `./firebaseAuthServerProvider` — server-side equivalent provider (not used by the default auto-wiring path — see its doc comment).
 - `./useFirebaseAuthUser` — `useAuthUser()`; resolves to RSC or client implementation via the `react-server` condition. Client variant throws `"useAuthUser must be used within an AuthUserProvider"` if called outside one.
+- `./getFirebaseAuthUser` — `getAuthUser()`; unconditional server-only export of the same RSC implementation `useFirebaseAuthUser` resolves to via `react-server`. Use this when you want `await` to be visible from the type itself — TypeScript doesn't evaluate the `react-server` condition, so `useFirebaseAuthUser` always types as its client (sync) signature in editors regardless of call site.
 - `./firebaseAuthActions` — `createLoginAction`/`createSignUpAction`/`createForgotPasswordAction`: factories returning React `useActionState`-shaped form actions.
 - `./firebaseAuthMiddleware` — `updateSession`: session-cookie refresh, called automatically by `./middleware`'s default handler.
 

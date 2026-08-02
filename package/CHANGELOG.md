@@ -3,6 +3,16 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] - 2026-08-02
+
+### Added
+
+- `./getFirebaseAuthUser` subpath: unconditional, server-only `getAuthUser()`
+  export, same style as `getLocale`/`getTranslations` — always types as
+  `async` in editors, unlike `useFirebaseAuthUser`'s `react-server`
+  condition (which TypeScript can't evaluate, so it always shows that
+  subpath's client/sync signature regardless of call site).
+
 ## [0.3.0] - 2026-08-01
 
 ### Added
