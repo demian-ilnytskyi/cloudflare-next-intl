@@ -15,7 +15,9 @@ export const LocaleContext = createContext(undefined);
 const AuthUserProvider = dynamic(() => import("../../firebase_auth/client/auth_user_provider"));
 const CookieConsentProvider = dynamic(() => import("../../cookie_consent/client/cookie_consent_provider"));
 const CookieConsentAnalytics = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_analytics"));
-export default function LocationzationClientProvider({ language, messages, initialAuthUser = null, skipAuthProvider = false, analyticsSecrets, requiresConsent = true, children }) {
+const CookieConsentDialog = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_dialog"));
+const PrivacyPolicyUpdateDialog = dynamic(() => import("../../cookie_consent/client/components/privacy_policy_update_dialog"));
+export default function LocationzationClientProvider({ language, messages, initialAuthUser = null, skipAuthProvider = false, analyticsSecrets, requiresConsent = true, autoWireDialogs = true, dialogProps, updateDialogProps, children }) {
     setLocaleCache(language);
     setMessageForLocaleCache(language, messages);
     // `LocaleContext.Provider` stays the outermost element here — the
@@ -28,7 +30,7 @@ export default function LocationzationClientProvider({ language, messages, initi
         providedChildren = _jsx(AuthUserProvider, { initialUser: initialAuthUser, children: children });
     }
     if (config.cookieConsent) {
-        providedChildren = _jsxs(CookieConsentProvider, { requiresConsent: requiresConsent, children: [providedChildren, analyticsSecrets && _jsx(CookieConsentAnalytics, { secrets: analyticsSecrets })] });
+        providedChildren = _jsxs(CookieConsentProvider, { requiresConsent: requiresConsent, children: [providedChildren, analyticsSecrets && _jsx(CookieConsentAnalytics, { secrets: analyticsSecrets }), autoWireDialogs && _jsx(CookieConsentDialog, { ...dialogProps }), autoWireDialogs && _jsx(PrivacyPolicyUpdateDialog, { ...updateDialogProps })] });
     }
     const contextValue = useMemo(() => ({ language, messages }), [language, messages]);
     return _jsx(LocaleContext.Provider, { value: contextValue, children: providedChildren });

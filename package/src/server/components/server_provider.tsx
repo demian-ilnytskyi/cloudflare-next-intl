@@ -101,7 +101,10 @@ export default async function LocationzationProvider({ language, messages, child
         initialAuthUser={initialAuthUser}
         skipAuthProvider={!autoWireClientProvider}
         analyticsSecrets={analyticsSecrets}
-        requiresConsent={requiresConsent}>
+        requiresConsent={requiresConsent}
+        autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}
+        dialogProps={config.cookieConsent?.dialogProps}
+        updateDialogProps={config.cookieConsent?.updateDialogProps}>
         {children}
     </LocationzationClientProvider>
 }

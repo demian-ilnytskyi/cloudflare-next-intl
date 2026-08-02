@@ -7,6 +7,8 @@ import dynamic from "next/dynamic";
 import config from "@intl-config";
 import type { SerializedAuthUser } from "../../firebase_auth/types";
 import type { CookieConsentAnalyticsSecrets } from "../../types/types";
+import type { CookieConsentDialogProps } from "../../cookie_consent/client/components/cookie_consent_dialog";
+import type { PrivacyPolicyUpdateDialogProps } from "../../cookie_consent/client/components/privacy_policy_update_dialog";
 
 interface LocaleContextType {
     language: string;
@@ -25,6 +27,8 @@ export const LocaleContext = createContext<LocaleContextType | undefined>(undefi
 const AuthUserProvider = dynamic(() => import("../../firebase_auth/client/auth_user_provider"));
 const CookieConsentProvider = dynamic(() => import("../../cookie_consent/client/cookie_consent_provider"));
 const CookieConsentAnalytics = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_analytics"));
+const CookieConsentDialog = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_dialog"));
+const PrivacyPolicyUpdateDialog = dynamic(() => import("../../cookie_consent/client/components/privacy_policy_update_dialog"));
 
 export default function LocationzationClientProvider({
     language,
@@ -33,6 +37,9 @@ export default function LocationzationClientProvider({
     skipAuthProvider = false,
     analyticsSecrets,
     requiresConsent = true,
+    autoWireDialogs = true,
+    dialogProps,
+    updateDialogProps,
     children
 }: {
     language: string;
@@ -49,6 +56,12 @@ export default function LocationzationClientProvider({
      * for a first-time visitor instead of `null`.
      */
     requiresConsent?: boolean;
+    /** From `cookieConsent.autoWireDialogs` — renders `CookieConsentDialog`/`PrivacyPolicyUpdateDialog` automatically when `true` (default). */
+    autoWireDialogs?: boolean;
+    /** From `cookieConsent.dialogProps` — forwarded as-is to the auto-wired `CookieConsentDialog`. */
+    dialogProps?: CookieConsentDialogProps;
+    /** From `cookieConsent.updateDialogProps` — forwarded as-is to the auto-wired `PrivacyPolicyUpdateDialog`. */
+    updateDialogProps?: PrivacyPolicyUpdateDialogProps;
     children: React.ReactNode;
 }): Component {
     setLocaleCache(language);
@@ -67,6 +80,8 @@ export default function LocationzationClientProvider({
         providedChildren = <CookieConsentProvider requiresConsent={requiresConsent}>
             {providedChildren}
             {analyticsSecrets && <CookieConsentAnalytics secrets={analyticsSecrets} />}
+            {autoWireDialogs && <CookieConsentDialog {...dialogProps} />}
+            {autoWireDialogs && <PrivacyPolicyUpdateDialog {...updateDialogProps} />}
         </CookieConsentProvider>;
     }
 

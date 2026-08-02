@@ -69,7 +69,7 @@ export default async function LocationzationProvider({ language, messages, child
         // (banner shown) same as an unresolved country would.
         requiresConsent = !isDevEnvironment
             ? await resolveRequiresConsent(config.cookieConsent.getCountryCode, config.cookieConsent.getCloudflareContext, config.cookieConsent.gdprCountries)
-            : true;
+            : false;
         const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
         if (config.cookieConsent.autoWireAnalytics !== false && analyticsAllowedInEnv) {
             analyticsSecrets = config.cookieConsent.getSecrets
@@ -77,5 +77,5 @@ export default async function LocationzationProvider({ language, messages, child
                 : config.cookieConsent.secrets;
         }
     }
-    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, initialAuthUser: initialAuthUser, skipAuthProvider: !autoWireClientProvider, analyticsSecrets: analyticsSecrets, requiresConsent: requiresConsent, children: children });
+    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, initialAuthUser: initialAuthUser, skipAuthProvider: !autoWireClientProvider, analyticsSecrets: analyticsSecrets, requiresConsent: requiresConsent, autoWireDialogs: config.cookieConsent?.autoWireDialogs !== false, dialogProps: config.cookieConsent?.dialogProps, updateDialogProps: config.cookieConsent?.updateDialogProps, children: children });
 }

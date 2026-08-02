@@ -49,6 +49,14 @@ vi.mock('../../cookie_consent/client/components/cookie_consent_analytics', () =>
     default: () => <div data-testid="cookie-consent-analytics" />,
 }));
 
+vi.mock('../../cookie_consent/client/components/cookie_consent_dialog', () => ({
+    default: (props: Record<string, unknown>) => <div data-testid="cookie-consent-dialog" data-props={JSON.stringify(props)} />,
+}));
+
+vi.mock('../../cookie_consent/client/components/privacy_policy_update_dialog', () => ({
+    default: (props: Record<string, unknown>) => <div data-testid="privacy-policy-update-dialog" data-props={JSON.stringify(props)} />,
+}));
+
 function Consumer() {
     const ctx = useContext(LocaleContext);
     return <span>{ctx?.language}</span>;
@@ -186,5 +194,58 @@ describe('LocationzationClientProvider', () => {
             </LocationzationClientProvider>,
         );
         expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'false');
+    });
+
+    it('auto-wires CookieConsentDialog and PrivacyPolicyUpdateDialog by default when cookieConsent is configured', async () => {
+        currentConfig = { cookieConsent: {} };
+        const { default: LocationzationClientProvider } = await import('./client_provider');
+        render(
+            <LocationzationClientProvider language="en" messages={{ Common: {} }}>
+                <span>child</span>
+            </LocationzationClientProvider>,
+        );
+        expect(await screen.findByTestId('cookie-consent-dialog')).toBeInTheDocument();
+        expect(await screen.findByTestId('privacy-policy-update-dialog')).toBeInTheDocument();
+    });
+
+    it('does not render the auto-wired dialogs when autoWireDialogs is false', async () => {
+        currentConfig = { cookieConsent: {} };
+        const { default: LocationzationClientProvider } = await import('./client_provider');
+        render(
+            <LocationzationClientProvider language="en" messages={{ Common: {} }} autoWireDialogs={false}>
+                <span>child</span>
+            </LocationzationClientProvider>,
+        );
+        await screen.findByTestId('cookie-consent-provider');
+        expect(screen.queryByTestId('cookie-consent-dialog')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('privacy-policy-update-dialog')).not.toBeInTheDocument();
+    });
+
+    it('forwards dialogProps/updateDialogProps to the auto-wired dialogs', async () => {
+        currentConfig = { cookieConsent: {} };
+        const { default: LocationzationClientProvider } = await import('./client_provider');
+        render(
+            <LocationzationClientProvider
+                language="en"
+                messages={{ Common: {} }}
+                dialogProps={{ acceptText: 'Yes' }}
+                updateDialogProps={{ closeText: 'Close' }}>
+                <span>child</span>
+            </LocationzationClientProvider>,
+        );
+        expect(await screen.findByTestId('cookie-consent-dialog')).toHaveAttribute('data-props', JSON.stringify({ acceptText: 'Yes' }));
+        expect(await screen.findByTestId('privacy-policy-update-dialog')).toHaveAttribute('data-props', JSON.stringify({ closeText: 'Close' }));
+    });
+
+    it('does not render the auto-wired dialogs when cookieConsent is unconfigured', async () => {
+        currentConfig = {};
+        const { default: LocationzationClientProvider } = await import('./client_provider');
+        render(
+            <LocationzationClientProvider language="en" messages={{ Common: {} }}>
+                <span>child</span>
+            </LocationzationClientProvider>,
+        );
+        expect(screen.queryByTestId('cookie-consent-dialog')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('privacy-policy-update-dialog')).not.toBeInTheDocument();
     });
 });

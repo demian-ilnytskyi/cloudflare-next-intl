@@ -1,6 +1,8 @@
 import type { NextResponse } from 'next/server';
 import type { Languages } from 'next/dist/lib/metadata/types/alternative-urls-types';
 import type { Videos } from 'next/dist/lib/metadata/types/metadata-types';
+import type { CookieConsentDialogProps } from '../cookie_consent/client/components/cookie_consent_dialog';
+import type { PrivacyPolicyUpdateDialogProps } from '../cookie_consent/client/components/privacy_policy_update_dialog';
 
 /**
  * Custom middleware hook, run by `intlMiddleware` for your own logic
@@ -187,6 +189,26 @@ export interface CookieConsentRoutingConfig {
      * scripts locally.
      */
     enableAnalyticsInDevMode?: boolean;
+    /**
+     * Whether `IntlProvider` should automatically render
+     * `CookieConsentDialog` and `PrivacyPolicyUpdateDialog` (with their
+     * built-in default styling/EN+UK copy) at the end of your app tree.
+     * Defaults to `true` whenever `cookieConsent` is set. Set `false` to
+     * keep `cookieConsent` configured for `useCookieConsent()`/analytics
+     * only and render your own dialogs (or the exported components)
+     * yourself, wherever you like in the tree.
+     */
+    autoWireDialogs?: boolean;
+    /**
+     * Props forwarded as-is to the auto-wired `CookieConsentDialog`.
+     * Ignored when `autoWireDialogs` is `false`.
+     */
+    dialogProps?: CookieConsentDialogProps;
+    /**
+     * Props forwarded as-is to the auto-wired `PrivacyPolicyUpdateDialog`.
+     * Ignored when `autoWireDialogs` is `false`.
+     */
+    updateDialogProps?: PrivacyPolicyUpdateDialogProps;
 }
 
 /**

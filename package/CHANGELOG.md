@@ -3,6 +3,35 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.3] - 2026-08-02
+
+### Added
+
+- `IntlProvider` now auto-renders `CookieConsentDialog` and
+  `PrivacyPolicyUpdateDialog` whenever `cookieConsent` is configured — no
+  more manually adding them to your layout. New `cookieConsent.autoWireDialogs`
+  (default `true`) opts out to render them yourself; new
+  `cookieConsent.dialogProps`/`updateDialogProps` forward props to the
+  auto-wired dialogs (e.g. custom text/`classNames`/`styles`) without
+  needing to render them by hand. Exported `CookieConsentDialogProps`/
+  `PrivacyPolicyUpdateDialogProps` from `cloudflare-next-intl/cookieConsent`
+  for typing those objects.
+
+### Migration
+
+Manually rendering the dialogs in your layout now double-renders them —
+remove the JSX:
+
+```diff
+ <IntlProvider language={locale}>
+   {children}
+-  <CookieConsentDialog />
+-  <PrivacyPolicyUpdateDialog />
+ </IntlProvider>
+```
+
+Set `cookieConsent.autoWireDialogs: false` to keep rendering them yourself.
+
 ## [0.5.2] - 2026-08-02
 
 ### Fixed

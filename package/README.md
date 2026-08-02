@@ -188,8 +188,10 @@ import ThemeSwitcher from "cloudflare-next-intl/ThemeSwitcher";
 ### Cookie consent
 
 Set `cookieConsent` on your `RoutingConfig` to enable — `IntlProvider` then
-auto-wires `CookieConsentProvider` (and `CookieConsentAnalytics`, if
-`cookieConsent.secrets`/`getSecrets` is set) with no manual nesting needed.
+auto-wires `CookieConsentProvider`, `CookieConsentAnalytics` (if
+`cookieConsent.secrets`/`getSecrets` is set), and both `CookieConsentDialog`/
+`PrivacyPolicyUpdateDialog` (with their built-in default styling and
+English/Ukrainian copy) with no manual nesting needed.
 
 ```typescript
 // intl-config.ts
@@ -210,9 +212,16 @@ export default setIntlConfig({
         getCloudflareContext,
         // gdprCountries: [...], // defaults to EU/EEA + UK + Switzerland
         // enableAnalyticsInDevMode: true, // analytics stay off in dev otherwise
+        // autoWireDialogs: false, // opt out and render the dialogs yourself
+        // dialogProps: { acceptText: "Accept" }, // forwarded to CookieConsentDialog
+        // updateDialogProps: { closeText: "Got it" }, // forwarded to PrivacyPolicyUpdateDialog
     },
 });
 ```
+
+`CookieConsentDialog`/`PrivacyPolicyUpdateDialog` render automatically — no
+JSX needed in your layout. Set `autoWireDialogs: false` to render them
+yourself instead (e.g. for full control over placement):
 
 ```tsx
 import { CookieConsentDialog, PrivacyPolicyUpdateDialog, useCookieConsent } from "cloudflare-next-intl/cookieConsent";

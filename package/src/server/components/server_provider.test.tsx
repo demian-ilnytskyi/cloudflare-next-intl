@@ -45,6 +45,14 @@ vi.mock('../../cookie_consent/client/components/cookie_consent_analytics', () =>
     ),
 }));
 
+vi.mock('../../cookie_consent/client/components/cookie_consent_dialog', () => ({
+    default: (props: Record<string, unknown>) => <div data-testid="cookie-consent-dialog" data-props={JSON.stringify(props)} />,
+}));
+
+vi.mock('../../cookie_consent/client/components/privacy_policy_update_dialog', () => ({
+    default: (props: Record<string, unknown>) => <div data-testid="privacy-policy-update-dialog" data-props={JSON.stringify(props)} />,
+}));
+
 describe('LocationzationProvider', () => {
     beforeEach(() => {
         firebaseAuthValue = undefined;
@@ -195,5 +203,33 @@ describe('LocationzationProvider', () => {
         expect(getSecrets).toHaveBeenCalled();
         expect(await screen.findByTestId('cookie-consent-analytics')).toHaveTextContent('G-XXX');
         vi.stubEnv('NODE_ENV', originalEnv ?? 'test');
+    });
+
+    it('auto-wires the dialogs by default when cookieConsent is configured', async () => {
+        cookieConsentValue = {};
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(await screen.findByTestId('cookie-consent-dialog')).toBeInTheDocument();
+        expect(await screen.findByTestId('privacy-policy-update-dialog')).toBeInTheDocument();
+    });
+
+    it('does not render the auto-wired dialogs when autoWireDialogs is false', async () => {
+        cookieConsentValue = { autoWireDialogs: false };
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        await screen.findByTestId('cookie-consent-provider');
+        expect(screen.queryByTestId('cookie-consent-dialog')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('privacy-policy-update-dialog')).not.toBeInTheDocument();
+    });
+
+    it('forwards dialogProps/updateDialogProps to the auto-wired dialogs', async () => {
+        cookieConsentValue = { dialogProps: { acceptText: 'Yes' }, updateDialogProps: { closeText: 'Close' } };
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(await screen.findByTestId('cookie-consent-dialog')).toHaveAttribute('data-props', JSON.stringify({ acceptText: 'Yes' }));
+        expect(await screen.findByTestId('privacy-policy-update-dialog')).toHaveAttribute('data-props', JSON.stringify({ closeText: 'Close' }));
     });
 });
