@@ -7,6 +7,8 @@ import config from "../../config/intl_config";
 import type { SerializedAuthUser } from "../../firebase_auth/types";
 import type { CookieConsentAnalyticsConfig } from "../../types/types";
 import resolveRequiresConsent from "../../cookie_consent/gdpr_countries";
+import installConsoleErrorOverride from "../../error_handling/install_console_error_override";
+import reportError from "../../error_handling/report_error";
 
 const LocationzationClientProvider = dynamic(
     () => import("../../client/components/client_provider"),
@@ -57,6 +59,8 @@ export default async function LocationzationProvider({ language, messages, child
     }
     const messagesValue = messages ?? await getMessage(language);
 
+    installConsoleErrorOverride(config);
+
     let initialAuthUser: SerializedAuthUser | null = null;
     const autoWireClientProvider = config.firebaseAuth?.autoWireClientProvider !== false;
     if (config.firebaseAuth && autoWireClientProvider) {
@@ -81,17 +85,24 @@ export default async function LocationzationProvider({ language, messages, child
         requiresConsent = !isDevEnvironment
             ? await resolveRequiresConsent(
                 config.cookieConsent.getCountryCode,
-                config.cookieConsent.getCloudflareContext,
+                config.generate?.getCloudflareContext,
                 config.cookieConsent.gdprCountries,
+                config.errorHandling,
             )
             : false;
 
         const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
 
         if (config.cookieConsent.autoWireAnalytics !== false && analyticsAllowedInEnv) {
-            analyticsConfig = config.cookieConsent.getAnalytics
-                ? await config.cookieConsent.getAnalytics()
-                : config.cookieConsent.analytics;
+            if (config.cookieConsent.getAnalytics) {
+                try {
+                    analyticsConfig = await config.cookieConsent.getAnalytics();
+                } catch (error) {
+                    await reportError(config, { error, classOrMethodName: 'getAnalytics' });
+                }
+            } else {
+                analyticsConfig = config.cookieConsent.analytics;
+            }
         }
     }
 

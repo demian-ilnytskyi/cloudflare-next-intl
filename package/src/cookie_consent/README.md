@@ -45,14 +45,15 @@ Microsoft Clarity behind consent. Any field left out of the resolved analytics c
 just skips that provider's script.
 
 Country-based gating is opt-in and off by default: with neither
-`cookieConsent.getCountryCode` nor `getCloudflareContext` set, the banner is
-never shown and consent is treated as implicitly granted for everyone — the
-simplest setup when you don't need real GDPR-region gating. Set one of the
-two getters to turn it on: `getCountryCode` resolves the country directly
-(simplest, if you already have it from a header/KV/your own logic);
-`getCloudflareContext` accepts `@opennextjs/cloudflare`'s `getCloudflareContext`
-function directly — not a dependency of this package, so pass your own
-import — matching its exact overloaded signature
+`cookieConsent.getCountryCode` nor `generate.getCloudflareContext` set, the
+banner is never shown and consent is treated as implicitly granted for
+everyone — the simplest setup when you don't need real GDPR-region gating.
+Set one of the two getters to turn it on: `getCountryCode` resolves the
+country directly (simplest, if you already have it from a header/KV/your
+own logic); `generate.getCloudflareContext` (on `RoutingConfig`, shared with
+the `error_handling` submodule) accepts `@opennextjs/cloudflare`'s
+`getCloudflareContext` function directly — not a dependency of this
+package, so pass your own import — matching its exact overloaded signature
 (`CookieConsentGetCloudflareContext`); called internally with
 `{ async: true }`, and only `cf.country` is read from the resolved context.
 Ignored when `getCountryCode` is also set. Once gating is on, countries outside

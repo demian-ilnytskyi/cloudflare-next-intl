@@ -5,6 +5,7 @@ import { cache } from 'react';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
 import { defaultSessionCookieName } from '../middleware/update_session';
+import reportError from '../../error_handling/report_error';
 
 let baseApp: FirebaseApp | undefined;
 let firebaseAppModule: typeof import('firebase/app') | undefined;
@@ -60,7 +61,8 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
         await auth.authStateReady();
 
         return { firebaseServerApp, currentUser: auth.currentUser };
-    } catch {
+    } catch (error) {
+        await reportError(config, { error, classOrMethodName: 'getAuthenticatedAppForUser' });
         return { firebaseServerApp: null, currentUser: null };
     }
 });

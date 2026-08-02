@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.5.7",
+  "version": "0.6.0",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -139,6 +139,26 @@
     "./cookieConsentAnalytics": {
       "types": "./dist/src/cookie_consent/client/components/cookie_consent_analytics.d.ts",
       "import": "./dist/src/cookie_consent/client/components/cookie_consent_analytics.js"
+    },
+    "./errorHandling": {
+      "types": "./dist/src/error_handling/index.d.ts",
+      "import": "./dist/src/error_handling/index.js"
+    },
+    "./installConsoleErrorOverride": {
+      "types": "./dist/src/error_handling/install_console_error_override.d.ts",
+      "import": "./dist/src/error_handling/install_console_error_override.js"
+    },
+    "./stringifyUnknown": {
+      "types": "./dist/src/error_handling/stringify_unknown.d.ts",
+      "import": "./dist/src/error_handling/stringify_unknown.js"
+    },
+    "./formatErrorMessage": {
+      "types": "./dist/src/error_handling/format_error_message.d.ts",
+      "import": "./dist/src/error_handling/format_error_message.js"
+    },
+    "./defaultIgnoredConsoleErrors": {
+      "types": "./dist/src/error_handling/default_ignored_console_errors.d.ts",
+      "import": "./dist/src/error_handling/default_ignored_console_errors.js"
     }
   },
   "scripts": {

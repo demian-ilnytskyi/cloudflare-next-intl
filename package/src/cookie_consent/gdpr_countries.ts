@@ -1,4 +1,5 @@
-import type { CookieConsentGetCloudflareContext } from '../types/types';
+import type { CookieConsentGetCloudflareContext, ErrorHandlingRoutingConfig } from '../types/types';
+import reportError from '../error_handling/report_error';
 
 /**
  * Default `cookieConsent.gdprCountries` — EU/EEA member states (GDPR),
@@ -49,12 +50,24 @@ export default async function resolveRequiresConsent(
     getCountryCode: (() => string | undefined | Promise<string | undefined>) | undefined,
     getCloudflareContext: CookieConsentGetCloudflareContext | undefined,
     gdprCountries: readonly string[] | undefined,
+    errorHandlingConfig?: ErrorHandlingRoutingConfig,
 ): Promise<boolean> {
     if (!getCountryCode && !getCloudflareContext) return true;
 
-    const countryCode = getCountryCode
-        ? await getCountryCode()
-        : (await getCloudflareContext!({ async: true }))?.cf?.country;
+    let countryCode: unknown;
+    if (getCountryCode) {
+        countryCode = await getCountryCode();
+    } else {
+        try {
+            countryCode = (await getCloudflareContext!({ async: true }))?.cf?.country;
+        } catch (error) {
+            await reportError(
+                { errorHandling: errorHandlingConfig, generate: { getCloudflareContext } },
+                { error, classOrMethodName: 'resolveRequiresConsent' },
+            );
+            return true;
+        }
+    }
 
     if (typeof countryCode !== 'string' || !countryCode) return true;
     return getGdprCountriesSet(gdprCountries).has(countryCode);

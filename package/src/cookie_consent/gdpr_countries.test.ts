@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import resolveRequiresConsent, { defaultGdprCountries } from './gdpr_countries';
+import type { CookieConsentGetCloudflareContext } from '../types/types';
 
 describe('resolveRequiresConsent', () => {
     it('requires consent when neither getter is provided (fail-safe default)', async () => {
@@ -53,6 +54,17 @@ describe('resolveRequiresConsent', () => {
     it('honors a custom gdprCountries list with getCountryCode', async () => {
         expect(await resolveRequiresConsent(() => 'US', undefined, ['US'])).toBe(true);
         expect(await resolveRequiresConsent(() => 'DE', undefined, ['US'])).toBe(false);
+    });
+
+    it('requires consent and reports when getCloudflareContext throws', async () => {
+        const onError = vi.fn();
+        const boom = new Error('boom');
+        const getCloudflareContext = vi.fn((options?: { async?: boolean }) => {
+            if (options?.async) throw boom;
+            return null;
+        }) as unknown as CookieConsentGetCloudflareContext;
+        expect(await resolveRequiresConsent(undefined, getCloudflareContext, undefined, { onError })).toBe(true);
+        expect(onError).toHaveBeenCalledWith({ error: boom, classOrMethodName: 'resolveRequiresConsent', params: undefined, isClient: undefined, consent: undefined, formattedMessage: expect.stringContaining('[resolveRequiresConsent] Error:') });
     });
 
     it('exposes the default GDPR country list', () => {

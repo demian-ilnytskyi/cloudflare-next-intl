@@ -3,6 +3,7 @@ import type { Languages } from 'next/dist/lib/metadata/types/alternative-urls-ty
 import type { Videos } from 'next/dist/lib/metadata/types/metadata-types';
 import type { CookieConsentDialogProps } from '../cookie_consent/client/components/cookie_consent_dialog';
 import type { PrivacyPolicyUpdateDialogProps } from '../cookie_consent/client/components/privacy_policy_update_dialog';
+import type { ConsentValue } from '../cookie_consent/types';
 
 /**
  * Custom middleware hook, run by `intlMiddleware` for your own logic
@@ -97,7 +98,112 @@ export interface RoutingConfig<AppLocales extends Locales, AppLocalePrefixMode e
      * error if called without this set.
      */
     cookieConsent?: CookieConsentRoutingConfig;
+    /**
+     * Request-time resolvers shared across submodules. Omit entirely to
+     * leave all of them unset.
+     */
+    generate?: GenerateRoutingConfig;
+    /**
+     * Configures the optional `error_handling` submodule (shared
+     * `withErrorHandling`/`reportError` helpers used internally by this
+     * package and available to your own app code). Omit entirely to keep
+     * the defaults: enabled, reporting via `console.error`.
+     */
+    errorHandling?: ErrorHandlingRoutingConfig;
 };
+
+export interface GenerateRoutingConfig {
+    /**
+     * Pass `getCloudflareContext` from `@opennextjs/cloudflare` directly
+     * (not a dependency of this package, so bring your own import) — its
+     * exact overloaded signature is accepted as-is; called internally with
+     * `{ async: true }`, so you never need to wrap it yourself. Only
+     * `cf.country` is read from the resolved context by `cookieConsent`.
+     *
+     * Country-based gating (via either `cookieConsent.getCountryCode` or
+     * this getter) decides whether the cookie-consent banner is required at
+     * all: visitors outside `gdprCountries` skip the banner and get
+     * analytics immediately (still gated by `enableAnalyticsInDevMode`).
+     * Omit BOTH to require consent for everyone (fail-safe default — the
+     * visitor's country can't be determined at all without either getter).
+     * Set one of the two getters to scope the banner to GDPR regions only.
+     */
+    getCloudflareContext?: CookieConsentGetCloudflareContext;
+}
+
+export interface ErrorHandlingParams {
+    /** The caught error, in whatever shape it was thrown/rejected with. */
+    error: unknown;
+    /** Name of the function/method the error was caught in, e.g. `"resolveRequiresConsent"`. */
+    classOrMethodName: string;
+    /** Extra context to include in the report (arguments, request info, etc). */
+    params?: unknown;
+    /** Whether this error originated in a client-side (browser) call. */
+    isClient?: boolean;
+    /**
+     * The visitor's current cookie-consent value (from `useCookieConsent()`
+     * or your own server-side resolution), when known. When passed and not
+     * `true`, `reportError`/`withErrorHandling` skip reporting entirely —
+     * sending error reports to a third party (Telegram, Sentry, etc.)
+     * without consent can itself be GDPR-relevant. Omit when consent isn't
+     * applicable (e.g. `cookieConsent` isn't configured at all).
+     */
+    consent?: ConsentValue;
+    /**
+     * Human-readable one-string summary — `[classOrMethodName] Error:
+     * <message>` plus non-empty `Params`/client-origin sections. Set by
+     * `reportError` before calling `onError`/`console.error`; read this
+     * instead of `error`/`params` directly when you just want something
+     * printable. Ignore when passing `params` to `withErrorHandling`
+     * yourself — it's always overwritten.
+     */
+    formattedMessage?: string;
+}
+
+export interface ErrorHandlingRoutingConfig {
+    /**
+     * Whether errors caught by this package's `withErrorHandling`/
+     * `reportError` helpers are reported at all. Defaults to `true`. Set
+     * `false` to fully disable reporting (errors are still rethrown by
+     * `withErrorHandling`, just never reported).
+     */
+    enable?: boolean;
+    /**
+     * Called with the caught error whenever one is reported. Defaults to
+     * `console.error`. Use this to wire your own error-tracking/logging
+     * transport (Sentry, Telegram, etc).
+     */
+    onError?: (params: ErrorHandlingParams) => void | Promise<void>;
+    /**
+     * Whether `reportError`/`withErrorHandling` replace the global
+     * `console.error` so every `console.error(...)` call in your app is
+     * also routed through `onError` (the original `console.error` still
+     * runs afterwards — nothing is swallowed). Defaults to `false`; call
+     * `installConsoleErrorOverride()` (or pass this `true` and call
+     * `IntlProvider`/`setIntlConfig`'s setup) to install it. Off by default
+     * since this package is shared across apps and a global override is a
+     * bigger behavior change than a plain function call.
+     */
+    overrideConsoleError?: boolean;
+    /**
+     * Substrings matched against the stringified message of each
+     * `console.error(...)` call (only consulted when `overrideConsoleError`
+     * is `true`) — a match skips reporting it (it's still logged normally).
+     * Defaults to `defaultIgnoredConsoleErrors` (this package's own Firebase
+     * Auth error codes for expected user-input failures — wrong password,
+     * email already in use, etc). Pass your own array to replace the
+     * default entirely; pass `[]` to report everything.
+     */
+    ignoreConsoleErrors?: readonly string[];
+    /**
+     * Called with the stringified message of each `console.error(...)` call
+     * (only consulted when `overrideConsoleError` is `true`), in addition to
+     * `ignoreConsoleErrors` — return `true` to skip reporting it (it's still
+     * logged normally). Use this for custom filtering logic beyond a plain
+     * substring match.
+     */
+    ignoreConsoleError?: (message: string) => boolean;
+}
 
 export interface CookieConsentRoutingConfig {
     /**
@@ -154,26 +260,9 @@ export interface CookieConsentRoutingConfig {
      */
     getCountryCode?: () => string | undefined | Promise<string | undefined>;
     /**
-     * Pass `getCloudflareContext` from `@opennextjs/cloudflare` directly
-     * (not a dependency of this package, so bring your own import) — its
-     * exact overloaded signature is accepted as-is; called internally with
-     * `{ async: true }`, so you never need to wrap it yourself. Only
-     * `cf.country` is read from the resolved context. Ignored when
-     * `getCountryCode` is also set.
-     *
-     * Country-based gating (via either `getCountryCode` or
-     * `getCloudflareContext`) decides whether the cookie-consent banner is
-     * required at all: visitors outside `gdprCountries` skip the banner and
-     * get analytics immediately (still gated by `enableAnalyticsInDevMode`).
-     * Omit BOTH to require consent for everyone (fail-safe default — the
-     * visitor's country can't be determined at all without either getter).
-     * Set one of the two getters to scope the banner to GDPR regions only.
-     */
-    getCloudflareContext?: CookieConsentGetCloudflareContext;
-    /**
      * Country codes (ISO 3166-1 alpha-2) for which the cookie-consent banner
      * is required. Only consulted when `getCountryCode` or
-     * `getCloudflareContext` is set. Defaults to the EU/EEA + UK +
+     * `generate.getCloudflareContext` is set. Defaults to the EU/EEA + UK +
      * Switzerland (GDPR/UK-GDPR/nFADP scope). A visitor whose resolved
      * country isn't in this set is treated as NOT requiring consent; a
      * country that couldn't be resolved still requires it (fail-safe:
@@ -212,16 +301,21 @@ export interface CookieConsentRoutingConfig {
 }
 
 /**
- * Minimal shape read from your `getCloudflareContext()` return value — only
- * `cf.country` is consulted (read defensively at the call site, since `cf`'s
- * real type — `@opennextjs/cloudflare`'s `CfProperties`, a union of the
- * incoming-request and request-init variants — only has `country` on one
- * branch). `cf` is typed loosely here so the real (generic) function is
- * assignable to `CookieConsentGetCloudflareContext` without a hard
- * dependency on that package.
+ * Minimal shape read from your `getCloudflareContext()` return value.
+ * `cf.country` is consulted by `cookieConsent` (read defensively at the call
+ * site, since `cf`'s real type — `@opennextjs/cloudflare`'s `CfProperties`,
+ * a union of the incoming-request and request-init variants — only has
+ * `country` on one branch); `ctx.waitUntil` is used by `error_handling` to
+ * background error reports instead of awaiting them inline. Typed loosely
+ * here so the real (generic) function is assignable to
+ * `CookieConsentGetCloudflareContext` without a hard dependency on that
+ * package.
  */
 export interface CookieConsentCloudflareContext {
     cf?: Record<string, unknown>;
+    ctx?: {
+        waitUntil?: (promise: Promise<unknown>) => void;
+    };
 }
 
 /**

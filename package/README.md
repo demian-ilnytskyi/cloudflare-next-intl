@@ -11,6 +11,8 @@ and Cloudflare environment.
   Components.
 - **Fast and Efficient**: Low overhead and minimal bundle size.
 - **Tree-shaking**: Properly architected for optimal tree-shaking.
+- **Error handling**: shared, opt-in `console.error` override and
+  `reportError`/`withErrorHandling` helpers, GDPR-aware (consent-gated).
 
 ## Installation
 
@@ -200,16 +202,21 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 export default setIntlConfig({
     locales: ["en", "de"],
     defaultLocale: "en",
+    // Shared request-time resolvers — used by cookieConsent's GDPR gating
+    // below AND by error_handling's ctx.waitUntil backgrounding.
+    generate: {
+        // Pass @opennextjs/cloudflare's getCloudflareContext directly — its
+        // exact overloaded signature is accepted as-is, called internally
+        // with { async: true } (cookieConsent) or { async: false } (error_handling).
+        getCloudflareContext,
+    },
     cookieConsent: {
         privacyPolicyDate: "2026-01-01",
         // privacyPolicyPath: "/privacy-policy", // default; used by the
         // dialogs' auto-rendered link. Set false to disable that link.
         // Optional: gate the banner to GDPR-region visitors only. Omit both
-        // getters to disable country-based gating (consent always implicit).
-        // Pass @opennextjs/cloudflare's getCloudflareContext directly — its
-        // exact overloaded signature is accepted as-is, called internally
-        // with { async: true }.
-        getCloudflareContext,
+        // getCountryCode and generate.getCloudflareContext to disable
+        // country-based gating (consent always implicit).
         // gdprCountries: [...], // defaults to EU/EEA + UK + Switzerland
         // enableAnalyticsInDevMode: true, // analytics stay off in dev otherwise
         // autoWireDialogs: false, // opt out and render the dialogs yourself
@@ -245,6 +252,58 @@ const { consent, setConsent } = useCookieConsent();
 ```
 
 See [`package/src/cookie_consent/README.md`](package/src/cookie_consent/README.md) for layout, customization, and gotchas.
+
+### Error handling
+
+Every risky call this package makes internally (Cloudflare-context
+resolution, Firebase server auth, `cookieConsent.getAnalytics()`) reports
+through a shared `error_handling` submodule you can also use in your own
+app code. Enabled by default — no config needed to get the default
+`console.error`-based reporting; set `errorHandling.onError` to plug in
+your own transport (Sentry, Telegram, etc).
+
+```typescript
+// intl-config.ts
+export default setIntlConfig({
+    locales: ["en", "de"],
+    defaultLocale: "en",
+    generate: { getCloudflareContext }, // reports background via ctx.waitUntil when set
+    errorHandling: {
+        // enable: false, // fully disable reporting (errors still rethrow from withErrorHandling)
+        onError: ({ formattedMessage, error, classOrMethodName, consent }) => {
+            // formattedMessage is a ready-to-print "[classOrMethodName] Error: ..." string
+            myErrorTracker.capture(formattedMessage);
+        },
+        // overrideConsoleError: true, // route every console.error(...) call through onError too
+        // ignoreConsoleErrors: [...], // defaults to defaultIgnoredConsoleErrors (this package's
+        //                             // own Firebase Auth codes for expected user-input failures);
+        //                             // pass [] to report everything, or your own list to replace it
+        // ignoreConsoleError: (message) => message.includes("known noisy warning"),
+    },
+});
+```
+
+Use `reportError`/`withErrorHandling` directly in your own code:
+
+```typescript
+import { reportError, withErrorHandling } from "cloudflare-next-intl/errorHandling";
+import config from "./intl-config";
+
+// Wrap a function — reports then rethrows on failure.
+const safeFetch = withErrorHandling(fetchSomething, "fetchSomething", { config });
+
+// Or report manually inside your own try/catch.
+try {
+    await riskyThing();
+} catch (error) {
+    await reportError(config, { error, classOrMethodName: "riskyThing" });
+}
+```
+
+**GDPR note:** pass `consent` (from `useCookieConsent()` or your own
+server-side resolution) on `ErrorHandlingParams` — reporting is skipped
+whenever `consent` is set and not `true`, since sending error reports to a
+third party without consent can itself be GDPR-relevant.
 
 ## License
 

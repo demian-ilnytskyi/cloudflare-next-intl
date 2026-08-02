@@ -19,9 +19,10 @@ vi.mock('../functions/server', () => ({ getMessage: vi.fn(async () => ({ Common:
 
 let firebaseAuthValue: Record<string, unknown> | undefined;
 let cookieConsentValue: Record<string, unknown> | undefined;
+let generateValue: Record<string, unknown> | undefined;
 vi.mock('@intl-config', () => ({
     get default() {
-        return { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: firebaseAuthValue, cookieConsent: cookieConsentValue };
+        return { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: firebaseAuthValue, cookieConsent: cookieConsentValue, generate: generateValue };
     },
 }));
 
@@ -57,6 +58,7 @@ describe('LocationzationProvider', () => {
     beforeEach(() => {
         firebaseAuthValue = undefined;
         cookieConsentValue = undefined;
+        generateValue = undefined;
     });
 
 
@@ -144,19 +146,20 @@ describe('LocationzationProvider', () => {
         expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
     });
 
-    it('resolves requiresConsent via getCloudflareContext and passes it to the client provider', async () => {
-        cookieConsentValue = { getCloudflareContext: () => ({ cf: { country: 'DE' } }) };
+    it('resolves requiresConsent via generate.getCloudflareContext and passes it to the client provider', async () => {
+        cookieConsentValue = {};
+        generateValue = { getCloudflareContext: () => ({ cf: { country: 'DE' } }) };
         vi.resetModules();
         const { default: LocationzationProvider } = await import('./server_provider');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'true');
     });
 
-    it('resolves requiresConsent via getCountryCode, taking precedence over getCloudflareContext', async () => {
+    it('resolves requiresConsent via getCountryCode, taking precedence over generate.getCloudflareContext', async () => {
         cookieConsentValue = {
             getCountryCode: () => 'US',
-            getCloudflareContext: () => ({ cf: { country: 'DE' } }),
         };
+        generateValue = { getCloudflareContext: () => ({ cf: { country: 'DE' } }) };
         vi.resetModules();
         const { default: LocationzationProvider } = await import('./server_provider');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));

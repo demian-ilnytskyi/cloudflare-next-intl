@@ -3,6 +3,47 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] - 2026-08-02
+
+### Added
+
+- New `error_handling` submodule (`cloudflare-next-intl/errorHandling`,
+  plus `installConsoleErrorOverride`, `stringifyUnknown`,
+  `formatErrorMessage`, `defaultIgnoredConsoleErrors` subpaths):
+  - `reportError(config, params)` / `withErrorHandling(fn, name, options)` —
+    report a caught error via `errorHandling.onError` (default
+    `console.error`), then (for `withErrorHandling`) rethrow. Gated by
+    `errorHandling.enable` (default `true`) and by `params.consent` (skips
+    reporting when consent isn't `true`, since sending error reports to a
+    third party without consent can itself be GDPR-relevant).
+  - `RoutingConfig.generate.getCloudflareContext` — moved from
+    `cookieConsent.getCloudflareContext` (still consulted the same way by
+    `cookieConsent`'s GDPR gating); now also used by `reportError` to
+    background reports via `ctx.waitUntil` when available.
+  - `installConsoleErrorOverride` — opt-in (`errorHandling.overrideConsoleError`)
+    global `console.error` override routing every call through `reportError`
+    (original `console.error` still runs). Capped at 20 reports per install
+    to guard against a render-error loop. Auto-installed by `IntlProvider`
+    (server) and the client provider.
+  - `errorHandling.ignoreConsoleErrors` (substring array, defaults to
+    `defaultIgnoredConsoleErrors` — this package's own Firebase Auth codes
+    for expected user-input failures like wrong password/email-already-in-use)
+    and `ignoreConsoleError` (custom predicate) — both skip reporting a
+    matching `console.error` call while still logging it normally.
+  - `ErrorHandlingParams.formattedMessage` — a readable one-line
+    `[classOrMethodName] Error: <message>` summary (plus non-empty
+    `Params`/client-origin sections), always populated by `reportError`
+    before calling `onError`/the default `console.error`.
+  - Wired internally into `cookieConsent`'s GDPR country resolution, the
+    Firebase server auth lookup, and `cookieConsent.getAnalytics()` (which
+    previously had no error handling at all).
+
+### Changed
+
+- **Breaking:** `cookieConsent.getCloudflareContext` moved to
+  `generate.getCloudflareContext` on `RoutingConfig` — update your config
+  if you were passing it under `cookieConsent`.
+
 ## [0.5.7] - 2026-08-02
 
 ### Changed
