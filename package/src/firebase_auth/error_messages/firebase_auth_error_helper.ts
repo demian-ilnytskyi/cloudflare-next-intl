@@ -40,5 +40,8 @@ export default function firebaseAuthErrorMessage(locale: string, error: unknown)
         }
     }
 
+    // Unreachable: key is always either a value from ERROR_CODE_TO_KEY (all
+    // valid DEFAULT_MESSAGES_EN keys) or the literal 'unknown' fallback
+    // above, so DEFAULT_MESSAGES_EN[key] never misses.
     return DEFAULT_MESSAGES_EN[key] ?? DEFAULT_MESSAGES_EN.unknown;
 }

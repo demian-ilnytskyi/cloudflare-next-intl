@@ -19,6 +19,7 @@ export default defineConfig({
                 'src/**/*.d.ts',
                 'src/general/get_layout_states.ts',
                 'src/types/types.ts',
+                'src/firebase_auth/types.ts',
                 'src/test_utils/**',
                 'src/**/*.bench.ts',
                 'src/**/*.bench.tsx',
@@ -26,11 +27,11 @@ export default defineConfig({
             thresholds: {
                 perFile: true,
                 'src/**/!(general_functions|middleware|firebase_auth_error_helper).{ts,tsx}': { statements: 100, branches: 100, functions: 100, lines: 100 },
-                // general_functions.ts: 3 branches are unreachable defensive dead code (post-loop null-check, type guard that cannot fail, loop-exit fallback), confirmed via manual trace
+                // general_functions.ts: 3 branches are unreachable defensive dead code (post-loop null-check, type guard that cannot fail, loop-exit fallback). v8-ignore comments cannot suppress these — esbuild strips comments before vitest's coverage instrumentation sees them (confirmed via direct esbuild.transform test), so no comment-based approach works with this project's transform pipeline.
                 'src/general/general_functions.ts': { statements: 87.5, branches: 85.18, functions: 100, lines: 87.5 },
-                // middleware.ts: 2 branches are unreachable defensive/structural dead code (a `?? ''` fallback after an equivalent null-guard already returned, and an empty-string check on a value that can never be empty by construction), confirmed via manual trace during Task 7 review
+                // middleware.ts: 2 branches are unreachable defensive/structural dead code (a `?? ''` fallback after an equivalent null-guard already returned, and an empty-string check on a value that can never be empty by construction).
                 'src/config/middleware.ts': { statements: 100, branches: 93.93, functions: 100, lines: 100 },
-                // firebase_auth_error_helper.ts: the `?? DEFAULT_MESSAGES_EN.unknown` fallback on the final return is unreachable defensive dead code — `key` is always either a value from ERROR_CODE_TO_KEY (whose values are exactly DEFAULT_MESSAGES_EN's keys) or the literal 'unknown', and DEFAULT_MESSAGES_EN.unknown always exists, so DEFAULT_MESSAGES_EN[key] can never be nullish, confirmed via manual trace
+                // firebase_auth_error_helper.ts: the `?? DEFAULT_MESSAGES_EN.unknown` fallback on the final return is unreachable defensive dead code — `key` is always either a value from ERROR_CODE_TO_KEY (whose values are exactly DEFAULT_MESSAGES_EN's keys) or the literal 'unknown', so DEFAULT_MESSAGES_EN[key] can never be nullish.
                 'src/firebase_auth/error_messages/firebase_auth_error_helper.ts': { statements: 100, branches: 91.66, functions: 100, lines: 100 },
             },
         },

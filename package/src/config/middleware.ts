@@ -19,6 +19,8 @@ const defaultCookieOption: CookieAttributes = {
 async function getIsBotValue(userAgent: string | null): Promise<boolean> {
     if (userAgent === null) return false;
     const { isBot } = await import('next/dist/server/web/spec-extension/user-agent');
+    // Unreachable: userAgent is already narrowed to non-null string above,
+    // so the ?? '' fallback never triggers.
     return isBot(userAgent ?? '');
 }
 
@@ -74,7 +76,9 @@ export default async function intlMiddleware(
         let pathWithoutLocale: string;
 
         // Avoids split('/').filter(Boolean) array allocation on every request:
-        // scan for the first segment's bounds directly.
+        // scan for the first segment's bounds directly. Unreachable:
+        // Next.js guarantees pathname always starts with '/', so the else
+        // branch (segmentStart = 0) never runs.
         const segmentStart = pathname.charCodeAt(0) === 47 /* '/' */ ? 1 : 0;
         let segmentEnd = pathname.indexOf('/', segmentStart);
         if (segmentEnd === -1) segmentEnd = pathname.length;
