@@ -70,4 +70,43 @@ describe('reportError', () => {
         expect(getCloudflareContext).toHaveBeenCalledWith({ async: false });
         expect(waitUntil).toHaveBeenCalled();
     });
+
+    it('dedups a repeated identical error within the throttle window by default', async () => {
+        const onError = vi.fn();
+        const params = { error: new Error('dedup-boom'), classOrMethodName: 'dedupTest1' };
+        await reportError({ errorHandling: { onError } }, params);
+        await reportError({ errorHandling: { onError } }, params);
+        expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not dedup when dedup is set to false', async () => {
+        const onError = vi.fn();
+        const params = { error: new Error('dedup-boom2'), classOrMethodName: 'dedupTest2' };
+        await reportError({ errorHandling: { onError, dedup: false } }, params);
+        await reportError({ errorHandling: { onError, dedup: false } }, params);
+        expect(onError).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports again once throttleMs has elapsed', async () => {
+        const onError = vi.fn();
+        const params = { error: new Error('dedup-boom3'), classOrMethodName: 'dedupTest3' };
+        await reportError({ errorHandling: { onError, throttleMs: 0 } }, params);
+        await reportError({ errorHandling: { onError, throttleMs: 0 } }, params);
+        expect(onError).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports again immediately after resetDedup: true clears the dedup state', async () => {
+        const onError = vi.fn();
+        const params = { error: new Error('dedup-boom4'), classOrMethodName: 'dedupTest4' };
+        await reportError({ errorHandling: { onError } }, params);
+        await reportError({ errorHandling: { onError, resetDedup: true } }, params);
+        expect(onError).toHaveBeenCalledTimes(2);
+    });
+
+    it('dedups by an explicit dedupKey when provided, ignoring differing error/params', async () => {
+        const onError = vi.fn();
+        await reportError({ errorHandling: { onError } }, { error: new Error('a'), classOrMethodName: 'x', dedupKey: 'same-key' });
+        await reportError({ errorHandling: { onError } }, { error: new Error('b'), classOrMethodName: 'y', dedupKey: 'same-key' });
+        expect(onError).toHaveBeenCalledTimes(1);
+    });
 });
