@@ -11,6 +11,12 @@ describe('stringifyUnknown', () => {
         expect(stringifyUnknown(error)).toContain('Error: boom');
     });
 
+    it('formats an Error with no stack property', () => {
+        const error = new Error('boom');
+        delete (error as { stack?: string }).stack;
+        expect(stringifyUnknown(error)).toBe('Error: boom\n\n');
+    });
+
     it('resolves a function-wrapped error on the server', () => {
         expect(stringifyUnknown(() => 'lazy boom')).toBe('lazy boom');
     });
@@ -27,5 +33,15 @@ describe('stringifyUnknown', () => {
         const circular: Record<string, unknown> = {};
         circular.self = circular;
         expect(stringifyUnknown(circular, false, true)).toBe('[Unserializable value]');
+    });
+
+    it('returns [Function] when a function still resolves to a function after all resolution attempts', () => {
+        const alwaysReturnsFunction = () => alwaysReturnsFunction;
+        expect(stringifyUnknown(alwaysReturnsFunction)).toBe('[Function]');
+    });
+
+    it('returns an error string when resolving a function-wrapped error throws', () => {
+        const throwing = () => { throw new Error('resolution failed'); };
+        expect(stringifyUnknown(throwing)).toContain('Error during function resolution:');
     });
 });

@@ -20,9 +20,10 @@ vi.mock('../functions/server', () => ({ getMessage: vi.fn(async () => ({ Common:
 let firebaseAuthValue: Record<string, unknown> | undefined;
 let cookieConsentValue: Record<string, unknown> | undefined;
 let generateValue: Record<string, unknown> | undefined;
+let errorHandlingValue: Record<string, unknown> | undefined;
 vi.mock('@intl-config', () => ({
     get default() {
-        return { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: firebaseAuthValue, cookieConsent: cookieConsentValue, generate: generateValue };
+        return { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: firebaseAuthValue, cookieConsent: cookieConsentValue, generate: generateValue, errorHandling: errorHandlingValue };
     },
 }));
 
@@ -59,6 +60,7 @@ describe('LocationzationProvider', () => {
         firebaseAuthValue = undefined;
         cookieConsentValue = undefined;
         generateValue = undefined;
+        errorHandlingValue = undefined;
     });
 
 
@@ -124,6 +126,21 @@ describe('LocationzationProvider', () => {
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(getAnalytics).toHaveBeenCalled();
         expect(await screen.findByTestId('cookie-consent-analytics')).toHaveTextContent('AW-YYY');
+    });
+
+    it('reports via reportError and renders without analytics when getAnalytics throws', async () => {
+        const boom = new Error('boom');
+        const getAnalytics = vi.fn(async () => { throw boom; });
+        const onError = vi.fn();
+        cookieConsentValue = { getAnalytics };
+        errorHandlingValue = { onError };
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(getAnalytics).toHaveBeenCalled();
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ error: boom, classOrMethodName: 'getAnalytics' }));
+        await screen.findByTestId('cookie-consent-provider');
+        expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
     });
 
     it('does not resolve or render analytics when autoWireAnalytics is false', async () => {
