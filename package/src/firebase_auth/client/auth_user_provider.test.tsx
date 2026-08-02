@@ -42,7 +42,7 @@ vi.mock('./auth_user_cache', () => ({
 }));
 
 vi.mock('../middleware/update_session', () => ({
-    sessionCookieName: '__fa_session__',
+    defaultSessionCookieName: '__fa_session__',
 }));
 
 let idTokenListener: ((user: unknown) => void | Promise<void>) | undefined;
@@ -308,6 +308,22 @@ describe('AuthUserProvider', () => {
             await Promise.resolve();
         });
         expect(onIdTokenChanged).not.toHaveBeenCalled();
+    });
+
+    it('writes and clears the session cookie under a custom sessionCookieName instead of the default', async () => {
+        currentConfig = { firebaseAuth: { ...fa, sessionCookieName: '__session' } };
+        document.cookie = '__session=; path=/; max-age=0';
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { await idTokenListener?.(makeUser()); });
+        await flush();
+        expect(document.cookie).toContain('__session=id-token');
+        expect(document.cookie).not.toContain('__fa_session__=id-token');
+
+        await act(async () => { await idTokenListener?.(null); });
+        await flush();
+        expect(document.cookie).not.toContain('__session=id-token');
     });
 
     it('the default context value is null for consumers outside a provider', async () => {

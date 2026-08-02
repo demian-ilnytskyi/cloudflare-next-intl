@@ -128,6 +128,10 @@ export interface FirebaseAuthRoutingConfig {
     sessionCookieMaxAge?: number;
     /** Refresh-token cookie max-age in seconds. Defaults to 365 days (31536000). */
     refreshTokenCookieMaxAge?: number;
+    /** Session cookie name. Defaults to `'__fa_session__'`. Override this if your app already uses a different name for its Firebase ID-token cookie. */
+    sessionCookieName?: string;
+    /** Refresh-token cookie name. Defaults to `'__fa_refresh_token__'`. Override this if your app already uses a different name for its Firebase refresh-token cookie. */
+    refreshTokenCookieName?: string;
 }
 
 export interface CookieAttributes {

@@ -210,20 +210,6 @@ describe('updateSession', () => {
         expect(res.cookies.get('__fa_refresh_token__')?.value).toBe('new-refresh-token');
     });
 
-    it('redirects to login and clears cookies when the refresh token request fails', async () => {
-        const fetchMock = vi.fn().mockResolvedValue({ ok: false });
-        vi.stubGlobal('fetch', fetchMock);
-
-        const { default: updateSession } = await import('./update_session');
-        const req = makeRequest('https://example.com/en/dashboard', {
-            cookies: { __fa_refresh_token__: 'bad-refresh-token' },
-        });
-        const base = NextResponse.next();
-        const res = await updateSession(req, base, 'en');
-
-        expect(res.status).toBe(307);
-    });
-
     it('clears an invalid session cookie when there is no refresh token to use instead', async () => {
         const { default: updateSession } = await import('./update_session');
         const req = makeRequest('https://example.com/en/dashboard', {
@@ -234,17 +220,145 @@ describe('updateSession', () => {
         expect(res.status).toBe(307);
     });
 
-    it('handles the fetch call throwing during token refresh', async () => {
+    // Reproduces: a signed-in user with a genuinely valid refresh token
+    // briefly sees /login, then bounces back to home. Cause: a transient
+    // failure talking to Google's Secure Token API (network blip, 5xx,
+    // cold-start latency) was treated identically to "this refresh token is
+    // invalid" — clearing the refresh-token cookie and redirecting to login,
+    // even though the user's refresh token was never actually invalid. The
+    // client SDK still has a live session, so onIdTokenChanged immediately
+    // fires signed-in on /login and force-refreshes back home — the
+    // observed flash-then-bounce.
+    it('does NOT clear the refresh token or redirect to login on a transient 5xx from the refresh endpoint (regression)', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503 });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'still-valid-refresh-token' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        // Must NOT sign the user out for a transient failure.
+        expect(res.status).not.toBe(307);
+        expect(res.cookies.get('__fa_refresh_token__')?.value).not.toBe('');
+    });
+
+    it('does NOT clear the refresh token or redirect to login when the refresh fetch throws (network blip) (regression)', async () => {
         const fetchMock = vi.fn().mockRejectedValue(new Error('network down'));
         vi.stubGlobal('fetch', fetchMock);
 
         const { default: updateSession } = await import('./update_session');
         const req = makeRequest('https://example.com/en/dashboard', {
-            cookies: { __fa_refresh_token__: 'old-refresh-token' },
+            cookies: { __fa_refresh_token__: 'still-valid-refresh-token' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(res.status).not.toBe(307);
+        expect(res.cookies.get('__fa_refresh_token__')?.value).not.toBe('');
+    });
+
+    it('treats a 400 with an unparseable body as transient, not invalid', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 400,
+            json: async () => { throw new Error('invalid JSON'); },
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'still-valid-refresh-token' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(res.status).not.toBe(307);
+        expect(res.cookies.get('__fa_refresh_token__')?.value).not.toBe('');
+    });
+
+    it('DOES clear the refresh token and redirect to login when Google explicitly rejects it as invalid (400)', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 400,
+            json: async () => ({ error: { message: 'TOKEN_EXPIRED' } }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'actually-invalid-refresh-token' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(res.status).toBe(307);
+    });
+});
+
+describe('updateSession with custom cookie names', () => {
+    beforeEach(() => {
+        currentConfig = {
+            locales: ['en', 'de'],
+            firebaseAuth: {
+                ...baseFa,
+                sessionCookieName: '__session',
+                refreshTokenCookieName: '__refresh_token',
+            },
+        };
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('passes through with a valid session under the custom cookie name', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __session: token },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res).toBe(base);
+    });
+
+    it('redirects to login when the custom-named session cookie is missing, even if __fa_session__ happens to be set', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
+        const req = makeRequest('https://example.com/en/dashboard', {
+            // Wrong cookie name for this config — must not be picked up.
+            cookies: { __fa_session__: token },
         });
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
         expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/login');
+    });
+
+    it('refreshes an expired session using the custom-named refresh-token cookie', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: 'new-id-token', refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __refresh_token: 'old-refresh-token' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(fetchMock).toHaveBeenCalled();
+        expect(res).toBe(base);
+        expect(res.cookies.get('__session')?.value).toBe('new-id-token');
+        expect(res.cookies.get('__refresh_token')?.value).toBe('new-refresh-token');
+        // Must not write under the default names when custom names are configured.
+        expect(res.cookies.get('__fa_session__')).toBeUndefined();
+        expect(res.cookies.get('__fa_refresh_token__')).toBeUndefined();
     });
 });
 

@@ -3,6 +3,29 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.2] - 2026-08-02
+
+### Fixed
+
+- `firebase_auth` middleware no longer signs a user out on a transient
+  session-refresh failure (network blip, Google 5xx, timeout). Previously
+  any failure to refresh the ID token — including ones unrelated to the
+  refresh token's validity — cleared the refresh-token cookie and redirected
+  to the auth page; since the client SDK's own session is independent of
+  these cookies, this produced a visible flash to the login page followed
+  by an immediate bounce back home. Only Google's explicit "this refresh
+  token is invalid" error codes (`INVALID_REFRESH_TOKEN`, `TOKEN_EXPIRED`,
+  `USER_DISABLED`, `USER_NOT_FOUND`) now trigger sign-out; every other
+  failure passes the request through untouched instead of guessing.
+
+### Added
+
+- `sessionCookieName`/`refreshTokenCookieName` on `FirebaseAuthRoutingConfig`
+  — override the cookie names `firebase_auth`'s middleware, client provider,
+  and server helpers read/write (default: `__fa_session__`/
+  `__fa_refresh_token__`), for apps that already use different cookie names
+  for their Firebase session.
+
 ## [0.3.1] - 2026-08-02
 
 ### Added

@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { cache } from 'react';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
-import { sessionCookieName } from '../middleware/update_session';
+import { defaultSessionCookieName } from '../middleware/update_session';
 
 let baseApp: FirebaseApp | undefined;
 
@@ -24,6 +24,7 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
     const fa = config.firebaseAuth;
     requireFirebaseAuthConfig(fa);
 
+    const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
     const authIdToken = (await cookies()).get(sessionCookieName)?.value;
 
     if (!authIdToken) {

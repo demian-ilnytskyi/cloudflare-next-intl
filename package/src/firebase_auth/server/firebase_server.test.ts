@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const fa = {
+const fa: { sessionCookieName?: string } & Record<string, unknown> = {
     apiKey: 'key',
     authDomain: 'domain',
     projectId: 'proj',
@@ -36,6 +36,7 @@ describe('getAuthenticatedAppForUser', () => {
         vi.clearAllMocks();
         cookieGet.mockReturnValue(undefined);
         getAuth.mockReturnValue({ authStateReady, currentUser: { uid: 'u1' } });
+        delete fa.sessionCookieName;
     });
 
     it('returns null user when no session cookie is present', async () => {
@@ -60,6 +61,16 @@ describe('getAuthenticatedAppForUser', () => {
         const { getAuthenticatedAppForUser } = await import('./firebase_server');
         await getAuthenticatedAppForUser();
         expect(initializeApp).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads the session from a custom sessionCookieName instead of the default __fa_session__', async () => {
+        fa.sessionCookieName = '__session';
+        cookieGet.mockReturnValue({ value: 'valid-token' });
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const result = await getAuthenticatedAppForUser();
+        expect(cookieGet).toHaveBeenCalledWith('__session');
+        expect(cookieGet).not.toHaveBeenCalledWith('__fa_session__');
+        expect(result.currentUser).toEqual({ uid: 'u1' });
     });
 
     it('returns null user/app when the Firebase call throws', async () => {

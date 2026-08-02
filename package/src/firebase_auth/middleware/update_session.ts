@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import config from '@intl-config';
 
-export const sessionCookieName = '__fa_session__';
-export const refreshTokenCookieName = '__fa_refresh_token__';
+export const defaultSessionCookieName = '__fa_session__';
+export const defaultRefreshTokenCookieName = '__fa_refresh_token__';
 
 const DEFAULT_SESSION_MAX_AGE = 60 * 60 * 24 * 5;
 const DEFAULT_REFRESH_MAX_AGE = 60 * 60 * 24 * 365;
@@ -81,15 +81,36 @@ async function setCachedRefresh(refreshToken: string, refreshed: { idToken: stri
     }
 }
 
+// Google's Secure Token API returns 400 with one of these error codes when
+// the refresh token itself is the problem (expired/revoked/malformed/the
+// associated user no longer exists) — this is the ONLY case that should
+// sign the user out. Any other failure (5xx, network error, timeout,
+// unrecognized 400 body) is transient/unexpected and must NOT clear the
+// refresh-token cookie or redirect to login: doing so previously caused a
+// signed-in user with a perfectly valid refresh token to flash to /login
+// and bounce back home the moment their ID token merely expired and a
+// single refresh attempt happened to fail.
+const INVALID_REFRESH_TOKEN_ERRORS = new Set([
+    'INVALID_REFRESH_TOKEN',
+    'TOKEN_EXPIRED',
+    'USER_DISABLED',
+    'USER_NOT_FOUND',
+]);
+
+type RefreshResult =
+    | { status: 'refreshed'; idToken: string; refreshToken: string }
+    | { status: 'invalid' }
+    | { status: 'transient-failure' };
+
 /**
  * Mints a fresh ID token from a stored refresh token via Google's Secure
  * Token API. No `firebase/auth` import: this runs in the Edge middleware
  * runtime, and `firebase/auth` pulls in Node-only APIs that break Edge
  * bundles even though this function never touches that module.
  */
-async function refreshIdToken(apiKey: string, refreshToken: string): Promise<{ idToken: string; refreshToken: string } | null> {
+async function refreshIdToken(apiKey: string, refreshToken: string): Promise<RefreshResult> {
     const cached = await getCachedRefresh(refreshToken);
-    if (cached) return cached;
+    if (cached) return { status: 'refreshed', ...cached };
 
     try {
         const res = await fetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
@@ -98,7 +119,20 @@ async function refreshIdToken(apiKey: string, refreshToken: string): Promise<{ i
             body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`,
         });
 
-        if (!res.ok) return null;
+        if (!res.ok) {
+            if (res.status === 400) {
+                try {
+                    const errorBody = await res.json() as { error?: { message?: string } };
+                    if (errorBody.error?.message && INVALID_REFRESH_TOKEN_ERRORS.has(errorBody.error.message)) {
+                        return { status: 'invalid' };
+                    }
+                } catch {
+                    // Unparseable body on a 400 — treat as transient rather
+                    // than assuming the token is invalid.
+                }
+            }
+            return { status: 'transient-failure' };
+        }
 
         const data = await res.json() as { id_token: string; refresh_token: string };
         const refreshed = { idToken: data.id_token, refreshToken: data.refresh_token };
@@ -108,9 +142,9 @@ async function refreshIdToken(apiKey: string, refreshToken: string): Promise<{ i
         // setCachedRefresh already swallows its own errors, so a rejected
         // write here would otherwise surface as an unhandled rejection.
         void setCachedRefresh(refreshToken, refreshed);
-        return refreshed;
+        return { status: 'refreshed', ...refreshed };
     } catch {
-        return null;
+        return { status: 'transient-failure' };
     }
 }
 
@@ -140,6 +174,9 @@ export default async function updateSession(
     const fa = config.firebaseAuth;
     if (!fa || fa.middlewareEnabled === false) return baseResponse;
 
+    const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
+    const refreshTokenCookieName = fa.refreshTokenCookieName ?? defaultRefreshTokenCookieName;
+
     const rawPath = request.nextUrl.pathname;
     const requestPrefix = `/${locale}`;
     const path = rawPath === requestPrefix || rawPath.startsWith(`${requestPrefix}/`)
@@ -162,6 +199,13 @@ export default async function updateSession(
     let token = request.cookies.get(sessionCookieName)?.value;
     let refreshedToken: { idToken: string; refreshToken: string } | null = null;
     let clearInvalidSession = false;
+    // A transient refresh failure (network blip, Google 5xx, timeout) means
+    // "couldn't confirm the session right now" — NOT "this user is signed
+    // out". Redirecting to login in that case is the bug this guards
+    // against: it signs a still-valid user out for a one-off hiccup, and
+    // the client SDK (which still has a live session independent of these
+    // cookies) then bounces them straight back, producing a login flash.
+    let refreshWasTransientFailure = false;
 
     if (token && isJwtExpired(token)) {
         token = undefined;
@@ -170,11 +214,14 @@ export default async function updateSession(
     if (!token) {
         const refreshToken = request.cookies.get(refreshTokenCookieName)?.value;
         if (refreshToken) {
-            refreshedToken = await refreshIdToken(fa.apiKey, refreshToken);
-            if (refreshedToken) {
+            const result = await refreshIdToken(fa.apiKey, refreshToken);
+            if (result.status === 'refreshed') {
+                refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken };
                 token = refreshedToken.idToken;
-            } else {
+            } else if (result.status === 'invalid') {
                 clearInvalidSession = true;
+            } else {
+                refreshWasTransientFailure = true;
             }
         } else if (request.cookies.get(sessionCookieName)) {
             clearInvalidSession = true;
@@ -184,7 +231,13 @@ export default async function updateSession(
     const hasSession = !!token;
     let response: NextResponse;
 
-    if (!hasSession) {
+    if (refreshWasTransientFailure) {
+        // Couldn't confirm the session either way — pass through without
+        // forcing a redirect in either direction. The next request (or the
+        // client SDK's own session, independent of these cookies) gets a
+        // chance to resolve this correctly instead of guessing wrong.
+        response = baseResponse;
+    } else if (!hasSession) {
         response = isAuthPage ? baseResponse : buildRedirect(baseResponse, localeUrl(fa.redirectAuthPath));
     } else if (isAuthPage) {
         response = buildRedirect(baseResponse, localeUrl(fa.homePath));
