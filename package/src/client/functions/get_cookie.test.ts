@@ -18,6 +18,23 @@ describe('getCookie', () => {
         expect(getCookie('missing')).toBeNull();
     });
 
+    it('returns value when cookie is last with no trailing semicolon', () => {
+        document.cookie = 'a=1';
+        document.cookie = 'b=2';
+        expect(getCookie('b')).toBe('2');
+    });
+
+    it('returns value when cookie is followed by another cookie', () => {
+        document.cookie = 'a=1';
+        document.cookie = 'b=2';
+        expect(getCookie('a')).toBe('1');
+    });
+
+    it('returns null when a similarly-named cookie only partially matches', () => {
+        document.cookie = 'foobar=1';
+        expect(getCookie('foo')).toBeNull();
+    });
+
     it('returns null and logs when reading throws', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         Object.defineProperty(document, 'cookie', {

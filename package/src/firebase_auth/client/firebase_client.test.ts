@@ -81,6 +81,21 @@ describe('getFirebaseAuthClient', () => {
     });
 });
 
+describe('getFirebaseAuthModule', () => {
+    beforeEach(() => {
+        vi.resetModules();
+    });
+
+    it('memoizes the firebase/auth import', async () => {
+        const { getFirebaseAuthModule } = await import('./firebase_client');
+        const first = getFirebaseAuthModule();
+        const second = getFirebaseAuthModule();
+        expect(second).toBe(first);
+        const mod = await first;
+        expect(mod.getAuth).toBeDefined();
+    });
+});
+
 describe('getFirebaseAuthClient when firebaseAuth is not configured', () => {
     it('throws instead of silently no-op-ing', async () => {
         vi.resetModules();
