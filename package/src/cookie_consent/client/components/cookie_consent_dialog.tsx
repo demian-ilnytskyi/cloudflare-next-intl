@@ -51,9 +51,9 @@ export default function CookieConsentDialog({
     styles,
     render,
 }: CookieConsentDialogProps): React.ReactElement | null {
-    const { consent, setConsent, privacyPolicyPath } = useCookieConsent();
+    const { consent, isMounted, setConsent, privacyPolicyPath } = useCookieConsent();
 
-    if (consent !== null) return null;
+    if (!isMounted || consent !== null) return null;
 
     if (render) return <>{render({ setConsent })}</>;
 

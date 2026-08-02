@@ -12,8 +12,8 @@ import { defaultCookieDialogClassNames } from './default_dialog_styles';
  * particular design system.
  */
 export default function CookieConsentDialog({ message, link, privacyPolicyLinkText, acceptText, declineText, hideDecline = false, id = 'cookie-consent-dialog', classNames, styles, render, }) {
-    const { consent, setConsent, privacyPolicyPath } = useCookieConsent();
-    if (consent !== null)
+    const { consent, isMounted, setConsent, privacyPolicyPath } = useCookieConsent();
+    if (!isMounted || consent !== null)
         return null;
     if (render)
         return _jsx(_Fragment, { children: render({ setConsent }) });

@@ -4,11 +4,12 @@ import CookieConsentDialog from './cookie_consent_dialog';
 
 const setConsent = vi.fn();
 let consent: boolean | null = null;
+let isMounted = true;
 let privacyPolicyPath: string | false = '/privacy-policy';
 let locale: string | undefined = undefined;
 
 vi.mock('../use_cookie_consent', () => ({
-    default: () => ({ consent, setConsent, privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn(), privacyPolicyPath }),
+    default: () => ({ consent, isMounted, setConsent, privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn(), privacyPolicyPath }),
 }));
 
 vi.mock('../../../general/cache_variables', () => ({
@@ -23,13 +24,26 @@ vi.mock('./default_privacy_policy_link', () => ({
 describe('CookieConsentDialog', () => {
     beforeEach(() => {
         consent = null;
+        isMounted = true;
         privacyPolicyPath = '/privacy-policy';
         locale = undefined;
         setConsent.mockClear();
     });
 
-    it('renders null once consent is decided', () => {
+    it('renders null once consent is decided (true)', () => {
         consent = true;
+        const { container } = render(<CookieConsentDialog />);
+        expect(container).toBeEmptyDOMElement();
+    });
+
+    it('renders null before the client has mounted, even with consent still null', () => {
+        isMounted = false;
+        const { container } = render(<CookieConsentDialog />);
+        expect(container).toBeEmptyDOMElement();
+    });
+
+    it('renders null once consent is decided (false / necessary-only)', () => {
+        consent = false;
         const { container } = render(<CookieConsentDialog />);
         expect(container).toBeEmptyDOMElement();
     });

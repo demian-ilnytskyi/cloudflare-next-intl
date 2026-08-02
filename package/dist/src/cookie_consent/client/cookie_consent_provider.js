@@ -58,14 +58,14 @@ export default function CookieConsentProvider({ requiresConsent = true, children
     }, []);
     const [consent, setConsentState] = useState(null);
     const [privacyPolicyUpdated, setPrivacyPolicyUpdated] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
     useEffect(() => {
         const storedConsent = parseConsent(getCookie(consentCookieName));
-        if (storedConsent === null && !requiresConsent) {
-            setConsentState(true);
-            return;
-        }
-        setConsentState(storedConsent);
-        if (storedConsent === null || !policyDate)
+        const autoAccepted = storedConsent === null && !requiresConsent;
+        setConsentState(autoAccepted ? true : storedConsent);
+        setIsMounted(true);
+        const isFirstVisit = storedConsent === null && !autoAccepted;
+        if (isFirstVisit || !policyDate)
             return;
         const storedDateRaw = getCookie(dateCookieName);
         if (!storedDateRaw) {
@@ -90,6 +90,6 @@ export default function CookieConsentProvider({ requiresConsent = true, children
         setPrivacyPolicyUpdated(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-    const contextValue = useMemo(() => ({ consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath }), [consent, privacyPolicyUpdated, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath]);
+    const contextValue = useMemo(() => ({ consent, privacyPolicyUpdated, isMounted, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath }), [consent, privacyPolicyUpdated, isMounted, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath]);
     return (_jsx(CookieConsentContext.Provider, { value: contextValue, children: children }));
 }

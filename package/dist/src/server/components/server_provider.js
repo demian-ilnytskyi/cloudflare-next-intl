@@ -69,7 +69,7 @@ export default async function LocationzationProvider({ language, messages, child
         // (banner shown) same as an unresolved country would.
         requiresConsent = !isDevEnvironment
             ? await resolveRequiresConsent(config.cookieConsent.getCountryCode, config.cookieConsent.getCloudflareContext, config.cookieConsent.gdprCountries)
-            : false;
+            : true;
         const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
         if (config.cookieConsent.autoWireAnalytics !== false && analyticsAllowedInEnv) {
             analyticsSecrets = config.cookieConsent.getSecrets

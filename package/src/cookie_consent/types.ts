@@ -6,6 +6,14 @@ export interface CookieConsentContextType {
     /** Current consent value; `null` until the visitor decides. */
     consent: ConsentValue;
     /**
+     * `false` until the client has read the stored consent/date cookies once
+     * (always `false` during SSR and the first client render, to avoid a
+     * hydration mismatch). The default dialog components render nothing
+     * until this is `true`, so a returning visitor's decided consent never
+     * flashes the banner before disappearing.
+     */
+    isMounted: boolean;
+    /**
      * `true` once a privacy-policy update has been detected (stored consent
      * predates `cookieConsent.privacyPolicyDate`) and hasn't been
      * acknowledged yet. Always `false` when `privacyPolicyDate` is unset.
