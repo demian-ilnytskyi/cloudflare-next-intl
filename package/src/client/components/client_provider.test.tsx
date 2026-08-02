@@ -112,7 +112,7 @@ describe('LocationzationClientProvider', () => {
             </LocationzationClientProvider>,
         );
         await screen.findByTestId('auth-provider');
-        expect(authProviderMountCount).toBe(1);
+        await vi.waitFor(() => expect(authProviderMountCount).toBe(1));
 
         await act(async () => {
             rerender(
