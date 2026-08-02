@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
+import * as React from 'react';
 import CookieConsentAnalytics from './cookie_consent_analytics';
 
 let consent: boolean | null = null;
@@ -8,10 +9,30 @@ vi.mock('../use_cookie_consent', () => ({
     default: () => ({ consent, setConsent: vi.fn(), privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn() }),
 }));
 
+vi.mock('next/dynamic', () => ({
+    default: (loader: () => Promise<{ default: React.ComponentType<Record<string, unknown>> }>) => {
+        return function DynamicWrapper(props: Record<string, unknown>) {
+            const [Comp, setComp] = React.useState<React.ComponentType<Record<string, unknown>> | null>(null);
+            React.useEffect(() => {
+                loader().then((m) => setComp(() => m.default));
+            }, []);
+            if (!Comp) return null;
+            const C = Comp;
+            return <C {...props} />;
+        };
+    },
+}));
+
 const clarityInit = vi.fn();
 const clarityConsent = vi.fn();
-vi.mock('@microsoft/clarity', () => ({
-    default: { init: clarityInit, consent: clarityConsent },
+vi.mock('./clarity_script', () => ({
+    default: ({ projectId }: { projectId: string }) => {
+        React.useEffect(() => {
+            clarityInit(projectId);
+            clarityConsent();
+        }, [projectId]);
+        return null;
+    },
 }));
 
 describe('CookieConsentAnalytics', () => {
@@ -120,17 +141,5 @@ describe('CookieConsentAnalytics', () => {
         consent = false;
         render(<CookieConsentAnalytics secrets={{ googleAnalyticsId: 'G-XXX' }} />);
         expect(gtag).toHaveBeenCalledWith('consent', 'update', expect.objectContaining({ ad_storage: 'denied' }));
-    });
-
-    it('logs an error when loading clarity fails', async () => {
-        vi.resetModules();
-        vi.doMock('@microsoft/clarity', () => Promise.reject(new Error('load failed')));
-        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-        consent = true;
-        const { default: FreshCookieConsentAnalytics } = await import('./cookie_consent_analytics');
-        render(<FreshCookieConsentAnalytics secrets={{ clarityProjectId: 'proj-123' }} />);
-        await waitFor(() => expect(errorSpy).toHaveBeenCalled());
-        errorSpy.mockRestore();
-        vi.doUnmock('@microsoft/clarity');
     });
 });

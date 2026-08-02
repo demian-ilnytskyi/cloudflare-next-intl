@@ -7,35 +7,15 @@ vi.mock('../use_cookie_consent', () => ({
     default: () => ({ consent, setConsent: vi.fn(), privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn() }),
 }));
 
-const clarityInit = vi.fn();
-const clarityConsent = vi.fn();
-vi.mock('@microsoft/clarity', () => ({
-    default: { init: clarityInit, consent: clarityConsent },
-}));
-
 beforeEach(() => {
     consent = true;
-    clarityInit.mockClear();
-    clarityConsent.mockClear();
 });
 
 afterEach(() => {
     vi.resetModules();
 });
 
-describe('CookieConsentAnalytics dynamic import cost', () => {
-    it('caches the @microsoft/clarity module import across mounts, so repeated mounts do not re-pay the import cost', async () => {
-        const { default: CookieConsentAnalytics } = await import('./cookie_consent_analytics');
-
-        for (let i = 0; i < 5; i++) {
-            const { unmount } = render(<CookieConsentAnalytics secrets={{ clarityProjectId: `proj-${i}` }} />);
-            await vi.waitFor(() => expect(clarityInit).toHaveBeenCalledWith(`proj-${i}`));
-            unmount();
-        }
-
-        expect(clarityInit).toHaveBeenCalledTimes(5);
-    });
-
+describe('CookieConsentAnalytics perf characteristics', () => {
     it('does not touch window.gtag when consent stays undecided across re-renders', () => {
         consent = null;
         const gtag = vi.fn();

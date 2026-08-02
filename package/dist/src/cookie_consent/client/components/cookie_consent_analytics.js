@@ -1,7 +1,15 @@
 'use client';
 import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import useCookieConsent from '../use_cookie_consent';
+// Hoisted to module scope, like this package's other `dynamic()` calls —
+// calling it inside the component body would create a new component
+// identity every render. Deferring to a separate chunk keeps
+// `@microsoft/clarity`'s `import()` (in `clarity_script.tsx`) out of this
+// module, so bundlers only resolve it when `ClarityScript` is actually
+// rendered — see that file's doc comment for why this matters.
+const ClarityScript = dynamic(() => import('./clarity_script'));
 /**
  * Renders whichever analytics/ads scripts have a resolved secret, gated on
  * consent: Google Consent Mode bootstrap always loads (defaults to
@@ -29,24 +37,6 @@ export default function CookieConsentAnalytics({ secrets }) {
     }, [consent]);
     const hasGoogle = Boolean(secrets.googleAnalyticsId || secrets.googleAdsId || secrets.googleAdSenseId);
     return (_jsxs(_Fragment, { children: [hasGoogle && (_jsx("script", { id: "cookie-consent-google-consent-mode", dangerouslySetInnerHTML: { __html: googleConsentModeBootstrapScript(secrets) } })), consent === true && secrets.cloudflareBeaconToken && (_jsx("script", { defer: true, src: "https://static.cloudflareinsights.com/beacon.min.js", "data-cf-beacon": secrets.cloudflareBeaconToken })), consent === true && secrets.clarityProjectId && _jsx(ClarityScript, { projectId: secrets.clarityProjectId })] }));
-}
-let cachedClarityModule;
-function getClarityModule() {
-    if (!cachedClarityModule) {
-        cachedClarityModule = import('@microsoft/clarity');
-    }
-    return cachedClarityModule;
-}
-function ClarityScript({ projectId }) {
-    useEffect(() => {
-        getClarityModule()
-            .then(({ default: Clarity }) => {
-            Clarity.init(projectId);
-            Clarity.consent();
-        })
-            .catch((error) => console.error(`cloudflare-next-intl: failed to load @microsoft/clarity: ${error}`));
-    }, [projectId]);
-    return null;
 }
 /**
  * Denies storage by default and loads the configured Google tags; the

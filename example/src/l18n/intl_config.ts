@@ -12,6 +12,7 @@ const intlConfig = setIntlConfig({
     cookieConsent: {
         privacyPolicyDate: "2026-01-01",
         getCloudflareContext: getCloudflareContext,
+        secrets: {}
     },
 });
 export default intlConfig;
