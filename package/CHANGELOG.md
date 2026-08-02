@@ -3,6 +3,19 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.4] - 2026-08-02
+
+### Fixed
+
+- `CookieConsentDialog`/`PrivacyPolicyUpdateDialog` now render through a
+  `document.body` portal instead of inline in the app tree. Previously a
+  host app's own stacking context (any ancestor with `transform`/`filter`/
+  `opacity`/`isolation`, common in dashboard shells with sidebars/panels)
+  could trap the dialog behind other UI no matter how high its `z-index`
+  was set — a `z-index` only wins within its own stacking context. Also
+  bumped the default `z-index` to the CSS max (`2147483647`) so the
+  dialogs win against any host z-index once escaped into `body`.
+
 ## [0.5.3] - 2026-08-02
 
 ### Added

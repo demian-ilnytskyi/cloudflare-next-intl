@@ -2,6 +2,7 @@
 import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import useCookieConsent from '../use_cookie_consent';
 import DefaultPrivacyPolicyLink from './default_privacy_policy_link';
+import DialogPortal from './dialog_portal';
 import { getLocaleCache } from '../../../general/cache_variables';
 import { defaultCookieConsentText } from './default_dialog_text';
 import { defaultCookieDialogClassNames } from './default_dialog_styles';
@@ -26,5 +27,5 @@ export default function CookieConsentDialog({ message, link, privacyPolicyLinkTe
     const resolvedLink = link !== undefined
         ? link
         : _jsx(DefaultPrivacyPolicyLink, { privacyPolicyPath: privacyPolicyPath, text: resolvedPrivacyPolicyLinkText, className: resolvedClassNames.link });
-    return (_jsxs("div", { id: id, role: "dialog", "aria-modal": "false", "aria-labelledby": `${id}-title`, className: resolvedClassNames.root, style: styles?.root, children: [_jsxs("p", { id: `${id}-title`, className: resolvedClassNames.message, style: styles?.message, children: [resolvedMessage, resolvedLink ? _jsxs("span", { children: [" ", resolvedLink] }) : null] }), _jsxs("div", { className: resolvedClassNames.actions, style: styles?.actions, children: [!hideDecline && (_jsx("button", { type: "button", onClick: () => setConsent(false), className: resolvedClassNames.declineButton, style: styles?.declineButton, children: resolvedDeclineText })), _jsx("button", { type: "button", onClick: () => setConsent(true), className: resolvedClassNames.acceptButton, style: styles?.acceptButton, children: resolvedAcceptText })] })] }));
+    return (_jsx(DialogPortal, { children: _jsxs("div", { id: id, role: "dialog", "aria-modal": "false", "aria-labelledby": `${id}-title`, className: resolvedClassNames.root, style: styles?.root, children: [_jsxs("p", { id: `${id}-title`, className: resolvedClassNames.message, style: styles?.message, children: [resolvedMessage, resolvedLink ? _jsxs("span", { children: [" ", resolvedLink] }) : null] }), _jsxs("div", { className: resolvedClassNames.actions, style: styles?.actions, children: [!hideDecline && (_jsx("button", { type: "button", onClick: () => setConsent(false), className: resolvedClassNames.declineButton, style: styles?.declineButton, children: resolvedDeclineText })), _jsx("button", { type: "button", onClick: () => setConsent(true), className: resolvedClassNames.acceptButton, style: styles?.acceptButton, children: resolvedAcceptText })] })] }) }));
 }

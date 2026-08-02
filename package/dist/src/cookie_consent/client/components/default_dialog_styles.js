@@ -1,5 +1,5 @@
 export const defaultCookieDialogClassNames = {
-    root: 'fixed bottom-0 w-full bg-cyan-50 dark:bg-cyan-950 text-gray-800 dark:text-gray-200 z-20 flex flex-col sm:flex-row sm:justify-between items-center gap-3 sticky border-t border-t-gray-600 dark:border-t-gray-400 rounded-t-2xl px-4 py-3',
+    root: 'fixed bottom-0 w-full bg-cyan-50 dark:bg-cyan-950 text-gray-800 dark:text-gray-200 z-[2147483647] flex flex-col sm:flex-row sm:justify-between items-center gap-3 sticky border-t border-t-gray-600 dark:border-t-gray-400 rounded-t-2xl px-4 py-3',
     message: 'text-sm sm:text-base text-gray-600 dark:text-gray-300',
     link: 'underline font-bold duration-200 text-gray-600 hover:text-cyan-800 dark:text-gray-200 dark:hover:text-gray-100 active:text-cyan-700',
     actions: 'flex flex-row gap-2',

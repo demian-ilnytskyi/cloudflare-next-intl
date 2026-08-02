@@ -58,8 +58,8 @@ describe('CookieConsentDialog', () => {
     });
 
     it('renders with no link override, classNames, or styles provided', () => {
-        const { container } = render(<CookieConsentDialog />);
-        expect(container.querySelector('#cookie-consent-dialog')).toBeInTheDocument();
+        render(<CookieConsentDialog />);
+        expect(document.querySelector('#cookie-consent-dialog')).toBeInTheDocument();
         expect(screen.queryByText('Privacy')).not.toBeInTheDocument();
     });
 

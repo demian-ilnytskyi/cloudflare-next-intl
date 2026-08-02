@@ -2,6 +2,7 @@
 import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import useCookieConsent from '../use_cookie_consent';
 import DefaultPrivacyPolicyLink from './default_privacy_policy_link';
+import DialogPortal from './dialog_portal';
 import { getLocaleCache } from '../../../general/cache_variables';
 import { defaultPrivacyPolicyUpdateText } from './default_dialog_text';
 import { defaultCookieDialogClassNames } from './default_dialog_styles';
@@ -25,5 +26,5 @@ export default function PrivacyPolicyUpdateDialog({ message, link, privacyPolicy
     const resolvedLink = link !== undefined
         ? link
         : _jsx(DefaultPrivacyPolicyLink, { privacyPolicyPath: privacyPolicyPath, text: resolvedPrivacyPolicyLinkText, className: resolvedClassNames.link });
-    return (_jsxs("div", { id: id, role: "dialog", "aria-modal": "false", "aria-labelledby": `${id}-title`, className: resolvedClassNames.root, style: styles?.root, children: [_jsxs("p", { id: `${id}-title`, className: resolvedClassNames.message, style: styles?.message, children: [resolvedMessage, resolvedLink ? _jsxs("span", { children: [" ", resolvedLink] }) : null] }), _jsx("button", { type: "button", onClick: acknowledgePrivacyPolicyUpdate, "aria-label": resolvedCloseText, className: resolvedClassNames.closeButton, style: styles?.closeButton, children: resolvedCloseText })] }));
+    return (_jsx(DialogPortal, { children: _jsxs("div", { id: id, role: "dialog", "aria-modal": "false", "aria-labelledby": `${id}-title`, className: resolvedClassNames.root, style: styles?.root, children: [_jsxs("p", { id: `${id}-title`, className: resolvedClassNames.message, style: styles?.message, children: [resolvedMessage, resolvedLink ? _jsxs("span", { children: [" ", resolvedLink] }) : null] }), _jsx("button", { type: "button", onClick: acknowledgePrivacyPolicyUpdate, "aria-label": resolvedCloseText, className: resolvedClassNames.closeButton, style: styles?.closeButton, children: resolvedCloseText })] }) }));
 }

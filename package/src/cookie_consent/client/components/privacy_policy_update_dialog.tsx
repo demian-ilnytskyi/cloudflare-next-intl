@@ -2,6 +2,7 @@
 
 import useCookieConsent from '../use_cookie_consent';
 import DefaultPrivacyPolicyLink from './default_privacy_policy_link';
+import DialogPortal from './dialog_portal';
 import { getLocaleCache } from '../../../general/cache_variables';
 import { defaultPrivacyPolicyUpdateText } from './default_dialog_text';
 import { defaultCookieDialogClassNames } from './default_dialog_styles';
@@ -62,25 +63,27 @@ export default function PrivacyPolicyUpdateDialog({
         : <DefaultPrivacyPolicyLink privacyPolicyPath={privacyPolicyPath} text={resolvedPrivacyPolicyLinkText} className={resolvedClassNames.link} />;
 
     return (
-        <div
-            id={id}
-            role="dialog"
-            aria-modal="false"
-            aria-labelledby={`${id}-title`}
-            className={resolvedClassNames.root}
-            style={styles?.root}>
-            <p id={`${id}-title`} className={resolvedClassNames.message} style={styles?.message}>
-                {resolvedMessage}
-                {resolvedLink ? <span> {resolvedLink}</span> : null}
-            </p>
-            <button
-                type="button"
-                onClick={acknowledgePrivacyPolicyUpdate}
-                aria-label={resolvedCloseText}
-                className={resolvedClassNames.closeButton}
-                style={styles?.closeButton}>
-                {resolvedCloseText}
-            </button>
-        </div>
+        <DialogPortal>
+            <div
+                id={id}
+                role="dialog"
+                aria-modal="false"
+                aria-labelledby={`${id}-title`}
+                className={resolvedClassNames.root}
+                style={styles?.root}>
+                <p id={`${id}-title`} className={resolvedClassNames.message} style={styles?.message}>
+                    {resolvedMessage}
+                    {resolvedLink ? <span> {resolvedLink}</span> : null}
+                </p>
+                <button
+                    type="button"
+                    onClick={acknowledgePrivacyPolicyUpdate}
+                    aria-label={resolvedCloseText}
+                    className={resolvedClassNames.closeButton}
+                    style={styles?.closeButton}>
+                    {resolvedCloseText}
+                </button>
+            </div>
+        </DialogPortal>
     );
 }

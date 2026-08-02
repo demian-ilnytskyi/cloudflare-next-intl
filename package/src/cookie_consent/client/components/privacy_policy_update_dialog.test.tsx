@@ -43,8 +43,8 @@ describe('PrivacyPolicyUpdateDialog', () => {
 
     it('renders with no link override, classNames, or styles provided', () => {
         privacyPolicyUpdated = true;
-        const { container } = render(<PrivacyPolicyUpdateDialog />);
-        expect(container.querySelector('#privacy-policy-update-dialog')).toBeInTheDocument();
+        render(<PrivacyPolicyUpdateDialog />);
+        expect(document.querySelector('#privacy-policy-update-dialog')).toBeInTheDocument();
         expect(screen.queryByText('Privacy')).not.toBeInTheDocument();
     });
 

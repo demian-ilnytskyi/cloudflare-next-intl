@@ -2,6 +2,7 @@
 
 import useCookieConsent from '../use_cookie_consent';
 import DefaultPrivacyPolicyLink from './default_privacy_policy_link';
+import DialogPortal from './dialog_portal';
 import { getLocaleCache } from '../../../general/cache_variables';
 import { defaultCookieConsentText } from './default_dialog_text';
 import { defaultCookieDialogClassNames } from './default_dialog_styles';
@@ -69,35 +70,37 @@ export default function CookieConsentDialog({
         : <DefaultPrivacyPolicyLink privacyPolicyPath={privacyPolicyPath} text={resolvedPrivacyPolicyLinkText} className={resolvedClassNames.link} />;
 
     return (
-        <div
-            id={id}
-            role="dialog"
-            aria-modal="false"
-            aria-labelledby={`${id}-title`}
-            className={resolvedClassNames.root}
-            style={styles?.root}>
-            <p id={`${id}-title`} className={resolvedClassNames.message} style={styles?.message}>
-                {resolvedMessage}
-                {resolvedLink ? <span> {resolvedLink}</span> : null}
-            </p>
-            <div className={resolvedClassNames.actions} style={styles?.actions}>
-                {!hideDecline && (
+        <DialogPortal>
+            <div
+                id={id}
+                role="dialog"
+                aria-modal="false"
+                aria-labelledby={`${id}-title`}
+                className={resolvedClassNames.root}
+                style={styles?.root}>
+                <p id={`${id}-title`} className={resolvedClassNames.message} style={styles?.message}>
+                    {resolvedMessage}
+                    {resolvedLink ? <span> {resolvedLink}</span> : null}
+                </p>
+                <div className={resolvedClassNames.actions} style={styles?.actions}>
+                    {!hideDecline && (
+                        <button
+                            type="button"
+                            onClick={() => setConsent(false)}
+                            className={resolvedClassNames.declineButton}
+                            style={styles?.declineButton}>
+                            {resolvedDeclineText}
+                        </button>
+                    )}
                     <button
                         type="button"
-                        onClick={() => setConsent(false)}
-                        className={resolvedClassNames.declineButton}
-                        style={styles?.declineButton}>
-                        {resolvedDeclineText}
+                        onClick={() => setConsent(true)}
+                        className={resolvedClassNames.acceptButton}
+                        style={styles?.acceptButton}>
+                        {resolvedAcceptText}
                     </button>
-                )}
-                <button
-                    type="button"
-                    onClick={() => setConsent(true)}
-                    className={resolvedClassNames.acceptButton}
-                    style={styles?.acceptButton}>
-                    {resolvedAcceptText}
-                </button>
+                </div>
             </div>
-        </div>
+        </DialogPortal>
     );
 }
