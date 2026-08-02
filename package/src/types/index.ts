@@ -13,4 +13,5 @@ export type {
     IntlSitemap,
     CookieConsentRoutingConfig,
     CookieConsentAnalyticsSecrets,
+    CookieConsentCloudflareContext,
 } from './types';

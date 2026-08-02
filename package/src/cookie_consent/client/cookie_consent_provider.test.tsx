@@ -174,4 +174,24 @@ describe('CookieConsentProvider', () => {
         });
         expect(cookies.has('__privacy_policy_date_key__')).toBe(false);
     });
+
+    it('seeds consent to true for a first-time visitor when requiresConsent is false', async () => {
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider requiresConsent={false}><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('consent')).toHaveTextContent('true');
+        expect(cookies.has('__cookie_consent_key__')).toBe(false);
+    });
+
+    it('respects an explicit stored decision even when requiresConsent is false', async () => {
+        cookies.set('__cookie_consent_key__', 'false');
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider requiresConsent={false}><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('consent')).toHaveTextContent('false');
+    });
+
+    it('defaults to requiring consent when requiresConsent is omitted', async () => {
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('consent')).toHaveTextContent('null');
+    });
 });

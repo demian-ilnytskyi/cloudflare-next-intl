@@ -32,6 +32,7 @@ export default function LocationzationClientProvider({
     initialAuthUser = null,
     skipAuthProvider = false,
     analyticsSecrets,
+    requiresConsent = true,
     children
 }: {
     language: string;
@@ -41,6 +42,13 @@ export default function LocationzationClientProvider({
     skipAuthProvider?: boolean;
     /** Resolved server-side from `cookieConsent.secrets`/`getSecrets` when `autoWireAnalytics` isn't `false`. */
     analyticsSecrets?: CookieConsentAnalyticsSecrets;
+    /**
+     * Resolved server-side from `cookieConsent.getCountryCode`/`gdprCountries`.
+     * `false` means the visitor's country doesn't require the consent
+     * banner — `CookieConsentProvider` seeds consent as implicitly granted
+     * for a first-time visitor instead of `null`.
+     */
+    requiresConsent?: boolean;
     children: React.ReactNode;
 }): Component {
     setLocaleCache(language);
@@ -56,7 +64,7 @@ export default function LocationzationClientProvider({
         providedChildren = <AuthUserProvider initialUser={initialAuthUser}>{children}</AuthUserProvider>;
     }
     if (config.cookieConsent) {
-        providedChildren = <CookieConsentProvider>
+        providedChildren = <CookieConsentProvider requiresConsent={requiresConsent}>
             {providedChildren}
             {analyticsSecrets && <CookieConsentAnalytics secrets={analyticsSecrets} />}
         </CookieConsentProvider>;

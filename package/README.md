@@ -198,6 +198,11 @@ export default setIntlConfig({
     defaultLocale: "en",
     cookieConsent: {
         privacyPolicyDate: "2026-01-01",
+        // Optional: gate the banner to GDPR-region visitors only. Omit both
+        // getters to disable country-based gating (consent always implicit).
+        getCloudflareContext: () => getCloudflareContext(),
+        // gdprCountries: [...], // defaults to EU/EEA + UK + Switzerland
+        // enableAnalyticsInDevMode: true, // analytics stay off in dev otherwise
     },
 });
 ```

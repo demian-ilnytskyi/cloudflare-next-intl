@@ -3,6 +3,29 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1] - 2026-08-02
+
+### Added
+
+- Country-based cookie-consent gating: `cookieConsent.getCountryCode` and
+  `cookieConsent.getCloudflareContext` let visitors outside `gdprCountries`
+  (defaults to EU/EEA + UK + Switzerland) skip the consent banner entirely,
+  with consent seeded to implicitly granted. `getCountryCode` takes
+  precedence over `getCloudflareContext` when both are set. Neither set
+  (the default) disables country-based gating — consent is never required.
+  A country that can't be resolved always requires consent (fail-safe).
+- `cookieConsent.enableAnalyticsInDevMode` (defaults to `false`) — auto-wired
+  analytics stay off in local development (`NODE_ENV === 'development'`)
+  regardless of consent/country, unless explicitly enabled.
+- `src/cookie_consent/gdpr_countries.ts` — `defaultGdprCountries` and
+  `resolveRequiresConsent`, exported from `./cookieConsent`. Country lookups
+  use a cached `Set` (O(1)) instead of `Array.includes()`.
+
+### Changed
+
+- `CookieConsentProvider` accepts `requiresConsent` (defaults to `true`),
+  auto-passed by `IntlProvider` from the resolved country-gating result.
+
 ## [0.4.0] - 2026-08-02
 
 ### Added

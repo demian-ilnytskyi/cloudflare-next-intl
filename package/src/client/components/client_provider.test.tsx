@@ -40,7 +40,9 @@ vi.mock('../../firebase_auth/client/auth_user_provider', () => ({
 }));
 
 vi.mock('../../cookie_consent/client/cookie_consent_provider', () => ({
-    default: ({ children }: { children: React.ReactNode }) => <div data-testid="cookie-consent-provider">{children}</div>,
+    default: ({ children, requiresConsent }: { children: React.ReactNode; requiresConsent?: boolean }) => (
+        <div data-testid="cookie-consent-provider" data-requires-consent={String(requiresConsent)}>{children}</div>
+    ),
 }));
 
 vi.mock('../../cookie_consent/client/components/cookie_consent_analytics', () => ({
@@ -162,5 +164,27 @@ describe('LocationzationClientProvider', () => {
         const authProvider = await screen.findByTestId('auth-provider');
         expect(cookieProvider).toContainElement(authProvider);
         expect(authProvider).toHaveTextContent('child');
+    });
+
+    it('passes requiresConsent through to CookieConsentProvider, defaulting to true', async () => {
+        currentConfig = { cookieConsent: {} };
+        const { default: LocationzationClientProvider } = await import('./client_provider');
+        render(
+            <LocationzationClientProvider language="en" messages={{ Common: {} }}>
+                <span>child</span>
+            </LocationzationClientProvider>,
+        );
+        expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'true');
+    });
+
+    it('passes requiresConsent=false through to CookieConsentProvider', async () => {
+        currentConfig = { cookieConsent: {} };
+        const { default: LocationzationClientProvider } = await import('./client_provider');
+        render(
+            <LocationzationClientProvider language="en" messages={{ Common: {} }} requiresConsent={false}>
+                <span>child</span>
+            </LocationzationClientProvider>,
+        );
+        expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'false');
     });
 });

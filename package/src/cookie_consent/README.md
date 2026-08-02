@@ -18,6 +18,8 @@ is missing.
   is set.
 - `types.ts` — `CookieConsentContextType`, per-slot `CookieDialogClassNames`/
   `CookieDialogStyles`.
+- `gdpr_countries.ts` — `defaultGdprCountries` list + `resolveRequiresConsent`,
+  used server-side to decide whether a visitor needs the banner at all.
 
 ## Auto-wiring
 
@@ -32,6 +34,23 @@ time, e.g. from a Cloudflare `env` binding via your own
 gates Cloudflare Web Analytics / Google Ads / Google Analytics / AdSense /
 Microsoft Clarity behind consent. Any field left out of the resolved secrets
 just skips that provider's script.
+
+Country-based gating is opt-in and off by default: with neither
+`cookieConsent.getCountryCode` nor `getCloudflareContext` set, the banner is
+never shown and consent is treated as implicitly granted for everyone — the
+simplest setup when you don't need real GDPR-region gating. Set one of the
+two getters to turn it on: `getCountryCode` resolves the country directly
+(simplest, if you already have it from a header/KV/your own logic);
+`getCloudflareContext` takes your own `getCloudflareContext()` call (not a
+dependency of this package) and reads `cf.country` from it — ignored when
+`getCountryCode` is also set. Once gating is on, countries outside
+`gdprCountries` (defaults to EU/EEA + UK + Switzerland) skip the banner and
+get consent seeded to `true` immediately; a country that can't be resolved
+still requires consent (fail-safe).
+
+Analytics never load in local development (`NODE_ENV === 'development'`)
+unless `cookieConsent.enableAnalyticsInDevMode` is `true` — this is checked
+independently of consent/country.
 
 ## Customization
 

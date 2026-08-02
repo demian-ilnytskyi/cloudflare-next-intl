@@ -136,6 +136,61 @@ export interface CookieConsentRoutingConfig {
      * `undefined` in the returned object disables that provider's script.
      */
     getSecrets?: () => CookieConsentAnalyticsSecrets | Promise<CookieConsentAnalyticsSecrets>;
+    /**
+     * Resolves the visitor's country code directly (ISO 3166-1 alpha-2,
+     * e.g. `"DE"`) — the simplest option when you already have it from
+     * somewhere (a header, a KV lookup, your own logic). Takes precedence
+     * over `getCloudflareContext` when both are set.
+     */
+    getCountryCode?: () => string | undefined | Promise<string | undefined>;
+    /**
+     * Returns the Cloudflare request context — e.g. your own
+     * `getCloudflareContext()` call from `@opennextjs/cloudflare` (not a
+     * dependency of this package, so bring your own). Only `cf.country`
+     * is read from the resolved context. Ignored when `getCountryCode` is
+     * also set.
+     *
+     * Country-based gating (via either `getCountryCode` or
+     * `getCloudflareContext`) decides whether the cookie-consent banner is
+     * required at all: visitors outside `gdprCountries` skip the banner and
+     * get analytics immediately (still gated by `enableAnalyticsInDevMode`).
+     * Omit BOTH to skip country-based gating entirely — the banner is never
+     * shown and consent is treated as implicitly granted for everyone. This
+     * is the simplest opt-in-by-default setup; set one of the two getters
+     * once you need real GDPR-region gating.
+     */
+    getCloudflareContext?: () => CookieConsentCloudflareContext | Promise<CookieConsentCloudflareContext>;
+    /**
+     * Country codes (ISO 3166-1 alpha-2) for which the cookie-consent banner
+     * is required. Only consulted when `getCountryCode` or
+     * `getCloudflareContext` is set. Defaults to the EU/EEA + UK +
+     * Switzerland (GDPR/UK-GDPR/nFADP scope). A visitor whose resolved
+     * country isn't in this set is treated as NOT requiring consent; a
+     * country that couldn't be resolved still requires it (fail-safe:
+     * unknown defaults to "ask").
+     */
+    gdprCountries?: readonly string[];
+    /**
+     * Whether the auto-wired analytics scripts (see `autoWireAnalytics`)
+     * are allowed to load in your local/dev environment. Defaults to
+     * `false` — analytics stay off during local development regardless of
+     * consent, matching most analytics providers' own recommendation not to
+     * pollute production data with dev traffic. Set `true` to test the
+     * scripts locally.
+     */
+    enableAnalyticsInDevMode?: boolean;
+}
+
+/**
+ * Minimal shape read from your `getCloudflareContext()` return value — only
+ * `cf.country` is consulted, so any superset (the real `CloudflareContext`
+ * from `@opennextjs/cloudflare`) is accepted as-is without a hard
+ * dependency on that package.
+ */
+export interface CookieConsentCloudflareContext {
+    cf?: {
+        country?: string;
+    };
 }
 
 export interface CookieConsentAnalyticsSecrets {

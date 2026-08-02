@@ -6,6 +6,7 @@ import { localesSet } from "../../config/middleware";
 import config from "../../config/intl_config";
 import type { SerializedAuthUser } from "../../firebase_auth/types";
 import type { CookieConsentAnalyticsSecrets } from "../../types/types";
+import resolveRequiresConsent from "../../cookie_consent/gdpr_countries";
 
 const LocationzationClientProvider = dynamic(
     () => import("../../client/components/client_provider"),
@@ -66,10 +67,22 @@ export default async function LocationzationProvider({ language, messages, child
     }
 
     let analyticsSecrets: CookieConsentAnalyticsSecrets | undefined;
-    if (config.cookieConsent && config.cookieConsent.autoWireAnalytics !== false) {
-        analyticsSecrets = config.cookieConsent.getSecrets
-            ? await config.cookieConsent.getSecrets()
-            : config.cookieConsent.secrets;
+    let requiresConsent = true;
+    if (config.cookieConsent) {
+        requiresConsent = await resolveRequiresConsent(
+            config.cookieConsent.getCountryCode,
+            config.cookieConsent.getCloudflareContext,
+            config.cookieConsent.gdprCountries,
+        );
+
+        const isDevEnvironment = process.env.NODE_ENV === 'development';
+        const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
+
+        if (config.cookieConsent.autoWireAnalytics !== false && analyticsAllowedInEnv) {
+            analyticsSecrets = config.cookieConsent.getSecrets
+                ? await config.cookieConsent.getSecrets()
+                : config.cookieConsent.secrets;
+        }
     }
 
     return <LocationzationClientProvider
@@ -77,7 +90,8 @@ export default async function LocationzationProvider({ language, messages, child
         messages={messagesValue}
         initialAuthUser={initialAuthUser}
         skipAuthProvider={!autoWireClientProvider}
-        analyticsSecrets={analyticsSecrets}>
+        analyticsSecrets={analyticsSecrets}
+        requiresConsent={requiresConsent}>
         {children}
     </LocationzationClientProvider>
 }

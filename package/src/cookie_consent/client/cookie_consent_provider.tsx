@@ -29,6 +29,14 @@ function parseConsent(raw: string | null): ConsentValue {
  * `privacyPolicyUpdated` becomes `true` until they call
  * `acknowledgePrivacyPolicyUpdate()`.
  *
+ * @param requiresConsent Resolved server-side from
+ *   `cookieConsent.getCountryCode`/`gdprCountries` — `false` means the
+ *   visitor's country doesn't require the banner at all, so a first-time
+ *   visitor (no stored cookie) gets `consent` seeded to `true` instead of
+ *   `null`, skipping the dialog and unlocking analytics immediately.
+ *   Defaults to `true` (always show the banner) when omitted, e.g. when
+ *   `cookieConsent.getCountryCode` isn't configured.
+ *
  * @example
  * ```tsx
  * <CookieConsentProvider>
@@ -38,7 +46,10 @@ function parseConsent(raw: string | null): ConsentValue {
  * </CookieConsentProvider>
  * ```
  */
-export default function CookieConsentProvider({ children }: { children: React.ReactNode }): React.ReactElement {
+export default function CookieConsentProvider({ requiresConsent = true, children }: {
+    requiresConsent?: boolean;
+    children: React.ReactNode;
+}): React.ReactElement {
     const { consentCookieName, dateCookieName, maxAge, policyDate } = useMemo(() => {
         const cc = requireCookieConsentConfig(config.cookieConsent);
         return {
@@ -55,6 +66,10 @@ export default function CookieConsentProvider({ children }: { children: React.Re
 
     useEffect(() => {
         const storedConsent = parseConsent(getCookie(consentCookieName));
+        if (storedConsent === null && !requiresConsent) {
+            setConsentState(true);
+            return;
+        }
         setConsentState(storedConsent);
 
         if (storedConsent === null || !policyDate) return;

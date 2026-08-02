@@ -34,7 +34,9 @@ vi.mock('../../firebase_auth/client/auth_user_provider', () => ({
 }));
 
 vi.mock('../../cookie_consent/client/cookie_consent_provider', () => ({
-    default: ({ children }: { children: React.ReactNode }) => <div data-testid="cookie-consent-provider">{children}</div>,
+    default: ({ children, requiresConsent }: { children: React.ReactNode; requiresConsent?: boolean }) => (
+        <div data-testid="cookie-consent-provider" data-requires-consent={String(requiresConsent)}>{children}</div>
+    ),
 }));
 
 vi.mock('../../cookie_consent/client/components/cookie_consent_analytics', () => ({
@@ -132,5 +134,66 @@ describe('LocationzationProvider', () => {
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         await screen.findByTestId('cookie-consent-provider');
         expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
+    });
+
+    it('resolves requiresConsent via getCloudflareContext and passes it to the client provider', async () => {
+        cookieConsentValue = { getCloudflareContext: () => ({ cf: { country: 'DE' } }) };
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'true');
+    });
+
+    it('resolves requiresConsent via getCountryCode, taking precedence over getCloudflareContext', async () => {
+        cookieConsentValue = {
+            getCountryCode: () => 'US',
+            getCloudflareContext: () => ({ cf: { country: 'DE' } }),
+        };
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'false');
+    });
+
+    it('defaults requiresConsent to false when neither getCountryCode nor getCloudflareContext is set', async () => {
+        cookieConsentValue = {};
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'false');
+    });
+
+    it('defaults requiresConsent to true when cookieConsent is not configured at all', async () => {
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(screen.queryByTestId('cookie-consent-provider')).not.toBeInTheDocument();
+        expect(await screen.findByText('child')).toBeInTheDocument();
+    });
+
+    it('does not resolve analytics secrets when NODE_ENV is development and enableAnalyticsInDevMode is unset', async () => {
+        const originalEnv = process.env.NODE_ENV;
+        vi.stubEnv('NODE_ENV', 'development');
+        const getSecrets = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
+        cookieConsentValue = { getSecrets };
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(getSecrets).not.toHaveBeenCalled();
+        expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
+        vi.stubEnv('NODE_ENV', originalEnv ?? 'test');
+    });
+
+    it('resolves analytics secrets when NODE_ENV is development and enableAnalyticsInDevMode is true', async () => {
+        const originalEnv = process.env.NODE_ENV;
+        vi.stubEnv('NODE_ENV', 'development');
+        const getSecrets = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
+        cookieConsentValue = { getSecrets, enableAnalyticsInDevMode: true };
+        vi.resetModules();
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(getSecrets).toHaveBeenCalled();
+        expect(await screen.findByTestId('cookie-consent-analytics')).toHaveTextContent('G-XXX');
+        vi.stubEnv('NODE_ENV', originalEnv ?? 'test');
     });
 });

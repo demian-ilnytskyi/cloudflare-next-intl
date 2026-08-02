@@ -41,7 +41,8 @@ other subpath can be used.
 - `./useCookieConsent` — context hook; throws `"useCookieConsent must be used within a CookieConsentProvider"` if called outside one.
 - `./CookieConsentDialog` — default cookie-consent banner; accepts per-slot `classNames`/`styles` or a `render` prop for fully custom markup.
 - `./PrivacyPolicyUpdateDialog` — "privacy policy updated" banner; auto-enabled only when `cookieConsent.privacyPolicyDate` is set.
-- `./cookieConsentAnalytics` — `CookieConsentAnalytics`: gates Cloudflare Web Analytics / Google Ads / Google Analytics / AdSense / Microsoft Clarity behind consent; rendered automatically by `IntlProvider` when `cookieConsent.secrets` or `getSecrets` is set (and `autoWireAnalytics !== false`).
+- `./cookieConsentAnalytics` — `CookieConsentAnalytics`: gates Cloudflare Web Analytics / Google Ads / Google Analytics / AdSense / Microsoft Clarity behind consent; rendered automatically by `IntlProvider` when `cookieConsent.secrets` or `getSecrets` is set (and `autoWireAnalytics !== false`). Never renders in local dev (`NODE_ENV === 'development'`) unless `cookieConsent.enableAnalyticsInDevMode` is `true`.
+- Country-based gating (`cookieConsent.getCountryCode` / `getCloudflareContext` + `gdprCountries`): resolved server-side by `IntlProvider` into a `requiresConsent` boolean passed to `CookieConsentProvider`. Neither getter set → gating off, consent always implicitly granted. `getCountryCode` (direct country resolver) takes precedence over `getCloudflareContext` (reads `cf.country`) when both are set. Unresolved country always requires consent (fail-safe). `./cookieConsent` also exports `defaultGdprCountries` (EU/EEA + UK + Switzerland).
 
 ## Conventions
 
