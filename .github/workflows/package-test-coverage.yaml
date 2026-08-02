@@ -24,5 +24,4 @@ jobs:
       per_file_exceptions: |
         general/general_functions.ts:87
         config/middleware.ts:93
-        firebase_auth/error_messages/firebase_auth_error_helper.ts:91
       run_bench: true

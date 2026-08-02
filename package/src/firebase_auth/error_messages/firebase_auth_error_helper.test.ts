@@ -73,4 +73,20 @@ describe('firebaseAuthErrorMessage', () => {
         const result = firebaseAuthErrorMessage('fr', { code: 'auth/invalid-email' });
         expect(result).toBe('Please enter a valid email address.');
     });
+
+    it('falls back to the unknown message if the resolved key is somehow missing from DEFAULT_MESSAGES_EN', async () => {
+        vi.resetModules();
+        vi.doMock('./default_messages.en', () => ({
+            DEFAULT_MESSAGES_EN: { unknown: 'Something went wrong. Please try again.' },
+        }));
+        const { getMessageCache } = await import('../../general/cache_variables');
+        vi.mocked(getMessageCache).mockReturnValue(undefined);
+        const { default: firebaseAuthErrorMessage } = await import('./firebase_auth_error_helper');
+
+        const result = firebaseAuthErrorMessage('en', { code: 'auth/invalid-email' });
+        expect(result).toBe('Something went wrong. Please try again.');
+
+        vi.doUnmock('./default_messages.en');
+        vi.resetModules();
+    });
 });
