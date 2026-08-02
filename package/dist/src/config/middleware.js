@@ -11,13 +11,16 @@ const defaultCookieOption = {
     secure: false, // Send cookie only over HTTPS in production
     sameSite: sameSite, // Protection against CSRF attacks. 'strict' or 'lax' are good choices.
 };
+let userAgentModule;
 async function getIsBotValue(userAgent) {
     if (userAgent === null)
         return false;
-    const { isBot } = await import('next/dist/server/web/spec-extension/user-agent');
+    if (!userAgentModule) {
+        userAgentModule = await import('next/dist/server/web/spec-extension/user-agent');
+    }
     // Unreachable: userAgent is already narrowed to non-null string above,
     // so the ?? '' fallback never triggers.
-    return isBot(userAgent ?? '');
+    return userAgentModule.isBot(userAgent ?? '');
 }
 const getIsBotValueCache = cache(getIsBotValue);
 export const localesSet = new Set(config.locales);

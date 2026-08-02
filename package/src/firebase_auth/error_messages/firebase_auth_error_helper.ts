@@ -1,5 +1,5 @@
 import { getTranslationsImpl } from '../../general/general_functions';
-import { getMessageCache } from '../../general/cache_variables';
+import { getMessageCache, getTranslationCache } from '../../general/cache_variables';
 import { DEFAULT_MESSAGES_EN } from './default_messages.en';
 
 const ERROR_CODE_TO_KEY: Record<string, string> = {
@@ -32,7 +32,8 @@ export default function firebaseAuthErrorMessage(locale: string, error: unknown)
     const messages = getMessageCache(locale);
     if (messages) {
         try {
-            const t = getTranslationsImpl(locale, messages, 'firebaseAuth');
+            const cacheKey = `${locale}-firebaseAuth`;
+            const t = getTranslationCache(cacheKey) ?? getTranslationsImpl(locale, messages, 'firebaseAuth', cacheKey);
             const translated = t(key);
             if (typeof translated === 'string' && translated !== key) return translated;
         } catch {

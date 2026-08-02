@@ -16,3 +16,5 @@ export declare function getFirebaseAuthClientSync(): {
     app: FirebaseApp;
     auth: Auth;
 } | undefined;
+/** Memoized `import('firebase/auth')` — see {@link getFirebaseAuthClient} for why this is worth caching. */
+export declare function getFirebaseAuthModule(): Promise<typeof import('firebase/auth')>;

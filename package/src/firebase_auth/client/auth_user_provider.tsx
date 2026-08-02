@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import usePathname from '../../client/hooks/use_path_name';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
-import { getFirebaseAuthClient } from './firebase_client';
+import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
 import { setAuthUserCache } from './auth_user_cache';
 import { defaultSessionCookieName } from '../middleware/update_session';
 import setCookie from '../../client/functions/set_cookie';
@@ -101,7 +101,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
 
         getFirebaseAuthClient().then(async ({ auth }) => {
             if (cancelled) return;
-            const { onIdTokenChanged } = await import('firebase/auth');
+            const { onIdTokenChanged } = await getFirebaseAuthModule();
 
             unsubscribe = onIdTokenChanged(auth, async (user) => {
                 const isSignedIn = !!user;
@@ -153,7 +153,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
         const user = auth.currentUser;
         if (!user) return;
         try {
-            const { reload } = await import('firebase/auth');
+            const { reload } = await getFirebaseAuthModule();
             await reload(user);
             writeSessionCookie(sessionCookieName, await user.getIdToken(true), maxAge);
             setAuthUserCache(user);
@@ -167,14 +167,14 @@ export default function AuthUserProvider({ initialUser = null, children }: {
         const { auth } = await getFirebaseAuthClient();
         const user = auth.currentUser;
         if (!user) return;
-        const { sendEmailVerification } = await import('firebase/auth');
+        const { sendEmailVerification } = await getFirebaseAuthModule();
         await sendEmailVerification(user);
     }, []);
 
     const logout = useCallback(async () => {
         try {
             const { auth } = await getFirebaseAuthClient();
-            const { signOut } = await import('firebase/auth');
+            const { signOut } = await getFirebaseAuthModule();
             await signOut(auth);
         } finally {
             clearSessionCookie(sessionCookieName);

@@ -10,6 +10,8 @@ const LocationzationClientProvider = dynamic(
     () => import("../../client/components/client_provider"),
 );
 
+let authUserServerProviderModule: typeof import("../../firebase_auth/server/auth_user_server_provider") | undefined;
+
 /**
  * Server component that provides locale/messages context to the rest of the
  * tree. Exported publicly as `IntlProvider` from `cloudflare-next-intl/serverProvider`.
@@ -56,8 +58,10 @@ export default async function LocationzationProvider({ language, messages, child
     let initialAuthUser: SerializedAuthUser | null = null;
     const autoWireClientProvider = config.firebaseAuth?.autoWireClientProvider !== false;
     if (config.firebaseAuth && autoWireClientProvider) {
-        const { resolveAuthUserAndRedirect } = await import("../../firebase_auth/server/auth_user_server_provider");
-        initialAuthUser = await resolveAuthUserAndRedirect();
+        if (!authUserServerProviderModule) {
+            authUserServerProviderModule = await import("../../firebase_auth/server/auth_user_server_provider");
+        }
+        initialAuthUser = await authUserServerProviderModule.resolveAuthUserAndRedirect();
     }
 
     return <LocationzationClientProvider language={language} messages={messagesValue} initialAuthUser={initialAuthUser} skipAuthProvider={!autoWireClientProvider}>

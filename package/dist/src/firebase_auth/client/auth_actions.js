@@ -1,7 +1,7 @@
 'use client';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
-import { getFirebaseAuthClient } from './firebase_client';
+import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
 import firebaseAuthErrorMessage from '../error_messages/firebase_auth_error_helper';
 function readCredentials(formData) {
     return {
@@ -27,7 +27,7 @@ export function createLoginAction(locale, messages) {
     return async function loginAction(_prevState, formData) {
         requireFirebaseAuthConfig(config.firebaseAuth);
         const { auth } = await getFirebaseAuthClient();
-        const { signInWithEmailAndPassword } = await import('firebase/auth');
+        const { signInWithEmailAndPassword } = await getFirebaseAuthModule();
         const { email, password } = readCredentials(formData);
         try {
             await signInWithEmailAndPassword(auth, email, password);
@@ -57,7 +57,7 @@ export function createSignUpAction(locale, messages) {
     return async function signUpAction(_prevState, formData) {
         requireFirebaseAuthConfig(config.firebaseAuth);
         const { auth } = await getFirebaseAuthClient();
-        const { createUserWithEmailAndPassword } = await import('firebase/auth');
+        const { createUserWithEmailAndPassword } = await getFirebaseAuthModule();
         const { email, password } = readCredentials(formData);
         const confirmPassword = (formData.get('confirmPassword')?.toString() ?? '').trim();
         if (messages.mismatch && password !== confirmPassword) {
@@ -89,7 +89,7 @@ export function createForgotPasswordAction(locale, messages) {
     return async function forgotPasswordAction(_prevState, formData) {
         requireFirebaseAuthConfig(config.firebaseAuth);
         const { auth } = await getFirebaseAuthClient();
-        const { sendPasswordResetEmail } = await import('firebase/auth');
+        const { sendPasswordResetEmail } = await getFirebaseAuthModule();
         const email = (formData.get('email')?.toString() ?? '').trim();
         try {
             await sendPasswordResetEmail(auth, email);

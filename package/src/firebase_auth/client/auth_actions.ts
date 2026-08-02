@@ -2,7 +2,7 @@
 
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
-import { getFirebaseAuthClient } from './firebase_client';
+import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
 import firebaseAuthErrorMessage from '../error_messages/firebase_auth_error_helper';
 import type { AuthActionMessages, AuthFormState } from '../types';
 
@@ -34,7 +34,7 @@ export function createLoginAction(locale: string, messages: AuthActionMessages) 
     ): Promise<AuthFormState> {
         requireFirebaseAuthConfig(config.firebaseAuth);
         const { auth } = await getFirebaseAuthClient();
-        const { signInWithEmailAndPassword } = await import('firebase/auth');
+        const { signInWithEmailAndPassword } = await getFirebaseAuthModule();
 
         const { email, password } = readCredentials(formData);
 
@@ -69,7 +69,7 @@ export function createSignUpAction(locale: string, messages: AuthActionMessages)
     ): Promise<AuthFormState> {
         requireFirebaseAuthConfig(config.firebaseAuth);
         const { auth } = await getFirebaseAuthClient();
-        const { createUserWithEmailAndPassword } = await import('firebase/auth');
+        const { createUserWithEmailAndPassword } = await getFirebaseAuthModule();
 
         const { email, password } = readCredentials(formData);
         const confirmPassword = (formData.get('confirmPassword')?.toString() ?? '').trim();
@@ -106,7 +106,7 @@ export function createForgotPasswordAction(locale: string, messages: AuthActionM
     ): Promise<AuthFormState> {
         requireFirebaseAuthConfig(config.firebaseAuth);
         const { auth } = await getFirebaseAuthClient();
-        const { sendPasswordResetEmail } = await import('firebase/auth');
+        const { sendPasswordResetEmail } = await getFirebaseAuthModule();
 
         const email = (formData.get('email')?.toString() ?? '').trim();
 

@@ -5,6 +5,7 @@ import { getLocaleCache, getMessageCache, getTranslationCache, setLocaleCache, s
 import { cache } from "react";
 import { localesSet } from "../../config/middleware";
 const isDev = process.env.NODE_ENV === 'development';
+let nextHeadersModule;
 /**
  * Loads and caches messages for a specific locale using dynamic import.
  * Prevents redundant file loads and handles import errors gracefully.
@@ -104,8 +105,10 @@ async function iGetLocale() {
         // Dynamically import "next/headers" only when needed.
         // This ensures it's loaded only on the server where cookies are accessible,
         // preventing client-side import errors and reducing bundle size.
-        const { cookies } = await import("next/headers");
-        const cookieStore = await cookies();
+        if (!nextHeadersModule) {
+            nextHeadersModule = await import("next/headers");
+        }
+        const cookieStore = await nextHeadersModule.cookies();
         const localeCookie = cookieStore.get(localeCookieName);
         // Use the cookie value or fall back to the default locale.
         const localeValue = localeCookie?.value ?? config.defaultLocale;

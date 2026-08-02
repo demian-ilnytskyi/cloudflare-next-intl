@@ -11,6 +11,7 @@ const fa = {
 vi.mock('@intl-config', () => ({ default: { firebaseAuth: fa } }));
 vi.mock('./firebase_client', () => ({
     getFirebaseAuthClient: vi.fn(async () => ({ auth: {} })),
+    getFirebaseAuthModule: () => import('firebase/auth'),
 }));
 vi.mock('../error_messages/firebase_auth_error_helper', () => ({
     default: vi.fn(() => 'translated error'),

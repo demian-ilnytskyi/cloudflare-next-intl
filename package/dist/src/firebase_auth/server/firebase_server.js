@@ -4,6 +4,8 @@ import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
 import { defaultSessionCookieName } from '../middleware/update_session';
 let baseApp;
+let firebaseAppModule;
+let firebaseAuthModule;
 /**
  * Resolves the signed-in user on the server from the session cookie.
  * `initializeServerApp` validates the token with the Auth service, so a
@@ -22,8 +24,12 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
         return { firebaseServerApp: null, currentUser: null };
     }
     try {
-        const { initializeApp, initializeServerApp } = await import('firebase/app');
-        const { getAuth } = await import('firebase/auth');
+        if (!firebaseAppModule)
+            firebaseAppModule = await import('firebase/app');
+        if (!firebaseAuthModule)
+            firebaseAuthModule = await import('firebase/auth');
+        const { initializeApp, initializeServerApp } = firebaseAppModule;
+        const { getAuth } = firebaseAuthModule;
         const firebaseConfig = {
             apiKey: fa.apiKey,
             authDomain: fa.authDomain,

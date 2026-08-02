@@ -34,18 +34,12 @@ vi.mock('../../client/hooks/use_path_name', () => ({
 const authObj = { currentUser: null as unknown };
 vi.mock('./firebase_client', () => ({
     getFirebaseAuthClient: vi.fn(async () => ({ auth: authObj })),
+    getFirebaseAuthModule: () => import('firebase/auth'),
 }));
 
 const setAuthUserCache = vi.fn();
 vi.mock('./auth_user_cache', () => ({
     setAuthUserCache: (...args: unknown[]) => setAuthUserCache(...args),
-}));
-
-const setSessionCookie = vi.fn(async () => {});
-const clearSessionCookie = vi.fn(async () => {});
-vi.mock('../middleware/session_cookie_action', () => ({
-    setSessionCookie: (...args: unknown[]) => setSessionCookie(...args),
-    clearSessionCookie: (...args: unknown[]) => clearSessionCookie(...args),
 }));
 
 let idTokenListener: ((user: unknown) => void | Promise<void>) | undefined;
@@ -181,7 +175,6 @@ describe('AuthUserProvider', () => {
         await flush();
         await act(async () => { await idTokenListener?.(makeUser()); });
         await flush();
-        expect(setSessionCookie).toHaveBeenCalledWith('id-token', undefined);
         expect(setAuthUserCache).toHaveBeenCalled();
     });
 
@@ -219,10 +212,9 @@ describe('AuthUserProvider', () => {
         await flush();
         await act(async () => { await ctxValue?.reloadUser(); });
         expect(reload).toHaveBeenCalled();
-        expect(setSessionCookie).toHaveBeenCalledWith('id-token');
     });
 
-    it('reloadUser logs and swallows errors from reload/getIdToken/setSessionCookie', async () => {
+    it('reloadUser logs and swallows errors from reload/getIdToken', async () => {
         authObj.currentUser = makeUser({ getIdToken: vi.fn(async () => { throw new Error('reload token error'); }) });
         vi.spyOn(console, 'error').mockImplementation(() => {});
         let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;

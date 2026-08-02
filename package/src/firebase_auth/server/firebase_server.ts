@@ -7,6 +7,8 @@ import requireFirebaseAuthConfig from '../require_config';
 import { defaultSessionCookieName } from '../middleware/update_session';
 
 let baseApp: FirebaseApp | undefined;
+let firebaseAppModule: typeof import('firebase/app') | undefined;
+let firebaseAuthModule: typeof import('firebase/auth') | undefined;
 
 /**
  * Resolves the signed-in user on the server from the session cookie.
@@ -32,8 +34,10 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
     }
 
     try {
-        const { initializeApp, initializeServerApp } = await import('firebase/app');
-        const { getAuth } = await import('firebase/auth');
+        if (!firebaseAppModule) firebaseAppModule = await import('firebase/app');
+        if (!firebaseAuthModule) firebaseAuthModule = await import('firebase/auth');
+        const { initializeApp, initializeServerApp } = firebaseAppModule;
+        const { getAuth } = firebaseAuthModule;
 
         const firebaseConfig = {
             apiKey: fa.apiKey,

@@ -10,8 +10,22 @@
  */
 export default function getCookie(name) {
     try {
-        const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-        return match ? decodeURIComponent(match[1]) : null;
+        const cookie = document.cookie;
+        const prefix = `${name}=`;
+        let start = -1;
+        if (cookie.startsWith(prefix)) {
+            start = prefix.length;
+        }
+        else {
+            const idx = cookie.indexOf(`; ${prefix}`);
+            if (idx !== -1)
+                start = idx + 2 + prefix.length;
+        }
+        if (start === -1)
+            return null;
+        const end = cookie.indexOf(';', start);
+        const value = end === -1 ? cookie.slice(start) : cookie.slice(start, end);
+        return decodeURIComponent(value);
     }
     catch (e) {
         console.error(`Get cookie on client side error: ${e}`);

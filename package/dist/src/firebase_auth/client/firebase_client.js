@@ -38,3 +38,11 @@ export async function getFirebaseAuthClient() {
 export function getFirebaseAuthClientSync() {
     return cached;
 }
+let cachedAuthModule;
+/** Memoized `import('firebase/auth')` — see {@link getFirebaseAuthClient} for why this is worth caching. */
+export function getFirebaseAuthModule() {
+    if (!cachedAuthModule) {
+        cachedAuthModule = import('firebase/auth');
+    }
+    return cachedAuthModule;
+}

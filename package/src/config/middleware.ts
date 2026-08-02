@@ -16,12 +16,16 @@ const defaultCookieOption: CookieAttributes = {
     sameSite: sameSite, // Protection against CSRF attacks. 'strict' or 'lax' are good choices.
 };
 
+let userAgentModule: typeof import('next/dist/server/web/spec-extension/user-agent') | undefined;
+
 async function getIsBotValue(userAgent: string | null): Promise<boolean> {
     if (userAgent === null) return false;
-    const { isBot } = await import('next/dist/server/web/spec-extension/user-agent');
+    if (!userAgentModule) {
+        userAgentModule = await import('next/dist/server/web/spec-extension/user-agent');
+    }
     // Unreachable: userAgent is already narrowed to non-null string above,
     // so the ?? '' fallback never triggers.
-    return isBot(userAgent ?? '');
+    return userAgentModule.isBot(userAgent ?? '');
 }
 
 const getIsBotValueCache = cache(getIsBotValue);

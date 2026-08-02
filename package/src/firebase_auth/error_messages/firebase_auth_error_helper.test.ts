@@ -5,6 +5,7 @@ vi.mock('../../general/general_functions', () => ({
 }));
 vi.mock('../../general/cache_variables', () => ({
     getMessageCache: vi.fn(),
+    getTranslationCache: vi.fn(),
 }));
 
 describe('firebaseAuthErrorMessage', () => {

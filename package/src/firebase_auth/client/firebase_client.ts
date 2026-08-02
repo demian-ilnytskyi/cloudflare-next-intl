@@ -45,3 +45,13 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
 export function getFirebaseAuthClientSync(): { app: FirebaseApp; auth: Auth } | undefined {
     return cached;
 }
+
+let cachedAuthModule: Promise<typeof import('firebase/auth')> | undefined;
+
+/** Memoized `import('firebase/auth')` — see {@link getFirebaseAuthClient} for why this is worth caching. */
+export function getFirebaseAuthModule(): Promise<typeof import('firebase/auth')> {
+    if (!cachedAuthModule) {
+        cachedAuthModule = import('firebase/auth');
+    }
+    return cachedAuthModule;
+}
