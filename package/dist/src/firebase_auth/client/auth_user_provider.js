@@ -7,7 +7,7 @@ import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
 import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
 import { setAuthUserCache } from './auth_user_cache';
-import { defaultSessionCookieName } from '../middleware/update_session';
+import { defaultRefreshTokenCookieName, defaultSessionCookieName } from '../middleware/update_session';
 import setCookie from '../../client/functions/set_cookie';
 // `null` default (instead of a `{ loading: true, ... }` stand-in) lets
 // `useAuthUser` distinguish "not wrapped in AuthUserProvider" (throw) from
@@ -18,6 +18,12 @@ function writeSessionCookie(sessionCookieName, idToken, maxAge) {
 }
 function clearSessionCookie(sessionCookieName) {
     setCookie({ name: sessionCookieName, value: '', maxAge: 0 });
+}
+function writeRefreshTokenCookie(refreshTokenCookieName, user, maxAge) {
+    setCookie({ name: refreshTokenCookieName, value: user.refreshToken, maxAge });
+}
+function clearRefreshTokenCookie(refreshTokenCookieName) {
+    setCookie({ name: refreshTokenCookieName, value: '', maxAge: 0 });
 }
 /**
  * Client-side auth-state provider for `firebase_auth`. Wrap your root layout
@@ -46,6 +52,8 @@ export default function AuthUserProvider({ initialUser = null, children }) {
     const isWhiteListed = fa.whiteListPaths?.includes(pathname) ?? false;
     const maxAge = fa.sessionCookieMaxAge ?? 60 * 60 * 24 * 5;
     const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
+    const refreshTokenMaxAge = fa.refreshTokenCookieMaxAge ?? 60 * 60 * 24 * 365;
+    const refreshTokenCookieName = fa.refreshTokenCookieName ?? defaultRefreshTokenCookieName;
     const [state, setState] = useState({
         user: initialUser,
         loading: initialUser === null,
@@ -86,10 +94,18 @@ export default function AuthUserProvider({ initialUser = null, children }) {
                 const previous = syncedSignedIn.current;
                 try {
                     if (user) {
-                        writeSessionCookie(sessionCookieName, await user.getIdToken(true), maxAge);
+                        try {
+                            writeRefreshTokenCookie(refreshTokenCookieName, user, refreshTokenMaxAge);
+                        }
+                        catch (e) {
+                            console.error('AuthUserProvider: refresh-token cookie sync failed', e);
+                        }
+                        const token = await user.getIdToken(true);
+                        writeSessionCookie(sessionCookieName, token, maxAge);
                     }
                     else if (previous) {
                         clearSessionCookie(sessionCookieName);
+                        clearRefreshTokenCookie(refreshTokenCookieName);
                     }
                 }
                 catch (e) {
@@ -122,7 +138,7 @@ export default function AuthUserProvider({ initialUser = null, children }) {
             unsubscribe?.();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [router, isAuthPage, maxAge, sessionCookieName]);
+    }, [router, isAuthPage, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName]);
     const reloadUser = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();
         const user = auth.currentUser;
@@ -131,6 +147,12 @@ export default function AuthUserProvider({ initialUser = null, children }) {
         try {
             const { reload } = await getFirebaseAuthModule();
             await reload(user);
+            try {
+                writeRefreshTokenCookie(refreshTokenCookieName, user, refreshTokenMaxAge);
+            }
+            catch (e) {
+                console.error('AuthUserProvider: refresh-token cookie sync failed', e);
+            }
             writeSessionCookie(sessionCookieName, await user.getIdToken(true), maxAge);
             setAuthUserCache(user);
             setState({ user, loading: false });
@@ -155,9 +177,10 @@ export default function AuthUserProvider({ initialUser = null, children }) {
         }
         finally {
             clearSessionCookie(sessionCookieName);
+            clearRefreshTokenCookie(refreshTokenCookieName);
             window.location.assign(fa.redirectAuthPath);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fa.redirectAuthPath, sessionCookieName]);
+    }, [fa.redirectAuthPath, sessionCookieName, refreshTokenCookieName]);
     return _jsx(AuthUserContext.Provider, { value: { ...state, reloadUser, sendVerificationEmail, logout }, children: children });
 }

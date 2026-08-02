@@ -58,13 +58,21 @@ vi.mock('firebase/auth', () => ({
     signOut: (...args: unknown[]) => signOut(...args),
 }));
 
-function makeUser(overrides: Partial<{ uid: string; emailVerified: boolean; getIdToken: () => Promise<string> }> = {}) {
+function makeUser(overrides: Partial<{ uid: string; emailVerified: boolean; getIdToken: () => Promise<string>; refreshToken: string }> = {}) {
     return {
         uid: 'u1',
         emailVerified: true,
+        refreshToken: 'refresh-token',
         getIdToken: vi.fn(async () => 'id-token'),
         ...overrides,
     };
+}
+
+function clearAllCookies() {
+    document.cookie.split(';').forEach((c) => {
+        const name = c.split('=')[0]?.trim();
+        if (name) document.cookie = `${name}=; max-age=0; path=/`;
+    });
 }
 
 async function flush() {
@@ -80,6 +88,7 @@ describe('AuthUserProvider', () => {
         currentConfig = { firebaseAuth: { ...fa } };
         mockPathname = '/dashboard';
         idTokenListener = undefined;
+        clearAllCookies();
     });
 
     it('throws when firebaseAuth is not configured', async () => {
@@ -176,6 +185,22 @@ describe('AuthUserProvider', () => {
         await act(async () => { await idTokenListener?.(makeUser()); });
         await flush();
         expect(setAuthUserCache).toHaveBeenCalled();
+        expect(document.cookie).toContain('__fa_session__=id-token');
+        expect(document.cookie).toContain('__fa_refresh_token__=refresh-token');
+    });
+
+    it('still writes the session cookie when the refresh-token cookie write throws', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const user = makeUser();
+        Object.defineProperty(user, 'refreshToken', { get() { throw new Error('refresh-token read error'); } });
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { await idTokenListener?.(user); });
+        await flush();
+        expect(document.cookie).toContain('__fa_session__=id-token');
+        expect(document.cookie).not.toContain('__fa_refresh_token__=refresh-token');
+        expect(console.error).toHaveBeenCalledWith('AuthUserProvider: refresh-token cookie sync failed', expect.any(Error));
     });
 
     it('handles a session-sync failure by still updating state with the user', async () => {
@@ -198,6 +223,7 @@ describe('AuthUserProvider', () => {
         await act(async () => { await idTokenListener?.(null); });
         await flush();
         expect(routerRefresh).toHaveBeenCalled();
+        expect(document.cookie).not.toContain('__fa_refresh_token__=refresh-token');
     });
 
     it('exposes reloadUser which refreshes the current user and cookie', async () => {
@@ -212,6 +238,25 @@ describe('AuthUserProvider', () => {
         await flush();
         await act(async () => { await ctxValue?.reloadUser(); });
         expect(reload).toHaveBeenCalled();
+        expect(document.cookie).toContain('__fa_refresh_token__=refresh-token');
+    });
+
+    it('reloadUser still writes the session cookie when the refresh-token cookie write throws', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const user = makeUser({ uid: 'reload-user' });
+        Object.defineProperty(user, 'refreshToken', { get() { throw new Error('refresh-token read error'); } });
+        authObj.currentUser = user;
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await act(async () => { await ctxValue?.reloadUser(); });
+        expect(document.cookie).toContain('__fa_session__=id-token');
+        expect(console.error).toHaveBeenCalledWith('AuthUserProvider: refresh-token cookie sync failed', expect.any(Error));
     });
 
     it('reloadUser logs and swallows errors from reload/getIdToken', async () => {
@@ -285,6 +330,7 @@ describe('AuthUserProvider', () => {
         await act(async () => { await ctxValue?.logout(); });
         expect(signOut).toHaveBeenCalled();
         expect(assign).toHaveBeenCalledWith('/login');
+        expect(document.cookie).not.toContain('__fa_refresh_token__=refresh-token');
     });
 
     it('logout still clears cookie and navigates even when signOut throws', async () => {
