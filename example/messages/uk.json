@@ -36,6 +36,12 @@
             "description": "Тест Опис"
         }
     },
+    "LoginPage": {
+        "title": "Вхід",
+        "email": "Електронна пошта",
+        "password": "Пароль",
+        "submit": "Увійти"
+    },
     "NavigationBar": {
         "logo": "Лого",
         "home": "Головна",
@@ -45,6 +51,7 @@
         "ukSwitcherLabel": "Змінити мову на українську",
         "enSwitcherLabel": "Змінити мову на англійську",
         "dialogLabel": "Меню навігації",
-        "cookieSettings": "Налаштування cookie"
+        "cookieSettings": "Налаштування cookie",
+    "logout": "Вийти"
     }
 }

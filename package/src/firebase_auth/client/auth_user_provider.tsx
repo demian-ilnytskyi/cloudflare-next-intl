@@ -9,6 +9,7 @@ import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client'
 import { setAuthUserCache } from './auth_user_cache';
 import { defaultRefreshTokenCookieName, defaultSessionCookieName } from '../middleware/update_session';
 import setCookie from '../../client/functions/set_cookie';
+import clearSessionAction from '../server/clear_session_action';
 import type { AuthUser, SerializedAuthUser } from '../types';
 import type { User } from 'firebase/auth';
 
@@ -43,6 +44,31 @@ function writeRefreshTokenCookie(refreshTokenCookieName: string, user: User, max
 
 function clearRefreshTokenCookie(refreshTokenCookieName: string): void {
     setCookie({ name: refreshTokenCookieName, value: '', maxAge: 0 });
+}
+
+async function clearSession(sessionCookieName: string, refreshTokenCookieName: string): Promise<void> {
+    clearSessionCookie(sessionCookieName);
+    clearRefreshTokenCookie(refreshTokenCookieName);
+    try {
+        await clearSessionAction();
+    } catch (e) {
+        console.error('AuthUserProvider: clearSessionAction failed', e);
+    }
+}
+
+async function writeSession(
+    user: User,
+    sessionCookieName: string,
+    maxAge: number,
+    refreshTokenCookieName: string,
+    refreshTokenMaxAge: number,
+): Promise<void> {
+    try {
+        writeRefreshTokenCookie(refreshTokenCookieName, user, refreshTokenMaxAge);
+    } catch (e) {
+        console.error('AuthUserProvider: refresh-token cookie sync failed', e);
+    }
+    writeSessionCookie(sessionCookieName, await user.getIdToken(true), maxAge);
 }
 
 /**
@@ -120,16 +146,9 @@ export default function AuthUserProvider({ initialUser = null, children }: {
 
                 try {
                     if (user) {
-                        try {
-                            writeRefreshTokenCookie(refreshTokenCookieName, user, refreshTokenMaxAge);
-                        } catch (e) {
-                            console.error('AuthUserProvider: refresh-token cookie sync failed', e);
-                        }
-                        const token = await user.getIdToken(true);
-                        writeSessionCookie(sessionCookieName, token, maxAge);
-                    } else if (previous) {
-                        clearSessionCookie(sessionCookieName);
-                        clearRefreshTokenCookie(refreshTokenCookieName);
+                        await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge);
+                    } else {
+                        await clearSession(sessionCookieName, refreshTokenCookieName);
                     }
                 } catch (e) {
                     console.error('AuthUserProvider: session sync failed', e);
@@ -173,12 +192,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
         try {
             const { reload } = await getFirebaseAuthModule();
             await reload(user);
-            try {
-                writeRefreshTokenCookie(refreshTokenCookieName, user, refreshTokenMaxAge);
-            } catch (e) {
-                console.error('AuthUserProvider: refresh-token cookie sync failed', e);
-            }
-            writeSessionCookie(sessionCookieName, await user.getIdToken(true), maxAge);
+            await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge);
             setAuthUserCache(user);
             setState({ user, loading: false });
         } catch (e) {
@@ -200,8 +214,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             const { signOut } = await getFirebaseAuthModule();
             await signOut(auth);
         } finally {
-            clearSessionCookie(sessionCookieName);
-            clearRefreshTokenCookie(refreshTokenCookieName);
+            await clearSession(sessionCookieName, refreshTokenCookieName);
             window.location.assign(fa.redirectAuthPath);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps

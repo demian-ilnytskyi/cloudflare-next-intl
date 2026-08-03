@@ -24,4 +24,10 @@ export const defaultIgnoredConsoleErrors = [
     'auth/expired-action-code',
     'auth/invalid-action-code',
     'auth/user-token-expired',
+    'The `punycode` module is deprecated. Please use a userland alternative instead.',
+    'failed to pipe response',
+    'Failed to fetch RSC payload',
+    ...(process.env.NODE_ENV === 'development'
+        ? ['A DurableObjectNamespace in the config referenced the class "DOQueueHandler", but no such Durable Object class is exported from the worker. Please make sure the class name matches,']
+        : []),
 ];

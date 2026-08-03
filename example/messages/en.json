@@ -36,6 +36,12 @@
             "description": "Test Description"
         }
     },
+    "LoginPage": {
+        "title": "Log in",
+        "email": "Email",
+        "password": "Password",
+        "submit": "Log in"
+    },
     "NavigationBar": {
         "logo": "Logo",
         "home": "Home",
@@ -45,6 +51,7 @@
         "ukSwitcherLabel": "Switch to Ukrainian language",
         "enSwitcherLabel": "Switch to English language",
         "dialogLabel": "Navigation Menu",
-        "cookieSettings": "Cookie settings"
+        "cookieSettings": "Cookie settings",
+    "logout": "Log out"
     }
 }

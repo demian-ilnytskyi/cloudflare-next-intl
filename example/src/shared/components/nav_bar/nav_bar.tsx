@@ -3,6 +3,7 @@ import NavigationMobDialog from "./nav_mob_dialog";
 import ConsentSettingButton from "./consent_setting_button";
 import LanguageSwitcher from "../language_switcher/language_switcher";
 import { getTranslations, Link, ThemeSwitcher } from "cloudflare-next-intl";
+import LogoutButton from "./logout_button";
 
 export default async function NavigationBar(): Promise<Component> {
     const t = await getTranslations("NavigationBar");
@@ -48,6 +49,10 @@ export default async function NavigationBar(): Promise<Component> {
                 </div>
                 <div className="flex flex-row pr-3 items-center">
                     <ConsentSettingButton text={t("cookieSettings")} />
+                    <LogoutButton
+                        text={t("logout")}
+                        className="hidden tablet:flex mr-3 hover:underline"
+                    />
                     <ThemeSwitcher
                         className="hidden tablet:flex mr-3"
                         lightLabelText={lightModeText}

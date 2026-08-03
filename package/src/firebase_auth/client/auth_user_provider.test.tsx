@@ -50,6 +50,10 @@ const onIdTokenChanged = vi.fn((_auth: unknown, cb: (user: unknown) => void | Pr
 const reload = vi.fn(async () => {});
 const sendEmailVerification = vi.fn(async () => {});
 const signOut = vi.fn(async () => {});
+const clearSessionAction = vi.fn(async () => {});
+vi.mock('../server/clear_session_action', () => ({
+    default: (...args: unknown[]) => clearSessionAction(...args),
+}));
 
 vi.mock('firebase/auth', () => ({
     onIdTokenChanged: (...args: [unknown, (user: unknown) => void | Promise<void>]) => onIdTokenChanged(...args),
@@ -226,6 +230,22 @@ describe('AuthUserProvider', () => {
         expect(document.cookie).not.toContain('__fa_refresh_token__=refresh-token');
     });
 
+    it('clears the server httpOnly cookie via clearSessionAction when the client Firebase SDK reports signed-out on its own (no logout() click), so a stale server session cookie cannot outlive a real client sign-out', async () => {
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={{ uid: 'server-user', email: null, emailVerified: true, displayName: null }}>
+            <span>child</span>
+        </AuthUserProvider>);
+        await flush();
+        // Server resolved a signed-in initialUser, but the client Firebase SDK
+        // has no persisted session — onIdTokenChanged fires null on mount,
+        // with no prior signed-in state and no logout() call at all.
+        await act(async () => { await idTokenListener?.(null); });
+        await flush();
+        await act(async () => { await idTokenListener?.(null); });
+        await flush();
+        expect(clearSessionAction).toHaveBeenCalled();
+    });
+
     it('exposes reloadUser which refreshes the current user and cookie', async () => {
         authObj.currentUser = makeUser({ uid: 'reload-user' });
         let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
@@ -346,6 +366,39 @@ describe('AuthUserProvider', () => {
         render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
         await flush();
         await expect(ctxValue!.logout()).rejects.toThrow('signout failed');
+        expect(assign).toHaveBeenCalledWith('/login');
+    });
+
+    it('logout calls the server-side clearSessionAction to clear httpOnly cookies', async () => {
+        const assign = vi.fn();
+        Object.defineProperty(window, 'location', { value: { assign }, writable: true });
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await act(async () => { await ctxValue?.logout(); });
+        expect(clearSessionAction).toHaveBeenCalledTimes(1);
+        expect(assign).toHaveBeenCalledWith('/login');
+    });
+
+    it('logout still navigates when clearSessionAction rejects', async () => {
+        clearSessionAction.mockRejectedValueOnce(new Error('server action failed'));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const assign = vi.fn();
+        Object.defineProperty(window, 'location', { value: { assign }, writable: true });
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await act(async () => { await ctxValue?.logout(); });
         expect(assign).toHaveBeenCalledWith('/login');
     });
 

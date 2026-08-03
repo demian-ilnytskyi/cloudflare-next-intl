@@ -58,8 +58,6 @@ export default async function RootLayout({
             <NavigationBar />
             {children}
           </div>
-          <CookieConsentDialog />
-          <PrivacyPolicyUpdateDialog />
         </IntlProvider>
       </body>
     </html>
