@@ -5,6 +5,7 @@ import { createContext, useMemo } from "react";
 import dynamic from "next/dynamic";
 import config from "@intl-config";
 import installConsoleErrorOverride from "../../error_handling/install_console_error_override";
+import installGlobalErrorOverride from "../../error_handling/install_global_error_override";
 export const LocaleContext = createContext(undefined);
 // Hoisted to module scope — calling `dynamic()` inside the component body
 // creates a brand-new component identity every render, forcing React to
@@ -22,6 +23,7 @@ export default function LocationzationClientProvider({ language, messages, initi
     setLocaleCache(language);
     setMessageForLocaleCache(language, messages);
     installConsoleErrorOverride(config, true);
+    installGlobalErrorOverride(config);
     // `LocaleContext.Provider` stays the outermost element here — the
     // client `AuthUserProvider` (and its descendants calling
     // usePathname()/useLocale()) must render as a CHILD of it, not a

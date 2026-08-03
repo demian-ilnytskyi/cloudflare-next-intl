@@ -183,7 +183,7 @@ export default function AuthUserProvider({ initialUser = null, children }) {
         }
         finally {
             await clearSession(sessionCookieName, refreshTokenCookieName);
-            window.location.assign(fa.redirectAuthPath);
+            router.push(fa.redirectAuthPath);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fa.redirectAuthPath, sessionCookieName, refreshTokenCookieName]);

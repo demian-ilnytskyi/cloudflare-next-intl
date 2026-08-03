@@ -5,12 +5,15 @@ describe('reportError', () => {
     const originalConsoleError = console.error;
     afterEach(() => {
         console.error = originalConsoleError;
+        vi.resetModules();
     });
 
     it('reports via console.error(formattedMessage) by default', async () => {
+        vi.resetModules();
         console.error = vi.fn();
+        const { default: freshReportError } = await import('./report_error');
         const error = new Error('boom');
-        await reportError(undefined, { error, classOrMethodName: 'foo' });
+        await freshReportError(undefined, { error, classOrMethodName: 'foo' });
         expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[foo] Error: Error: boom'));
     });
 
@@ -21,6 +24,27 @@ describe('reportError', () => {
         expect(onError).toHaveBeenCalledWith({ error, classOrMethodName: 'foo', formattedMessage: expect.stringContaining('[foo] Error:') });
     });
 
+    it('calls both onError AND logs to console by default — onError does not replace the console log', async () => {
+        vi.resetModules();
+        console.error = vi.fn();
+        const { default: freshReportError } = await import('./report_error');
+        const onError = vi.fn();
+        const error = new Error('boom');
+        await freshReportError({ errorHandling: { onError } }, { error, classOrMethodName: 'foo' });
+        expect(onError).toHaveBeenCalled();
+        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[foo] Error: Error: boom'));
+    });
+
+    it('skips the console log when logToConsole is false, but still calls onError', async () => {
+        vi.resetModules();
+        console.error = vi.fn();
+        const { default: freshReportError } = await import('./report_error');
+        const onError = vi.fn();
+        await freshReportError({ errorHandling: { onError, logToConsole: false } }, { error: new Error('boom'), classOrMethodName: 'foo' });
+        expect(onError).toHaveBeenCalled();
+        expect(console.error).not.toHaveBeenCalled();
+    });
+
     it('does not report when enable is false', async () => {
         const onError = vi.fn();
         await reportError({ errorHandling: { enable: false, onError } }, { error: new Error('boom'), classOrMethodName: 'foo' });
@@ -28,10 +52,12 @@ describe('reportError', () => {
     });
 
     it('falls back to console.error(formattedMessage) when onError itself throws', async () => {
+        vi.resetModules();
         console.error = vi.fn();
+        const { default: freshReportError } = await import('./report_error');
         const onError = vi.fn(() => { throw new Error('reporter broke'); });
         const params = { error: new Error('boom'), classOrMethodName: 'foo' };
-        await reportError({ errorHandling: { onError } }, params);
+        await freshReportError({ errorHandling: { onError } }, params);
         expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[foo] Error: Error: boom'));
     });
 

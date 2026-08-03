@@ -10,6 +10,7 @@ import type { CookieConsentAnalyticsConfig } from "../../types/types";
 import type { CookieConsentDialogProps } from "../../cookie_consent/client/components/cookie_consent_dialog";
 import type { PrivacyPolicyUpdateDialogProps } from "../../cookie_consent/client/components/privacy_policy_update_dialog";
 import installConsoleErrorOverride from "../../error_handling/install_console_error_override";
+import installGlobalErrorOverride from "../../error_handling/install_global_error_override";
 
 interface LocaleContextType {
     language: string;
@@ -68,6 +69,7 @@ export default function LocationzationClientProvider({
     setLocaleCache(language);
     setMessageForLocaleCache(language, messages);
     installConsoleErrorOverride(config, true);
+    installGlobalErrorOverride(config);
 
     // `LocaleContext.Provider` stays the outermost element here — the
     // client `AuthUserProvider` (and its descendants calling

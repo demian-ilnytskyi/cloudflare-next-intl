@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.6] - 2026-08-03
+
+### Added
+
+- `installGlobalErrorOverride` (`cloudflare-next-intl/installGlobalErrorOverride`): client-only `window.addEventListener('error'|'unhandledrejection', ...)` handlers routed through `errorHandling.onError`/`reportError`, the same way `installConsoleErrorOverride` does for `console.error(...)` calls — catches uncaught exceptions and unhandled promise rejections that never go through `console.error` at all, e.g. Next.js's own internal "Failed to fetch RSC payload" navigation-fallback error. Auto-wired into `IntlProvider`'s client provider. Controlled by the new `errorHandling.overrideWindowErrors`, which defaults to `overrideConsoleError`'s value — setting `overrideConsoleError: true` alone now catches both console errors and uncaught window errors; pass `overrideWindowErrors: false` explicitly to opt out of just the window listeners.
+
 ## [0.6.5] - 2026-08-03
 
 ### Fixed

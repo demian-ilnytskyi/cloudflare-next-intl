@@ -177,11 +177,22 @@ export interface ErrorHandlingRoutingConfig {
      */
     enable?: boolean;
     /**
-     * Called with the caught error whenever one is reported. Defaults to
-     * `console.error`. Use this to wire your own error-tracking/logging
-     * transport (Sentry, Telegram, etc).
+     * Called with the caught error whenever one is reported, in ADDITION to
+     * the always-on `console.error(params.formattedMessage)` (see
+     * `logToConsole` to disable that). Use this to wire your own
+     * error-tracking/logging transport (Sentry, Telegram, etc) alongside the
+     * console log, not instead of it. Omit to just log to the console.
      */
     onError?: (params: ErrorHandlingParams) => void | Promise<void>;
+    /**
+     * Whether `reportError` also logs `params.formattedMessage` via the
+     * real, unpatched `console.error` (captured at module load, before
+     * `installConsoleErrorOverride` can touch it — so this never loops back
+     * into `reportError` even when the override is installed). Defaults to
+     * `true`. Set `false` if `onError` is your only sink and you don't want
+     * console output at all.
+     */
+    logToConsole?: boolean;
     /**
      * Whether `reportError`/`withErrorHandling` replace the global
      * `console.error` so every `console.error(...)` call in your app is
@@ -211,6 +222,20 @@ export interface ErrorHandlingRoutingConfig {
      * substring match.
      */
     ignoreConsoleError?: (message: string) => boolean;
+    /**
+     * Whether the client `LocationzationClientProvider` also installs
+     * `window.addEventListener('error'|'unhandledrejection', ...)` handlers
+     * that route through `onError`/`reportError` the same way
+     * `overrideConsoleError` does for `console.error(...)` calls. Catches
+     * uncaught exceptions and unhandled promise rejections that never go
+     * through `console.error` at all — e.g. Next.js's own internal
+     * "Failed to fetch RSC payload" navigation-fallback error. Defaults to
+     * `overrideConsoleError`'s value (so setting just `overrideConsoleError:
+     * true` catches everything by default) — pass `false` explicitly to
+     * enable console overriding without the window listeners. No-op on the
+     * server (no `window` there).
+     */
+    overrideWindowErrors?: boolean;
     /**
      * Dedup: `reportError` skips reporting an error whose key (`dedupKey`,
      * or a built-in key derived from `classOrMethodName`/`error`/`params`

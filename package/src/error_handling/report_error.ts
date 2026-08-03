@@ -9,6 +9,14 @@ export interface ReportErrorConfig {
 
 const DEFAULT_THROTTLE_MS = 5000;
 
+// Captured once at module load — BEFORE `installConsoleErrorOverride` can
+// ever patch `console.error` — so `callOnError`'s own fallback/always-log
+// path calls the real console, never the override. Calling a possibly-
+// patched `console.error` here would loop straight back into
+// `reportError` (the override's job is to call `reportError`), producing
+// a duplicate (or, if `onError` itself throws, an infinite) report.
+const originalConsoleError = console.error.bind(console);
+
 // Module-scope dedup state — safe by default only because a fresh JS realm
 // (isolate/Worker instance) starts with it cleared. In a long-lived server
 // process reused across many requests, pass `resetDedup: true` on the first
@@ -25,25 +33,32 @@ function buildDedupKey(params: ErrorHandlingParams): string {
 
 async function callOnError(config: ErrorHandlingRoutingConfig | undefined, params: ErrorHandlingParams): Promise<void> {
     const paramsWithFormattedMessage: ErrorHandlingParams = { ...params, formattedMessage: formatErrorMessage(params) };
-    try {
-        if (config?.onError) {
+
+    if (config?.logToConsole !== false) {
+        originalConsoleError(paramsWithFormattedMessage.formattedMessage);
+    }
+
+    if (config?.onError) {
+        try {
             await config.onError(paramsWithFormattedMessage);
-        } else {
-            console.error(paramsWithFormattedMessage.formattedMessage);
+        } catch {
+            originalConsoleError(paramsWithFormattedMessage.formattedMessage);
         }
-    } catch {
-        console.error(paramsWithFormattedMessage.formattedMessage);
     }
 }
 
 /**
- * Reports `params` via `config.errorHandling.onError` (default
- * `console.error(params.formattedMessage)`), unless
+ * Reports `params`: logs `params.formattedMessage` via the real
+ * `console.error` (unless `config.errorHandling.logToConsole` is `false`)
+ * AND calls `config.errorHandling.onError` when set — both run, not one
+ * instead of the other, so wiring `onError` (Sentry, Telegram, etc) never
+ * silently loses the console output. Skips reporting entirely when
  * `config.errorHandling.enable === false`, `params.consent` is set and not
  * `true` (reporting to a third party without cookie consent can itself be
  * GDPR-relevant), or dedup throttles it (on by default — see
  * `errorHandling.dedup`/`throttleMs`/`resetDedup`). Never throws — a broken
- * reporter must not mask the original error.
+ * `onError` must not mask the original error (falls back to logging via the
+ * real console instead).
  *
  * Always overwrites `params.formattedMessage` with a fresh
  * `formatErrorMessage(params)` before reporting — a human-readable one-line

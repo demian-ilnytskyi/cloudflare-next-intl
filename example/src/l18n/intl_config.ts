@@ -28,5 +28,8 @@ const intlConfig = setIntlConfig({
         privacyPolicyDate: "2026-01-05",
         analytics: {}
     },
+    errorHandling: {
+        overrideConsoleError: true,
+    },
 });
 export default intlConfig;

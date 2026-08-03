@@ -22,8 +22,9 @@ vi.mock('@intl-config', () => ({
 
 const routerReplace = vi.fn();
 const routerRefresh = vi.fn();
+const routerPush = vi.fn();
 vi.mock('next/navigation', () => ({
-    useRouter: () => ({ replace: routerReplace, refresh: routerRefresh }),
+    useRouter: () => ({ replace: routerReplace, refresh: routerRefresh, push: routerPush }),
 }));
 
 let mockPathname = '/dashboard';
@@ -337,8 +338,6 @@ describe('AuthUserProvider', () => {
     });
 
     it('exposes logout which signs out, clears cookie, and navigates to redirectAuthPath', async () => {
-        const assign = vi.fn();
-        Object.defineProperty(window, 'location', { value: { assign }, writable: true });
         let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
         function Consumer() {
@@ -349,14 +348,12 @@ describe('AuthUserProvider', () => {
         await flush();
         await act(async () => { await ctxValue?.logout(); });
         expect(signOut).toHaveBeenCalled();
-        expect(assign).toHaveBeenCalledWith('/login');
+        expect(routerPush).toHaveBeenCalledWith('/login');
         expect(document.cookie).not.toContain('__fa_refresh_token__=refresh-token');
     });
 
     it('logout still clears cookie and navigates even when signOut throws', async () => {
         signOut.mockRejectedValueOnce(new Error('signout failed'));
-        const assign = vi.fn();
-        Object.defineProperty(window, 'location', { value: { assign }, writable: true });
         let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
         function Consumer() {
@@ -366,12 +363,10 @@ describe('AuthUserProvider', () => {
         render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
         await flush();
         await expect(ctxValue!.logout()).rejects.toThrow('signout failed');
-        expect(assign).toHaveBeenCalledWith('/login');
+        expect(routerPush).toHaveBeenCalledWith('/login');
     });
 
     it('logout calls the server-side clearSessionAction to clear httpOnly cookies', async () => {
-        const assign = vi.fn();
-        Object.defineProperty(window, 'location', { value: { assign }, writable: true });
         let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
         function Consumer() {
@@ -382,14 +377,12 @@ describe('AuthUserProvider', () => {
         await flush();
         await act(async () => { await ctxValue?.logout(); });
         expect(clearSessionAction).toHaveBeenCalledTimes(1);
-        expect(assign).toHaveBeenCalledWith('/login');
+        expect(routerPush).toHaveBeenCalledWith('/login');
     });
 
     it('logout still navigates when clearSessionAction rejects', async () => {
         clearSessionAction.mockRejectedValueOnce(new Error('server action failed'));
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        const assign = vi.fn();
-        Object.defineProperty(window, 'location', { value: { assign }, writable: true });
         let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
         function Consumer() {
@@ -399,7 +392,7 @@ describe('AuthUserProvider', () => {
         render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
         await flush();
         await act(async () => { await ctxValue?.logout(); });
-        expect(assign).toHaveBeenCalledWith('/login');
+        expect(routerPush).toHaveBeenCalledWith('/login');
     });
 
     it('unsubscribes the id-token listener and cancels pending work on unmount', async () => {

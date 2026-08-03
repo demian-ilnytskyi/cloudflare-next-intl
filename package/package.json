@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -147,6 +147,10 @@
     "./installConsoleErrorOverride": {
       "types": "./dist/src/error_handling/install_console_error_override.d.ts",
       "import": "./dist/src/error_handling/install_console_error_override.js"
+    },
+    "./installGlobalErrorOverride": {
+      "types": "./dist/src/error_handling/install_global_error_override.d.ts",
+      "import": "./dist/src/error_handling/install_global_error_override.js"
     },
     "./stringifyUnknown": {
       "types": "./dist/src/error_handling/stringify_unknown.d.ts",
