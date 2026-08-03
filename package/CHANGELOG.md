@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.5] - 2026-08-03
+
+### Fixed
+
+- `AuthUserProvider`'s client-side `onIdTokenChanged` listener now clears the server's httpOnly session/refresh cookies (via `clearSessionAction`) whenever it observes a signed-out state, not only when `logout()` is called. Previously, if the client Firebase SDK reported signed-out (e.g. no persisted session) while a valid server-issued session cookie still existed, the cookie could never be cleared — `document.cookie` cannot touch httpOnly cookies — leaving the server treating the visitor as signed-in indefinitely.
+- Extracted the duplicated cookie-clear/cookie-write logic in `AuthUserProvider` into shared `clearSession`/`writeSession` helpers, used by `logout()`, the sign-in/out listener, and `reloadUser`.
+
 ## [0.6.4] - 2026-08-02
 
 ### Fixed
