@@ -9,13 +9,22 @@ export interface ReportErrorConfig {
 
 const DEFAULT_THROTTLE_MS = 5000;
 
-// Captured once at module load — BEFORE `installConsoleErrorOverride` can
-// ever patch `console.error` — so `callOnError`'s own fallback/always-log
-// path calls the real console, never the override. Calling a possibly-
-// patched `console.error` here would loop straight back into
-// `reportError` (the override's job is to call `reportError`), producing
-// a duplicate (or, if `onError` itself throws, an infinite) report.
-const originalConsoleError = console.error.bind(console);
+// Set by `installConsoleErrorOverride` once it patches `console.error`.
+// When active, THAT override is the sole place that ever calls the real
+// console for a report — it already logs the raw message itself, before
+// calling `reportError` — so `callOnError`'s own console-logging step must
+// stay OUT of the loop entirely rather than trying to detect and skip a
+// recursive call after the fact. Attempting the latter (capturing "the
+// original console.error" at module load, or tagging messages with a
+// marker) is unreliable: Next.js's own dev-mode console interception
+// forwards through whatever `console.error` is CURRENT at call time, not
+// the function it originally wrapped, so any capture-then-call-through
+// strategy can still loop back into a patched `console.error`. Removing
+// the second caller removes the race entirely — not a per-module boolean
+// (that would only cover one bundle chunk's module instance of this file;
+// this constant is exported so `installConsoleErrorOverride` can mutate it
+// via a live binding regardless of chunk).
+export const consoleOverrideState = { active: false };
 
 // Module-scope dedup state — safe by default only because a fresh JS realm
 // (isolate/Worker instance) starts with it cleared. In a long-lived server
@@ -34,31 +43,40 @@ function buildDedupKey(params: ErrorHandlingParams): string {
 async function callOnError(config: ErrorHandlingRoutingConfig | undefined, params: ErrorHandlingParams): Promise<void> {
     const paramsWithFormattedMessage: ErrorHandlingParams = { ...params, formattedMessage: formatErrorMessage(params) };
 
-    if (config?.logToConsole !== false) {
-        originalConsoleError(paramsWithFormattedMessage.formattedMessage);
+    // When `installConsoleErrorOverride` is active, it already logged the
+    // raw message to the real console BEFORE calling `reportError` — logging
+    // `formattedMessage` here too would be a second, redundant console
+    // write (differently formatted) for the exact same call, not a fix for
+    // a missing one.
+    if (config?.logToConsole !== false && !consoleOverrideState.active) {
+        console.error(paramsWithFormattedMessage.formattedMessage);
     }
 
     if (config?.onError) {
         try {
             await config.onError(paramsWithFormattedMessage);
         } catch {
-            originalConsoleError(paramsWithFormattedMessage.formattedMessage);
+            if (!consoleOverrideState.active) {
+                console.error(paramsWithFormattedMessage.formattedMessage);
+            }
         }
     }
 }
 
 /**
- * Reports `params`: logs `params.formattedMessage` via the real
- * `console.error` (unless `config.errorHandling.logToConsole` is `false`)
- * AND calls `config.errorHandling.onError` when set — both run, not one
- * instead of the other, so wiring `onError` (Sentry, Telegram, etc) never
- * silently loses the console output. Skips reporting entirely when
+ * Reports `params`: logs `params.formattedMessage` via `console.error`
+ * (unless `config.errorHandling.logToConsole` is `false`, or
+ * `installConsoleErrorOverride` is active — in which case IT already did
+ * the console logging before calling this) AND calls
+ * `config.errorHandling.onError` when set — both run, not one instead of
+ * the other, so wiring `onError` (Sentry, Telegram, etc) never silently
+ * loses the console output. Skips reporting entirely when
  * `config.errorHandling.enable === false`, `params.consent` is set and not
  * `true` (reporting to a third party without cookie consent can itself be
  * GDPR-relevant), or dedup throttles it (on by default — see
  * `errorHandling.dedup`/`throttleMs`/`resetDedup`). Never throws — a broken
- * `onError` must not mask the original error (falls back to logging via the
- * real console instead).
+ * `onError` must not mask the original error (falls back to logging via
+ * `console.error` instead, when the override isn't already handling that).
  *
  * Always overwrites `params.formattedMessage` with a fresh
  * `formatErrorMessage(params)` before reporting — a human-readable one-line
@@ -66,15 +84,20 @@ async function callOnError(config: ErrorHandlingRoutingConfig | undefined, param
  * instead of the raw `error`/`params` object, for a default reporter (or a
  * simple `onError`) to print directly.
  *
- * When `config.generate?.getCloudflareContext` is set, `waitUntil` is called
- * SYNCHRONOUSLY, in the same tick, with the `callOnError(...)` promise —
- * Cloudflare Workers only extends the request's lifetime for work already
- * registered with `waitUntil` by the time the handler returns; deferring
- * that call through an extra microtask (e.g. `Promise.resolve().then(...)`)
- * risks the isolate tearing down the request before `waitUntil` is ever
- * actually invoked, silently dropping the report. Falls back to awaiting
- * `onError` directly when `getCloudflareContext`/`ctx.waitUntil` is unset or
- * unavailable (e.g. outside a Cloudflare Worker).
+ * When `config.generate?.getCloudflareContext` is set AND `params.isClient`
+ * is not `true`, `waitUntil` is called SYNCHRONOUSLY, in the same tick, with
+ * the `callOnError(...)` promise — Cloudflare Workers only extends the
+ * request's lifetime for work already registered with `waitUntil` by the
+ * time the handler returns; deferring that call through an extra microtask
+ * (e.g. `Promise.resolve().then(...)`) risks the isolate tearing down the
+ * request before `waitUntil` is ever actually invoked, silently dropping
+ * the report. `getCloudflareContext` is never called at all for a
+ * client-originated report (`params.isClient: true`) — it only exists
+ * server-side inside a Cloudflare Worker and throws synchronously (not a
+ * rejected promise) when called anywhere else, including the browser.
+ * Falls back to awaiting `onError` directly when `getCloudflareContext`/
+ * `ctx.waitUntil` is unset, unavailable (e.g. outside a Cloudflare Worker),
+ * or skipped for a client report.
  *
  * Passing `params.error` as `null`/`undefined` with `errorHandling.resetDedup: true`
  * and nothing else is a valid "reset-only" call: the dedup state clears and
@@ -108,9 +131,13 @@ export default async function reportError(
         lastReportedAt = now;
     }
 
-    const waitUntil = config?.generate?.getCloudflareContext?.({ async: false })?.ctx?.waitUntil;
-    if (waitUntil) {
-        waitUntil(callOnError(errorHandling, params));
+    // `getCloudflareContext` only exists server-side inside a Cloudflare
+    // Worker (with `initOpenNextCloudflareForDev` set up in dev) — calling
+    // it at all for a client-originated report throws synchronously, before
+    // any "is it available" check can run.
+    const ctx = params.isClient ? undefined : config?.generate?.getCloudflareContext?.({ async: false })?.ctx;
+    if (ctx?.waitUntil) {
+        ctx.waitUntil(callOnError(errorHandling, params));
         return;
     }
     await callOnError(errorHandling, params);

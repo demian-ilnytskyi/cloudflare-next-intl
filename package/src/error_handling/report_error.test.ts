@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import reportError from './report_error';
+import reportError, { consoleOverrideState } from './report_error';
 
 describe('reportError', () => {
     const originalConsoleError = console.error;
     afterEach(() => {
         console.error = originalConsoleError;
+        consoleOverrideState.active = false;
         vi.resetModules();
     });
 
@@ -41,6 +42,17 @@ describe('reportError', () => {
         const { default: freshReportError } = await import('./report_error');
         const onError = vi.fn();
         await freshReportError({ errorHandling: { onError, logToConsole: false } }, { error: new Error('boom'), classOrMethodName: 'foo' });
+        expect(onError).toHaveBeenCalled();
+        expect(console.error).not.toHaveBeenCalled();
+    });
+
+    it('skips its own console.error call (both the always-on log and the onError-threw fallback) when consoleOverrideState.active is true — the console override already logged the raw call itself', async () => {
+        vi.resetModules();
+        console.error = vi.fn();
+        const { default: freshReportError, consoleOverrideState: freshState } = await import('./report_error');
+        freshState.active = true;
+        const onError = vi.fn(() => { throw new Error('reporter broke'); });
+        await freshReportError({ errorHandling: { onError } }, { error: new Error('boom'), classOrMethodName: 'foo' });
         expect(onError).toHaveBeenCalled();
         expect(console.error).not.toHaveBeenCalled();
     });
@@ -95,6 +107,37 @@ describe('reportError', () => {
         );
         expect(getCloudflareContext).toHaveBeenCalledWith({ async: false });
         expect(waitUntil).toHaveBeenCalled();
+    });
+
+    it('calls ctx.waitUntil bound to ctx — real ExecutionContext implementations (e.g. wrangler) throw "Illegal invocation" when called unbound', async () => {
+        const onError = vi.fn();
+        class FakeExecutionContext {
+            calledWithCorrectReceiver = false;
+            waitUntil(_promise: Promise<unknown>) {
+                if (this !== ctx) throw new TypeError('Illegal invocation');
+                this.calledWithCorrectReceiver = true;
+            }
+        }
+        const ctx = new FakeExecutionContext();
+        const getCloudflareContext = vi.fn(() => ({ ctx }));
+        await reportError(
+            { errorHandling: { onError }, generate: { getCloudflareContext: getCloudflareContext as never } },
+            { error: new Error('boom'), classOrMethodName: 'foo' },
+        );
+        expect(ctx.calledWithCorrectReceiver).toBe(true);
+    });
+
+    it('never calls getCloudflareContext for a client-originated report — it throws outside a Cloudflare Worker/without initOpenNextCloudflareForDev', async () => {
+        const onError = vi.fn();
+        const getCloudflareContext = vi.fn(() => {
+            throw new Error('getCloudflareContext called without having called initOpenNextCloudflareForDev');
+        });
+        await reportError(
+            { errorHandling: { onError }, generate: { getCloudflareContext: getCloudflareContext as never } },
+            { error: new Error('boom'), classOrMethodName: 'foo', isClient: true },
+        );
+        expect(getCloudflareContext).not.toHaveBeenCalled();
+        expect(onError).toHaveBeenCalled();
     });
 
     it('dedups a repeated identical error within the throttle window by default', async () => {

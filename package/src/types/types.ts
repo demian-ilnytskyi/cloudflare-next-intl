@@ -205,6 +205,18 @@ export interface ErrorHandlingRoutingConfig {
      */
     overrideConsoleError?: boolean;
     /**
+     * On the CLIENT only (`installConsoleErrorOverride(config, true)`),
+     * suppresses the browser's own `console.error(...)` output for a call
+     * once it's been routed to `onError`/`reportError` — the error is still
+     * reported (server-side logging, Sentry, etc), it just never shows up
+     * in browser devtools. Has no effect server-side (the server override
+     * always keeps logging normally — there's no "hide it from the
+     * terminal" use case). Only consulted when `overrideConsoleError` is
+     * `true`. Defaults to `false` (nothing is swallowed anywhere, matching
+     * `overrideConsoleError`'s own doc).
+     */
+    suppressClientConsoleError?: boolean;
+    /**
      * Substrings matched against the stringified message of each
      * `console.error(...)` call (only consulted when `overrideConsoleError`
      * is `true`) — a match skips reporting it (it's still logged normally).

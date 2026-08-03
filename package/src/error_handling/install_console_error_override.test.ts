@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import installConsoleErrorOverride from './install_console_error_override';
+import { consoleOverrideState } from './report_error';
 
 describe('installConsoleErrorOverride', () => {
     const originalConsoleError = console.error;
     afterEach(() => {
         console.error = originalConsoleError;
+        consoleOverrideState.active = false;
         vi.resetModules();
     });
 
@@ -98,5 +100,69 @@ describe('installConsoleErrorOverride', () => {
         install({ errorHandling: { overrideConsoleError: true, onError } });
         for (let i = 0; i < 25; i++) console.error(`distinct error ${i}`);
         expect(onError).toHaveBeenCalledTimes(25);
+    });
+
+    it('sets consoleOverrideState.active to true once installed', async () => {
+        vi.resetModules();
+        const { consoleOverrideState: freshState } = await import('./report_error');
+        const { default: install } = await import('./install_console_error_override');
+        console.error = vi.fn();
+        expect(freshState.active).toBe(false);
+        install({ errorHandling: { overrideConsoleError: true, onError: vi.fn() } });
+        expect(freshState.active).toBe(true);
+    });
+
+    it('does not recurse: reportError\'s own console.error fallback (onError throwing) is suppressed while the override is active, so it never re-enters the override', async () => {
+        vi.resetModules();
+        const { default: install } = await import('./install_console_error_override');
+        const originalConsoleErrorSpy = vi.fn();
+        console.error = originalConsoleErrorSpy;
+        const onError = vi.fn(() => { throw new Error('reporter broke'); });
+        install({ errorHandling: { overrideConsoleError: true, onError } });
+        console.error('oops');
+        // Flush the microtask reportError's async callOnError runs in.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        // Exactly one real console write: the override's own initial log of
+        // 'oops'. If reportError's onError-threw fallback also called
+        // console.error, that call would land on the override again and
+        // recurse — it must not log a second time.
+        expect(originalConsoleErrorSpy).toHaveBeenCalledTimes(1);
+        expect(originalConsoleErrorSpy).toHaveBeenCalledWith('oops');
+    });
+
+    it('suppresses the real console.error output on the client when suppressClientConsoleError is true, but still reports via onError', async () => {
+        vi.resetModules();
+        const { default: install } = await import('./install_console_error_override');
+        const onError = vi.fn();
+        const original = vi.fn();
+        console.error = original;
+        install({ errorHandling: { overrideConsoleError: true, onError, suppressClientConsoleError: true } }, true);
+        console.error('oops');
+        expect(original).not.toHaveBeenCalled();
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ error: 'oops' }));
+    });
+
+    it('does not suppress console.error server-side even if suppressClientConsoleError is true (isClient omitted/false)', async () => {
+        vi.resetModules();
+        const { default: install } = await import('./install_console_error_override');
+        const onError = vi.fn();
+        const original = vi.fn();
+        console.error = original;
+        install({ errorHandling: { overrideConsoleError: true, onError, suppressClientConsoleError: true } });
+        console.error('oops');
+        expect(original).toHaveBeenCalledWith('oops');
+        expect(onError).toHaveBeenCalled();
+    });
+
+    it('logs normally on the client when suppressClientConsoleError is not set', async () => {
+        vi.resetModules();
+        const { default: install } = await import('./install_console_error_override');
+        const onError = vi.fn();
+        const original = vi.fn();
+        console.error = original;
+        install({ errorHandling: { overrideConsoleError: true, onError } }, true);
+        console.error('oops');
+        expect(original).toHaveBeenCalledWith('oops');
+        expect(onError).toHaveBeenCalled();
     });
 });

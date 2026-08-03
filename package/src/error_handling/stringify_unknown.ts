@@ -1,5 +1,13 @@
 const MAX_FUNCTION_RESOLUTION_ATTEMPTS = 5;
 
+// eslint-disable-next-line no-control-regex
+const ANSI_ESCAPE_CODE_PATTERN = /\x1b\[[0-9;]*m/g;
+
+/** Strips ANSI color/style escape codes (e.g. from Next.js's own pretty-printed terminal errors) — unreadable once JSON-escaped into a report. */
+function stripAnsiCodes(value: string): string {
+    return value.replace(ANSI_ESCAPE_CODE_PATTERN, '');
+}
+
 function resolveFunctionError(value: unknown): unknown {
     let result = value;
     try {
@@ -24,8 +32,8 @@ function resolveFunctionError(value: unknown): unknown {
  *   so a single unserializable nested value can't crash the whole report.
  */
 export default function stringifyUnknown(value: unknown, isClient?: boolean, isNested = false): string {
-    if (typeof value === 'string') return value;
-    if (value instanceof Error) return `${value.name}: ${value.message}\n\n${value.stack ?? ''}`;
+    if (typeof value === 'string') return stripAnsiCodes(value);
+    if (value instanceof Error) return stripAnsiCodes(`${value.name}: ${value.message}\n\n${value.stack ?? ''}`);
 
     if (typeof value === 'function') {
         if (isClient) return '[Function]';
@@ -34,7 +42,7 @@ export default function stringifyUnknown(value: unknown, isClient?: boolean, isN
     }
 
     try {
-        return isNested ? JSON.stringify(value) : JSON.stringify(value, null, 2);
+        return stripAnsiCodes(isNested ? JSON.stringify(value) : JSON.stringify(value, null, 2));
     } catch {
         return '[Unserializable value]';
     }

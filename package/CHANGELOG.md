@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.7] - 2026-08-04
+
+### Fixed
+
+- Fixed an infinite console-error reporting loop when `errorHandling.overrideConsoleError` is `true`: `reportError`'s own console-logging step (its always-on log, and its onError-threw fallback) could call `console.error` again after the override patched it, which routed straight back into another `reportError` call — an infinite loop in practice, since Next.js's own dev-mode console interception forwards through whatever `console.error` is CURRENT at call time rather than the function it originally wrapped, defeating a "capture the original once" guard. `installConsoleErrorOverride` now sets an internal flag (`consoleOverrideState` in `report_error.ts`) when it installs; `reportError` checks it and skips its own console-logging step entirely while the override is active, since the override already logged the raw call before invoking `reportError`. This removes the second caller instead of trying to detect and filter out a recursive one.
+
 ## [0.6.6] - 2026-08-03
 
 ### Added

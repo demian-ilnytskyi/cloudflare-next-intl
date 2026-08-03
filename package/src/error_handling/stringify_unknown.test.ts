@@ -6,6 +6,18 @@ describe('stringifyUnknown', () => {
         expect(stringifyUnknown('boom')).toBe('boom');
     });
 
+    it('strips ANSI color escape codes from strings (e.g. Next.js pretty-printed terminal errors)', () => {
+        expect(stringifyUnknown('[31m⨯ boom[39m')).toBe('⨯ boom');
+    });
+
+    it('strips ANSI color escape codes from an Error message/stack', () => {
+        const error = new Error('[31mboom[39m');
+        error.stack = '[31mError: boom[39m\n[31m    at foo[39m';
+        const result = stringifyUnknown(error);
+        expect(result).not.toContain('[');
+        expect(result).toContain('boom');
+    });
+
     it('formats an Error with name, message, and stack', () => {
         const error = new Error('boom');
         expect(stringifyUnknown(error)).toContain('Error: boom');
