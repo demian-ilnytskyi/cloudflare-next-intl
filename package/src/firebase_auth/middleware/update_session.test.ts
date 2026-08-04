@@ -242,9 +242,13 @@ describe('updateSession', () => {
         expect(res.headers.get('location')).toBe('https://example.com/verify-email');
     });
 
-    it('trusts the claim without refreshing when there is no hint cookie at all', async () => {
+    it('force-refreshes when there is no hint cookie at all (no positive signal the stale claim still holds)', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const fetchMock = vi.fn();
+        const freshToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: freshToken, refresh_token: 'new-refresh-token' }),
+        });
         vi.stubGlobal('fetch', fetchMock);
 
         const { default: updateSession } = await import('./update_session');
@@ -255,7 +259,7 @@ describe('updateSession', () => {
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
 
-        expect(fetchMock).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalled();
         expect(res.status).toBe(307);
         expect(res.headers.get('location')).toBe('https://example.com/verify-email');
     });

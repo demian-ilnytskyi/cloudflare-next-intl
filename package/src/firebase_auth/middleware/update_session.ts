@@ -251,18 +251,18 @@ export default async function updateSession(
     // (up to ~1hr later). AuthUserProvider (client) mirrors the live SDK
     // state into `emailVerifiedHintCookieName` on every auth-state change,
     // so it reflects verification status sooner than the session JWT does.
-    // If that hint disagrees with the stale claim, something changed since
-    // this claim was minted — force one refresh to confirm before
-    // redirecting, so this claim is no staler than a single refresh
-    // round-trip instead of up to an hour. If the hint AGREES with the
-    // claim (or is absent, e.g. first request before the client has run),
-    // trust the claim as-is — no extra network call, so a genuinely
-    // unverified user doesn't pay a refresh on every single request.
+    // Force one refresh to confirm before redirecting whenever that hint
+    // can't yet vouch for this claim: it disagrees outright, or it's absent
+    // (e.g. first request before the client has run at all, or a hint
+    // that expired/was never set) — either way there's no positive signal
+    // the claim is still accurate. Only when the hint AGREES with the claim
+    // is a refresh skipped, so a genuinely unverified user with an
+    // established, agreeing hint doesn't pay a refresh on every request.
     let unverifiedEmail = false;
     if (fa.verifyEmailPath && !isVerifyEmailPage && hasSession && decodeJwtPayload(token!)?.email_verified === false) {
         const hint = request.cookies.get(emailVerifiedHintCookieName)?.value;
-        const hintDisagrees = hint === 'true';
-        if (hintDisagrees && !refreshedToken) {
+        const hintConfirms = hint === 'false';
+        if (!hintConfirms && !refreshedToken) {
             const refreshToken = request.cookies.get(refreshTokenCookieName)?.value;
             if (refreshToken) {
                 const result = await refreshIdToken(fa.apiKey, refreshToken);
@@ -283,7 +283,7 @@ export default async function updateSession(
                 unverifiedEmail = true;
             }
         } else {
-            // Hint agrees (or is absent) — no reason to distrust the claim.
+            // Hint confirms unverified — no reason to refresh, trust the claim.
             unverifiedEmail = true;
         }
     }

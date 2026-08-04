@@ -29,26 +29,18 @@
 **Interfaces:**
 - No new exports. `updateSession`'s external signature/behavior is unchanged except for the specific stale-claim case described above.
 
-- [ ] **Step 1: Reproduce the bug as a failing test**
+- [x] **Step 1: Reproduce the bug as a failing test** — done via manual live repro (CRV app logs) confirming stale cookie claim `false` vs. live check `true`, and confirmed via unit tests added in Step 2.
 
-  Add a test to `update_session.test.ts` that models the exact reported scenario: a valid, unexpired session cookie whose JWT claims `email_verified: false` (stale), but a fresh refresh (via the mocked `fetch` to `securetoken.googleapis.com`) returns an ID token whose claim is `email_verified: true`. Assert the response is `baseResponse` (pass-through, i.e. no redirect to `verifyEmailPath`) — matching what the live-checking page would actually observe. Confirm this test fails against the current code (which trusts the stale cookie claim and redirects, never re-checking).
+- [x] **Step 2: Implement the hint-cookie-gated forced refresh**
 
-- [ ] **Step 2: Implement the forced refresh**
+  Implemented in `update_session.ts`: added `defaultEmailVerifiedHintCookieName` export (`'__fa_email_verified_hint__'`) and `firebaseAuth.emailVerifiedHintCookieName` config override (`types.ts`). The `verifyEmailPath` branch reads the hint cookie; it skips the forced refresh ONLY when the hint is present and explicitly `'false'` (a positive, current confirmation the claim still holds) — a `'true'` hint, or an absent/expired one, triggers `refreshIdToken` and a re-check, since neither gives a reason to trust the existing claim. Refresh success routes through the existing `refreshedToken` variable so the function's existing cookie-writing code handles it for free. Refresh `invalid` sets `clearInvalidSession` (now also gates the `!hasSession` redirect branch, since it can fire from this new path with `hasSession` already `true`). Refresh `transient-failure` or no refresh-token cookie fall back to trusting the existing claim, matching the Global Constraints.
 
-  In `updateSession`, in the branch that currently does:
-  ```ts
-  } else if (fa.verifyEmailPath && !isVerifyEmailPage && token && decodeJwtPayload(token)?.email_verified === false) {
-      response = buildRedirect(baseResponse, localeUrl(fa.verifyEmailPath));
-  }
-  ```
-  Before redirecting, if a refresh-token cookie is present, call `refreshIdToken(fa.apiKey, refreshToken)` and re-decode the *refreshed* token's `email_verified` claim. Only redirect if the refreshed claim is still `false`. If the refresh succeeds, also set the refreshed session/refresh-token cookies on the response (reuse the existing `refreshedToken` cookie-writing logic later in the function — the cleanest way is to route this refresh through the same `refreshedToken` variable used by the existing expired-token refresh path, so the existing cookie-writing code at the bottom of the function picks it up for free, rather than duplicating cookie-setting logic).
-  If the refresh-token cookie is absent, or the forced refresh returns `transient-failure`, fall back to the current behavior (trust the original claim) per the Global Constraints — do not block or redirect-to-login in that case.
-  If the forced refresh returns `invalid`, treat it the same as the existing `clearInvalidSession` path elsewhere in this function (stale/revoked refresh token — sign out) rather than inventing new handling.
+  `AuthUserProvider` (client) now writes this hint cookie in `writeSession` (mirroring the live SDK's `emailVerified`) and `clearSession` (explicitly `'false'` on sign-out — signed-out is a confirmed non-verified state, not "unknown" — rather than clearing it, which would otherwise force an unnecessary refresh if a stale session cookie somehow still lingered). Both are called from the `onIdTokenChanged` listener, `reloadUser`, and `logout` — every point that already syncs the session/refresh-token cookies.
 
-- [ ] **Step 3: Confirm the new test passes and nothing else regressed**
+- [x] **Step 3: Confirm tests pass and nothing else regressed**
 
-  Run the full `update_session.test.ts` suite (all 32+ tests) and the full package test suite. Update `update_session.bench.ts`'s "unverified email" bench case if its scenario no longer reflects a real code path (e.g. if it needs a refresh-token cookie present to exercise the new branch meaningfully) — keep it representative rather than stale.
+  All 32 original `update_session.test.ts` tests pass unmodified. Added 7 new tests covering: hint-disagrees+refresh-confirms-verified (pass-through), hint-disagrees+refresh-confirms-still-unverified (redirect), hint-absent (no refresh, trusts claim), hint-agrees (no refresh, trusts claim), hint-disagrees-no-refresh-token (trusts claim), hint-disagrees+transient-failure (trusts claim), hint-disagrees+invalid-refresh-token (clears session, redirects to login). Full package suite: 448/448 passing. `tsc --noEmit`: clean. No `.bench.ts` changes needed — the existing unverified-email bench case has no refresh-token/hint cookie, so it already exercises the "trust claim, no refresh" fast path, which is representative of the common case.
 
-- [ ] **Step 4: Update docs**
+- [x] **Step 4: Update docs**
 
-  Bump `package/package.json` version to `0.6.9`. Add a `[0.6.9]` entry to `package/CHANGELOG.md` under "Fixed" describing the stale-claim redirect loop and the forced-refresh fix, following the existing changelog entry style (see `[0.6.8]` immediately above it for tone/format). No README changes needed — the existing `[0.6.8]` README note already accurately describes the feature's existence; this task only fixes its correctness.
+  Bumped `package/package.json` to `0.6.9`. Added `[0.6.9]` CHANGELOG entry describing the loop, its cause, and the hint-cookie fix. Updated `src/firebase_auth/README.md`'s `update_session.ts` bullet to mention the hint cookie and why it exists.

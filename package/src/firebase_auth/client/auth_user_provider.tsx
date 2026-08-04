@@ -54,14 +54,14 @@ function writeEmailVerifiedHintCookie(emailVerifiedHintCookieName: string, email
     setCookie({ name: emailVerifiedHintCookieName, value: String(emailVerified), maxAge });
 }
 
-function clearEmailVerifiedHintCookie(emailVerifiedHintCookieName: string): void {
-    setCookie({ name: emailVerifiedHintCookieName, value: '', maxAge: 0 });
-}
-
-async function clearSession(sessionCookieName: string, refreshTokenCookieName: string, emailVerifiedHintCookieName: string): Promise<void> {
+async function clearSession(sessionCookieName: string, refreshTokenCookieName: string, emailVerifiedHintCookieName: string, refreshTokenMaxAge: number): Promise<void> {
     clearSessionCookie(sessionCookieName);
     clearRefreshTokenCookie(refreshTokenCookieName);
-    clearEmailVerifiedHintCookie(emailVerifiedHintCookieName);
+    // Signed-out is not "unknown" — it's a confirmed non-verified state, so
+    // write 'false' explicitly rather than clearing (an absent hint means
+    // "no signal yet", which forces the middleware to refresh unnecessarily
+    // if a stale session cookie somehow still lingers).
+    writeEmailVerifiedHintCookie(emailVerifiedHintCookieName, false, refreshTokenMaxAge);
     try {
         await clearSessionAction();
     } catch (e) {
@@ -164,7 +164,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
                     if (user) {
                         await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName);
                     } else {
-                        await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName);
+                        await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, refreshTokenMaxAge);
                     }
                 } catch (e) {
                     console.error('AuthUserProvider: session sync failed', e);
@@ -230,7 +230,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             const { signOut } = await getFirebaseAuthModule();
             await signOut(auth);
         } finally {
-            await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName);
+            await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, refreshTokenMaxAge);
             router.push(fa.redirectAuthPath);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
