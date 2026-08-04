@@ -270,11 +270,23 @@ export default async function updateSession(request, baseResponse, locale) {
     else if (!hasSession || clearInvalidSession) {
         response = isAuthPage ? baseResponse : buildRedirect(baseResponse, localeUrl(fa.redirectAuthPath));
     }
-    else if (isAuthPage) {
-        response = buildRedirect(baseResponse, localeUrl(fa.homePath));
-    }
     else if (unverifiedEmail) {
+        // Checked before the auth-page redirect: an unverified signed-in
+        // user must land on verifyEmailPath even if they navigated to an
+        // auth page like /login — homePath is not a state they're allowed
+        // to reach yet either.
         response = buildRedirect(baseResponse, localeUrl(fa.verifyEmailPath));
+    }
+    else if (isAuthPage || (isVerifyEmailPage && decodeJwtPayload(token)?.email_verified !== false)) {
+        // A verified user has no reason to be on verifyEmailPath either —
+        // same "you're done here, go home" treatment as an auth page.
+        // `unverifiedEmail` can't be reused here: its own computation
+        // deliberately skips verifyEmailPath (so it never redirects AWAY
+        // from that page for an unverified user), so it's always `false`
+        // while already on it regardless of actual verification status —
+        // checking the claim again directly is what tells verified and
+        // unverified apart on this specific page.
+        response = buildRedirect(baseResponse, localeUrl(fa.homePath));
     }
     else {
         response = baseResponse;

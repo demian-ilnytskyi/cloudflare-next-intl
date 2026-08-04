@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.12] - 2026-08-05
+
+### Fixed
+
+- `AuthUserProvider`'s client-side redirect effect had no handling at all for "signed-in user lands on an auth page" (`isAuthPage`) — it short-circuited (`if (loading || isAuthPage || isWhiteListed) return;`) before ever reaching that case. Only the middleware (`update_session.ts`, server-side) redirected a signed-in user away from an auth page like `/login`; a client-side navigation to that page (e.g. a `<Link>`) never re-runs the middleware, so the user would land there while already signed in and stay put until a hard refresh. Added the matching redirect-to-`homePath` branch client-side.
+- Both `update_session.ts` and the new client-side branch above checked `isAuthPage` before the unverified-email check, so a signed-in-but-unverified user landing on an auth page was sent to `homePath` instead of `verifyEmailPath` — reachable a page they shouldn't be on yet either. Reordered both to check unverified-email first in every case.
+- Neither `update_session.ts` nor the client-side effect ever redirected a VERIFIED signed-in user away from `verifyEmailPath` itself — a verified user could navigate there directly and just stay, with nothing sending them home. Added the matching redirect-to-`homePath` on both sides, guarded to only fire when the user is actually verified (an unverified user on that page is still correctly left alone).
+
 ## [0.6.11] - 2026-08-05
 
 ### Fixed

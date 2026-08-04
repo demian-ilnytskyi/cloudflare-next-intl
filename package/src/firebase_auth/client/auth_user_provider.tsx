@@ -145,12 +145,28 @@ export default function AuthUserProvider({ initialUser = null, children }: {
 
     useEffect(() => {
         const { user, loading } = state;
-        if (loading || isAuthPage || isWhiteListed) return;
+        if (loading || isWhiteListed) return;
 
         if (!user) {
-            if (confirmedSignedOut) router.replace(fa.redirectAuthPath);
+            // Signed-out on an auth page is where they're supposed to be —
+            // only bounce a signed-out user away from a NON-auth page.
+            if (!isAuthPage && confirmedSignedOut) router.replace(fa.redirectAuthPath);
         } else if (fa.verifyEmailPath && !user.emailVerified && pathname !== fa.verifyEmailPath) {
+            // Checked before the auth-page redirect below (mirrors
+            // `update_session.ts`'s same ordering): an unverified signed-in
+            // user must land on verifyEmailPath even if they navigated to
+            // an auth page like /login — homePath isn't reachable yet either.
             router.replace(fa.verifyEmailPath);
+        } else if (isAuthPage || (fa.verifyEmailPath && user.emailVerified && pathname === fa.verifyEmailPath)) {
+            // Mirrors the middleware's own signed-in-on-auth-page redirect
+            // (`update_session.ts`'s `isAuthPage` branch) — needed here too
+            // because a client-side navigation (e.g. a `<Link>`) to an auth
+            // page never re-runs the middleware, so without this the user
+            // would land on e.g. `/login` while already signed in and stay
+            // there until a hard refresh. A verified user reaching
+            // verifyEmailPath itself gets the same "go home" treatment —
+            // they're done here, same as the auth-page case.
+            router.replace(fa.homePath);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state, pathname, isAuthPage, isWhiteListed, confirmedSignedOut]);

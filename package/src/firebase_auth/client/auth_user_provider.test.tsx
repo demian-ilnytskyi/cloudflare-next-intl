@@ -125,7 +125,7 @@ describe('AuthUserProvider', () => {
     it('does not redirect on an auth page even when signed out', async () => {
         mockPathname = '/login';
         const { default: AuthUserProvider } = await import('./auth_user_provider');
-        render(<AuthUserProvider initialUser={{ uid: 'x', email: null, emailVerified: false, displayName: null }}>
+        render(<AuthUserProvider initialUser={null}>
             <span>child</span>
         </AuthUserProvider>);
         await flush();
@@ -134,6 +134,27 @@ describe('AuthUserProvider', () => {
         await act(async () => { idTokenListener?.(null); });
         await flush();
         expect(routerReplace).not.toHaveBeenCalled();
+    });
+
+    it('redirects a signed-in user away from an auth page to homePath', async () => {
+        mockPathname = '/login';
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={{ uid: 'x', email: null, emailVerified: true, displayName: null }}>
+            <span>child</span>
+        </AuthUserProvider>);
+        await flush();
+        expect(routerReplace).toHaveBeenCalledWith('/');
+    });
+
+    it('redirects an unverified signed-in user to verifyEmailPath even when they are on an auth page (unverified takes priority over the auth-page redirect)', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        mockPathname = '/login';
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={{ uid: 'x', email: null, emailVerified: false, displayName: null }}>
+            <span>child</span>
+        </AuthUserProvider>);
+        await flush();
+        expect(routerReplace).toHaveBeenCalledWith('/verify-email');
     });
 
     it('does not redirect on a whitelisted path', async () => {
@@ -178,7 +199,7 @@ describe('AuthUserProvider', () => {
         expect(routerReplace).toHaveBeenCalledWith('/verify-email');
     });
 
-    it('does not redirect for verifyEmailPath when already on that page', async () => {
+    it('does not redirect for verifyEmailPath when already on that page (still unverified)', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         mockPathname = '/verify-email';
         const { default: AuthUserProvider } = await import('./auth_user_provider');
@@ -187,6 +208,17 @@ describe('AuthUserProvider', () => {
         await act(async () => { idTokenListener?.(makeUser({ emailVerified: false })); });
         await flush();
         expect(routerReplace).not.toHaveBeenCalled();
+    });
+
+    it('redirects a verified user away from verifyEmailPath to homePath', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        mockPathname = '/verify-email';
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(makeUser({ emailVerified: true })); });
+        await flush();
+        expect(routerReplace).toHaveBeenCalledWith('/');
     });
 
     it('writes the session cookie and calls router.refresh on sign-in transition', async () => {

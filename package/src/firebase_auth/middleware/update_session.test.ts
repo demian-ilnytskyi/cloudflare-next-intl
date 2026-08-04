@@ -133,6 +133,19 @@ describe('updateSession', () => {
         expect(res.headers.get('location')).toBe('https://example.com/');
     });
 
+    it('redirects an unverified signed-in user to verifyEmailPath even when they are on an auth page (unverified takes priority over the auth-page redirect)', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/login', {
+            cookies: { __fa_session__: token, __fa_email_verified_hint__: 'false' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/verify-email');
+    });
+
     it('passes through with a valid session on a non-auth page', async () => {
         const { default: updateSession } = await import('./update_session');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
@@ -167,6 +180,19 @@ describe('updateSession', () => {
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
         expect(res).toBe(base);
+    });
+
+    it('redirects a verified user away from verifyEmailPath to homePath', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
+        const req = makeRequest('https://example.com/en/verify-email', {
+            cookies: { __fa_session__: token },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/');
     });
 
     it('passes through when email is verified', async () => {
