@@ -341,6 +341,30 @@ describe('AuthUserProvider', () => {
         expect(console.error).toHaveBeenCalledWith('AuthUserProvider: onEmailVerified callback failed', expect.any(Error));
     });
 
+    it('logs and swallows an onEmailVerified callback that throws via reloadUser, without blocking cookie sync', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const onEmailVerified = vi.fn(() => { throw new Error('boom'); });
+        currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
+        const unverifiedUser = makeUser({ emailVerified: false });
+        authObj.currentUser = unverifiedUser;
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(unverifiedUser); });
+        await flush();
+
+        authObj.currentUser = makeUser({ uid: 'u1', emailVerified: true });
+        await act(async () => { await ctxValue?.reloadUser(); });
+        expect(onEmailVerified).toHaveBeenCalledTimes(1);
+        expect(console.error).toHaveBeenCalledWith('AuthUserProvider: onEmailVerified callback failed', expect.any(Error));
+        expect(document.cookie).toContain('__fa_session__=id-token');
+    });
+
     it('redirects immediately on a single null callback when initialUser was already null (server-confirmed signed-out)', async () => {
         const { default: AuthUserProvider } = await import('./auth_user_provider');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
