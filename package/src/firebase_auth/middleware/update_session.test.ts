@@ -195,6 +195,24 @@ describe('updateSession', () => {
         expect(res.headers.get('location')).toBe('https://example.com/');
     });
 
+    // Regression: middleware previously redirected home on `!== false`
+    // (treating a missing claim as "verified"), while AuthUserProvider's
+    // client-side effect treats a falsy `user.emailVerified` (from the live
+    // SDK) as unverified. When a token's claim was merely absent — not
+    // `false` — this disagreement caused an infinite client<->server
+    // redirect loop directly on verifyEmailPath.
+    it('does NOT redirect a user with a missing (undefined) email_verified claim away from verifyEmailPath', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
+        const req = makeRequest('https://example.com/en/verify-email', {
+            cookies: { __fa_session__: token },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res).toBe(base);
+    });
+
     it('passes through when email is verified', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         const { default: updateSession } = await import('./update_session');

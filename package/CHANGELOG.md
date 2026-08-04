@@ -11,6 +11,12 @@ All notable changes to this package are documented here. Format follows
 - Both `update_session.ts` and the new client-side branch above checked `isAuthPage` before the unverified-email check, so a signed-in-but-unverified user landing on an auth page was sent to `homePath` instead of `verifyEmailPath` — reachable a page they shouldn't be on yet either. Reordered both to check unverified-email first in every case.
 - Neither `update_session.ts` nor the client-side effect ever redirected a VERIFIED signed-in user away from `verifyEmailPath` itself — a verified user could navigate there directly and just stay, with nothing sending them home. Added the matching redirect-to-`homePath` on both sides, guarded to only fire when the user is actually verified (an unverified user on that page is still correctly left alone).
 
+## [0.6.13] - 2026-08-05
+
+### Fixed
+
+- The verified-user-on-`verifyEmailPath` fix in 0.6.12 initially checked `email_verified !== false` in `update_session.ts` (treating a missing/undefined claim as verified), while `AuthUserProvider`'s client effect checks the live SDK's boolean `user.emailVerified` strictly — a token whose claim was merely absent (not explicitly `false`) hit an infinite redirect loop directly on `verifyEmailPath` (browser: "The page isn't redirecting properly"), because the server sent the user home while the client immediately bounced them back. Tightened the server check to require an explicit `email_verified === true`, matching the client's strict boolean check.
+
 ## [0.6.11] - 2026-08-05
 
 ### Fixed

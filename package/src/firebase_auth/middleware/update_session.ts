@@ -294,7 +294,7 @@ export default async function updateSession(
         // auth page like /login — homePath is not a state they're allowed
         // to reach yet either.
         response = buildRedirect(baseResponse, localeUrl(fa.verifyEmailPath!));
-    } else if (isAuthPage || (isVerifyEmailPage && decodeJwtPayload(token!)?.email_verified !== false)) {
+    } else if (isAuthPage || (isVerifyEmailPage && decodeJwtPayload(token!)?.email_verified === true)) {
         // A verified user has no reason to be on verifyEmailPath either —
         // same "you're done here, go home" treatment as an auth page.
         // `unverifiedEmail` can't be reused here: its own computation
@@ -302,7 +302,13 @@ export default async function updateSession(
         // from that page for an unverified user), so it's always `false`
         // while already on it regardless of actual verification status —
         // checking the claim again directly is what tells verified and
-        // unverified apart on this specific page.
+        // unverified apart on this specific page. Requires an EXPLICIT
+        // `true` (not just "not false") — a missing/undefined claim must
+        // NOT redirect home here, since `AuthUserProvider`'s client-side
+        // effect treats that same user as unverified via the live SDK's
+        // boolean `user.emailVerified`. The two disagreeing caused an
+        // infinite client<->server redirect loop on this exact page when a
+        // token's claim was merely absent rather than `false`.
         response = buildRedirect(baseResponse, localeUrl(fa.homePath));
     } else {
         response = baseResponse;
