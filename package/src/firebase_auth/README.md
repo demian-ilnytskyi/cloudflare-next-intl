@@ -16,9 +16,12 @@ unexpectedly.
 - `server/` — RSC-side: `use_auth_user_server.ts`, `firebase_server.ts`,
   `auth_user_server_provider.tsx` (not used by the default auto-wiring path —
   see its doc comment for why).
-- `middleware/update_session.ts` — refreshes the session cookie; called
-  automatically by `../config/middleware.ts`'s default handler, not meant to
-  be invoked directly by consumers.
+- `middleware/update_session.ts` — refreshes the session cookie and drives
+  the guest/auth-page/unverified-email redirects (`redirectAuthPath` /
+  `homePath` / `verifyEmailPath`, the last checked via the session token's
+  `email_verified` claim, skipped when unset); called automatically by
+  `../config/middleware.ts`'s default handler, not meant to be invoked
+  directly by consumers.
 - `error_messages/` — `firebase_auth_error_helper.ts` maps Firebase error
   codes to user-facing strings; `default_messages.en.ts` is the default set,
   overridable via `AuthActionMessages`.

@@ -9,15 +9,20 @@ const DEFAULT_REFRESH_MAX_AGE = 60 * 60 * 24 * 365;
 // time can hand a client a token that dies moments after this check, forcing
 // an extra round-trip on the very next request.
 const CLOCK_SKEW_MARGIN_MS = 60 * 1000;
-function isJwtExpired(token) {
+function decodeJwtPayload(token) {
     try {
         const payload = token.split('.')[1];
-        const { exp } = JSON.parse(atob(payload.replace(/[-_]/g, (c) => c === '-' ? '+' : '/')));
-        return !exp || exp * 1000 - CLOCK_SKEW_MARGIN_MS <= Date.now();
+        const decoded = JSON.parse(atob(payload.replace(/[-_]/g, (c) => c === '-' ? '+' : '/')));
+        console.log('[firebase_auth] email_verified=', decoded.email_verified);
+        return decoded;
     }
     catch {
-        return true;
+        return null;
     }
+}
+function isJwtExpired(token) {
+    const decoded = decodeJwtPayload(token);
+    return !decoded?.exp || decoded.exp * 1000 - CLOCK_SKEW_MARGIN_MS <= Date.now();
 }
 // Refreshing an ID token is a real network round-trip to Google on the
 // Edge middleware's critical path, on every request where the session
@@ -170,7 +175,7 @@ export default async function updateSession(request, baseResponse, locale) {
     if (rawPath.startsWith('/_next') || /\.[a-zA-Z0-9]+$/.test(lastSegment)) {
         return baseResponse;
     }
-    const localePrefix = locale === config.locales[0] ? '' : requestPrefix;
+    const localePrefix = locale === config.defaultLocale ? '' : requestPrefix;
     const localeUrl = (target) => new URL(`${localePrefix}${target === '/' ? '' : target}` || '/', request.url);
     const isWhiteListed = fa.whiteListPaths?.includes(path) ?? false;
     if (isWhiteListed)
@@ -190,9 +195,12 @@ export default async function updateSession(request, baseResponse, locale) {
         token = undefined;
     }
     if (!token) {
+        console.log('[firebase_auth] 1111');
         const refreshToken = request.cookies.get(refreshTokenCookieName)?.value;
         if (refreshToken) {
+            console.log('[firebase_auth] 2222');
             const result = await refreshIdToken(fa.apiKey, refreshToken);
+            console.log('[firebase_auth] 3333');
             if (result.status === 'refreshed') {
                 refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken };
                 token = refreshedToken.idToken;
@@ -210,6 +218,7 @@ export default async function updateSession(request, baseResponse, locale) {
     }
     const hasSession = !!token;
     let response;
+    const isVerifyEmailPage = !!fa.verifyEmailPath && path === fa.verifyEmailPath;
     if (refreshWasTransientFailure) {
         // Couldn't confirm the session either way — pass through without
         // forcing a redirect in either direction. The next request (or the
@@ -222,6 +231,9 @@ export default async function updateSession(request, baseResponse, locale) {
     }
     else if (isAuthPage) {
         response = buildRedirect(baseResponse, localeUrl(fa.homePath));
+    }
+    else if (fa.verifyEmailPath && !isVerifyEmailPage && token && decodeJwtPayload(token)?.email_verified === false) {
+        response = buildRedirect(baseResponse, localeUrl(fa.verifyEmailPath));
     }
     else {
         response = baseResponse;

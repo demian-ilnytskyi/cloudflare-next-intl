@@ -20,6 +20,7 @@ const intlConfig = setIntlConfig({
         redirectAuthPath: '/login',
         homePath: '/',
         isAuthPath: (path: string) => path === '/login',
+        verifyEmailPath: '/test'
     } : undefined,
     generate: {
         getCloudflareContext: getCloudflareContext,

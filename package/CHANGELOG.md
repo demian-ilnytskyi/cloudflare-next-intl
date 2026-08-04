@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.8] - 2026-08-04
+
+### Fixed
+
+- `firebaseAuth.verifyEmailPath` was accepted by config but never read by the middleware — signed-in users with an unverified email were never redirected to it. `update_session.ts` now decodes the session token's `email_verified` claim and redirects to `verifyEmailPath` when it's explicitly `false`, skipping the redirect on the verify-email page itself, on auth pages, and when `verifyEmailPath` is unset.
+- The default-locale prefix check in `update_session.ts` compared `locale` against `config.locales[0]` instead of `config.defaultLocale`. When `locales` didn't list the default locale first (e.g. `locales: ['uk', 'en']`, `defaultLocale: 'en'`), every auth redirect for the default locale (`redirectAuthPath`, `homePath`, `verifyEmailPath`) incorrectly kept the `/en` prefix instead of using the unprefixed path.
+
 ## [0.6.7] - 2026-08-04
 
 ### Fixed

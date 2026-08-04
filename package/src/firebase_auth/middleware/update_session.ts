@@ -13,14 +13,18 @@ const DEFAULT_REFRESH_MAX_AGE = 60 * 60 * 24 * 365;
 // an extra round-trip on the very next request.
 const CLOCK_SKEW_MARGIN_MS = 60 * 1000;
 
-function isJwtExpired(token: string): boolean {
+function decodeJwtPayload(token: string): { exp?: number; email_verified?: boolean } | null {
     try {
         const payload = token.split('.')[1];
-        const { exp } = JSON.parse(atob(payload.replace(/[-_]/g, (c) => c === '-' ? '+' : '/'))) as { exp?: number };
-        return !exp || exp * 1000 - CLOCK_SKEW_MARGIN_MS <= Date.now();
+        return JSON.parse(atob(payload.replace(/[-_]/g, (c) => c === '-' ? '+' : '/'))) as { exp?: number; email_verified?: boolean };
     } catch {
-        return true;
+        return null;
     }
+}
+
+function isJwtExpired(token: string): boolean {
+    const decoded = decodeJwtPayload(token);
+    return !decoded?.exp || decoded.exp * 1000 - CLOCK_SKEW_MARGIN_MS <= Date.now();
 }
 
 // Refreshing an ID token is a real network round-trip to Google on the
@@ -188,7 +192,7 @@ export default async function updateSession(
         return baseResponse;
     }
 
-    const localePrefix = locale === config.locales[0] ? '' : requestPrefix;
+    const localePrefix = locale === config.defaultLocale ? '' : requestPrefix;
     const localeUrl = (target: string) =>
         new URL(`${localePrefix}${target === '/' ? '' : target}` || '/', request.url);
 
@@ -231,6 +235,8 @@ export default async function updateSession(
     const hasSession = !!token;
     let response: NextResponse;
 
+    const isVerifyEmailPage = !!fa.verifyEmailPath && path === fa.verifyEmailPath;
+
     if (refreshWasTransientFailure) {
         // Couldn't confirm the session either way — pass through without
         // forcing a redirect in either direction. The next request (or the
@@ -241,6 +247,8 @@ export default async function updateSession(
         response = isAuthPage ? baseResponse : buildRedirect(baseResponse, localeUrl(fa.redirectAuthPath));
     } else if (isAuthPage) {
         response = buildRedirect(baseResponse, localeUrl(fa.homePath));
+    } else if (fa.verifyEmailPath && !isVerifyEmailPage && token && decodeJwtPayload(token)?.email_verified === false) {
+        response = buildRedirect(baseResponse, localeUrl(fa.verifyEmailPath));
     } else {
         response = baseResponse;
     }

@@ -13,7 +13,7 @@ const baseFa = {
     isAuthPath: (path: string) => path === '/login',
 };
 
-let currentConfig: { locales: string[]; firebaseAuth?: typeof baseFa & Record<string, unknown> };
+let currentConfig: { locales: string[]; defaultLocale: string; firebaseAuth?: typeof baseFa & Record<string, unknown> };
 
 vi.mock('@intl-config', () => ({
     get default() {
@@ -21,15 +21,15 @@ vi.mock('@intl-config', () => ({
     },
 }));
 
-function makeJwt(exp: number): string {
+function makeJwt(exp: number, claims: Record<string, unknown> = {}): string {
     const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
-    const payload = Buffer.from(JSON.stringify({ exp })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({ exp, ...claims })).toString('base64url');
     return `${header}.${payload}.sig`;
 }
 
 describe('updateSession', () => {
     beforeEach(() => {
-        currentConfig = { locales: ['en', 'de'], firebaseAuth: { ...baseFa } };
+        currentConfig = { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: { ...baseFa } };
     });
 
     afterEach(() => {
@@ -37,7 +37,7 @@ describe('updateSession', () => {
     });
 
     it('returns baseResponse untouched when firebaseAuth is not configured', async () => {
-        currentConfig = { locales: ['en', 'de'] };
+        currentConfig = { locales: ['en', 'de'], defaultLocale: 'en' };
         const { default: updateSession } = await import('./update_session');
         const req = makeRequest('https://example.com/en/dashboard');
         const base = NextResponse.next();
@@ -136,6 +136,43 @@ describe('updateSession', () => {
     it('passes through with a valid session on a non-auth page', async () => {
         const { default: updateSession } = await import('./update_session');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: token },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res).toBe(base);
+    });
+
+    it('redirects to verifyEmailPath when session email is unverified', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: token },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/verify-email');
+    });
+
+    it('does not redirect to verifyEmailPath when already on it', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/verify-email', {
+            cookies: { __fa_session__: token },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res).toBe(base);
+    });
+
+    it('passes through when email is verified', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: token },
         });
@@ -302,6 +339,7 @@ describe('updateSession with custom cookie names', () => {
     beforeEach(() => {
         currentConfig = {
             locales: ['en', 'de'],
+            defaultLocale: 'en',
             firebaseAuth: {
                 ...baseFa,
                 sessionCookieName: '__session',
@@ -376,7 +414,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
     }
 
     beforeEach(() => {
-        currentConfig = { locales: ['en', 'de'], firebaseAuth: { ...baseFa } };
+        currentConfig = { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: { ...baseFa } };
     });
 
     afterEach(() => {
