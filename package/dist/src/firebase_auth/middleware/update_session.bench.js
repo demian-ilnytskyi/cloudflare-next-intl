@@ -10,13 +10,14 @@ const baseFa = {
     redirectAuthPath: '/login',
     homePath: '/',
     isAuthPath: (path) => path === '/login',
+    verifyEmailPath: '/verify-email',
 };
 vi.mock('@intl-config', () => ({
     default: { locales: ['en'], defaultLocale: 'en', firebaseAuth: baseFa },
 }));
-function makeJwt(exp) {
+function makeJwt(exp, claims = {}) {
     const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
-    const payload = Buffer.from(JSON.stringify({ exp })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({ exp, ...claims })).toString('base64url');
     return `${header}.${payload}.sig`;
 }
 describe('updateSession', () => {
@@ -31,6 +32,13 @@ describe('updateSession', () => {
         const { default: updateSession } = await import('./update_session');
         const req = makeTestRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: 'not.valid.jwt' },
+        });
+        await updateSession(req, NextResponse.next(), 'en');
+    });
+    bench('valid session, unverified email: decodeJwtPayload + verifyEmailPath redirect', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const req = makeTestRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: makeJwt(Date.now() / 1000 + 3600, { email_verified: false }) },
         });
         await updateSession(req, NextResponse.next(), 'en');
     });

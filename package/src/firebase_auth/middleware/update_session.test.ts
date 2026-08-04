@@ -181,6 +181,173 @@ describe('updateSession', () => {
         expect(res).toBe(base);
     });
 
+    // Reproduces the reported ping-pong: the session cookie's email_verified
+    // claim goes stale until the ID token naturally refreshes, independent
+    // of the user's actual verification state. AuthUserProvider (client)
+    // mirrors the live SDK's emailVerified into the hint cookie on every
+    // auth-state change, so it can disagree with the stale claim sooner
+    // than the claim itself refreshes. Without a forced refresh in that
+    // case, middleware would keep bouncing a live-verified user to
+    // verifyEmailPath forever.
+    it('force-refreshes and passes through when the hint cookie disagrees with a stale unverified claim, and the refresh confirms verified', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const freshToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: freshToken, refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: {
+                __fa_session__: staleToken,
+                __fa_refresh_token__: 'old-refresh-token',
+                __fa_email_verified_hint__: 'true',
+            },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(fetchMock).toHaveBeenCalled();
+        expect(res).toBe(base);
+        expect(res.cookies.get('__fa_session__')?.value).toBe(freshToken);
+        expect(res.cookies.get('__fa_refresh_token__')?.value).toBe('new-refresh-token');
+    });
+
+    it('redirects to verifyEmailPath when the hint disagrees but a forced refresh confirms the claim is still unverified', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const freshToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: freshToken, refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: {
+                __fa_session__: staleToken,
+                __fa_refresh_token__: 'old-refresh-token',
+                __fa_email_verified_hint__: 'true',
+            },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(fetchMock).toHaveBeenCalled();
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/verify-email');
+    });
+
+    it('trusts the claim without refreshing when there is no hint cookie at all', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: staleToken, __fa_refresh_token__: 'old-refresh-token' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/verify-email');
+    });
+
+    it('trusts the claim without refreshing when the hint cookie agrees (also unverified)', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: {
+                __fa_session__: staleToken,
+                __fa_refresh_token__: 'old-refresh-token',
+                __fa_email_verified_hint__: 'false',
+            },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/verify-email');
+    });
+
+    it('redirects to verifyEmailPath when the hint disagrees but there is no refresh token cookie to refresh with', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: staleToken, __fa_email_verified_hint__: 'true' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/verify-email');
+    });
+
+    it('trusts the stale claim when a hint-triggered forced refresh fails transiently', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503 });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: {
+                __fa_session__: staleToken,
+                __fa_refresh_token__: 'old-refresh-token',
+                __fa_email_verified_hint__: 'true',
+            },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/verify-email');
+    });
+
+    it('clears the session and redirects to login when a hint-triggered forced refresh reports the refresh token is invalid', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 400,
+            json: async () => ({ error: { message: 'INVALID_REFRESH_TOKEN' } }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: {
+                __fa_session__: staleToken,
+                __fa_refresh_token__: 'old-refresh-token',
+                __fa_email_verified_hint__: 'true',
+            },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/login');
+        expect(res.cookies.get('__fa_session__')?.value ?? '').toBe('');
+        expect(res.cookies.get('__fa_refresh_token__')?.value ?? '').toBe('');
+    });
+
     it('treats an expired session token as no session', async () => {
         const { default: updateSession } = await import('./update_session');
         const token = makeJwt(Math.floor(Date.now() / 1000) - 3600);

@@ -170,12 +170,10 @@ export default function AuthUserProvider({ initialUser = null, children }) {
     const sendVerificationEmail = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();
         const user = auth.currentUser;
-        console.log('[firebase_auth] sendVerificationEmail called, user=', user?.uid, 'emailVerified=', user?.emailVerified);
         if (!user)
             return;
         const { sendEmailVerification } = await getFirebaseAuthModule();
         await sendEmailVerification(user);
-        console.log('[firebase_auth] sendVerificationEmail sent to', user.email);
     }, []);
     const logout = useCallback(async () => {
         try {

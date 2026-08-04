@@ -12,9 +12,7 @@ const CLOCK_SKEW_MARGIN_MS = 60 * 1000;
 function decodeJwtPayload(token) {
     try {
         const payload = token.split('.')[1];
-        const decoded = JSON.parse(atob(payload.replace(/[-_]/g, (c) => c === '-' ? '+' : '/')));
-        console.log('[firebase_auth] email_verified=', decoded.email_verified);
-        return decoded;
+        return JSON.parse(atob(payload.replace(/[-_]/g, (c) => c === '-' ? '+' : '/')));
     }
     catch {
         return null;
@@ -195,12 +193,9 @@ export default async function updateSession(request, baseResponse, locale) {
         token = undefined;
     }
     if (!token) {
-        console.log('[firebase_auth] 1111');
         const refreshToken = request.cookies.get(refreshTokenCookieName)?.value;
         if (refreshToken) {
-            console.log('[firebase_auth] 2222');
             const result = await refreshIdToken(fa.apiKey, refreshToken);
-            console.log('[firebase_auth] 3333');
             if (result.status === 'refreshed') {
                 refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken };
                 token = refreshedToken.idToken;
@@ -219,6 +214,7 @@ export default async function updateSession(request, baseResponse, locale) {
     const hasSession = !!token;
     let response;
     const isVerifyEmailPage = !!fa.verifyEmailPath && path === fa.verifyEmailPath;
+    console.log('[firebase_auth][debug] rawPath=', rawPath, 'path=', path, 'isVerifyEmailPage=', isVerifyEmailPage, 'isAuthPage=', isAuthPage, 'hasSession=', hasSession, 'refreshWasTransientFailure=', refreshWasTransientFailure, 'clearInvalidSession=', clearInvalidSession, 'token email_verified=', token ? decodeJwtPayload(token)?.email_verified : undefined);
     if (refreshWasTransientFailure) {
         // Couldn't confirm the session either way — pass through without
         // forcing a redirect in either direction. The next request (or the
@@ -238,6 +234,7 @@ export default async function updateSession(request, baseResponse, locale) {
     else {
         response = baseResponse;
     }
+    console.log('[firebase_auth][debug] decision: status=', response.status, 'location=', response.headers.get('location'));
     if (clearInvalidSession) {
         response.cookies.delete(sessionCookieName);
         response.cookies.delete(refreshTokenCookieName);

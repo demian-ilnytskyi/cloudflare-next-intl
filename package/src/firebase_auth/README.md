@@ -19,9 +19,14 @@ unexpectedly.
 - `middleware/update_session.ts` — refreshes the session cookie and drives
   the guest/auth-page/unverified-email redirects (`redirectAuthPath` /
   `homePath` / `verifyEmailPath`, the last checked via the session token's
-  `email_verified` claim, skipped when unset); called automatically by
-  `../config/middleware.ts`'s default handler, not meant to be invoked
-  directly by consumers.
+  `email_verified` claim, skipped when unset). That claim is only as fresh
+  as the last ID-token mint (up to ~1hr stale); a client-written
+  `emailVerifiedHintCookieName` cookie (default `__fa_email_verified_hint__`,
+  set by `AuthUserProvider` on every auth-state change) lets the middleware
+  detect when the claim is likely stale and force one refresh before
+  trusting it, without paying a refresh on every request for a genuinely
+  unverified user. Called automatically by `../config/middleware.ts`'s
+  default handler, not meant to be invoked directly by consumers.
 - `error_messages/` — `firebase_auth_error_helper.ts` maps Firebase error
   codes to user-facing strings; `default_messages.en.ts` is the default set,
   overridable via `AuthActionMessages`.

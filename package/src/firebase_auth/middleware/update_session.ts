@@ -3,6 +3,13 @@ import config from '@intl-config';
 
 export const defaultSessionCookieName = '__fa_session__';
 export const defaultRefreshTokenCookieName = '__fa_refresh_token__';
+// Non-httpOnly: written by AuthUserProvider (client) every time it observes
+// the live Firebase user's emailVerified state, so the middleware can tell
+// "the client already agrees with this claim" (no refresh needed) apart
+// from "the client last observed something different" (claim may be stale
+// — force one refresh). Readable client-side is fine: it carries no secret,
+// only a boolean mirror of a claim already inside the session JWT.
+export const defaultEmailVerifiedHintCookieName = '__fa_email_verified_hint__';
 
 const DEFAULT_SESSION_MAX_AGE = 60 * 60 * 24 * 5;
 const DEFAULT_REFRESH_MAX_AGE = 60 * 60 * 24 * 365;
@@ -180,6 +187,7 @@ export default async function updateSession(
 
     const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
     const refreshTokenCookieName = fa.refreshTokenCookieName ?? defaultRefreshTokenCookieName;
+    const emailVerifiedHintCookieName = fa.emailVerifiedHintCookieName ?? defaultEmailVerifiedHintCookieName;
 
     const rawPath = request.nextUrl.pathname;
     const requestPrefix = `/${locale}`;
@@ -237,18 +245,61 @@ export default async function updateSession(
 
     const isVerifyEmailPage = !!fa.verifyEmailPath && path === fa.verifyEmailPath;
 
+    // The session cookie's `email_verified` claim is only as fresh as the
+    // last ID-token mint — it does NOT update the moment a user clicks an
+    // emailed verification link, only once the token naturally refreshes
+    // (up to ~1hr later). AuthUserProvider (client) mirrors the live SDK
+    // state into `emailVerifiedHintCookieName` on every auth-state change,
+    // so it reflects verification status sooner than the session JWT does.
+    // If that hint disagrees with the stale claim, something changed since
+    // this claim was minted — force one refresh to confirm before
+    // redirecting, so this claim is no staler than a single refresh
+    // round-trip instead of up to an hour. If the hint AGREES with the
+    // claim (or is absent, e.g. first request before the client has run),
+    // trust the claim as-is — no extra network call, so a genuinely
+    // unverified user doesn't pay a refresh on every single request.
+    let unverifiedEmail = false;
+    if (fa.verifyEmailPath && !isVerifyEmailPage && hasSession && decodeJwtPayload(token!)?.email_verified === false) {
+        const hint = request.cookies.get(emailVerifiedHintCookieName)?.value;
+        const hintDisagrees = hint === 'true';
+        if (hintDisagrees && !refreshedToken) {
+            const refreshToken = request.cookies.get(refreshTokenCookieName)?.value;
+            if (refreshToken) {
+                const result = await refreshIdToken(fa.apiKey, refreshToken);
+                if (result.status === 'refreshed') {
+                    refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken };
+                    token = refreshedToken.idToken;
+                    unverifiedEmail = decodeJwtPayload(token)?.email_verified === false;
+                } else if (result.status === 'invalid') {
+                    clearInvalidSession = true;
+                } else {
+                    // Transient failure — can't confirm the live claim, fall
+                    // back to trusting the (possibly stale) existing claim
+                    // rather than blocking the request.
+                    unverifiedEmail = true;
+                }
+            } else {
+                // No refresh token to re-check with — trust the existing claim.
+                unverifiedEmail = true;
+            }
+        } else {
+            // Hint agrees (or is absent) — no reason to distrust the claim.
+            unverifiedEmail = true;
+        }
+    }
+
     if (refreshWasTransientFailure) {
         // Couldn't confirm the session either way — pass through without
         // forcing a redirect in either direction. The next request (or the
         // client SDK's own session, independent of these cookies) gets a
         // chance to resolve this correctly instead of guessing wrong.
         response = baseResponse;
-    } else if (!hasSession) {
+    } else if (!hasSession || clearInvalidSession) {
         response = isAuthPage ? baseResponse : buildRedirect(baseResponse, localeUrl(fa.redirectAuthPath));
     } else if (isAuthPage) {
         response = buildRedirect(baseResponse, localeUrl(fa.homePath));
-    } else if (fa.verifyEmailPath && !isVerifyEmailPage && token && decodeJwtPayload(token)?.email_verified === false) {
-        response = buildRedirect(baseResponse, localeUrl(fa.verifyEmailPath));
+    } else if (unverifiedEmail) {
+        response = buildRedirect(baseResponse, localeUrl(fa.verifyEmailPath!));
     } else {
         response = baseResponse;
     }

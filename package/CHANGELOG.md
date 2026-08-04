@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.9] - 2026-08-04
+
+### Fixed
+
+- `update_session.ts`'s `verifyEmailPath` redirect (added in 0.6.8) could infinite-loop: the session cookie's `email_verified` claim only updates when the ID token naturally refreshes (up to ~1hr), so a consumer page doing its own live verification check (e.g. via `getAuthUser()`, fresh every request) could already see the email as verified while the cookie's claim still said `false`. If that page then redirected a verified user elsewhere, the next request re-read the same stale cookie and bounced right back to `verifyEmailPath` — repeating forever. `AuthUserProvider` (client) now mirrors the live SDK's `emailVerified` state into a new `emailVerifiedHintCookieName` cookie (default `__fa_email_verified_hint__`, non-httpOnly, no secret) on every auth-state change. `update_session.ts` only force-refreshes the ID token before trusting a `false` claim when this hint cookie disagrees with it — a sign the claim may be stale. When the hint agrees (including the common case of a genuinely, persistently unverified user) or is absent, the claim is trusted as-is with no extra network call, so this fix does not add a refresh on every request for unverified users.
+
 ## [0.6.8] - 2026-08-04
 
 ### Fixed
