@@ -108,7 +108,6 @@ export default async function intlMiddleware(request, options) {
                 request,
             });
         }
-        console.log('[intlMiddleware][debug] pathname=', pathname, 'urlLocale=', urlLocale, 'effectiveLocale=', effectiveLocaleForRequest, 'isRedirect=', isRedirect, 'status=', response.status, 'location=', response.headers.get('location'));
         if (options?.middlewareHandler && (!isRedirect || options.runHandlerOnRedirect)) {
             const customResponse = await options.middlewareHandler(effectiveLocaleForRequest, rewriteUrl, redirectUrl);
             if (customResponse) {

@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.11] - 2026-08-05
+
+### Fixed
+
+- Firebase's `reload(user)` can report `emailVerified: true` from the profile API before Google's Secure Token API has propagated that same change into freshly-minted ID tokens — a real, observed case where a user verified via an emailed link (out-of-band, in a separate tab) still triggered `verifyEmailPath` redirect loops even after the 0.6.9/0.6.10 hint-cookie fix, because `AuthUserProvider`'s `reloadUser()` wrote a session cookie whose `email_verified` claim was still stuck `false` despite the reload already confirming `true`. `reloadUser` now compares the freshly-minted token's `iat` (issued-at) against the cookie it's about to replace, and retries `getIdToken(true)` up to 3 times (with a short wait) until it gets a token that's actually newer, before writing the session cookie — instead of trusting whatever `getIdToken(true)` returns on the first call.
+
+### Changed
+
+- Extracted `decodeJwtPayload` (previously private to `update_session.ts`) into its own isomorphic `src/firebase_auth/decode_jwt_payload.ts`, now shared by both `update_session.ts` (Edge middleware) and the new retry logic in `auth_user_provider.tsx` (client), instead of duplicating the decode logic.
+- `decodeJwtPayload` now extracts `exp`/`iat`/`email_verified` via targeted regex over the decoded JSON text instead of a full `JSON.parse` — ~1.9x faster on a realistic Firebase ID token payload (benchmarked in the new `decode_jwt_payload.bench.ts`), which matters since it runs on every Edge middleware invocation with a session cookie. Safe only because these three claims are top-level, standard JWT/Firebase registered claims that Firebase's ID tokens never nest under another key; documented directly in the function's doc comment and covered by a test.
+
 ## [0.6.10] - 2026-08-04
 
 ### Changed

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import config from '@intl-config';
+import decodeJwtPayload from '../decode_jwt_payload';
 
 export const defaultSessionCookieName = '__fa_session__';
 export const defaultRefreshTokenCookieName = '__fa_refresh_token__';
@@ -19,15 +20,6 @@ const DEFAULT_REFRESH_MAX_AGE = 60 * 60 * 24 * 365;
 // time can hand a client a token that dies moments after this check, forcing
 // an extra round-trip on the very next request.
 const CLOCK_SKEW_MARGIN_MS = 60 * 1000;
-
-function decodeJwtPayload(token: string): { exp?: number; email_verified?: boolean } | null {
-    try {
-        const payload = token.split('.')[1];
-        return JSON.parse(atob(payload.replace(/[-_]/g, (c) => c === '-' ? '+' : '/'))) as { exp?: number; email_verified?: boolean };
-    } catch {
-        return null;
-    }
-}
 
 function isJwtExpired(token: string): boolean {
     const decoded = decodeJwtPayload(token);

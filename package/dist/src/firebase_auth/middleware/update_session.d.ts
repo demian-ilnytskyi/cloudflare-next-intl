@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 export declare const defaultSessionCookieName = "__fa_session__";
 export declare const defaultRefreshTokenCookieName = "__fa_refresh_token__";
+export declare const defaultEmailVerifiedHintCookieName = "__fa_email_verified_hint__";
 /**
  * Layers Firebase session-cookie validation/refresh and auth redirects onto
  * an already-built middleware response. Called internally by `intlMiddleware`

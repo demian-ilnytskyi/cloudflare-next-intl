@@ -8,7 +8,9 @@ import requireFirebaseAuthConfig from '../require_config';
 import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
 import { setAuthUserCache } from './auth_user_cache';
 import { defaultEmailVerifiedHintCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName } from '../middleware/update_session';
+import decodeJwtPayload from '../decode_jwt_payload';
 import setCookie from '../../client/functions/set_cookie';
+import getCookie from '../../client/functions/get_cookie';
 import clearSessionAction from '../server/clear_session_action';
 import type { AuthUser, SerializedAuthUser } from '../types';
 import type { User } from 'firebase/auth';
@@ -32,6 +34,10 @@ export interface AuthUserContextType {
 export const AuthUserContext = createContext<AuthUserContextType | null>(null);
 function writeSessionCookie(sessionCookieName: string, idToken: string, maxAge: number): void {
     setCookie({ name: sessionCookieName, value: idToken, maxAge });
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function clearSessionCookie(sessionCookieName: string): void {
@@ -76,6 +82,7 @@ async function writeSession(
     refreshTokenCookieName: string,
     refreshTokenMaxAge: number,
     emailVerifiedHintCookieName: string,
+    idToken?: string,
 ): Promise<void> {
     try {
         writeRefreshTokenCookie(refreshTokenCookieName, user, refreshTokenMaxAge);
@@ -83,7 +90,7 @@ async function writeSession(
         console.error('AuthUserProvider: refresh-token cookie sync failed', e);
     }
     writeEmailVerifiedHintCookie(emailVerifiedHintCookieName, user.emailVerified, refreshTokenMaxAge);
-    writeSessionCookie(sessionCookieName, await user.getIdToken(true), maxAge);
+    writeSessionCookie(sessionCookieName, idToken ?? await user.getIdToken(true), maxAge);
 }
 
 /**
@@ -208,7 +215,32 @@ export default function AuthUserProvider({ initialUser = null, children }: {
         try {
             const { reload } = await getFirebaseAuthModule();
             await reload(user);
-            await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName);
+
+            // `getIdToken(true)` can occasionally hand back a token that's
+            // no newer than the one already in the session cookie — a stale
+            // token caught mid-propagation right after `reload()`, rather
+            // than the fresh mint the caller asked for. Comparing `iat`
+            // (issued-at) against the existing cookie's token is a direct
+            // check that the token we're about to write is actually new;
+            // retry a few times if it isn't before giving up and writing
+            // whatever we got. The confirmed token is threaded into
+            // `writeSession` directly — letting it call `getIdToken(true)`
+            // again on its own could re-fetch and land back on a stale
+            // token, undoing this retry entirely.
+            const previousIat = decodeJwtPayload(getCookie(sessionCookieName) ?? '')?.iat;
+            let confirmedToken: string | undefined;
+            if (previousIat !== undefined) {
+                const maxAttempts = 3;
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                    const freshToken = await user.getIdToken(true);
+                    confirmedToken = freshToken;
+                    const freshIat = decodeJwtPayload(freshToken)?.iat;
+                    if (freshIat !== undefined && freshIat > previousIat) break;
+                    if (attempt < maxAttempts - 1) await sleep(500);
+                }
+            }
+
+            await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, confirmedToken);
             setAuthUserCache(user);
             setState({ user, loading: false });
         } catch (e) {

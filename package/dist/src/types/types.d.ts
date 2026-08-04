@@ -457,6 +457,8 @@ export interface FirebaseAuthRoutingConfig {
     sessionCookieName?: string;
     /** Refresh-token cookie name. Defaults to `'__fa_refresh_token__'`. Override this if your app already uses a different name for its Firebase refresh-token cookie. */
     refreshTokenCookieName?: string;
+    /** Email-verified hint cookie name. Defaults to `'__fa_email_verified_hint__'`. Client-written, non-httpOnly; lets the middleware avoid an unnecessary token refresh when its view already matches the client's. */
+    emailVerifiedHintCookieName?: string;
 }
 export interface CookieAttributes {
     /**

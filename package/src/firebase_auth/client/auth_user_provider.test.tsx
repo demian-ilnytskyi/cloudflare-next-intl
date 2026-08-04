@@ -73,6 +73,12 @@ function makeUser(overrides: Partial<{ uid: string; emailVerified: boolean; getI
     };
 }
 
+function makeJwt(iat: number, claims: Record<string, unknown> = {}): string {
+    const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({ iat, ...claims })).toString('base64url');
+    return `${header}.${payload}.sig`;
+}
+
 function clearAllCookies() {
     document.cookie.split(';').forEach((c) => {
         const name = c.split('=')[0]?.trim();
@@ -293,6 +299,66 @@ describe('AuthUserProvider', () => {
         await flush();
         await expect(ctxValue!.reloadUser()).resolves.toBeUndefined();
         expect(console.error).toHaveBeenCalledWith('AuthUserProvider: reloadUser failed', expect.any(Error));
+    });
+
+    it('reloadUser retries getIdToken until it returns a token newer than the existing session cookie', async () => {
+        document.cookie = `__fa_session__=${makeJwt(1000, { email_verified: false })}; path=/`;
+        const staleToken = makeJwt(1000, { email_verified: false });
+        const freshToken = makeJwt(2000, { email_verified: true });
+        const getIdToken = vi.fn()
+            .mockResolvedValueOnce(staleToken)
+            .mockResolvedValue(freshToken);
+        authObj.currentUser = makeUser({ uid: 'reload-user', emailVerified: true, getIdToken });
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await act(async () => { await ctxValue?.reloadUser(); });
+
+        // 1 retry attempt returns the stale token, 1 returns fresh (breaks
+        // the loop). writeSession reuses this confirmed token directly
+        // instead of calling getIdToken(true) again on its own.
+        expect(getIdToken).toHaveBeenCalledTimes(2);
+        expect(document.cookie).toContain(`__fa_session__=${freshToken}`);
+    });
+
+    it('reloadUser writes whatever getIdToken returns after exhausting retries against a stuck stale token', async () => {
+        document.cookie = `__fa_session__=${makeJwt(1000, { email_verified: false })}; path=/`;
+        const staleToken = makeJwt(1000, { email_verified: false });
+        const getIdToken = vi.fn().mockResolvedValue(staleToken);
+        authObj.currentUser = makeUser({ uid: 'reload-user', emailVerified: true, getIdToken });
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await act(async () => { await ctxValue?.reloadUser(); }, { timeout: 5000 });
+
+        expect(getIdToken).toHaveBeenCalledTimes(3);
+        expect(document.cookie).toContain(`__fa_session__=${staleToken}`);
+    }, 10000);
+
+    it('reloadUser skips the retry loop entirely when there is no existing session cookie to compare against', async () => {
+        const getIdToken = vi.fn(async () => 'id-token');
+        authObj.currentUser = makeUser({ uid: 'reload-user', getIdToken });
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await act(async () => { await ctxValue?.reloadUser(); });
+
+        expect(getIdToken).toHaveBeenCalledTimes(1);
     });
 
     it('reloadUser is a no-op when there is no current user', async () => {
