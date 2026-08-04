@@ -17,6 +17,12 @@ All notable changes to this package are documented here. Format follows
 
 - The verified-user-on-`verifyEmailPath` fix in 0.6.12 initially checked `email_verified !== false` in `update_session.ts` (treating a missing/undefined claim as verified), while `AuthUserProvider`'s client effect checks the live SDK's boolean `user.emailVerified` strictly — a token whose claim was merely absent (not explicitly `false`) hit an infinite redirect loop directly on `verifyEmailPath` (browser: "The page isn't redirecting properly"), because the server sent the user home while the client immediately bounced them back. Tightened the server check to require an explicit `email_verified === true`, matching the client's strict boolean check.
 
+## [0.6.14] - 2026-08-05
+
+### Added
+
+- `setIntlConfig` now validates `firebaseAuth.redirectAuthPath`/`homePath`/`verifyEmailPath` and auto-corrects a missing leading `/` (with a `console.warn`), instead of silently accepting it. Every path this package compares against `request.nextUrl.pathname` expects a leading slash; a config like `redirectAuthPath: 'login'` (a real, observed typo) made the path comparison never match, silently disabling that redirect/exemption — most severely, an infinite redirect loop directly on `verifyEmailPath` when it never matched its own page, since none of the "already on this page" exemptions the middleware/client rely on could ever trigger.
+
 ## [0.6.11] - 2026-08-05
 
 ### Fixed

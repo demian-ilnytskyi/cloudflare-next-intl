@@ -450,11 +450,11 @@ export interface FirebaseAuthRoutingConfig {
     appId: string;
     /** Firebase Analytics measurement ID. */
     measurementId?: string;
-    /** Path to redirect signed-out users to, e.g. "/login". */
+    /** Path to redirect signed-out users to, e.g. "/login". Must start with "/" — `setIntlConfig` auto-corrects a missing leading slash with a warning. */
     redirectAuthPath: string;
-    /** Path to redirect signed-in users away from auth pages to, e.g. "/". */
+    /** Path to redirect signed-in users away from auth pages to, e.g. "/". Must start with "/" — `setIntlConfig` auto-corrects a missing leading slash with a warning. */
     homePath: string;
-    /** Path to redirect unverified-email users to. Omit to skip email-verification redirects. */
+    /** Path to redirect unverified-email users to. Omit to skip email-verification redirects. Must start with "/" — `setIntlConfig` auto-corrects a missing leading slash with a warning. */
     verifyEmailPath?: string;
     /** Returns true if the given (locale-stripped) path is an auth page (login/signup/etc). */
     isAuthPath: (path: string) => boolean;
