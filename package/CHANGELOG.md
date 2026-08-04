@@ -22,6 +22,7 @@ All notable changes to this package are documented here. Format follows
 ### Added
 
 - `setIntlConfig` now validates `firebaseAuth.redirectAuthPath`/`homePath`/`verifyEmailPath` and auto-corrects a missing leading `/` (with a `console.warn`), instead of silently accepting it. Every path this package compares against `request.nextUrl.pathname` expects a leading slash; a config like `redirectAuthPath: 'login'` (a real, observed typo) made the path comparison never match, silently disabling that redirect/exemption — most severely, an infinite redirect loop directly on `verifyEmailPath` when it never matched its own page, since none of the "already on this page" exemptions the middleware/client rely on could ever trigger.
+- `firebaseAuth.onSignIn`/`onEmailVerified`/`onSignOut` — optional callbacks on the `firebaseAuth` config, invoked by `AuthUserProvider` exactly once per real auth-lifecycle transition (not on routine token refreshes or repeated observations of an already-settled state). Lets consumer apps hook cleanup/side-effect logic — e.g. clearing per-account `localStorage` state on sign-out — without re-deriving the transition from raw `onIdTokenChanged` callbacks or duplicating `AuthUserProvider`'s own debounce logic. A throwing/rejecting callback is caught and logged via `console.error`; it never blocks cookie sync or navigation. See `docs/superpowers/specs/2026-08-05-auth-lifecycle-callbacks-design.md` for the full design.
 
 ## [0.6.11] - 2026-08-05
 

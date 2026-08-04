@@ -11,7 +11,10 @@ unexpectedly.
 
 - `client/` — browser-side: `firebase_client.ts` (lazy SDK getter),
   `use_auth_user.ts` (`onIdTokenChanged` hook), `auth_user_cache.ts`,
-  `auth_user_provider.tsx` (context provider, syncs session cookie),
+  `auth_user_provider.tsx` (context provider, syncs session cookie, and
+  invokes the optional `onSignIn`/`onEmailVerified`/`onSignOut`
+  `firebaseAuth` config callbacks exactly once per real transition — see
+  their doc comments on `FirebaseAuthRoutingConfig` in `types/types.ts`),
   `auth_actions.ts` (login/signup/forgot-password `useActionState` factories).
 - `server/` — RSC-side: `use_auth_user_server.ts`, `firebase_server.ts`,
   `auth_user_server_provider.tsx` (not used by the default auto-wiring path —

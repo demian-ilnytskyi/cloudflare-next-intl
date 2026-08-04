@@ -108,6 +108,19 @@ export default function AuthUserProvider({ initialUser = null, children }) {
     // login-then-bounce-home flash whenever the two disagreed.
     const consecutiveNulls = useRef(0);
     const [confirmedSignedOut, setConfirmedSignedOut] = useState(initialUser === null);
+    // Whether `onSignIn`/`onSignOut` have already fired for the CURRENT
+    // signed-in/signed-out state — both seeded from `initialUser` so a
+    // callback observing the SAME state `initialUser` already established
+    // (server-resolved, not a fresh client-side transition) does not refire
+    // it. Reset on the opposite transition so the next real occurrence of
+    // this state fires again.
+    const signInCallbackFired = useRef(initialUser !== null);
+    const signOutCallbackFired = useRef(initialUser === null);
+    // Tracks the last-observed `emailVerified` value so `onEmailVerified`
+    // fires exactly once on the false→true edge, not on every later
+    // observation of an already-verified user (both `onIdTokenChanged` and
+    // `reloadUser` can be the first to observe the transition).
+    const emailVerifiedRef = useRef(initialUser?.emailVerified ?? false);
     useEffect(() => {
         const { user, loading } = state;
         if (loading || isWhiteListed)
@@ -168,11 +181,42 @@ export default function AuthUserProvider({ initialUser = null, children }) {
                 if (user) {
                     consecutiveNulls.current = 0;
                     setConfirmedSignedOut(false);
+                    signOutCallbackFired.current = false;
+                    if (!signInCallbackFired.current) {
+                        signInCallbackFired.current = true;
+                        try {
+                            await fa.onSignIn?.(user);
+                        }
+                        catch (e) {
+                            console.error('AuthUserProvider: onSignIn callback failed', e);
+                        }
+                    }
+                    if (!emailVerifiedRef.current && user.emailVerified) {
+                        emailVerifiedRef.current = true;
+                        try {
+                            await fa.onEmailVerified?.(user);
+                        }
+                        catch (e) {
+                            console.error('AuthUserProvider: onEmailVerified callback failed', e);
+                        }
+                    }
+                    else {
+                        emailVerifiedRef.current = user.emailVerified;
+                    }
                 }
                 else {
                     consecutiveNulls.current += 1;
-                    if (consecutiveNulls.current >= 2)
+                    signInCallbackFired.current = false;
+                    if (consecutiveNulls.current >= 2 && !signOutCallbackFired.current) {
                         setConfirmedSignedOut(true);
+                        signOutCallbackFired.current = true;
+                        try {
+                            await fa.onSignOut?.();
+                        }
+                        catch (e) {
+                            console.error('AuthUserProvider: onSignOut callback failed', e);
+                        }
+                    }
                 }
                 const flipped = previous !== undefined && previous !== isSignedIn;
                 const contradictsPage = previous === undefined && isSignedIn === isAuthPage;
@@ -221,6 +265,18 @@ export default function AuthUserProvider({ initialUser = null, children }) {
                 }
             }
             await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, confirmedToken);
+            if (!emailVerifiedRef.current && user.emailVerified) {
+                emailVerifiedRef.current = true;
+                try {
+                    await fa.onEmailVerified?.(user);
+                }
+                catch (e) {
+                    console.error('AuthUserProvider: onEmailVerified callback failed', e);
+                }
+            }
+            else {
+                emailVerifiedRef.current = user.emailVerified;
+            }
             setAuthUserCache(user);
             setState({ user, loading: false });
         }

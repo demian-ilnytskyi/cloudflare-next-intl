@@ -2,9 +2,14 @@ import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
 /**
  * Defines and type-checks your app's i18n routing config.
  *
- * Identity function at runtime — it exists purely so TypeScript infers
- * `AppLocales`/`AppLocalePrefixMode` from the literal config object you pass
- * in, giving you autocomplete/type errors on `locale` params elsewhere.
+ * Mostly an identity function at runtime — it exists primarily so
+ * TypeScript infers `AppLocales`/`AppLocalePrefixMode` from the literal
+ * config object you pass in, giving you autocomplete/type errors on
+ * `locale` params elsewhere. The one runtime behavior: if `firebaseAuth` is
+ * set, `redirectAuthPath`/`homePath`/`verifyEmailPath` are auto-corrected to
+ * start with `/` (with a console warning) if you forgot it — see
+ * `normalizeFirebaseAuthPaths` above for why that specific typo is worth
+ * guarding against.
  *
  * Export the result from the file referenced by `@intl-config` (see your
  * `next.config`), e.g.:

@@ -180,6 +180,167 @@ describe('AuthUserProvider', () => {
         expect(routerReplace).toHaveBeenCalledWith('/login');
     });
 
+    it('calls onSignIn exactly once on a real sign-in, not on a subsequent token refresh of the same user', async () => {
+        const onSignIn = vi.fn();
+        currentConfig.firebaseAuth!.onSignIn = onSignIn;
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        const user = makeUser();
+        await act(async () => { idTokenListener?.(user); });
+        await flush();
+        expect(onSignIn).toHaveBeenCalledTimes(1);
+        expect(onSignIn).toHaveBeenCalledWith(user);
+
+        await act(async () => { idTokenListener?.(user); });
+        await flush();
+        expect(onSignIn).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call onSignIn when signed out (null callback)', async () => {
+        const onSignIn = vi.fn();
+        currentConfig.firebaseAuth!.onSignIn = onSignIn;
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(null); });
+        await flush();
+        expect(onSignIn).not.toHaveBeenCalled();
+    });
+
+    it('logs and swallows an onSignIn callback that throws, without blocking cookie sync', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const onSignIn = vi.fn(() => { throw new Error('boom'); });
+        currentConfig.firebaseAuth!.onSignIn = onSignIn;
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        const user = makeUser();
+        await act(async () => { idTokenListener?.(user); });
+        await flush();
+        expect(onSignIn).toHaveBeenCalledTimes(1);
+        expect(console.error).toHaveBeenCalledWith('AuthUserProvider: onSignIn callback failed', expect.any(Error));
+        expect(document.cookie).toContain('__fa_session__=id-token');
+    });
+
+    it('calls onSignOut exactly once after sign-out is confirmed (two consecutive nulls), not on the first null', async () => {
+        const onSignOut = vi.fn();
+        currentConfig.firebaseAuth!.onSignOut = onSignOut;
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={makeUser()}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(null); });
+        await flush();
+        expect(onSignOut).not.toHaveBeenCalled();
+        await act(async () => { idTokenListener?.(null); });
+        await flush();
+        expect(onSignOut).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call onSignOut when initialUser was already null (no real transition — already signed out at mount)', async () => {
+        const onSignOut = vi.fn();
+        currentConfig.firebaseAuth!.onSignOut = onSignOut;
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(null); });
+        await flush();
+        expect(onSignOut).not.toHaveBeenCalled();
+    });
+
+    it('logs and swallows an onSignOut callback that throws, without blocking the redirect', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const onSignOut = vi.fn(() => { throw new Error('boom'); });
+        currentConfig.firebaseAuth!.onSignOut = onSignOut;
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={makeUser()}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(null); });
+        await flush();
+        await act(async () => { idTokenListener?.(null); });
+        await flush();
+        expect(onSignOut).toHaveBeenCalledTimes(1);
+        expect(console.error).toHaveBeenCalledWith('AuthUserProvider: onSignOut callback failed', expect.any(Error));
+    });
+
+    it('calls onEmailVerified exactly once on the false→true transition via onIdTokenChanged, not again on a later observation', async () => {
+        const onEmailVerified = vi.fn();
+        currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+
+        const unverifiedUser = makeUser({ emailVerified: false });
+        await act(async () => { idTokenListener?.(unverifiedUser); });
+        await flush();
+        expect(onEmailVerified).not.toHaveBeenCalled();
+
+        const verifiedUser = makeUser({ emailVerified: true });
+        await act(async () => { idTokenListener?.(verifiedUser); });
+        await flush();
+        expect(onEmailVerified).toHaveBeenCalledTimes(1);
+        expect(onEmailVerified).toHaveBeenCalledWith(verifiedUser);
+
+        await act(async () => { idTokenListener?.(verifiedUser); });
+        await flush();
+        expect(onEmailVerified).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call onEmailVerified when the initial user is already verified (no prior unverified observation)', async () => {
+        const onEmailVerified = vi.fn();
+        currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={{ uid: 'x', email: null, emailVerified: true, displayName: null }}>
+            <span>child</span>
+        </AuthUserProvider>);
+        await flush();
+        const verifiedUser = makeUser({ emailVerified: true });
+        await act(async () => { idTokenListener?.(verifiedUser); });
+        await flush();
+        expect(onEmailVerified).not.toHaveBeenCalled();
+    });
+
+    it('calls onEmailVerified exactly once via reloadUser\'s false→true transition', async () => {
+        const onEmailVerified = vi.fn();
+        currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
+        const unverifiedUser = makeUser({ emailVerified: false });
+        authObj.currentUser = unverifiedUser;
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(unverifiedUser); });
+        await flush();
+        expect(onEmailVerified).not.toHaveBeenCalled();
+
+        authObj.currentUser = makeUser({ uid: 'u1', emailVerified: true });
+        await act(async () => { await ctxValue?.reloadUser(); });
+        expect(onEmailVerified).toHaveBeenCalledTimes(1);
+
+        await act(async () => { await ctxValue?.reloadUser(); });
+        expect(onEmailVerified).toHaveBeenCalledTimes(1);
+    });
+
+    it('logs and swallows an onEmailVerified callback that throws, without blocking cookie sync', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const onEmailVerified = vi.fn(() => { throw new Error('boom'); });
+        currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(makeUser({ emailVerified: false })); });
+        await flush();
+        await act(async () => { idTokenListener?.(makeUser({ emailVerified: true })); });
+        await flush();
+        expect(onEmailVerified).toHaveBeenCalledTimes(1);
+        expect(console.error).toHaveBeenCalledWith('AuthUserProvider: onEmailVerified callback failed', expect.any(Error));
+    });
+
     it('redirects immediately on a single null callback when initialUser was already null (server-confirmed signed-out)', async () => {
         const { default: AuthUserProvider } = await import('./auth_user_provider');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);

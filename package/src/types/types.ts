@@ -4,6 +4,7 @@ import type { Videos } from 'next/dist/lib/metadata/types/metadata-types';
 import type { CookieConsentDialogProps } from '../cookie_consent/client/components/cookie_consent_dialog';
 import type { PrivacyPolicyUpdateDialogProps } from '../cookie_consent/client/components/privacy_policy_update_dialog';
 import type { ConsentValue } from '../cookie_consent/types';
+import type { User } from 'firebase/auth';
 
 /**
  * Custom middleware hook, run by `intlMiddleware` for your own logic
@@ -470,6 +471,34 @@ export interface FirebaseAuthRoutingConfig {
     refreshTokenCookieName?: string;
     /** Email-verified hint cookie name. Defaults to `'__fa_email_verified_hint__'`. Client-written, non-httpOnly; lets the middleware avoid an unnecessary token refresh when its view already matches the client's. */
     emailVerifiedHintCookieName?: string;
+    /**
+     * Called once, the moment `AuthUserProvider` observes a real sign-in
+     * (a `null → user` transition) — never on a plain token refresh of an
+     * already-signed-in user. Runs after the session/refresh-token/
+     * email-verified-hint cookies have already been written for this
+     * user, so cookie state is in sync when this fires. A throw/rejection
+     * is caught and logged via `console.error`; it never blocks cookie
+     * sync or navigation.
+     */
+    onSignIn?: (user: User) => void | Promise<void>;
+    /**
+     * Called once, on the `false → true` transition of `user.emailVerified`
+     * — never on a later observation of an already-verified user. Checked
+     * from both `AuthUserProvider`'s `onIdTokenChanged` listener and its
+     * `reloadUser()`, since either can be the first to observe the
+     * transition. A throw/rejection is caught and logged via
+     * `console.error`.
+     */
+    onEmailVerified?: (user: User) => void | Promise<void>;
+    /**
+     * Called once, when sign-out is confirmed — after `AuthUserProvider`'s
+     * existing debounce for transient SDK null-callbacks (two consecutive
+     * `onIdTokenChanged(null)` calls), not on the first, possibly
+     * transient, null. Runs after the session/refresh-token cookies have
+     * already been cleared. A throw/rejection is caught and logged via
+     * `console.error`.
+     */
+    onSignOut?: () => void | Promise<void>;
 }
 
 export interface CookieAttributes {
