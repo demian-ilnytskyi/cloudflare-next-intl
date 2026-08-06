@@ -143,6 +143,36 @@ describe('LocationzationProvider', () => {
         expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
     });
 
+    it('does not call resolveAuthUserAndRedirect when staticSafe is true', async () => {
+        firebaseAuthValue = {};
+        vi.resetModules();
+        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, staticSafe: true, children: <span>child</span> }));
+        expect(resolveAuthUserAndRedirect).not.toHaveBeenCalled();
+        expect(await screen.findByText('child')).toBeInTheDocument();
+    });
+
+    it('warns when staticSafe is true and middlewareEnabled is false', async () => {
+        firebaseAuthValue = { middlewareEnabled: false };
+        vi.resetModules();
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, staticSafe: true, children: <span>child</span> }));
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('staticSafe: true'));
+        warnSpy.mockRestore();
+    });
+
+    it('does not warn when staticSafe is true and middlewareEnabled is not false', async () => {
+        firebaseAuthValue = {};
+        vi.resetModules();
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, staticSafe: true, children: <span>child</span> }));
+        expect(warnSpy).not.toHaveBeenCalled();
+        warnSpy.mockRestore();
+    });
+
     it('does not resolve or render analytics when autoWireAnalytics is false', async () => {
         const getAnalytics = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
         cookieConsentValue = { getAnalytics, autoWireAnalytics: false };
