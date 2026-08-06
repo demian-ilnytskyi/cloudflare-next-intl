@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.16] - 2026-08-07
+
+### Changed
+
+- **Breaking:** `IntlProvider`'s `staticSafe` prop now defaults to `true` (was `false`). Existing `IntlProvider` calls that relied on the implicit default to seed `initialAuthUser`/perform the pre-render auth redirect must now pass `staticSafe: false` explicitly to keep that behavior. Projects using the default middleware wiring (`firebaseAuth.middlewareEnabled !== false`) are unaffected from a security standpoint — the redirect was already redundant with `intlMiddleware`'s `update_session` step — but will see a signed-in user's nav/account UI resolve client-side after mount instead of on first paint unless `staticSafe: false` is set. Projects with `firebaseAuth.middlewareEnabled: false` MUST pass `staticSafe: false` on every `IntlProvider` call, since that component was the only place performing the auth redirect; a `console.warn` fires if this combination is left unset.
+
 ## [0.6.15] - 2026-08-06
 
 ### Added

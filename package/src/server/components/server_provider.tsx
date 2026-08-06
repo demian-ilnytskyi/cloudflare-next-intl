@@ -34,11 +34,12 @@ let authUserServerProviderModule: typeof import("../../firebase_auth/server/auth
  *   to serve from static rendering / ISR — i.e. the caller already knows
  *   the current route never needs a server-resolved auth user (a public
  *   page: marketing, privacy policy, docs, etc). Concretely, setting this
- *   to `true` skips the internal `resolveAuthUserAndRedirect()` call.
+ *   to `true` (the default) skips the internal `resolveAuthUserAndRedirect()`
+ *   call. Pass `staticSafe: false` to opt back into resolving it.
  *
- *   ── Why this call is normally made, and why skipping it is safe ──
- *   When `firebaseAuth` is configured, `IntlProvider` by default calls
- *   `resolveAuthUserAndRedirect()`, which:
+ *   ── Why this call exists, and why skipping it by default is safe ──
+ *   When `firebaseAuth` is configured and `staticSafe: false` is passed,
+ *   `IntlProvider` calls `resolveAuthUserAndRedirect()`, which:
  *     1. Reads the session cookie via `cookies()` and verifies it against
  *        Firebase (server-side, authoritative check for "who is this?").
  *     2. Reads the current pathname via `headers()` (`x-pathname`, set by
@@ -72,22 +73,21 @@ let authUserServerProviderModule: typeof import("../../firebase_auth/server/auth
  *   render before the real user data appears — never wrong/protected
  *   content, since middleware already gated that; just a delayed value.
  *
- *   ── When to use it ──
- *   Set `staticSafe: true` only on `IntlProvider` calls that wrap routes
- *   you know are always public and don't render auth-dependent UI above
- *   the fold (or can tolerate that UI appearing a moment late). Leave the
- *   default (`false`) for any `IntlProvider` call that also wraps
- *   protected routes or routes where the auth-state flash would be
- *   visually jarring (dashboards, account pages, anything showing
- *   `initialAuthUser`-derived content immediately). If you need
+ *   ── When to opt out (staticSafe: false) ──
+ *   Pass `staticSafe: false` on `IntlProvider` calls that wrap protected
+ *   routes or routes where the auth-state flash would be visually jarring
+ *   (dashboards, account pages, anything showing `initialAuthUser`-derived
+ *   content immediately). Leave the default (`true`) for routes you know
+ *   are always public and don't render auth-dependent UI above the fold
+ *   (or can tolerate that UI appearing a moment late). If you need
  *   different behavior for public vs protected routes within the SAME
  *   app, render `IntlProvider` twice — once per layout/route-group, each
  *   with its own `staticSafe` value — rather than picking one value for
  *   the whole app. If `firebaseAuth.middlewareEnabled` is explicitly
- *   `false` (middleware auth disabled), do NOT set `staticSafe: true` —
+ *   `false` (middleware auth disabled), always pass `staticSafe: false` —
  *   this component becomes the ONLY place performing the auth redirect,
- *   so skipping it there really does remove the security check, not just
- *   the flash.
+ *   so leaving the `true` default there really does remove the security
+ *   check, not just the flash.
  *
  * @example
  * ```tsx
@@ -103,7 +103,7 @@ let authUserServerProviderModule: typeof import("../../firebase_auth/server/auth
  * }
  * ```
  */
-export default async function LocationzationProvider({ language, messages, staticSafe = false, children }: { language: string, messages?: TranslationObject, staticSafe?: boolean, children: React.ReactNode }): Promise<Component> {
+export default async function LocationzationProvider({ language, messages, staticSafe = true, children }: { language: string, messages?: TranslationObject, staticSafe?: boolean, children: React.ReactNode }): Promise<Component> {
     if (!localesSet.has(language)) {
         const { notFound } = await import("next/navigation");
         notFound();

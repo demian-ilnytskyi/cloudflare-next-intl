@@ -89,7 +89,7 @@ describe('LocationzationProvider', () => {
         vi.resetModules();
         const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider');
         const { default: LocationzationProvider } = await import('./server_provider');
-        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, staticSafe: false, children: <span>child</span> }));
         expect(resolveAuthUserAndRedirect).toHaveBeenCalled();
         const authProvider = await screen.findByTestId('auth-provider');
         expect(authProvider).toBeInTheDocument();
@@ -141,6 +141,16 @@ describe('LocationzationProvider', () => {
         expect(onError).toHaveBeenCalledWith(expect.objectContaining({ error: boom, classOrMethodName: 'getAnalytics' }));
         await screen.findByTestId('cookie-consent-provider');
         expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
+    });
+
+    it('does not call resolveAuthUserAndRedirect when staticSafe is omitted (defaults to true)', async () => {
+        firebaseAuthValue = {};
+        vi.resetModules();
+        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider');
+        render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
+        expect(resolveAuthUserAndRedirect).not.toHaveBeenCalled();
+        expect(await screen.findByText('child')).toBeInTheDocument();
     });
 
     it('does not call resolveAuthUserAndRedirect when staticSafe is true', async () => {
