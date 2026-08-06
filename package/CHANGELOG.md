@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.15] - 2026-08-06
+
+### Added
+
+- `IntlProvider` now accepts a `staticSafe` prop (default `false`, non-breaking). When `firebaseAuth` is configured, `IntlProvider` normally calls `resolveAuthUserAndRedirect()`, which reads `cookies()` (session cookie) and `headers()` (`x-pathname`) to seed `initialAuthUser` and perform a pre-render auth redirect. Both are request-scoped APIs, so calling either forces the ENTIRE subtree under that `IntlProvider` to render dynamically — no static rendering, no ISR — for every route nested under it, including routes listed in `firebaseAuth.whiteListPaths`, since the whitelist check itself only runs after `cookies()`/`headers()` are already read. On projects using the default middleware wiring (`firebaseAuth.middlewareEnabled !== false`), that redirect is redundant: `intlMiddleware`'s `update_session` step already validates the session JWT (refreshing it if needed) and performs the exact same guest/auth-page redirects, authoritatively, before `IntlProvider` ever runs. Setting `staticSafe: true` skips the redundant call, letting that route render statically/ISR again; the only cost is `initialAuthUser` no longer being seeded server-side, so a signed-in user may see the route's logged-out-state UI for one client render before `AuthUserProvider` catches up — never wrong/protected content, since middleware already gated that. Passing `staticSafe: true` while `firebaseAuth.middlewareEnabled` is explicitly `false` logs a `console.warn`, since in that configuration `IntlProvider`'s own redirect is the *only* auth check in the app and skipping it is a real security regression, not just a render-flash tradeoff. See the `staticSafe` JSDoc on `IntlProvider` (`package/src/server/components/server_provider.tsx`) for full guidance on when to use it.
+
 ## [0.6.12] - 2026-08-05
 
 ### Fixed
