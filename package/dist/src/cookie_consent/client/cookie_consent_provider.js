@@ -65,19 +65,18 @@ export default function CookieConsentProvider({ requiresConsent = true, children
     const [isMounted, setIsMounted] = useState(false);
     const pathname = usePathname();
     useEffect(() => {
-        // `undefined` (no cookie at all) means a genuine first visit — auto-
-        // accept applies. `'null'` (explicitly stored by `setConsent(null)`,
-        // e.g. a "cookie settings" button) means the visitor already decided
-        // once and is being asked to re-decide, so it must NOT auto-accept
-        // again — otherwise it'd immediately flip back to `true` whenever
-        // `requiresConsent` is `false` (e.g. always in dev, see
-        // `resolveRequiresConsent`), reopening then instantly re-closing the
-        // dialog on the next navigation/refresh.
+        // `consent` reflects only what the visitor actually decided — never
+        // auto-set to `true` just because `requiresConsent` is `false`.
+        // Whether the banner shows / analytics unlock for a not-required
+        // visitor is `requiresConsent`'s job (see `CookieConsentDialog`/
+        // `CookieConsentAnalytics`), not something baked into `consent`
+        // itself; otherwise there's no way to tell "not required" apart
+        // from "explicitly accepted" (e.g. the settings button in the nav
+        // bar, which only renders once consent has been decided).
         const rawConsent = getCookie(consentCookieName);
         const storedConsent = parseConsent(rawConsent);
         const isFirstVisit = rawConsent === null;
-        const autoAccepted = isFirstVisit && !requiresConsent;
-        setConsentState(autoAccepted ? true : storedConsent);
+        setConsentState(storedConsent);
         setIsMounted(true);
         if (isFirstVisit || !policyDate)
             return;
@@ -121,6 +120,6 @@ export default function CookieConsentProvider({ requiresConsent = true, children
             acknowledgePrivacyPolicyUpdate();
         }
     }, [pathname, privacyPolicyUpdated, privacyPolicyPath, acknowledgePrivacyPolicyUpdate]);
-    const contextValue = useMemo(() => ({ consent, privacyPolicyUpdated, isMounted, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath }), [consent, privacyPolicyUpdated, isMounted, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath]);
+    const contextValue = useMemo(() => ({ consent, requiresConsent, privacyPolicyUpdated, isMounted, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath }), [consent, requiresConsent, privacyPolicyUpdated, isMounted, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath]);
     return (_jsx(CookieConsentContext.Provider, { value: contextValue, children: children }));
 }

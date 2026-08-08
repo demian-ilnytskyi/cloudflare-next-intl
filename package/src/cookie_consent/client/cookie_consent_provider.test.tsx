@@ -195,17 +195,17 @@ describe('CookieConsentProvider', () => {
         expect(cookies.get('__cookie_consent_key__')).toBe('null');
     });
 
-    it('setConsent(null) does not get re-seeded to true on remount when requiresConsent is false', async () => {
+    it('setConsent(null) stays null on remount when requiresConsent is false', async () => {
         cookies.set('__cookie_consent_key__', 'null');
         const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
         render(<CookieConsentProvider requiresConsent={false}><Consumer /></CookieConsentProvider>);
         expect(screen.getByTestId('consent')).toHaveTextContent('null');
     });
 
-    it('seeds consent to true for a first-time visitor when requiresConsent is false', async () => {
+    it('leaves consent null for a first-time visitor when requiresConsent is false (not required, not decided)', async () => {
         const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
         render(<CookieConsentProvider requiresConsent={false}><Consumer /></CookieConsentProvider>);
-        expect(screen.getByTestId('consent')).toHaveTextContent('true');
+        expect(screen.getByTestId('consent')).toHaveTextContent('null');
         expect(cookies.has('__cookie_consent_key__')).toBe(false);
     });
 

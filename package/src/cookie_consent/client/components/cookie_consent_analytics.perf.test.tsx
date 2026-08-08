@@ -2,13 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/react';
 
 let consent: boolean | null = true;
+let requiresConsent = true;
 
 vi.mock('../use_cookie_consent', () => ({
-    default: () => ({ consent, setConsent: vi.fn(), privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn() }),
+    default: () => ({ consent, requiresConsent, setConsent: vi.fn(), privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn() }),
 }));
 
 beforeEach(() => {
     consent = true;
+    requiresConsent = true;
 });
 
 afterEach(() => {

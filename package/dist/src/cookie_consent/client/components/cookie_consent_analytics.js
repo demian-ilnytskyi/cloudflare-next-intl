@@ -18,23 +18,24 @@ const ClarityScript = dynamic(() => import('./clarity_script'));
  * `false` — render manually instead if you set `autoWireAnalytics: false`.
  */
 export default function CookieConsentAnalytics({ config }) {
-    const { consent } = useCookieConsent();
+    const { consent, requiresConsent } = useCookieConsent();
+    const granted = consent === true || !requiresConsent;
     useEffect(() => {
-        if (consent === null)
+        if (consent === null && requiresConsent)
             return;
         const w = window;
         if (typeof w.gtag !== 'function')
             return;
-        const state = consent ? 'granted' : 'denied';
+        const state = granted ? 'granted' : 'denied';
         w.gtag('consent', 'update', {
             ad_storage: state,
             ad_user_data: state,
             ad_personalization: state,
             analytics_storage: state,
         });
-    }, [consent]);
+    }, [consent, requiresConsent, granted]);
     const hasGoogle = Boolean(config.googleAnalyticsId || config.googleAdsId || config.googleAdSenseId);
-    return (_jsxs(_Fragment, { children: [hasGoogle && (_jsx("script", { id: "cookie-consent-google-consent-mode", dangerouslySetInnerHTML: { __html: googleConsentModeBootstrapScript(config) } })), consent === true && config.cloudflareBeaconToken && (_jsx("script", { defer: true, src: "https://static.cloudflareinsights.com/beacon.min.js", "data-cf-beacon": config.cloudflareBeaconToken })), consent === true && config.clarityProjectId && _jsx(ClarityScript, { projectId: config.clarityProjectId })] }));
+    return (_jsxs(_Fragment, { children: [hasGoogle && (_jsx("script", { id: "cookie-consent-google-consent-mode", dangerouslySetInnerHTML: { __html: googleConsentModeBootstrapScript(config) } })), granted && config.cloudflareBeaconToken && (_jsx("script", { defer: true, src: "https://static.cloudflareinsights.com/beacon.min.js", "data-cf-beacon": config.cloudflareBeaconToken })), granted && config.clarityProjectId && _jsx(ClarityScript, { projectId: config.clarityProjectId })] }));
 }
 /**
  * Denies storage by default and loads the configured Google tags; the

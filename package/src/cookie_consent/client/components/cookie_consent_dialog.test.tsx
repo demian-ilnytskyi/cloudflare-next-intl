@@ -4,12 +4,13 @@ import CookieConsentDialog from './cookie_consent_dialog';
 
 const setConsent = vi.fn();
 let consent: boolean | null = null;
+let requiresConsent = true;
 let isMounted = true;
 let privacyPolicyPath: string | false = '/privacy-policy';
 let locale: string | undefined = undefined;
 
 vi.mock('../use_cookie_consent', () => ({
-    default: () => ({ consent, isMounted, setConsent, privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn(), privacyPolicyPath }),
+    default: () => ({ consent, requiresConsent, isMounted, setConsent, privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn(), privacyPolicyPath }),
 }));
 
 vi.mock('../../../general/cache_variables', () => ({
@@ -24,6 +25,7 @@ vi.mock('./default_privacy_policy_link', () => ({
 describe('CookieConsentDialog', () => {
     beforeEach(() => {
         consent = null;
+        requiresConsent = true;
         isMounted = true;
         privacyPolicyPath = '/privacy-policy';
         locale = undefined;

@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.18] - 2026-08-08
+
+### Fixed
+
+- `CookieConsentProvider` seeded `consent: true` for a first-time visitor whenever `requiresConsent` was `false` (visitor outside `gdprCountries`, or dev mode), instead of leaving it `null`. This conflated "consent not required" with "visitor explicitly accepted," so any UI keyed off `consent !== null` (e.g. a "cookie settings" reset button) incorrectly showed for visitors who never made a choice. `consent` now only ever reflects a real, stored decision. Added `requiresConsent` to `useCookieConsent()`'s return value so consumers can tell "not required" apart from "decided" directly; `CookieConsentDialog` and `CookieConsentAnalytics` now check it explicitly (banner stays hidden and analytics unlock immediately when `requiresConsent` is `false`, same end-user behavior as before — only the underlying `consent` value changed).
+
+**Breaking:** `useCookieConsent()`'s return type gained a required `requiresConsent: boolean` field. If you mock/type this hook's return value directly in tests, add `requiresConsent`.
+
 ## [0.6.17] - 2026-08-07
 
 ### Changed

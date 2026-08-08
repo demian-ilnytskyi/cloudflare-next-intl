@@ -6,6 +6,15 @@ export interface CookieConsentContextType {
     /** Current consent value; `null` until the visitor decides. */
     consent: ConsentValue;
     /**
+     * Resolved server-side from `cookieConsent.getCountryCode`/
+     * `gdprCountries` (see `resolveRequiresConsent`). `false` means the
+     * visitor's country doesn't require consent at all — the default
+     * `CookieConsentDialog` stays hidden and `CookieConsentAnalytics`
+     * unlocks immediately, even while `consent` itself is still `null`
+     * (never decided, since there was nothing to decide).
+     */
+    requiresConsent: boolean;
+    /**
      * `false` until the client has read the stored consent/date cookies once
      * (always `false` during SSR and the first client render, to avoid a
      * hydration mismatch). The default dialog components render nothing

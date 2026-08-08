@@ -21,20 +21,21 @@ const ClarityScript = dynamic(() => import('./clarity_script'));
  * `false` — render manually instead if you set `autoWireAnalytics: false`.
  */
 export default function CookieConsentAnalytics({ config }: { config: CookieConsentAnalyticsConfig }): React.ReactElement | null {
-    const { consent } = useCookieConsent();
+    const { consent, requiresConsent } = useCookieConsent();
+    const granted = consent === true || !requiresConsent;
 
     useEffect(() => {
-        if (consent === null) return;
+        if (consent === null && requiresConsent) return;
         const w = window as unknown as { gtag?: (...args: unknown[]) => void };
         if (typeof w.gtag !== 'function') return;
-        const state = consent ? 'granted' : 'denied';
+        const state = granted ? 'granted' : 'denied';
         w.gtag('consent', 'update', {
             ad_storage: state,
             ad_user_data: state,
             ad_personalization: state,
             analytics_storage: state,
         });
-    }, [consent]);
+    }, [consent, requiresConsent, granted]);
 
     const hasGoogle = Boolean(config.googleAnalyticsId || config.googleAdsId || config.googleAdSenseId);
 
@@ -45,13 +46,13 @@ export default function CookieConsentAnalytics({ config }: { config: CookieConse
                     id="cookie-consent-google-consent-mode"
                     dangerouslySetInnerHTML={{ __html: googleConsentModeBootstrapScript(config) }} />
             )}
-            {consent === true && config.cloudflareBeaconToken && (
+            {granted && config.cloudflareBeaconToken && (
                 <script
                     defer
                     src="https://static.cloudflareinsights.com/beacon.min.js"
                     data-cf-beacon={config.cloudflareBeaconToken} />
             )}
-            {consent === true && config.clarityProjectId && <ClarityScript projectId={config.clarityProjectId} />}
+            {granted && config.clarityProjectId && <ClarityScript projectId={config.clarityProjectId} />}
         </>
     );
 }

@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 import useCookieConsent from "cloudflare-next-intl/useCookieConsent";
 
 export default function ConsentSettingButton({ text }: { text: string }): Component | null {
-    const { consent, isMounted, setConsent } = useCookieConsent();
+    const { consent, requiresConsent, isMounted, setConsent } = useCookieConsent();
 
-    if (!isMounted || consent === null) return null;
+    if (!isMounted || !requiresConsent || consent === null) return null;
 
     return (
         <button

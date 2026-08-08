@@ -4,9 +4,10 @@ import * as React from 'react';
 import CookieConsentAnalytics from './cookie_consent_analytics';
 
 let consent: boolean | null = null;
+let requiresConsent = true;
 
 vi.mock('../use_cookie_consent', () => ({
-    default: () => ({ consent, setConsent: vi.fn(), privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn() }),
+    default: () => ({ consent, requiresConsent, setConsent: vi.fn(), privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn() }),
 }));
 
 vi.mock('next/dynamic', () => ({
@@ -38,6 +39,7 @@ vi.mock('./clarity_script', () => ({
 describe('CookieConsentAnalytics', () => {
     beforeEach(() => {
         consent = null;
+        requiresConsent = true;
         clarityInit.mockClear();
         clarityConsent.mockClear();
         delete (window as unknown as { gtag?: unknown }).gtag;
