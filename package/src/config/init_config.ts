@@ -9,7 +9,14 @@ import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
 // Auto-prepending `/` here fixes the common typo (`'login'` instead of
 // `'/login'`) at the source, for every consumer, instead of requiring each
 // one to notice and fix it themselves.
-const FIREBASE_AUTH_PATH_FIELDS = ['redirectAuthPath', 'homePath', 'verifyEmailPath'] as const;
+const FIREBASE_AUTH_PATH_FIELDS = [
+    'redirectAuthPath',
+    'homePath',
+    'verifyEmailPath',
+    'resetPasswordPath',
+    'recoverEmailPath',
+    'actionLinkPath',
+] as const;
 
 function normalizeFirebaseAuthPaths<T extends RoutingConfig<Locales, LocalePrefixMode>>(config: T): T {
     const fa = config.firebaseAuth;

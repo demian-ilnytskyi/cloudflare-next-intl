@@ -724,4 +724,113 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(fakeCache.put).not.toHaveBeenCalled();
     });
+
+    describe('emailed action-link forwarding (single Firebase action URL)', () => {
+
+        it('with actionLinkPath set, ignores ?mode= on a different path', async () => {
+            currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
+            currentConfig.firebaseAuth!.whiteListPaths = ['/pricing'];
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/pricing?mode=resetPassword&oobCode=a');
+            const base = NextResponse.next();
+            const res = await updateSession(req, base, 'en');
+            expect(res).toBe(base);
+        });
+
+        it('with actionLinkPath set, forwards ?mode= arriving on that exact path', async () => {
+            currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/auth/action?mode=resetPassword&oobCode=a');
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/reset-password?mode=resetPassword&oobCode=a',
+            );
+        });
+
+        it('forwards ?mode=resetPassword to the default reset-password path, preserving the query', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/?mode=resetPassword&oobCode=abc123');
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.status).toBe(307);
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/reset-password?mode=resetPassword&oobCode=abc123',
+            );
+        });
+
+        it('forwards ?mode=verifyEmail to verifyEmailPath', async () => {
+            currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/?mode=verifyEmail&oobCode=xyz');
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/verify-email?mode=verifyEmail&oobCode=xyz',
+            );
+        });
+
+        it('forwards before the guest redirect, so a signed-out user keeps their oobCode', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/dashboard?mode=resetPassword&oobCode=abc');
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toContain('/reset-password');
+            expect(res.headers.get('location')).not.toContain('/login');
+        });
+
+        it('honours resetPasswordPath / recoverEmailPath overrides', async () => {
+            currentConfig.firebaseAuth!.resetPasswordPath = '/new-password';
+            currentConfig.firebaseAuth!.recoverEmailPath = '/recover';
+            const { default: updateSession } = await import('./update_session');
+
+            const reset = await updateSession(
+                makeRequest('https://example.com/en/?mode=resetPassword&oobCode=a'), NextResponse.next(), 'en');
+            expect(reset.headers.get('location')).toContain('/new-password');
+
+            const recover = await updateSession(
+                makeRequest('https://example.com/en/?mode=recoverEmail&oobCode=b'), NextResponse.next(), 'en');
+            expect(recover.headers.get('location')).toContain('/recover');
+        });
+
+        it('lets actionModePaths handle a mode with no dedicated config field', async () => {
+            currentConfig.firebaseAuth!.actionModePaths = { verifyAndChangeEmail: '/change-email' };
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/?mode=verifyAndChangeEmail&oobCode=c');
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toContain('/change-email');
+        });
+
+        it('does not loop when the request is already on the destination path', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/reset-password?mode=resetPassword&oobCode=a');
+            const base = NextResponse.next();
+            const res = await updateSession(req, base, 'en');
+            expect(res.headers.get('location')).not.toContain('/reset-password?');
+        });
+
+        it('ignores an unknown mode', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/pricing?mode=somethingElse');
+            currentConfig.firebaseAuth!.whiteListPaths = ['/pricing'];
+            const base = NextResponse.next();
+            const res = await updateSession(req, base, 'en');
+            expect(res).toBe(base);
+        });
+
+        it('skips the forward entirely when actionLinkRedirectEnabled is false', async () => {
+            currentConfig.firebaseAuth!.actionLinkRedirectEnabled = false;
+            currentConfig.firebaseAuth!.whiteListPaths = ['/pricing'];
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/pricing?mode=resetPassword&oobCode=a');
+            const base = NextResponse.next();
+            const res = await updateSession(req, base, 'en');
+            expect(res).toBe(base);
+        });
+
+        it('keeps the locale prefix for a non-default locale', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/de/?mode=resetPassword&oobCode=a');
+            const res = await updateSession(req, NextResponse.next(), 'de');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/de/reset-password?mode=resetPassword&oobCode=a',
+            );
+        });
+    });
 });

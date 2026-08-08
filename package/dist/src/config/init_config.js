@@ -7,7 +7,14 @@
 // Auto-prepending `/` here fixes the common typo (`'login'` instead of
 // `'/login'`) at the source, for every consumer, instead of requiring each
 // one to notice and fix it themselves.
-const FIREBASE_AUTH_PATH_FIELDS = ['redirectAuthPath', 'homePath', 'verifyEmailPath'];
+const FIREBASE_AUTH_PATH_FIELDS = [
+    'redirectAuthPath',
+    'homePath',
+    'verifyEmailPath',
+    'resetPasswordPath',
+    'recoverEmailPath',
+    'actionLinkPath',
+];
 function normalizeFirebaseAuthPaths(config) {
     const fa = config.firebaseAuth;
     if (!fa)

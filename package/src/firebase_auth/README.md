@@ -30,6 +30,17 @@ unexpectedly.
   trusting it, without paying a refresh on every request for a genuinely
   unverified user. Called automatically by `../config/middleware.ts`'s
   default handler, not meant to be invoked directly by consumers.
+
+  Also forwards emailed Firebase action links: Firebase Console exposes only
+  ONE project-wide action URL, so every template (reset/verify/recover)
+  lands there distinguished only by `?mode=`. This runs BEFORE the guest
+  redirect above — a signed-out user following the link must not get bounced
+  to `redirectAuthPath` and lose their `oobCode` — and forwards to
+  `resetPasswordPath` / `verifyEmailPath` / `recoverEmailPath` /
+  `actionModePaths` for the matching mode, preserving the full query string.
+  `actionLinkPath`, if set, restricts this to one exact static path (a
+  Console action URL pinned to a path, e.g. `/auth/action`, instead of the
+  bare domain root); `actionLinkRedirectEnabled: false` turns it off.
 - `error_messages/` — `firebase_auth_error_helper.ts` maps Firebase error
   codes to user-facing strings; `default_messages.en.ts` is the default set,
   overridable via `AuthActionMessages`.

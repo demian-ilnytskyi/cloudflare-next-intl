@@ -10,6 +10,24 @@ export const defaultRefreshTokenCookieName = '__fa_refresh_token__';
 // — force one refresh). Readable client-side is fine: it carries no secret,
 // only a boolean mirror of a claim already inside the session JWT.
 export const defaultEmailVerifiedHintCookieName = '__fa_email_verified_hint__';
+export const defaultResetPasswordPath = '/reset-password';
+/**
+ * Firebase's console exposes ONE project-wide action URL, so every email
+ * template (password reset, email verification, email recovery) lands on that
+ * same URL and distinguishes itself only by `?mode=`. This maps those raw
+ * `mode` values onto the app's own pages so each link reaches the page that
+ * knows how to consume its `oobCode`.
+ */
+function resolveActionModePaths(fa) {
+    const paths = {
+        resetPassword: fa.resetPasswordPath ?? defaultResetPasswordPath,
+    };
+    if (fa.verifyEmailPath)
+        paths.verifyEmail = fa.verifyEmailPath;
+    if (fa.recoverEmailPath)
+        paths.recoverEmail = fa.recoverEmailPath;
+    return { ...paths, ...fa.actionModePaths };
+}
 const DEFAULT_SESSION_MAX_AGE = 60 * 60 * 24 * 5;
 const DEFAULT_REFRESH_MAX_AGE = 60 * 60 * 24 * 365;
 // Refresh slightly before the real expiry — treating a token as expired
@@ -175,6 +193,32 @@ export default async function updateSession(request, baseResponse, locale) {
     }
     const localePrefix = locale === config.defaultLocale ? '' : requestPrefix;
     const localeUrl = (target) => new URL(`${localePrefix}${target === '/' ? '' : target}` || '/', request.url);
+    // Emailed Firebase action links all arrive on the single project-wide
+    // action URL carrying `?mode=<action>&oobCode=...`. Forward them to the
+    // page for that mode BEFORE any auth/whitelist check below: these links
+    // are followed by users who are typically signed OUT (a password reset,
+    // or verification opened in another browser), so letting the guest
+    // redirect run first would bounce them to `redirectAuthPath` and discard
+    // the `oobCode` they came to spend. The whole query string is preserved
+    // so the destination page still receives `oobCode`/`continueUrl`/`lang`.
+    // When `actionLinkPath` is set, only requests to that exact (locale-
+    // stripped) path are eligible — matches a Firebase Console action URL
+    // pinned to one static path (e.g. "https://example.com/auth/action")
+    // rather than the bare domain root.
+    const isEligibleActionPath = !fa.actionLinkPath || path === fa.actionLinkPath;
+    if (fa.actionLinkRedirectEnabled !== false && isEligibleActionPath) {
+        const mode = request.nextUrl.searchParams.get('mode');
+        if (mode) {
+            const target = resolveActionModePaths(fa)[mode];
+            // Skip when already on the destination — the forward sets the same
+            // `?mode=` it matched on, so redirecting again would loop forever.
+            if (target && target !== path) {
+                const url = localeUrl(target);
+                url.search = request.nextUrl.search;
+                return buildRedirect(baseResponse, url);
+            }
+        }
+    }
     const isWhiteListed = fa.whiteListPaths?.includes(path) ?? false;
     if (isWhiteListed)
         return baseResponse;

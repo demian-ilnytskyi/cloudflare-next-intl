@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.19] - 2026-08-08
+
+### Added
+
+- `firebaseAuth` middleware forwarding for emailed Firebase action links. Firebase Console exposes only ONE project-wide action URL, so every email template (password reset, email verification, email recovery) lands on that same URL distinguished only by `?mode=`. `intlMiddleware` now reads that param and forwards the request — query string intact, so `oobCode`/`continueUrl` reach the destination — to a per-mode page, resolved BEFORE any guest/auth redirect so a signed-out user following the link doesn't get bounced to `redirectAuthPath` and lose their code.
+  - `resetPasswordPath` (default `'/reset-password'`) and `recoverEmailPath` (unhandled if omitted) join the existing `verifyEmailPath` as per-mode targets.
+  - `actionModePaths` accepts arbitrary `mode` → path overrides for modes with no dedicated field (e.g. `verifyAndChangeEmail`), or to redirect a known mode elsewhere.
+  - `actionLinkPath` restricts the forward to one exact static path (e.g. `'/auth/action'`), matching a Firebase Console action URL pinned to a path rather than the bare domain root. Omit to match any path carrying `?mode=` (Firebase's bare-domain-root default).
+  - `actionLinkRedirectEnabled: false` disables the forward entirely.
+  - All new path fields (`resetPasswordPath`, `recoverEmailPath`, `actionLinkPath`) get the same leading-`/` auto-correction as `redirectAuthPath`/`homePath`/`verifyEmailPath`.
+
 ## [0.6.18] - 2026-08-08
 
 ### Fixed

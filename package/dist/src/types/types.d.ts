@@ -446,6 +446,48 @@ export interface FirebaseAuthRoutingConfig {
     homePath: string;
     /** Path to redirect unverified-email users to. Omit to skip email-verification redirects. Must start with "/" — `setIntlConfig` auto-corrects a missing leading slash with a warning. */
     verifyEmailPath?: string;
+    /**
+     * Path handling an emailed password-reset link. Firebase allows only ONE
+     * project-wide action URL, so every template lands on the same URL with
+     * a `?mode=` query param; the middleware reads that param and forwards
+     * the request (query string intact, `oobCode` included) to the path for
+     * that mode. Defaults to `'/reset-password'`. Must start with "/" —
+     * `setIntlConfig` auto-corrects a missing leading slash with a warning.
+     */
+    resetPasswordPath?: string;
+    /**
+     * Path handling an emailed `recoverEmail` action link (undo an email
+     * change). Omit to leave that mode unhandled — the request then falls
+     * through to normal routing instead of being forwarded. Must start with
+     * "/" — `setIntlConfig` auto-corrects a missing leading slash with a
+     * warning.
+     */
+    recoverEmailPath?: string;
+    /**
+     * Extra/overriding `?mode=` → path entries for the emailed-action-link
+     * forward described on {@link resetPasswordPath}. Merged over the
+     * defaults derived from `resetPasswordPath`/`verifyEmailPath`/
+     * `recoverEmailPath`, so this is how you handle a mode this config has
+     * no dedicated field for (e.g. `verifyAndChangeEmail`) or point one of
+     * the known modes somewhere else. Keys are raw Firebase `mode` values.
+     */
+    actionModePaths?: Readonly<Record<string, string>>;
+    /**
+     * Set `false` to disable the emailed-action-link forward entirely (see
+     * {@link resetPasswordPath}) and let `?mode=` URLs route normally.
+     * Defaults to `true`.
+     */
+    actionLinkRedirectEnabled?: boolean;
+    /**
+     * Restricts the emailed-action-link forward (see {@link resetPasswordPath})
+     * to this exact static path — set this to whatever path your Firebase
+     * Console "action URL" is pinned to (e.g. `'/auth/action'`) so a `?mode=`
+     * on any other page is left alone instead of being treated as an action
+     * link. Omit to match Firebase's bare-domain-root default: any path
+     * carrying `?mode=` is eligible. Must start with "/" — `setIntlConfig`
+     * auto-corrects a missing leading slash with a warning.
+     */
+    actionLinkPath?: string;
     /** Returns true if the given (locale-stripped) path is an auth page (login/signup/etc). */
     isAuthPath: (path: string) => boolean;
     /** Locale-stripped paths exempt from all auth redirects (e.g. public marketing pages). */
