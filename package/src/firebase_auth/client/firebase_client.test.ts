@@ -147,6 +147,24 @@ describe('getFirebaseAuthClient App Check', () => {
         await getFirebaseAuthClient();
         expect((globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: unknown }).FIREBASE_APPCHECK_DEBUG_TOKEN).toBe(true);
     });
+
+    it('initializes App Check with a reCAPTCHA Enterprise provider when configured', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    appCheck: { recaptchaEnterpriseSiteKey: 'enterprise-key', isTokenAutoRefreshEnabled: false },
+                },
+            },
+        }));
+        const { getFirebaseAuthClient } = await import('./firebase_client');
+        await getFirebaseAuthClient();
+        expect(ReCaptchaEnterpriseProvider).toHaveBeenCalledWith('enterprise-key');
+        expect(initializeAppCheck).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({ isTokenAutoRefreshEnabled: false }),
+        );
+    });
 });
 
 describe('getFirebaseAuthModule', () => {
