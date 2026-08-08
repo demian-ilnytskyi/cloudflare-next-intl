@@ -4,7 +4,8 @@ import requireFirebaseAuthConfig from '../require_config';
 async function initializeFirebaseAppCheck(app, appCheckConfig) {
     const { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
     if (appCheckConfig.debugToken) {
-        globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+        globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN =
+            appCheckConfig.debugToken;
     }
     const provider = appCheckConfig.recaptchaEnterpriseSiteKey
         ? new ReCaptchaEnterpriseProvider(appCheckConfig.recaptchaEnterpriseSiteKey)

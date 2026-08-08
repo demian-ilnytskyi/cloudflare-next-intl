@@ -544,12 +544,15 @@ export interface FirebaseAppCheckConfig {
     /** reCAPTCHA Enterprise site key. Mutually exclusive with `recaptchaV3SiteKey`. */
     recaptchaEnterpriseSiteKey?: string;
     /**
-     * Enables App Check's debug token on this client (sets
-     * `self.FIREBASE_APPCHECK_DEBUG_TOKEN = true` before init, which logs a
-     * token to the console to register in the Firebase console). Use only
-     * for local development — never set `true` in production.
+     * Enables App Check's debug token on this client. Pass `true` to have
+     * the Firebase SDK generate a new random token each run (logged to the
+     * console — register it in the Firebase console every time it changes).
+     * Pass a fixed UUID string instead to reuse the same token across
+     * restarts/builds — set `self.FIREBASE_APPCHECK_DEBUG_TOKEN` to it
+     * before init, register that one UUID once, and it never changes.
+     * Use only for local development — never set this in production.
      */
-    debugToken?: boolean;
+    debugToken?: boolean | string;
     /** Forwarded to `initializeAppCheck`'s `isTokenAutoRefreshEnabled`. Defaults to `true`. */
     isTokenAutoRefreshEnabled?: boolean;
 }

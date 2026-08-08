@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.22] - 2026-08-08
+
+### Changed
+
+- `firebaseAuth.appCheck.debugToken` now also accepts a fixed UUID string
+  (in addition to `true`), so local dev can reuse the same App Check debug
+  token across restarts/builds instead of registering a new one every run.
+
 ## [0.6.21] - 2026-08-08
 
 ### Added
