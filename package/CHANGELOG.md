@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.24] - 2026-08-08
+
+### Changed
+
+- `stringifyUnknown` now logs a `console.warn` with the failure reason when
+  resolving a function-wrapped error throws, instead of silently swallowing it.
+
 ## [0.6.23] - 2026-08-08
 
 ### Fixed

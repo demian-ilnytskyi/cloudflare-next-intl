@@ -16,7 +16,9 @@ function resolveFunctionError(value: unknown): unknown {
         }
         return result;
     } catch (error) {
-        return `Error during function resolution: ${String(error)}`;
+        const message = `Error during function resolution: ${String(error)}`;
+        console.warn(message);
+        return message;
     }
 }
 

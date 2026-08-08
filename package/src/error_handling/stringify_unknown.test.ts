@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import stringifyUnknown from './stringify_unknown';
 
 describe('stringifyUnknown', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it('returns strings as-is', () => {
         expect(stringifyUnknown('boom')).toBe('boom');
     });
@@ -52,14 +56,20 @@ describe('stringifyUnknown', () => {
         expect(stringifyUnknown(alwaysReturnsFunction)).toBe('[Function]');
     });
 
-    it('returns an error string when resolving a function-wrapped error throws', () => {
+    it('returns an error string and warns when resolving a function-wrapped error throws', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const throwing = () => { throw new Error('resolution failed'); };
-        expect(stringifyUnknown(throwing)).toContain('Error during function resolution:');
+        const result = stringifyUnknown(throwing);
+        expect(result).toContain('Error during function resolution:');
+        expect(warnSpy).toHaveBeenCalledWith(result);
     });
 
-    it('returns an error string when resolving a function-wrapped error throws on the client', () => {
+    it('returns an error string and warns when resolving a function-wrapped error throws on the client', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const throwing = () => { throw new Error('resolution failed'); };
-        expect(stringifyUnknown(throwing, true)).toContain('Error during function resolution:');
+        const result = stringifyUnknown(throwing, true);
+        expect(result).toContain('Error during function resolution:');
+        expect(warnSpy).toHaveBeenCalledWith(result);
     });
 
     it('returns [Function] when a function still resolves to a function on the client', () => {
