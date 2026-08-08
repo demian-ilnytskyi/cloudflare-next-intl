@@ -33,8 +33,8 @@ describe('stringifyUnknown', () => {
         expect(stringifyUnknown(() => 'lazy boom')).toBe('lazy boom');
     });
 
-    it('does not resolve function-wrapped errors on the client', () => {
-        expect(stringifyUnknown(() => 'lazy boom', true)).toBe('[Function]');
+    it('resolves a function-wrapped error on the client too', () => {
+        expect(stringifyUnknown(() => 'lazy boom', true)).toBe('lazy boom');
     });
 
     it('pretty-prints plain objects', () => {
@@ -55,5 +55,15 @@ describe('stringifyUnknown', () => {
     it('returns an error string when resolving a function-wrapped error throws', () => {
         const throwing = () => { throw new Error('resolution failed'); };
         expect(stringifyUnknown(throwing)).toContain('Error during function resolution:');
+    });
+
+    it('returns an error string when resolving a function-wrapped error throws on the client', () => {
+        const throwing = () => { throw new Error('resolution failed'); };
+        expect(stringifyUnknown(throwing, true)).toContain('Error during function resolution:');
+    });
+
+    it('returns [Function] when a function still resolves to a function on the client', () => {
+        const alwaysReturnsFunction = () => alwaysReturnsFunction;
+        expect(stringifyUnknown(alwaysReturnsFunction, true)).toBe('[Function]');
     });
 });

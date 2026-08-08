@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.23] - 2026-08-08
+
+### Fixed
+
+- `stringifyUnknown` now resolves function-wrapped error values on the client
+  too (previously only on the server), falling back to `[Function]` only when
+  resolution still yields a function or throws.
+
 ## [0.6.22] - 2026-08-08
 
 ### Changed
