@@ -3,167 +3,400 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.20] - 2026-08-08
+
+### Fixed
+
+- `whiteListPaths` only matched a path exactly, so whitelisting a base route
+  (e.g. `/bonds`) never covered its dynamic sub-routes (`/bonds/some-slug`) —
+  both `intlMiddleware` and `AuthUserProvider` still bounced a signed-out
+  visitor away from those sub-routes to `redirectAuthPath`. Matching now also
+  accepts a whitelisted entry as a path-segment prefix (`/bonds` covers
+  `/bonds/anything`, but not an unrelated sibling like `/bonds-extra`), applied
+  identically in both the middleware and the client provider via a shared
+  `isWhitelisted` helper.
+
 ## [0.6.19] - 2026-08-08
 
 ### Added
 
-- `firebaseAuth` middleware forwarding for emailed Firebase action links. Firebase Console exposes only ONE project-wide action URL, so every email template (password reset, email verification, email recovery) lands on that same URL distinguished only by `?mode=`. `intlMiddleware` now reads that param and forwards the request — query string intact, so `oobCode`/`continueUrl` reach the destination — to a per-mode page, resolved BEFORE any guest/auth redirect so a signed-out user following the link doesn't get bounced to `redirectAuthPath` and lose their code.
-  - `resetPasswordPath` (default `'/reset-password'`) and `recoverEmailPath` (unhandled if omitted) join the existing `verifyEmailPath` as per-mode targets.
-  - `actionModePaths` accepts arbitrary `mode` → path overrides for modes with no dedicated field (e.g. `verifyAndChangeEmail`), or to redirect a known mode elsewhere.
-  - `actionLinkPath` restricts the forward to one exact static path (e.g. `'/auth/action'`), matching a Firebase Console action URL pinned to a path rather than the bare domain root. Omit to match any path carrying `?mode=` (Firebase's bare-domain-root default).
+- `firebaseAuth` middleware forwarding for emailed Firebase action links.
+  Firebase Console exposes only ONE project-wide action URL, so every email
+  template (password reset, email verification, email recovery) lands on that
+  same URL distinguished only by `?mode=`. `intlMiddleware` now reads that param
+  and forwards the request — query string intact, so `oobCode`/`continueUrl`
+  reach the destination — to a per-mode page, resolved BEFORE any guest/auth
+  redirect so a signed-out user following the link doesn't get bounced to
+  `redirectAuthPath` and lose their code.
+  - `resetPasswordPath` (default `'/reset-password'`) and `recoverEmailPath`
+    (unhandled if omitted) join the existing `verifyEmailPath` as per-mode
+    targets.
+  - `actionModePaths` accepts arbitrary `mode` → path overrides for modes with
+    no dedicated field (e.g. `verifyAndChangeEmail`), or to redirect a known
+    mode elsewhere.
+  - `actionLinkPath` restricts the forward to one exact static path (e.g.
+    `'/auth/action'`), matching a Firebase Console action URL pinned to a path
+    rather than the bare domain root. Omit to match any path carrying `?mode=`
+    (Firebase's bare-domain-root default).
   - `actionLinkRedirectEnabled: false` disables the forward entirely.
-  - All new path fields (`resetPasswordPath`, `recoverEmailPath`, `actionLinkPath`) get the same leading-`/` auto-correction as `redirectAuthPath`/`homePath`/`verifyEmailPath`.
+  - All new path fields (`resetPasswordPath`, `recoverEmailPath`,
+    `actionLinkPath`) get the same leading-`/` auto-correction as
+    `redirectAuthPath`/`homePath`/`verifyEmailPath`.
 
 ## [0.6.18] - 2026-08-08
 
 ### Fixed
 
-- `CookieConsentProvider` seeded `consent: true` for a first-time visitor whenever `requiresConsent` was `false` (visitor outside `gdprCountries`, or dev mode), instead of leaving it `null`. This conflated "consent not required" with "visitor explicitly accepted," so any UI keyed off `consent !== null` (e.g. a "cookie settings" reset button) incorrectly showed for visitors who never made a choice. `consent` now only ever reflects a real, stored decision. Added `requiresConsent` to `useCookieConsent()`'s return value so consumers can tell "not required" apart from "decided" directly; `CookieConsentDialog` and `CookieConsentAnalytics` now check it explicitly (banner stays hidden and analytics unlock immediately when `requiresConsent` is `false`, same end-user behavior as before — only the underlying `consent` value changed).
+- `CookieConsentProvider` seeded `consent: true` for a first-time visitor
+  whenever `requiresConsent` was `false` (visitor outside `gdprCountries`, or
+  dev mode), instead of leaving it `null`. This conflated "consent not required"
+  with "visitor explicitly accepted," so any UI keyed off `consent !== null`
+  (e.g. a "cookie settings" reset button) incorrectly showed for visitors who
+  never made a choice. `consent` now only ever reflects a real, stored decision.
+  Added `requiresConsent` to `useCookieConsent()`'s return value so consumers
+  can tell "not required" apart from "decided" directly; `CookieConsentDialog`
+  and `CookieConsentAnalytics` now check it explicitly (banner stays hidden and
+  analytics unlock immediately when `requiresConsent` is `false`, same end-user
+  behavior as before — only the underlying `consent` value changed).
 
-**Breaking:** `useCookieConsent()`'s return type gained a required `requiresConsent: boolean` field. If you mock/type this hook's return value directly in tests, add `requiresConsent`.
+**Breaking:** `useCookieConsent()`'s return type gained a required
+`requiresConsent: boolean` field. If you mock/type this hook's return value
+directly in tests, add `requiresConsent`.
 
 ## [0.6.17] - 2026-08-07
 
 ### Changed
 
-- **Breaking:** `IntlProvider`'s `staticSafe` prop now defaults to `true` (was `false`). Existing `IntlProvider` calls that relied on the implicit default to seed `initialAuthUser`/perform the pre-render auth redirect must now pass `staticSafe: false` explicitly to keep that behavior. Projects using the default middleware wiring (`firebaseAuth.middlewareEnabled !== false`) are unaffected from a security standpoint — the redirect was already redundant with `intlMiddleware`'s `update_session` step — but will see a signed-in user's nav/account UI resolve client-side after mount instead of on first paint unless `staticSafe: false` is set. Projects with `firebaseAuth.middlewareEnabled: false` MUST pass `staticSafe: false` on every `IntlProvider` call, since that component was the only place performing the auth redirect; a `console.warn` fires if this combination is left unset.
+- **Breaking:** `IntlProvider`'s `staticSafe` prop now defaults to `true` (was
+  `false`). Existing `IntlProvider` calls that relied on the implicit default to
+  seed `initialAuthUser`/perform the pre-render auth redirect must now pass
+  `staticSafe: false` explicitly to keep that behavior. Projects using the
+  default middleware wiring (`firebaseAuth.middlewareEnabled !== false`) are
+  unaffected from a security standpoint — the redirect was already redundant
+  with `intlMiddleware`'s `update_session` step — but will see a signed-in
+  user's nav/account UI resolve client-side after mount instead of on first
+  paint unless `staticSafe: false` is set. Projects with
+  `firebaseAuth.middlewareEnabled: false` MUST pass `staticSafe: false` on every
+  `IntlProvider` call, since that component was the only place performing the
+  auth redirect; a `console.warn` fires if this combination is left unset.
 
 ## [0.6.15] - 2026-08-06
 
 ### Added
 
-- `IntlProvider` now accepts a `staticSafe` prop (default `false`, non-breaking). When `firebaseAuth` is configured, `IntlProvider` normally calls `resolveAuthUserAndRedirect()`, which reads `cookies()` (session cookie) and `headers()` (`x-pathname`) to seed `initialAuthUser` and perform a pre-render auth redirect. Both are request-scoped APIs, so calling either forces the ENTIRE subtree under that `IntlProvider` to render dynamically — no static rendering, no ISR — for every route nested under it, including routes listed in `firebaseAuth.whiteListPaths`, since the whitelist check itself only runs after `cookies()`/`headers()` are already read. On projects using the default middleware wiring (`firebaseAuth.middlewareEnabled !== false`), that redirect is redundant: `intlMiddleware`'s `update_session` step already validates the session JWT (refreshing it if needed) and performs the exact same guest/auth-page redirects, authoritatively, before `IntlProvider` ever runs. Setting `staticSafe: true` skips the redundant call, letting that route render statically/ISR again; the only cost is `initialAuthUser` no longer being seeded server-side, so a signed-in user may see the route's logged-out-state UI for one client render before `AuthUserProvider` catches up — never wrong/protected content, since middleware already gated that. Passing `staticSafe: true` while `firebaseAuth.middlewareEnabled` is explicitly `false` logs a `console.warn`, since in that configuration `IntlProvider`'s own redirect is the *only* auth check in the app and skipping it is a real security regression, not just a render-flash tradeoff. See the `staticSafe` JSDoc on `IntlProvider` (`package/src/server/components/server_provider.tsx`) for full guidance on when to use it.
+- `IntlProvider` now accepts a `staticSafe` prop (default `false`,
+  non-breaking). When `firebaseAuth` is configured, `IntlProvider` normally
+  calls `resolveAuthUserAndRedirect()`, which reads `cookies()` (session cookie)
+  and `headers()` (`x-pathname`) to seed `initialAuthUser` and perform a
+  pre-render auth redirect. Both are request-scoped APIs, so calling either
+  forces the ENTIRE subtree under that `IntlProvider` to render dynamically — no
+  static rendering, no ISR — for every route nested under it, including routes
+  listed in `firebaseAuth.whiteListPaths`, since the whitelist check itself only
+  runs after `cookies()`/`headers()` are already read. On projects using the
+  default middleware wiring (`firebaseAuth.middlewareEnabled !== false`), that
+  redirect is redundant: `intlMiddleware`'s `update_session` step already
+  validates the session JWT (refreshing it if needed) and performs the exact
+  same guest/auth-page redirects, authoritatively, before `IntlProvider` ever
+  runs. Setting `staticSafe: true` skips the redundant call, letting that route
+  render statically/ISR again; the only cost is `initialAuthUser` no longer
+  being seeded server-side, so a signed-in user may see the route's
+  logged-out-state UI for one client render before `AuthUserProvider` catches up
+  — never wrong/protected content, since middleware already gated that. Passing
+  `staticSafe: true` while `firebaseAuth.middlewareEnabled` is explicitly
+  `false` logs a `console.warn`, since in that configuration `IntlProvider`'s
+  own redirect is the _only_ auth check in the app and skipping it is a real
+  security regression, not just a render-flash tradeoff. See the `staticSafe`
+  JSDoc on `IntlProvider` (`package/src/server/components/server_provider.tsx`)
+  for full guidance on when to use it.
 
 ## [0.6.12] - 2026-08-05
 
 ### Fixed
 
-- `AuthUserProvider`'s client-side redirect effect had no handling at all for "signed-in user lands on an auth page" (`isAuthPage`) — it short-circuited (`if (loading || isAuthPage || isWhiteListed) return;`) before ever reaching that case. Only the middleware (`update_session.ts`, server-side) redirected a signed-in user away from an auth page like `/login`; a client-side navigation to that page (e.g. a `<Link>`) never re-runs the middleware, so the user would land there while already signed in and stay put until a hard refresh. Added the matching redirect-to-`homePath` branch client-side.
-- Both `update_session.ts` and the new client-side branch above checked `isAuthPage` before the unverified-email check, so a signed-in-but-unverified user landing on an auth page was sent to `homePath` instead of `verifyEmailPath` — reachable a page they shouldn't be on yet either. Reordered both to check unverified-email first in every case.
-- Neither `update_session.ts` nor the client-side effect ever redirected a VERIFIED signed-in user away from `verifyEmailPath` itself — a verified user could navigate there directly and just stay, with nothing sending them home. Added the matching redirect-to-`homePath` on both sides, guarded to only fire when the user is actually verified (an unverified user on that page is still correctly left alone).
+- `AuthUserProvider`'s client-side redirect effect had no handling at all for
+  "signed-in user lands on an auth page" (`isAuthPage`) — it short-circuited
+  (`if (loading || isAuthPage || isWhiteListed) return;`) before ever reaching
+  that case. Only the middleware (`update_session.ts`, server-side) redirected a
+  signed-in user away from an auth page like `/login`; a client-side navigation
+  to that page (e.g. a `<Link>`) never re-runs the middleware, so the user would
+  land there while already signed in and stay put until a hard refresh. Added
+  the matching redirect-to-`homePath` branch client-side.
+- Both `update_session.ts` and the new client-side branch above checked
+  `isAuthPage` before the unverified-email check, so a signed-in-but-unverified
+  user landing on an auth page was sent to `homePath` instead of
+  `verifyEmailPath` — reachable a page they shouldn't be on yet either.
+  Reordered both to check unverified-email first in every case.
+- Neither `update_session.ts` nor the client-side effect ever redirected a
+  VERIFIED signed-in user away from `verifyEmailPath` itself — a verified user
+  could navigate there directly and just stay, with nothing sending them home.
+  Added the matching redirect-to-`homePath` on both sides, guarded to only fire
+  when the user is actually verified (an unverified user on that page is still
+  correctly left alone).
 
 ## [0.6.13] - 2026-08-05
 
 ### Fixed
 
-- The verified-user-on-`verifyEmailPath` fix in 0.6.12 initially checked `email_verified !== false` in `update_session.ts` (treating a missing/undefined claim as verified), while `AuthUserProvider`'s client effect checks the live SDK's boolean `user.emailVerified` strictly — a token whose claim was merely absent (not explicitly `false`) hit an infinite redirect loop directly on `verifyEmailPath` (browser: "The page isn't redirecting properly"), because the server sent the user home while the client immediately bounced them back. Tightened the server check to require an explicit `email_verified === true`, matching the client's strict boolean check.
+- The verified-user-on-`verifyEmailPath` fix in 0.6.12 initially checked
+  `email_verified !== false` in `update_session.ts` (treating a
+  missing/undefined claim as verified), while `AuthUserProvider`'s client effect
+  checks the live SDK's boolean `user.emailVerified` strictly — a token whose
+  claim was merely absent (not explicitly `false`) hit an infinite redirect loop
+  directly on `verifyEmailPath` (browser: "The page isn't redirecting
+  properly"), because the server sent the user home while the client immediately
+  bounced them back. Tightened the server check to require an explicit
+  `email_verified === true`, matching the client's strict boolean check.
 
 ## [0.6.14] - 2026-08-05
 
 ### Added
 
-- `setIntlConfig` now validates `firebaseAuth.redirectAuthPath`/`homePath`/`verifyEmailPath` and auto-corrects a missing leading `/` (with a `console.warn`), instead of silently accepting it. Every path this package compares against `request.nextUrl.pathname` expects a leading slash; a config like `redirectAuthPath: 'login'` (a real, observed typo) made the path comparison never match, silently disabling that redirect/exemption — most severely, an infinite redirect loop directly on `verifyEmailPath` when it never matched its own page, since none of the "already on this page" exemptions the middleware/client rely on could ever trigger.
-- `firebaseAuth.onSignIn`/`onEmailVerified`/`onSignOut` — optional callbacks on the `firebaseAuth` config, invoked by `AuthUserProvider` exactly once per real auth-lifecycle transition (not on routine token refreshes or repeated observations of an already-settled state). Lets consumer apps hook cleanup/side-effect logic — e.g. clearing per-account `localStorage` state on sign-out — without re-deriving the transition from raw `onIdTokenChanged` callbacks or duplicating `AuthUserProvider`'s own debounce logic. A throwing/rejecting callback is caught and logged via `console.error`; it never blocks cookie sync or navigation. See `docs/superpowers/specs/2026-08-05-auth-lifecycle-callbacks-design.md` for the full design.
+- `setIntlConfig` now validates
+  `firebaseAuth.redirectAuthPath`/`homePath`/`verifyEmailPath` and auto-corrects
+  a missing leading `/` (with a `console.warn`), instead of silently accepting
+  it. Every path this package compares against `request.nextUrl.pathname`
+  expects a leading slash; a config like `redirectAuthPath: 'login'` (a real,
+  observed typo) made the path comparison never match, silently disabling that
+  redirect/exemption — most severely, an infinite redirect loop directly on
+  `verifyEmailPath` when it never matched its own page, since none of the
+  "already on this page" exemptions the middleware/client rely on could ever
+  trigger.
+- `firebaseAuth.onSignIn`/`onEmailVerified`/`onSignOut` — optional callbacks on
+  the `firebaseAuth` config, invoked by `AuthUserProvider` exactly once per real
+  auth-lifecycle transition (not on routine token refreshes or repeated
+  observations of an already-settled state). Lets consumer apps hook
+  cleanup/side-effect logic — e.g. clearing per-account `localStorage` state on
+  sign-out — without re-deriving the transition from raw `onIdTokenChanged`
+  callbacks or duplicating `AuthUserProvider`'s own debounce logic. A
+  throwing/rejecting callback is caught and logged via `console.error`; it never
+  blocks cookie sync or navigation. See
+  `docs/superpowers/specs/2026-08-05-auth-lifecycle-callbacks-design.md` for the
+  full design.
 
 ## [0.6.11] - 2026-08-05
 
 ### Fixed
 
-- Firebase's `reload(user)` can report `emailVerified: true` from the profile API before Google's Secure Token API has propagated that same change into freshly-minted ID tokens — a real, observed case where a user verified via an emailed link (out-of-band, in a separate tab) still triggered `verifyEmailPath` redirect loops even after the 0.6.9/0.6.10 hint-cookie fix, because `AuthUserProvider`'s `reloadUser()` wrote a session cookie whose `email_verified` claim was still stuck `false` despite the reload already confirming `true`. `reloadUser` now compares the freshly-minted token's `iat` (issued-at) against the cookie it's about to replace, and retries `getIdToken(true)` up to 3 times (with a short wait) until it gets a token that's actually newer, before writing the session cookie — instead of trusting whatever `getIdToken(true)` returns on the first call.
+- Firebase's `reload(user)` can report `emailVerified: true` from the profile
+  API before Google's Secure Token API has propagated that same change into
+  freshly-minted ID tokens — a real, observed case where a user verified via an
+  emailed link (out-of-band, in a separate tab) still triggered
+  `verifyEmailPath` redirect loops even after the 0.6.9/0.6.10 hint-cookie fix,
+  because `AuthUserProvider`'s `reloadUser()` wrote a session cookie whose
+  `email_verified` claim was still stuck `false` despite the reload already
+  confirming `true`. `reloadUser` now compares the freshly-minted token's `iat`
+  (issued-at) against the cookie it's about to replace, and retries
+  `getIdToken(true)` up to 3 times (with a short wait) until it gets a token
+  that's actually newer, before writing the session cookie — instead of trusting
+  whatever `getIdToken(true)` returns on the first call.
 
 ### Changed
 
-- Extracted `decodeJwtPayload` (previously private to `update_session.ts`) into its own isomorphic `src/firebase_auth/decode_jwt_payload.ts`, now shared by both `update_session.ts` (Edge middleware) and the new retry logic in `auth_user_provider.tsx` (client), instead of duplicating the decode logic.
-- `decodeJwtPayload` now extracts `exp`/`iat`/`email_verified` via targeted regex over the decoded JSON text instead of a full `JSON.parse` — ~1.9x faster on a realistic Firebase ID token payload (benchmarked in the new `decode_jwt_payload.bench.ts`), which matters since it runs on every Edge middleware invocation with a session cookie. Safe only because these three claims are top-level, standard JWT/Firebase registered claims that Firebase's ID tokens never nest under another key; documented directly in the function's doc comment and covered by a test.
+- Extracted `decodeJwtPayload` (previously private to `update_session.ts`) into
+  its own isomorphic `src/firebase_auth/decode_jwt_payload.ts`, now shared by
+  both `update_session.ts` (Edge middleware) and the new retry logic in
+  `auth_user_provider.tsx` (client), instead of duplicating the decode logic.
+- `decodeJwtPayload` now extracts `exp`/`iat`/`email_verified` via targeted
+  regex over the decoded JSON text instead of a full `JSON.parse` — ~1.9x faster
+  on a realistic Firebase ID token payload (benchmarked in the new
+  `decode_jwt_payload.bench.ts`), which matters since it runs on every Edge
+  middleware invocation with a session cookie. Safe only because these three
+  claims are top-level, standard JWT/Firebase registered claims that Firebase's
+  ID tokens never nest under another key; documented directly in the function's
+  doc comment and covered by a test.
 
 ## [0.6.10] - 2026-08-04
 
 ### Changed
 
-- Tightened `emailVerifiedHintCookieName`'s trust condition (introduced in 0.6.9): a forced refresh before trusting a stale `email_verified: false` claim is now skipped ONLY when the hint cookie is present and explicitly `'false'` — a positive, current confirmation the claim still holds. A hint of `'true'`, or one that's missing/expired, now also triggers the refresh (previously only `'true'` did; "absent" incorrectly skipped it). `AuthUserProvider` also now writes the hint as `'false'` on sign-out instead of clearing it — signed-out is a confirmed non-verified state, not "unknown," and clearing it would otherwise force a needless refresh if a stale session cookie somehow still lingered.
+- Tightened `emailVerifiedHintCookieName`'s trust condition (introduced in
+  0.6.9): a forced refresh before trusting a stale `email_verified: false` claim
+  is now skipped ONLY when the hint cookie is present and explicitly `'false'` —
+  a positive, current confirmation the claim still holds. A hint of `'true'`, or
+  one that's missing/expired, now also triggers the refresh (previously only
+  `'true'` did; "absent" incorrectly skipped it). `AuthUserProvider` also now
+  writes the hint as `'false'` on sign-out instead of clearing it — signed-out
+  is a confirmed non-verified state, not "unknown," and clearing it would
+  otherwise force a needless refresh if a stale session cookie somehow still
+  lingered.
 
 ## [0.6.9] - 2026-08-04
 
 ### Fixed
 
-- `update_session.ts`'s `verifyEmailPath` redirect (added in 0.6.8) could infinite-loop: the session cookie's `email_verified` claim only updates when the ID token naturally refreshes (up to ~1hr), so a consumer page doing its own live verification check (e.g. via `getAuthUser()`, fresh every request) could already see the email as verified while the cookie's claim still said `false`. If that page then redirected a verified user elsewhere, the next request re-read the same stale cookie and bounced right back to `verifyEmailPath` — repeating forever. `AuthUserProvider` (client) now mirrors the live SDK's `emailVerified` state into a new `emailVerifiedHintCookieName` cookie (default `__fa_email_verified_hint__`, non-httpOnly, no secret) on every auth-state change. `update_session.ts` force-refreshes the ID token before trusting a `false` claim unless this hint cookie agrees, so a genuinely unverified user doesn't pay a refresh on every request while a live-verified user isn't stuck behind a stale claim.
+- `update_session.ts`'s `verifyEmailPath` redirect (added in 0.6.8) could
+  infinite-loop: the session cookie's `email_verified` claim only updates when
+  the ID token naturally refreshes (up to ~1hr), so a consumer page doing its
+  own live verification check (e.g. via `getAuthUser()`, fresh every request)
+  could already see the email as verified while the cookie's claim still said
+  `false`. If that page then redirected a verified user elsewhere, the next
+  request re-read the same stale cookie and bounced right back to
+  `verifyEmailPath` — repeating forever. `AuthUserProvider` (client) now mirrors
+  the live SDK's `emailVerified` state into a new `emailVerifiedHintCookieName`
+  cookie (default `__fa_email_verified_hint__`, non-httpOnly, no secret) on
+  every auth-state change. `update_session.ts` force-refreshes the ID token
+  before trusting a `false` claim unless this hint cookie agrees, so a genuinely
+  unverified user doesn't pay a refresh on every request while a live-verified
+  user isn't stuck behind a stale claim.
 
 ## [0.6.8] - 2026-08-04
 
 ### Fixed
 
-- `firebaseAuth.verifyEmailPath` was accepted by config but never read by the middleware — signed-in users with an unverified email were never redirected to it. `update_session.ts` now decodes the session token's `email_verified` claim and redirects to `verifyEmailPath` when it's explicitly `false`, skipping the redirect on the verify-email page itself, on auth pages, and when `verifyEmailPath` is unset.
-- The default-locale prefix check in `update_session.ts` compared `locale` against `config.locales[0]` instead of `config.defaultLocale`. When `locales` didn't list the default locale first (e.g. `locales: ['uk', 'en']`, `defaultLocale: 'en'`), every auth redirect for the default locale (`redirectAuthPath`, `homePath`, `verifyEmailPath`) incorrectly kept the `/en` prefix instead of using the unprefixed path.
+- `firebaseAuth.verifyEmailPath` was accepted by config but never read by the
+  middleware — signed-in users with an unverified email were never redirected to
+  it. `update_session.ts` now decodes the session token's `email_verified` claim
+  and redirects to `verifyEmailPath` when it's explicitly `false`, skipping the
+  redirect on the verify-email page itself, on auth pages, and when
+  `verifyEmailPath` is unset.
+- The default-locale prefix check in `update_session.ts` compared `locale`
+  against `config.locales[0]` instead of `config.defaultLocale`. When `locales`
+  didn't list the default locale first (e.g. `locales: ['uk', 'en']`,
+  `defaultLocale: 'en'`), every auth redirect for the default locale
+  (`redirectAuthPath`, `homePath`, `verifyEmailPath`) incorrectly kept the `/en`
+  prefix instead of using the unprefixed path.
 
 ## [0.6.7] - 2026-08-04
 
 ### Fixed
 
-- Fixed an infinite console-error reporting loop when `errorHandling.overrideConsoleError` is `true`: `reportError`'s own console-logging step (its always-on log, and its onError-threw fallback) could call `console.error` again after the override patched it, which routed straight back into another `reportError` call — an infinite loop in practice, since Next.js's own dev-mode console interception forwards through whatever `console.error` is CURRENT at call time rather than the function it originally wrapped, defeating a "capture the original once" guard. `installConsoleErrorOverride` now sets an internal flag (`consoleOverrideState` in `report_error.ts`) when it installs; `reportError` checks it and skips its own console-logging step entirely while the override is active, since the override already logged the raw call before invoking `reportError`. This removes the second caller instead of trying to detect and filter out a recursive one.
+- Fixed an infinite console-error reporting loop when
+  `errorHandling.overrideConsoleError` is `true`: `reportError`'s own
+  console-logging step (its always-on log, and its onError-threw fallback) could
+  call `console.error` again after the override patched it, which routed
+  straight back into another `reportError` call — an infinite loop in practice,
+  since Next.js's own dev-mode console interception forwards through whatever
+  `console.error` is CURRENT at call time rather than the function it originally
+  wrapped, defeating a "capture the original once" guard.
+  `installConsoleErrorOverride` now sets an internal flag
+  (`consoleOverrideState` in `report_error.ts`) when it installs; `reportError`
+  checks it and skips its own console-logging step entirely while the override
+  is active, since the override already logged the raw call before invoking
+  `reportError`. This removes the second caller instead of trying to detect and
+  filter out a recursive one.
 
 ## [0.6.6] - 2026-08-03
 
 ### Added
 
-- `installGlobalErrorOverride` (`cloudflare-next-intl/installGlobalErrorOverride`): client-only `window.addEventListener('error'|'unhandledrejection', ...)` handlers routed through `errorHandling.onError`/`reportError`, the same way `installConsoleErrorOverride` does for `console.error(...)` calls — catches uncaught exceptions and unhandled promise rejections that never go through `console.error` at all, e.g. Next.js's own internal "Failed to fetch RSC payload" navigation-fallback error. Auto-wired into `IntlProvider`'s client provider. Controlled by the new `errorHandling.overrideWindowErrors`, which defaults to `overrideConsoleError`'s value — setting `overrideConsoleError: true` alone now catches both console errors and uncaught window errors; pass `overrideWindowErrors: false` explicitly to opt out of just the window listeners.
+- `installGlobalErrorOverride`
+  (`cloudflare-next-intl/installGlobalErrorOverride`): client-only
+  `window.addEventListener('error'|'unhandledrejection', ...)` handlers routed
+  through `errorHandling.onError`/`reportError`, the same way
+  `installConsoleErrorOverride` does for `console.error(...)` calls — catches
+  uncaught exceptions and unhandled promise rejections that never go through
+  `console.error` at all, e.g. Next.js's own internal "Failed to fetch RSC
+  payload" navigation-fallback error. Auto-wired into `IntlProvider`'s client
+  provider. Controlled by the new `errorHandling.overrideWindowErrors`, which
+  defaults to `overrideConsoleError`'s value — setting
+  `overrideConsoleError: true` alone now catches both console errors and
+  uncaught window errors; pass `overrideWindowErrors: false` explicitly to opt
+  out of just the window listeners.
 
 ## [0.6.5] - 2026-08-03
 
 ### Fixed
 
-- `AuthUserProvider`'s client-side `onIdTokenChanged` listener now clears the server's httpOnly session/refresh cookies (via `clearSessionAction`) whenever it observes a signed-out state, not only when `logout()` is called. Previously, if the client Firebase SDK reported signed-out (e.g. no persisted session) while a valid server-issued session cookie still existed, the cookie could never be cleared — `document.cookie` cannot touch httpOnly cookies — leaving the server treating the visitor as signed-in indefinitely.
-- Extracted the duplicated cookie-clear/cookie-write logic in `AuthUserProvider` into shared `clearSession`/`writeSession` helpers, used by `logout()`, the sign-in/out listener, and `reloadUser`.
+- `AuthUserProvider`'s client-side `onIdTokenChanged` listener now clears the
+  server's httpOnly session/refresh cookies (via `clearSessionAction`) whenever
+  it observes a signed-out state, not only when `logout()` is called.
+  Previously, if the client Firebase SDK reported signed-out (e.g. no persisted
+  session) while a valid server-issued session cookie still existed, the cookie
+  could never be cleared — `document.cookie` cannot touch httpOnly cookies —
+  leaving the server treating the visitor as signed-in indefinitely.
+- Extracted the duplicated cookie-clear/cookie-write logic in `AuthUserProvider`
+  into shared `clearSession`/`writeSession` helpers, used by `logout()`, the
+  sign-in/out listener, and `reloadUser`.
 
 ## [0.6.4] - 2026-08-02
 
 ### Fixed
 
-- `createServerErrorAction` no longer has its own `"use server"` directive — Next.js requires every top-level export of a `"use server"` file to be an async function directly, and a factory that *returns* one doesn't qualify (`Server Actions must be async functions.`). Put `"use server"` in your OWN file that calls `createServerErrorAction` and re-exports its result instead — see the updated usage example in its doc comment.
+- `createServerErrorAction` no longer has its own `"use server"` directive —
+  Next.js requires every top-level export of a `"use server"` file to be an
+  async function directly, and a factory that _returns_ one doesn't qualify
+  (`Server Actions must be async functions.`). Put `"use server"` in your OWN
+  file that calls `createServerErrorAction` and re-exports its result instead —
+  see the updated usage example in its doc comment.
 
 ## [0.6.3] - 2026-08-02
 
 ### Added
 
-- `createServerErrorAction(config)` (`cloudflare-next-intl/errorHandling`'s `createServerErrorAction` subpath) — creates a `"use server"` action that reports a client-originated error via `reportError`, so server-only config (secrets your `onError` reads, etc.) never has to be imported into client-side code. Call once, server-side, and pass the returned `(error, classOrMethodName, params?)` function to client components. Stringifies the error before it crosses the client→server action boundary and sets `isClient: true` automatically.
+- `createServerErrorAction(config)` (`cloudflare-next-intl/errorHandling`'s
+  `createServerErrorAction` subpath) — creates a `"use server"` action that
+  reports a client-originated error via `reportError`, so server-only config
+  (secrets your `onError` reads, etc.) never has to be imported into client-side
+  code. Call once, server-side, and pass the returned
+  `(error, classOrMethodName, params?)` function to client components.
+  Stringifies the error before it crosses the client→server action boundary and
+  sets `isClient: true` automatically.
 
 ## [0.6.2] - 2026-08-02
 
 ### Added
 
-- `reportError` now supports a "reset-only" call: passing `params.error` as `null`/`undefined` together with `errorHandling.resetDedup: true` clears the dedup state and returns immediately, without calling `onError`. Use this once at the very start of a request/cron tick — before any handler that might call `reportError` for a real error runs — in a long-lived server process where dedup state must not leak across requests.
+- `reportError` now supports a "reset-only" call: passing `params.error` as
+  `null`/`undefined` together with `errorHandling.resetDedup: true` clears the
+  dedup state and returns immediately, without calling `onError`. Use this once
+  at the very start of a request/cron tick — before any handler that might call
+  `reportError` for a real error runs — in a long-lived server process where
+  dedup state must not leak across requests.
 
 ## [0.6.1] - 2026-08-02
 
 ### Added
 
-- `reportError` now dedups by default: an error whose key (`classOrMethodName`/`error`/`params`, or an explicit `ErrorHandlingParams.dedupKey`) matches the immediately preceding reported error's key within a throttle window is skipped. New `ErrorHandlingRoutingConfig` fields: `dedup?: boolean` (default `true`), `throttleMs?: number` (default `5000`), `resetDedup?: boolean` (pass `true` on the first `reportError` call of each request/cron tick in a long-lived server process to clear the dedup state — otherwise one request's errors can suppress another's).
+- `reportError` now dedups by default: an error whose key
+  (`classOrMethodName`/`error`/`params`, or an explicit
+  `ErrorHandlingParams.dedupKey`) matches the immediately preceding reported
+  error's key within a throttle window is skipped. New
+  `ErrorHandlingRoutingConfig` fields: `dedup?: boolean` (default `true`),
+  `throttleMs?: number` (default `5000`), `resetDedup?: boolean` (pass `true` on
+  the first `reportError` call of each request/cron tick in a long-lived server
+  process to clear the dedup state — otherwise one request's errors can suppress
+  another's).
 
 ### Changed
 
-- `installConsoleErrorOverride` no longer has its own separate report cap — dedup/throttling is now entirely `reportError`'s responsibility (see above).
-- `reportError`'s `waitUntil` backgrounding calls `callOnError(...)` directly again (no `Promise.resolve().then()` indirection) — `waitUntil` must be called synchronously, in the same tick, or Cloudflare Workers may tear down the request before it's ever registered.
+- `installConsoleErrorOverride` no longer has its own separate report cap —
+  dedup/throttling is now entirely `reportError`'s responsibility (see above).
+- `reportError`'s `waitUntil` backgrounding calls `callOnError(...)` directly
+  again (no `Promise.resolve().then()` indirection) — `waitUntil` must be called
+  synchronously, in the same tick, or Cloudflare Workers may tear down the
+  request before it's ever registered.
 
 ## [0.6.0] - 2026-08-02
 
 ### Added
 
-- New `error_handling` submodule (`cloudflare-next-intl/errorHandling`,
-  plus `installConsoleErrorOverride`, `stringifyUnknown`,
-  `formatErrorMessage`, `defaultIgnoredConsoleErrors` subpaths):
+- New `error_handling` submodule (`cloudflare-next-intl/errorHandling`, plus
+  `installConsoleErrorOverride`, `stringifyUnknown`, `formatErrorMessage`,
+  `defaultIgnoredConsoleErrors` subpaths):
   - `reportError(config, params)` / `withErrorHandling(fn, name, options)` —
-    report a caught error via `errorHandling.onError` (default
-    `console.error`), then (for `withErrorHandling`) rethrow. Gated by
-    `errorHandling.enable` (default `true`) and by `params.consent` (skips
-    reporting when consent isn't `true`, since sending error reports to a
-    third party without consent can itself be GDPR-relevant).
+    report a caught error via `errorHandling.onError` (default `console.error`),
+    then (for `withErrorHandling`) rethrow. Gated by `errorHandling.enable`
+    (default `true`) and by `params.consent` (skips reporting when consent isn't
+    `true`, since sending error reports to a third party without consent can
+    itself be GDPR-relevant).
   - `RoutingConfig.generate.getCloudflareContext` — moved from
     `cookieConsent.getCloudflareContext` (still consulted the same way by
-    `cookieConsent`'s GDPR gating); now also used by `reportError` to
-    background reports via `ctx.waitUntil` when available.
-  - `installConsoleErrorOverride` — opt-in (`errorHandling.overrideConsoleError`)
-    global `console.error` override routing every call through `reportError`
-    (original `console.error` still runs). Capped at 20 reports per install
-    to guard against a render-error loop. Auto-installed by `IntlProvider`
-    (server) and the client provider.
+    `cookieConsent`'s GDPR gating); now also used by `reportError` to background
+    reports via `ctx.waitUntil` when available.
+  - `installConsoleErrorOverride` — opt-in
+    (`errorHandling.overrideConsoleError`) global `console.error` override
+    routing every call through `reportError` (original `console.error` still
+    runs). Capped at 20 reports per install to guard against a render-error
+    loop. Auto-installed by `IntlProvider` (server) and the client provider.
   - `errorHandling.ignoreConsoleErrors` (substring array, defaults to
-    `defaultIgnoredConsoleErrors` — this package's own Firebase Auth codes
-    for expected user-input failures like wrong password/email-already-in-use)
-    and `ignoreConsoleError` (custom predicate) — both skip reporting a
-    matching `console.error` call while still logging it normally.
+    `defaultIgnoredConsoleErrors` — this package's own Firebase Auth codes for
+    expected user-input failures like wrong password/email-already-in-use) and
+    `ignoreConsoleError` (custom predicate) — both skip reporting a matching
+    `console.error` call while still logging it normally.
   - `ErrorHandlingParams.formattedMessage` — a readable one-line
     `[classOrMethodName] Error: <message>` summary (plus non-empty
-    `Params`/client-origin sections), always populated by `reportError`
-    before calling `onError`/the default `console.error`.
+    `Params`/client-origin sections), always populated by `reportError` before
+    calling `onError`/the default `console.error`.
   - Wired internally into `cookieConsent`'s GDPR country resolution, the
     Firebase server auth lookup, and `cookieConsent.getAnalytics()` (which
     previously had no error handling at all).
@@ -171,19 +404,18 @@ All notable changes to this package are documented here. Format follows
 ### Changed
 
 - **Breaking:** `cookieConsent.getCloudflareContext` moved to
-  `generate.getCloudflareContext` on `RoutingConfig` — update your config
-  if you were passing it under `cookieConsent`.
+  `generate.getCloudflareContext` on `RoutingConfig` — update your config if you
+  were passing it under `cookieConsent`.
 
 ## [0.5.7] - 2026-08-02
 
 ### Changed
 
-- `useCookieConsent().setConsent` now also accepts `null` — resets the
-  stored consent decision so the `CookieConsentDialog` banner reappears
-  (e.g. for a "cookie settings" button), and survives a refresh before the
-  visitor re-decides: it isn't re-seeded back to `true` by the auto-accept
-  path even when `requiresConsent` is `false` (e.g. always the case in
-  dev).
+- `useCookieConsent().setConsent` now also accepts `null` — resets the stored
+  consent decision so the `CookieConsentDialog` banner reappears (e.g. for a
+  "cookie settings" button), and survives a refresh before the visitor
+  re-decides: it isn't re-seeded back to `true` by the auto-accept path even
+  when `requiresConsent` is `false` (e.g. always the case in dev).
 
 ## [0.5.6] - 2026-08-02
 
@@ -198,42 +430,42 @@ All notable changes to this package are documented here. Format follows
 
 ### Added
 
-- `CookieConsentProvider` now auto-acknowledges the privacy-policy-update
-  banner (`privacyPolicyUpdated` → `false`) when the visitor navigates to
-  `cookieConsent.privacyPolicyPath` — no dedicated component needed, matches
-  by pathname internally. Skipped when `privacyPolicyPath` is `false`.
+- `CookieConsentProvider` now auto-acknowledges the privacy-policy-update banner
+  (`privacyPolicyUpdated` → `false`) when the visitor navigates to
+  `cookieConsent.privacyPolicyPath` — no dedicated component needed, matches by
+  pathname internally. Skipped when `privacyPolicyPath` is `false`.
 
 ## [0.5.4] - 2026-08-02
 
 ### Fixed
 
 - `CookieConsentDialog`/`PrivacyPolicyUpdateDialog` now render through a
-  `document.body` portal instead of inline in the app tree. Previously a
-  host app's own stacking context (any ancestor with `transform`/`filter`/
-  `opacity`/`isolation`, common in dashboard shells with sidebars/panels)
-  could trap the dialog behind other UI no matter how high its `z-index`
-  was set — a `z-index` only wins within its own stacking context. Also
-  bumped the default `z-index` to the CSS max (`2147483647`) so the
-  dialogs win against any host z-index once escaped into `body`.
+  `document.body` portal instead of inline in the app tree. Previously a host
+  app's own stacking context (any ancestor with `transform`/`filter`/
+  `opacity`/`isolation`, common in dashboard shells with sidebars/panels) could
+  trap the dialog behind other UI no matter how high its `z-index` was set — a
+  `z-index` only wins within its own stacking context. Also bumped the default
+  `z-index` to the CSS max (`2147483647`) so the dialogs win against any host
+  z-index once escaped into `body`.
 
 ## [0.5.3] - 2026-08-02
 
 ### Added
 
 - `IntlProvider` now auto-renders `CookieConsentDialog` and
-  `PrivacyPolicyUpdateDialog` whenever `cookieConsent` is configured — no
-  more manually adding them to your layout. New `cookieConsent.autoWireDialogs`
+  `PrivacyPolicyUpdateDialog` whenever `cookieConsent` is configured — no more
+  manually adding them to your layout. New `cookieConsent.autoWireDialogs`
   (default `true`) opts out to render them yourself; new
   `cookieConsent.dialogProps`/`updateDialogProps` forward props to the
-  auto-wired dialogs (e.g. custom text/`classNames`/`styles`) without
-  needing to render them by hand. Exported `CookieConsentDialogProps`/
-  `PrivacyPolicyUpdateDialogProps` from `cloudflare-next-intl/cookieConsent`
-  for typing those objects.
+  auto-wired dialogs (e.g. custom text/`classNames`/`styles`) without needing to
+  render them by hand. Exported `CookieConsentDialogProps`/
+  `PrivacyPolicyUpdateDialogProps` from `cloudflare-next-intl/cookieConsent` for
+  typing those objects.
 
 ### Migration
 
-Manually rendering the dialogs in your layout now double-renders them —
-remove the JSX:
+Manually rendering the dialogs in your layout now double-renders them — remove
+the JSX:
 
 ```diff
  <IntlProvider language={locale}>
@@ -249,91 +481,90 @@ Set `cookieConsent.autoWireDialogs: false` to keep rendering them yourself.
 
 ### Fixed
 
-- `CookieConsentProvider`'s `consent` (and derived `privacyPolicyUpdated`)
-  state used to resolve only inside a client-only `useEffect`, so
+- `CookieConsentProvider`'s `consent` (and derived `privacyPolicyUpdated`) state
+  used to resolve only inside a client-only `useEffect`, so
   `CookieConsentDialog`/`PrivacyPolicyUpdateDialog` briefly rendered with
   `consent = null` on first paint before the effect corrected it — a visible
-  "flash" of the cookie banner for returning visitors who had already
-  decided. Added `isMounted` to `CookieConsentContextType`, set once the
-  effect has read the stored cookies; both default dialog components now
-  render `null` until `isMounted` is `true`, removing the flash entirely.
+  "flash" of the cookie banner for returning visitors who had already decided.
+  Added `isMounted` to `CookieConsentContextType`, set once the effect has read
+  the stored cookies; both default dialog components now render `null` until
+  `isMounted` is `true`, removing the flash entirely.
 
 ## [0.5.1] - 2026-08-02
 
 ### Added
 
-- `CookieConsentDialog` and `PrivacyPolicyUpdateDialog` now ship default
-  styling (Tailwind classes) and default English/Ukrainian copy, so both
-  render a usable, styled banner out of the box with zero props. Passing
-  `message`/`acceptText`/`declineText`/`closeText`/`classNames`/`styles`
-  still overrides the defaults per slot as before.
+- `CookieConsentDialog` and `PrivacyPolicyUpdateDialog` now ship default styling
+  (Tailwind classes) and default English/Ukrainian copy, so both render a
+  usable, styled banner out of the box with zero props. Passing
+  `message`/`acceptText`/`declineText`/`closeText`/`classNames`/`styles` still
+  overrides the defaults per slot as before.
 
 ## [0.5.0] - 2026-08-02
 
 ### Fixed
 
 - `cookieConsent.getCloudflareContext`-based country resolution
-  (`resolveRequiresConsent`, added in 0.4.0's GDPR gating) is now skipped
-  under `next dev` (`NODE_ENV === 'development'`), failing safe to
+  (`resolveRequiresConsent`, added in 0.4.0's GDPR gating) is now skipped under
+  `next dev` (`NODE_ENV === 'development'`), failing safe to
   `requiresConsent = true` instead. Calling `getCloudflareContext` from
   `IntlProvider` on every request could crash the local `next dev` +
-  `initOpenNextCloudflareForDev` Cloudflare dev shim with a native workerd
-  RPC panic ("Failed to get handler to worker") — a known upstream
-  limitation of `getPlatformProxy` with Durable Object / service bindings
-  (see cloudflare/workers-sdk#8687) that no `try`/`catch` in JS can prevent,
-  since it isn't a catchable JS exception. `cookieConsent.getCountryCode`
+  `initOpenNextCloudflareForDev` Cloudflare dev shim with a native workerd RPC
+  panic ("Failed to get handler to worker") — a known upstream limitation of
+  `getPlatformProxy` with Durable Object / service bindings (see
+  cloudflare/workers-sdk#8687) that no `try`/`catch` in JS can prevent, since it
+  isn't a catchable JS exception. `cookieConsent.getCountryCode`
   (caller-supplied) is unaffected and still runs in dev.
 
 ### Changed (BREAKING)
 
 - `resolveRequiresConsent` now requires consent by default (`true`) when
   **neither** `getCountryCode` nor `getCloudflareContext` is set, instead of
-  treating that as "gating off" (`false`). Rationale: without either getter
-  the visitor's country genuinely can't be determined, and the package's
-  documented fail-safe policy elsewhere is "unknown country still requires
-  consent" — omitting both getters is now consistent with that, rather than
-  a silent exception. If you rely on the old "no getters → banner never
-  shown" behavior, set `autoWireAnalytics: false` or handle the banner
-  yourself via `useCookieConsent()`/`CookieConsentDialog`.
+  treating that as "gating off" (`false`). Rationale: without either getter the
+  visitor's country genuinely can't be determined, and the package's documented
+  fail-safe policy elsewhere is "unknown country still requires consent" —
+  omitting both getters is now consistent with that, rather than a silent
+  exception. If you rely on the old "no getters → banner never shown" behavior,
+  set `autoWireAnalytics: false` or handle the banner yourself via
+  `useCookieConsent()`/`CookieConsentDialog`.
 
 ## [0.4.6] - 2026-08-02
 
 ### Changed
 
 - `@microsoft/clarity` moved from an optional `peerDependency` to a real
-  `dependency`. Its `import('@microsoft/clarity')` is a literal specifier
-  that webpack/Turbopack resolve at build time for every reachable module
-  regardless of runtime branching (even behind `next/dynamic`) — no
-  bundler-side trick makes that install truly optional, so every consumer
-  now gets it installed automatically instead of hitting a build error.
-  The import itself is still isolated in its own module
-  (`clarity_script.tsx`), loaded via `next/dynamic`, so the code only ships
-  as a separate chunk that's fetched at runtime once consent is granted and
-  `secrets.clarityProjectId` is set.
+  `dependency`. Its `import('@microsoft/clarity')` is a literal specifier that
+  webpack/Turbopack resolve at build time for every reachable module regardless
+  of runtime branching (even behind `next/dynamic`) — no bundler-side trick
+  makes that install truly optional, so every consumer now gets it installed
+  automatically instead of hitting a build error. The import itself is still
+  isolated in its own module (`clarity_script.tsx`), loaded via `next/dynamic`,
+  so the code only ships as a separate chunk that's fetched at runtime once
+  consent is granted and `secrets.clarityProjectId` is set.
 
 ## [0.4.4] - 2026-08-02
 
 ### Added
 
 - `cookieConsent.privacyPolicyPath` (defaults to `'/privacy-policy'`; set
-  `false` to disable) — `CookieConsentDialog`/`PrivacyPolicyUpdateDialog`
-  now render a default, locale-prefixed privacy-policy link automatically
-  when their `link` prop is omitted, instead of requiring a hardcoded link
-  element every time. Pass `link={null}` to render no link for a single
-  dialog, or your own element to override it. New `privacyPolicyLinkText`
-  prop overrides the default link's label (`"Privacy Policy"` /
-  `"Learn more"`). Exposed on `useCookieConsent()` as `privacyPolicyPath`.
+  `false` to disable) — `CookieConsentDialog`/`PrivacyPolicyUpdateDialog` now
+  render a default, locale-prefixed privacy-policy link automatically when their
+  `link` prop is omitted, instead of requiring a hardcoded link element every
+  time. Pass `link={null}` to render no link for a single dialog, or your own
+  element to override it. New `privacyPolicyLinkText` prop overrides the default
+  link's label (`"Privacy Policy"` / `"Learn more"`). Exposed on
+  `useCookieConsent()` as `privacyPolicyPath`.
 
 ## [0.4.3] - 2026-08-02
 
 ### Fixed
 
-- `CookieConsentCloudflareContext.cf` was typed as `{ country?: string }`,
-  which isn't structurally assignable from `@opennextjs/cloudflare`'s real
-  `cf` type (`CfProperties`, a union of the incoming-request and
-  request-init variants — `country` only exists on one branch). This made
-  `getCloudflareContext: getCloudflareContext` (passed directly, per 0.4.2)
-  fail to type-check. `cf` is now typed as `Record<string, unknown>`;
+- `CookieConsentCloudflareContext.cf` was typed as `{ country?: string }`, which
+  isn't structurally assignable from `@opennextjs/cloudflare`'s real `cf` type
+  (`CfProperties`, a union of the incoming-request and request-init variants —
+  `country` only exists on one branch). This made
+  `getCloudflareContext: getCloudflareContext` (passed directly, per 0.4.2) fail
+  to type-check. `cf` is now typed as `Record<string, unknown>`;
   `resolveRequiresConsent` reads `country` defensively at the call site.
 
 ## [0.4.2] - 2026-08-02
@@ -341,11 +572,11 @@ Set `cookieConsent.autoWireDialogs: false` to keep rendering them yourself.
 ### Changed
 
 - `cookieConsent.getCloudflareContext` now types as
-  `CookieConsentGetCloudflareContext`, matching `@opennextjs/cloudflare`'s
-  exact overloaded `getCloudflareContext` signature — pass that function
-  directly (no wrapping closure needed); it's called internally with
-  `{ async: true }`. Also now accepts a `null` resolved context (treated
-  as an unresolved country, so consent is still required).
+  `CookieConsentGetCloudflareContext`, matching `@opennextjs/cloudflare`'s exact
+  overloaded `getCloudflareContext` signature — pass that function directly (no
+  wrapping closure needed); it's called internally with `{ async: true }`. Also
+  now accepts a `null` resolved context (treated as an unresolved country, so
+  consent is still required).
 
 ## [0.4.1] - 2026-08-02
 
@@ -353,17 +584,17 @@ Set `cookieConsent.autoWireDialogs: false` to keep rendering them yourself.
 
 - Country-based cookie-consent gating: `cookieConsent.getCountryCode` and
   `cookieConsent.getCloudflareContext` let visitors outside `gdprCountries`
-  (defaults to EU/EEA + UK + Switzerland) skip the consent banner entirely,
-  with consent seeded to implicitly granted. `getCountryCode` takes
-  precedence over `getCloudflareContext` when both are set. Neither set
-  (the default) disables country-based gating — consent is never required.
-  A country that can't be resolved always requires consent (fail-safe).
+  (defaults to EU/EEA + UK + Switzerland) skip the consent banner entirely, with
+  consent seeded to implicitly granted. `getCountryCode` takes precedence over
+  `getCloudflareContext` when both are set. Neither set (the default) disables
+  country-based gating — consent is never required. A country that can't be
+  resolved always requires consent (fail-safe).
 - `cookieConsent.enableAnalyticsInDevMode` (defaults to `false`) — auto-wired
   analytics stay off in local development (`NODE_ENV === 'development'`)
   regardless of consent/country, unless explicitly enabled.
 - `src/cookie_consent/gdpr_countries.ts` — `defaultGdprCountries` and
-  `resolveRequiresConsent`, exported from `./cookieConsent`. Country lookups
-  use a cached `Set` (O(1)) instead of `Array.includes()`.
+  `resolveRequiresConsent`, exported from `./cookieConsent`. Country lookups use
+  a cached `Set` (O(1)) instead of `Array.includes()`.
 
 ### Changed
 
@@ -381,10 +612,9 @@ Set `cookieConsent.autoWireDialogs: false` to keep rendering them yourself.
   `./cookieConsentAnalytics`.
 - `IntlProvider` auto-wires `CookieConsentProvider` (and, when
   `cookieConsent.secrets`/`getSecrets` is set, `CookieConsentAnalytics`)
-  whenever `cookieConsent` is configured — no manual provider nesting
-  required.
-- `CookieConsentAnalytics` gates Cloudflare Web Analytics, Google Ads,
-  Google Analytics, AdSense, and Microsoft Clarity behind visitor consent.
+  whenever `cookieConsent` is configured — no manual provider nesting required.
+- `CookieConsentAnalytics` gates Cloudflare Web Analytics, Google Ads, Google
+  Analytics, AdSense, and Microsoft Clarity behind visitor consent.
 - `src/cookie_consent/README.md` — module-level docs (layout, auto-wiring,
   customization, gotchas).
 
@@ -394,60 +624,59 @@ Set `cookieConsent.autoWireDialogs: false` to keep rendering them yourself.
 
 - `AuthUserProvider`'s session-cookie sync now happens via a `'use server'`
   Server Action (`next/headers`'s `cookies().set(...)`, `httpOnly: true`)
-  instead of a client-side `document.cookie` write. A client write can
-  never carry `httpOnly` and is invisible to the server until the next
-  natural request — this mismatch was the underlying reason the 0.3.2 fixes
-  below didn't fully resolve the flash in practice.
+  instead of a client-side `document.cookie` write. A client write can never
+  carry `httpOnly` and is invisible to the server until the next natural request
+  — this mismatch was the underlying reason the 0.3.2 fixes below didn't fully
+  resolve the flash in practice.
 - `LocationzationClientProvider` no longer calls `next/dynamic`'s `dynamic()`
-  inside its render body. Calling `dynamic()` per-render creates a brand
-  new component identity every time, forcing React to unmount/remount
-  `AuthUserProvider` on every render instead of reusing the existing
-  instance — each remount re-subscribed `onIdTokenChanged`, which Firebase
-  immediately replayed with the current user, triggering a forced token
-  refresh and another render: an infinite loop of session-cookie writes,
-  one per render (visible as `POST /<page>` firing every second or two).
-  `dynamic()` is now called once at module scope.
-- Reverted two 0.3.2 changes that turned out to be based on an incorrect
-  read of a dead, unused reference implementation rather than the actual
-  proven-working code: `resolveAuthUser` is renamed back to
-  `resolveAuthUserAndRedirect` and performs its authoritative redirect
-  again (middleware only checks cookie *presence*, not validity — a
-  forged/expired/invalid-but-present cookie needs this RSC-layer check to
-  catch it), and `AuthUserProvider`'s `confirmedSignedOut` again
-  initializes from `initialUser === null` rather than always `false`.
+  inside its render body. Calling `dynamic()` per-render creates a brand new
+  component identity every time, forcing React to unmount/remount
+  `AuthUserProvider` on every render instead of reusing the existing instance —
+  each remount re-subscribed `onIdTokenChanged`, which Firebase immediately
+  replayed with the current user, triggering a forced token refresh and another
+  render: an infinite loop of session-cookie writes, one per render (visible as
+  `POST /<page>` firing every second or two). `dynamic()` is now called once at
+  module scope.
+- Reverted two 0.3.2 changes that turned out to be based on an incorrect read of
+  a dead, unused reference implementation rather than the actual proven-working
+  code: `resolveAuthUser` is renamed back to `resolveAuthUserAndRedirect` and
+  performs its authoritative redirect again (middleware only checks cookie
+  _presence_, not validity — a forged/expired/invalid-but-present cookie needs
+  this RSC-layer check to catch it), and `AuthUserProvider`'s
+  `confirmedSignedOut` again initializes from `initialUser === null` rather than
+  always `false`.
 
 ## [0.3.2] - 2026-08-02
 
 ### Fixed
 
 - `firebase_auth` middleware no longer signs a user out on a transient
-  session-refresh failure (network blip, Google 5xx, timeout). Previously
-  any failure to refresh the ID token — including ones unrelated to the
-  refresh token's validity — cleared the refresh-token cookie and redirected
-  to the auth page; since the client SDK's own session is independent of
-  these cookies, this produced a visible flash to the login page followed
-  by an immediate bounce back home. Only Google's explicit "this refresh
-  token is invalid" error codes (`INVALID_REFRESH_TOKEN`, `TOKEN_EXPIRED`,
-  `USER_DISABLED`, `USER_NOT_FOUND`) now trigger sign-out; every other
-  failure passes the request through untouched instead of guessing.
+  session-refresh failure (network blip, Google 5xx, timeout). Previously any
+  failure to refresh the ID token — including ones unrelated to the refresh
+  token's validity — cleared the refresh-token cookie and redirected to the auth
+  page; since the client SDK's own session is independent of these cookies, this
+  produced a visible flash to the login page followed by an immediate bounce
+  back home. Only Google's explicit "this refresh token is invalid" error codes
+  (`INVALID_REFRESH_TOKEN`, `TOKEN_EXPIRED`, `USER_DISABLED`, `USER_NOT_FOUND`)
+  now trigger sign-out; every other failure passes the request through untouched
+  instead of guessing.
 
 ### Added
 
-- `sessionCookieName`/`refreshTokenCookieName` on `FirebaseAuthRoutingConfig`
-  — override the cookie names `firebase_auth`'s middleware, client provider,
-  and server helpers read/write (default: `__fa_session__`/
-  `__fa_refresh_token__`), for apps that already use different cookie names
-  for their Firebase session.
+- `sessionCookieName`/`refreshTokenCookieName` on `FirebaseAuthRoutingConfig` —
+  override the cookie names `firebase_auth`'s middleware, client provider, and
+  server helpers read/write (default: `__fa_session__`/ `__fa_refresh_token__`),
+  for apps that already use different cookie names for their Firebase session.
 
 ## [0.3.1] - 2026-08-02
 
 ### Added
 
 - `./getFirebaseAuthUser` subpath: unconditional, server-only `getAuthUser()`
-  export, same style as `getLocale`/`getTranslations` — always types as
-  `async` in editors, unlike `useFirebaseAuthUser`'s `react-server`
-  condition (which TypeScript can't evaluate, so it always shows that
-  subpath's client/sync signature regardless of call site).
+  export, same style as `getLocale`/`getTranslations` — always types as `async`
+  in editors, unlike `useFirebaseAuthUser`'s `react-server` condition (which
+  TypeScript can't evaluate, so it always shows that subpath's client/sync
+  signature regardless of call site).
 
 ## [0.3.0] - 2026-08-01
 
@@ -458,24 +687,24 @@ Set `cookieConsent.autoWireDialogs: false` to keep rendering them yourself.
   `./firebaseAuthClient`, `./firebaseAuthClientProvider`,
   `./firebaseAuthServerProvider`, `./useFirebaseAuthUser`,
   `./firebaseAuthActions`, `./firebaseAuthMiddleware`.
-- `llms.txt` at the package root — machine-readable map of every subpath,
-  its purpose, and package-wide conventions/gotchas.
-- `src/config/README.md` and `src/firebase_auth/README.md` — module-level
-  docs for the two areas requiring setup a consumer must know before use.
+- `llms.txt` at the package root — machine-readable map of every subpath, its
+  purpose, and package-wide conventions/gotchas.
+- `src/config/README.md` and `src/firebase_auth/README.md` — module-level docs
+  for the two areas requiring setup a consumer must know before use.
 - Performance benchmark suite (`vitest bench`).
-- `@example` blocks on `useLocale`, `useTranslations`, `useAuthUser`, and
-  the three `firebaseAuthActions` factories.
+- `@example` blocks on `useLocale`, `useTranslations`, `useAuthUser`, and the
+  three `firebaseAuthActions` factories.
 
 ### Changed
 
-- `intlMiddleware`'s Edge session-refresh path now caches successful
-  Firebase refresh-token exchanges (Cloudflare Workers `caches.default`),
-  cutting redundant round-trips to Google's Secure Token API.
-- Error message for a missing `@intl-config` alias now names the alias,
-  the file to create, and the README section to follow instead of a
-  generic "set config file" message.
-- `useLocale`/`useTranslations` throw the same wording on both the
-  Server Component and Client Component implementations
+- `intlMiddleware`'s Edge session-refresh path now caches successful Firebase
+  refresh-token exchanges (Cloudflare Workers `caches.default`), cutting
+  redundant round-trips to Google's Secure Token API.
+- Error message for a missing `@intl-config` alias now names the alias, the file
+  to create, and the README section to follow instead of a generic "set config
+  file" message.
+- `useLocale`/`useTranslations` throw the same wording on both the Server
+  Component and Client Component implementations
   (`"... must be used within an IntlProvider"`).
 - `setCookieClient`'s `value` param narrowed from `unknown` to
   `string | number | boolean`.
@@ -483,8 +712,8 @@ Set `cookieConsent.autoWireDialogs: false` to keep rendering them yourself.
 ### Removed
 
 - `./getLayoutStates` subpath and its dead implementation
-  (`src/general/get_layout_states.ts`) — was already fully commented out
-  and exported nothing at runtime.
+  (`src/general/get_layout_states.ts`) — was already fully commented out and
+  exported nothing at runtime.
 
 ## [0.2.2] and earlier
 

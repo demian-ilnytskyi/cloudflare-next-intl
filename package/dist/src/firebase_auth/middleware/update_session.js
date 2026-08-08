@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import config from '@intl-config';
 import decodeJwtPayload from '../decode_jwt_payload';
+import isWhitelisted from '../is_whitelisted';
 export const defaultSessionCookieName = '__fa_session__';
 export const defaultRefreshTokenCookieName = '__fa_refresh_token__';
 // Non-httpOnly: written by AuthUserProvider (client) every time it observes
@@ -219,7 +220,7 @@ export default async function updateSession(request, baseResponse, locale) {
             }
         }
     }
-    const isWhiteListed = fa.whiteListPaths?.includes(path) ?? false;
+    const isWhiteListed = isWhitelisted(path, fa.whiteListPaths);
     if (isWhiteListed)
         return baseResponse;
     const isAuthPage = fa.isAuthPath(path);

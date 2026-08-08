@@ -9,6 +9,7 @@ import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client'
 import { setAuthUserCache } from './auth_user_cache';
 import { defaultEmailVerifiedHintCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName } from '../middleware/update_session';
 import decodeJwtPayload from '../decode_jwt_payload';
+import isWhitelisted from '../is_whitelisted';
 import setCookie from '../../client/functions/set_cookie';
 import getCookie from '../../client/functions/get_cookie';
 import clearSessionAction from '../server/clear_session_action';
@@ -87,7 +88,7 @@ export default function AuthUserProvider({ initialUser = null, children }) {
     const router = useRouter();
     const pathname = usePathname();
     const isAuthPage = fa.isAuthPath(pathname);
-    const isWhiteListed = fa.whiteListPaths?.includes(pathname) ?? false;
+    const isWhiteListed = isWhitelisted(pathname, fa.whiteListPaths);
     const maxAge = fa.sessionCookieMaxAge ?? 60 * 60 * 24 * 5;
     const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
     const refreshTokenMaxAge = fa.refreshTokenCookieMaxAge ?? 60 * 60 * 24 * 365;
