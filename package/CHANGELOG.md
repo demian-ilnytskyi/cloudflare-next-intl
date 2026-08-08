@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.21] - 2026-08-08
+
+### Added
+
+- `firebaseAuth.appCheck` config to enable Firebase App Check on the client
+  (`getFirebaseAuthClient`). Supports `recaptchaV3SiteKey` or
+  `recaptchaEnterpriseSiteKey`, plus a `debugToken` flag for local development
+  (sets `self.FIREBASE_APPCHECK_DEBUG_TOKEN = true` before init). Required if
+  App Check enforcement is turned on in the Firebase console — otherwise every
+  Auth/Firestore request gets rejected with 401.
+
 ## [0.6.20] - 2026-08-08
 
 ### Fixed

@@ -1,6 +1,19 @@
 'use client';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
+async function initializeFirebaseAppCheck(app, appCheckConfig) {
+    const { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
+    if (appCheckConfig.debugToken) {
+        globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    }
+    const provider = appCheckConfig.recaptchaEnterpriseSiteKey
+        ? new ReCaptchaEnterpriseProvider(appCheckConfig.recaptchaEnterpriseSiteKey)
+        : new ReCaptchaV3Provider(appCheckConfig.recaptchaV3SiteKey);
+    initializeAppCheck(app, {
+        provider,
+        isTokenAutoRefreshEnabled: appCheckConfig.isTokenAutoRefreshEnabled ?? true,
+    });
+}
 let cached;
 let cachedPromise;
 /**
@@ -16,7 +29,7 @@ export async function getFirebaseAuthClient() {
         return cached;
     if (!cachedPromise) {
         const fa = config.firebaseAuth;
-        cachedPromise = Promise.all([import('firebase/app'), import('firebase/auth')]).then(([{ getApp, getApps, initializeApp }, { getAuth }]) => {
+        cachedPromise = Promise.all([import('firebase/app'), import('firebase/auth')]).then(async ([{ getApp, getApps, initializeApp }, { getAuth }]) => {
             const firebaseConfig = {
                 apiKey: fa.apiKey,
                 authDomain: fa.authDomain,
@@ -27,6 +40,9 @@ export async function getFirebaseAuthClient() {
                 measurementId: fa.measurementId,
             };
             const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+            if (fa.appCheck) {
+                await initializeFirebaseAppCheck(app, fa.appCheck);
+            }
             const auth = getAuth(app);
             cached = { app, auth };
             return cached;

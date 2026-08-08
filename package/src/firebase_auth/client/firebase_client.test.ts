@@ -18,6 +18,13 @@ const initializeApp = vi.fn(() => ({ name: 'app' }));
 const getApps = vi.fn(() => []);
 const getApp = vi.fn(() => ({ name: 'existing-app' }));
 const getAuth = vi.fn(() => ({ currentUser: null }));
+const initializeAppCheck = vi.fn(() => ({}));
+const ReCaptchaV3Provider = vi.fn(function (this: unknown, siteKey: string) {
+    return { siteKey };
+});
+const ReCaptchaEnterpriseProvider = vi.fn(function (this: unknown, siteKey: string) {
+    return { siteKey };
+});
 
 vi.mock('firebase/app', () => ({
     initializeApp: (...args: unknown[]) => initializeApp(...args),
@@ -27,6 +34,11 @@ vi.mock('firebase/app', () => ({
 vi.mock('firebase/auth', () => ({
     getAuth: (...args: unknown[]) => getAuth(...args),
 }));
+vi.mock('firebase/app-check', () => ({
+    initializeAppCheck: (...args: unknown[]) => initializeAppCheck(...args),
+    ReCaptchaV3Provider,
+    ReCaptchaEnterpriseProvider,
+}));
 
 describe('getFirebaseAuthClient', () => {
     beforeEach(() => {
@@ -35,6 +47,10 @@ describe('getFirebaseAuthClient', () => {
         getApps.mockClear();
         getApp.mockClear();
         getAuth.mockClear();
+        initializeAppCheck.mockClear();
+        ReCaptchaV3Provider.mockClear();
+        ReCaptchaEnterpriseProvider.mockClear();
+        delete (globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: unknown }).FIREBASE_APPCHECK_DEBUG_TOKEN;
     });
 
     it('initializes a new firebase app when none already exists', async () => {
@@ -78,6 +94,58 @@ describe('getFirebaseAuthClient', () => {
         expect(getFirebaseAuthClientSync()).toBeUndefined();
         await getFirebaseAuthClient();
         expect(getFirebaseAuthClientSync()).toBeDefined();
+    });
+});
+
+describe('getFirebaseAuthClient App Check', () => {
+    beforeEach(() => {
+        vi.resetModules();
+        initializeApp.mockClear();
+        getApps.mockReturnValue([]);
+        getApp.mockClear();
+        getAuth.mockClear();
+        initializeAppCheck.mockClear();
+        ReCaptchaV3Provider.mockClear();
+        ReCaptchaEnterpriseProvider.mockClear();
+        delete (globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: unknown }).FIREBASE_APPCHECK_DEBUG_TOKEN;
+    });
+
+    it('does not initialize App Check when appCheck is not configured', async () => {
+        const { getFirebaseAuthClient } = await import('./firebase_client');
+        await getFirebaseAuthClient();
+        expect(initializeAppCheck).not.toHaveBeenCalled();
+    });
+
+    it('initializes App Check with a reCAPTCHA v3 provider when configured', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    appCheck: { recaptchaV3SiteKey: 'site-key' },
+                },
+            },
+        }));
+        const { getFirebaseAuthClient } = await import('./firebase_client');
+        await getFirebaseAuthClient();
+        expect(ReCaptchaV3Provider).toHaveBeenCalledWith('site-key');
+        expect(initializeAppCheck).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({ isTokenAutoRefreshEnabled: true }),
+        );
+    });
+
+    it('sets the debug token flag before initializing when debugToken is true', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    appCheck: { recaptchaV3SiteKey: 'site-key', debugToken: true },
+                },
+            },
+        }));
+        const { getFirebaseAuthClient } = await import('./firebase_client');
+        await getFirebaseAuthClient();
+        expect((globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: unknown }).FIREBASE_APPCHECK_DEBUG_TOKEN).toBe(true);
     });
 });
 

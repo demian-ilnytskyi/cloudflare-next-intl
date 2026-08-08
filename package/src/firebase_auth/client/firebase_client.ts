@@ -4,6 +4,21 @@ import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
+import type { FirebaseAppCheckConfig } from '../../types/types';
+
+async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: FirebaseAppCheckConfig): Promise<void> {
+    const { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
+    if (appCheckConfig.debugToken) {
+        (globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: boolean }).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    }
+    const provider = appCheckConfig.recaptchaEnterpriseSiteKey
+        ? new ReCaptchaEnterpriseProvider(appCheckConfig.recaptchaEnterpriseSiteKey)
+        : new ReCaptchaV3Provider(appCheckConfig.recaptchaV3SiteKey as string);
+    initializeAppCheck(app, {
+        provider,
+        isTokenAutoRefreshEnabled: appCheckConfig.isTokenAutoRefreshEnabled ?? true,
+    });
+}
 
 let cached: { app: FirebaseApp; auth: Auth } | undefined;
 let cachedPromise: Promise<{ app: FirebaseApp; auth: Auth }> | undefined;
@@ -21,7 +36,7 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
     if (!cachedPromise) {
         const fa = config.firebaseAuth;
         cachedPromise = Promise.all([import('firebase/app'), import('firebase/auth')]).then(
-            ([{ getApp, getApps, initializeApp }, { getAuth }]) => {
+            async ([{ getApp, getApps, initializeApp }, { getAuth }]) => {
                 const firebaseConfig = {
                     apiKey: fa.apiKey,
                     authDomain: fa.authDomain,
@@ -32,6 +47,9 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
                     measurementId: fa.measurementId,
                 };
                 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+                if (fa.appCheck) {
+                    await initializeFirebaseAppCheck(app, fa.appCheck);
+                }
                 const auth = getAuth(app);
                 cached = { app, auth };
                 return cached;

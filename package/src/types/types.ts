@@ -451,6 +451,13 @@ export interface FirebaseAuthRoutingConfig {
     appId: string;
     /** Firebase Analytics measurement ID. */
     measurementId?: string;
+    /**
+     * Enables Firebase App Check on the client. Omit to leave App Check
+     * uninitialized — required if App Check enforcement is turned on for
+     * Auth/Firestore/etc. in the Firebase console, or every request gets
+     * rejected with 401.
+     */
+    appCheck?: FirebaseAppCheckConfig;
     /** Path to redirect signed-out users to, e.g. "/login". Must start with "/" — `setIntlConfig` auto-corrects a missing leading slash with a warning. */
     redirectAuthPath: string;
     /** Path to redirect signed-in users away from auth pages to, e.g. "/". Must start with "/" — `setIntlConfig` auto-corrects a missing leading slash with a warning. */
@@ -541,6 +548,22 @@ export interface FirebaseAuthRoutingConfig {
      * `console.error`.
      */
     onSignOut?: () => void | Promise<void>;
+}
+
+export interface FirebaseAppCheckConfig {
+    /** reCAPTCHA v3 site key. Mutually exclusive with `recaptchaEnterpriseSiteKey`. */
+    recaptchaV3SiteKey?: string;
+    /** reCAPTCHA Enterprise site key. Mutually exclusive with `recaptchaV3SiteKey`. */
+    recaptchaEnterpriseSiteKey?: string;
+    /**
+     * Enables App Check's debug token on this client (sets
+     * `self.FIREBASE_APPCHECK_DEBUG_TOKEN = true` before init, which logs a
+     * token to the console to register in the Firebase console). Use only
+     * for local development — never set `true` in production.
+     */
+    debugToken?: boolean;
+    /** Forwarded to `initializeAppCheck`'s `isTokenAutoRefreshEnabled`. Defaults to `true`. */
+    isTokenAutoRefreshEnabled?: boolean;
 }
 
 export interface CookieAttributes {
