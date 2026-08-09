@@ -575,11 +575,9 @@ export interface FirebaseAppCheckConfig {
      * Service account client email, used ONLY server-side to mint an App
      * Check token when the client-written App Check cookie is absent (e.g.
      * a cold navigation before `AuthUserProvider` has run — see
-     * `appCheckTokenCookieName`). Omit to skip server-side minting entirely;
-     * `getAuthenticatedAppForUser` then behaves exactly as it did before this
-     * option existed (falls back to no App Check token). Never sent to the
-     * client — read only by `firebase_server.ts`. Required alongside
-     * `privateKey` and `appId` for minting to activate.
+     * `appCheckTokenCookieName`). Required alongside `privateKey` and
+     * `appId` for server-side minting. Never sent to the client — read only
+     * by `firebase_server.ts`.
      */
     clientEmail: string;
     /**
