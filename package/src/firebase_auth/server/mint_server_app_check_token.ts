@@ -11,9 +11,9 @@ const DEFAULT_CUSTOM_TOKEN_LIFETIME = '1h';
  * when the client-written App Check cookie (see `appCheckTokenCookieName`)
  * is absent — e.g. a cold navigation before `AuthUserProvider` has run and
  * had a chance to write it. Requires `clientEmail`/`privateKey`/`appId` on
- * `firebaseAuth.appCheck`; returns `undefined` (never throws) if any of
- * those are missing or the exchange fails, so a caller can always fall back
- * to "no App Check token" exactly as before this existed.
+ * `firebaseAuth.appCheck`; returns `undefined` (never throws) if the
+ * exchange fails, so a caller can always fall back to "no App Check token"
+ * exactly as before this existed.
  *
  * Signs a short-lived custom JWT with the service account's private key
  * (`jose`, Edge/WebCrypto-compatible — no `firebase-admin`), then exchanges

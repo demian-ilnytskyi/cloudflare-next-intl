@@ -581,7 +581,7 @@ export interface FirebaseAppCheckConfig {
      * client — read only by `firebase_server.ts`. Required alongside
      * `privateKey` and `appId` for minting to activate.
      */
-    clientEmail?: string;
+    clientEmail: string;
     /**
      * Service account private key (PEM), paired with `clientEmail` for
      * server-side App Check token minting. Same server-only, secret-bearing
@@ -590,20 +590,23 @@ export interface FirebaseAppCheckConfig {
      * browser. Escaped `\n` sequences (common when stored in a single-line
      * env var) are unescaped automatically before use.
      */
-    privateKey?: string;
+    privateKey: string;
     /**
      * Firebase App Check app ID (e.g. `"1:1234567890:web:abcdef123456"`),
      * required alongside `clientEmail`/`privateKey` for server-side minting.
      * Distinct from the Firebase Auth `appId` on `FirebaseAuthRoutingConfig`
      * itself — App Check registers apps separately.
      */
-    appId?: string;
+    appId: string;
     /**
      * Lifetime of the custom JWT signed for the `exchangeCustomToken`
      * server-side mint, as a `jose` `setExpirationTime` duration string
-     * (e.g. `'1h'`, `'30m'`). Defaults to `'1h'`. This is the custom token's
-     * own lifetime, not the resulting App Check token's — Firebase controls
-     * that separately.
+     * (e.g. `'1h'`, `'30m'`, `'7d'`). Defaults to `'1h'`. This is the custom
+     * token's own lifetime, not the resulting App Check token's — Firebase
+     * controls that separately. Google's custom-token minting generally
+     * rejects lifetimes beyond 1 hour regardless of what's set here, so
+     * values longer than `'1h'` are unlikely to have any practical effect —
+     * kept configurable in case that constraint changes.
      */
     customTokenLifetime?: string;
 }

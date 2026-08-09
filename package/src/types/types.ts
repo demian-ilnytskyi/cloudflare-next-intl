@@ -587,13 +587,11 @@ export interface FirebaseAppCheckConfig {
      * Service account client email, used ONLY server-side to mint an App
      * Check token when the client-written App Check cookie is absent (e.g.
      * a cold navigation before `AuthUserProvider` has run — see
-     * `appCheckTokenCookieName`). Omit to skip server-side minting entirely;
-     * `getAuthenticatedAppForUser` then behaves exactly as it did before this
-     * option existed (falls back to no App Check token). Never sent to the
-     * client — read only by `firebase_server.ts`. Required alongside
-     * `privateKey` and `appId` for minting to activate.
+     * `appCheckTokenCookieName`). Required alongside `privateKey` and
+     * `appId` for server-side minting. Never sent to the client — read only
+     * by `firebase_server.ts`.
      */
-    clientEmail?: string;
+    clientEmail: string;
     /**
      * Service account private key (PEM), paired with `clientEmail` for
      * server-side App Check token minting. Same server-only, secret-bearing
@@ -602,14 +600,14 @@ export interface FirebaseAppCheckConfig {
      * browser. Escaped `\n` sequences (common when stored in a single-line
      * env var) are unescaped automatically before use.
      */
-    privateKey?: string;
+    privateKey: string;
     /**
      * Firebase App Check app ID (e.g. `"1:1234567890:web:abcdef123456"`),
      * required alongside `clientEmail`/`privateKey` for server-side minting.
      * Distinct from the Firebase Auth `appId` on `FirebaseAuthRoutingConfig`
      * itself — App Check registers apps separately.
      */
-    appId?: string;
+    appId: string;
     /**
      * Lifetime of the custom JWT signed for the `exchangeCustomToken`
      * server-side mint, as a `jose` `setExpirationTime` duration string

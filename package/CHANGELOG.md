@@ -3,6 +3,19 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.26] - 2026-08-09
+
+### Changed
+
+- **Breaking:** `FirebaseAppCheckConfig.clientEmail`, `privateKey`, and
+  `appId` are now required fields instead of optional. They were already
+  required together at runtime for server-side App Check token minting
+  (`mintServerAppCheckToken` silently no-op'd if any were missing) — this
+  just makes that a compile-time guarantee wherever `appCheck` is set. Apps
+  that configure `appCheck` only for client-side enforcement (no
+  `clientEmail`/`privateKey`/`appId`) must now provide all three, or omit
+  `appCheck` entirely to opt out of App Check.
+
 ## [0.6.25] - 2026-08-09
 
 ### Fixed
