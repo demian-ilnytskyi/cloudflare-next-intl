@@ -521,6 +521,22 @@ export interface FirebaseAuthRoutingConfig {
     /** Email-verified hint cookie name. Defaults to `'__fa_email_verified_hint__'`. Client-written, non-httpOnly; lets the middleware avoid an unnecessary token refresh when its view already matches the client's. */
     emailVerifiedHintCookieName?: string;
     /**
+     * App Check token cookie name. Defaults to `'__fa_app_check_token__'`.
+     * Client-written, non-httpOnly; carries the client's live App Check
+     * token to the server so `getAuthUser()`/`getAuthenticatedAppForUser`
+     * can pass it to `initializeServerApp`. Only relevant when `appCheck`
+     * is configured AND App Check enforcement is turned on for Auth in the
+     * Firebase console — otherwise `initializeServerApp` rejects every
+     * request with `auth/firebase-app-check-token-is-invalid`.
+     */
+    appCheckTokenCookieName?: string;
+    /**
+     * App Check token cookie max-age in seconds. Defaults to 1 hour (3600) —
+     * matches the App Check token's own default lifetime, so the cookie
+     * doesn't outlive the token it holds.
+     */
+    appCheckTokenCookieMaxAge?: number;
+    /**
      * Called once, the moment `AuthUserProvider` observes a real sign-in
      * (a `null → user` transition) — never on a plain token refresh of an
      * already-signed-in user. Runs after the session/refresh-token/
@@ -567,6 +583,44 @@ export interface FirebaseAppCheckConfig {
     debugToken?: boolean | string;
     /** Forwarded to `initializeAppCheck`'s `isTokenAutoRefreshEnabled`. Defaults to `true`. */
     isTokenAutoRefreshEnabled?: boolean;
+    /**
+     * Service account client email, used ONLY server-side to mint an App
+     * Check token when the client-written App Check cookie is absent (e.g.
+     * a cold navigation before `AuthUserProvider` has run — see
+     * `appCheckTokenCookieName`). Omit to skip server-side minting entirely;
+     * `getAuthenticatedAppForUser` then behaves exactly as it did before this
+     * option existed (falls back to no App Check token). Never sent to the
+     * client — read only by `firebase_server.ts`. Required alongside
+     * `privateKey` and `appId` for minting to activate.
+     */
+    clientEmail?: string;
+    /**
+     * Service account private key (PEM), paired with `clientEmail` for
+     * server-side App Check token minting. Same server-only, secret-bearing
+     * field as `clientEmail` — set from an untrusted-by-the-client env var
+     * (e.g. `process.env.FIREBASE_PRIVATE_KEY`), never exposed to the
+     * browser. Escaped `\n` sequences (common when stored in a single-line
+     * env var) are unescaped automatically before use.
+     */
+    privateKey?: string;
+    /**
+     * Firebase App Check app ID (e.g. `"1:1234567890:web:abcdef123456"`),
+     * required alongside `clientEmail`/`privateKey` for server-side minting.
+     * Distinct from the Firebase Auth `appId` on `FirebaseAuthRoutingConfig`
+     * itself — App Check registers apps separately.
+     */
+    appId?: string;
+    /**
+     * Lifetime of the custom JWT signed for the `exchangeCustomToken`
+     * server-side mint, as a `jose` `setExpirationTime` duration string
+     * (e.g. `'1h'`, `'30m'`, `'7d'`). Defaults to `'1h'`. This is the custom
+     * token's own lifetime, not the resulting App Check token's — Firebase
+     * controls that separately. Google's custom-token minting generally
+     * rejects lifetimes beyond 1 hour regardless of what's set here, so
+     * values longer than `'1h'` are unlikely to have any practical effect —
+     * kept configurable in case that constraint changes.
+     */
+    customTokenLifetime?: string;
 }
 
 export interface CookieAttributes {

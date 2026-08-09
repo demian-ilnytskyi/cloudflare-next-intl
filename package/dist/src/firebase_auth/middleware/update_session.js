@@ -11,6 +11,13 @@ export const defaultRefreshTokenCookieName = '__fa_refresh_token__';
 // — force one refresh). Readable client-side is fine: it carries no secret,
 // only a boolean mirror of a claim already inside the session JWT.
 export const defaultEmailVerifiedHintCookieName = '__fa_email_verified_hint__';
+// Non-httpOnly: written by AuthUserProvider (client) whenever it mints a
+// fresh App Check token, so the server can forward it to
+// `initializeServerApp` — required whenever App Check enforcement is on for
+// Auth, or every server-side `getAuthUser()` call is rejected with
+// `auth/firebase-app-check-token-is-invalid`. Carries no secret beyond what
+// the client already attaches to every Firebase SDK request itself.
+export const defaultAppCheckTokenCookieName = '__fa_app_check_token__';
 export const defaultResetPasswordPath = '/reset-password';
 /**
  * Firebase's console exposes ONE project-wide action URL, so every email

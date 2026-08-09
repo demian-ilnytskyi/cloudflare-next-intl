@@ -1,6 +1,7 @@
 'use client';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
+let cachedAppCheck;
 async function initializeFirebaseAppCheck(app, appCheckConfig) {
     const { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
     if (appCheckConfig.debugToken) {
@@ -10,10 +11,24 @@ async function initializeFirebaseAppCheck(app, appCheckConfig) {
     const provider = appCheckConfig.recaptchaEnterpriseSiteKey
         ? new ReCaptchaEnterpriseProvider(appCheckConfig.recaptchaEnterpriseSiteKey)
         : new ReCaptchaV3Provider(appCheckConfig.recaptchaV3SiteKey);
-    initializeAppCheck(app, {
+    return initializeAppCheck(app, {
         provider,
         isTokenAutoRefreshEnabled: appCheckConfig.isTokenAutoRefreshEnabled ?? true,
     });
+}
+/**
+ * Current App Check token, or `undefined` if `appCheck` isn't configured or
+ * hasn't initialized yet. Forces a refresh only when the cached token is
+ * expired/near-expiry — mirrors `getToken`'s own semantics, just exposed
+ * here so callers (e.g. `AuthUserProvider`'s session-cookie sync) don't need
+ * to import `firebase/app-check` themselves.
+ */
+export async function getAppCheckToken() {
+    if (!cachedAppCheck)
+        return undefined;
+    const { getToken } = await import('firebase/app-check');
+    const result = await getToken(cachedAppCheck);
+    return result.token;
 }
 let cached;
 let cachedPromise;
@@ -42,7 +57,7 @@ export async function getFirebaseAuthClient() {
             };
             const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
             if (fa.appCheck) {
-                await initializeFirebaseAppCheck(app, fa.appCheck);
+                cachedAppCheck = await initializeFirebaseAppCheck(app, fa.appCheck);
             }
             const auth = getAuth(app);
             cached = { app, auth };

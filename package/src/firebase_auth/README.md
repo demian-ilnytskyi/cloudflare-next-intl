@@ -19,6 +19,30 @@ unexpectedly.
 - `server/` — RSC-side: `use_auth_user_server.ts`, `firebase_server.ts`,
   `auth_user_server_provider.tsx` (not used by the default auto-wiring path —
   see its doc comment for why).
+
+  When `appCheck` is configured AND App Check enforcement is on for Auth in
+  the Firebase console, `initializeServerApp` rejects every call with
+  `auth/firebase-app-check-token-is-invalid` unless it is handed an
+  `appCheckToken` — the client SDK's own App Check init does nothing for the
+  server. `AuthUserProvider` therefore mirrors the live App Check token into
+  a client-readable `appCheckTokenCookieName` cookie (default
+  `__fa_app_check_token__`, max-age `appCheckTokenCookieMaxAge` / 1hr to
+  match the token's own lifetime), which `firebase_server.ts` reads and
+  forwards. Absent cookie = App Check validation skipped, same as before.
+
+  That cookie is only as fresh as the client's last write, so a cold
+  navigation (fresh tab, hard refresh, external link) renders on the server
+  before `AuthUserProvider` has run at all — the exact rejection the cookie
+  exists to prevent, for an otherwise genuinely signed-in user (proven by a
+  valid session cookie). `mint_server_app_check_token.ts` covers that gap:
+  when the App Check cookie is absent, `firebase_server.ts` mints one
+  server-side via a service-account custom-token exchange (`jose`-signed,
+  Edge-runtime-safe, no `firebase-admin`), gated on
+  `appCheck.clientEmail`/`privateKey`/`appId` all being set — omit any of
+  them to skip minting and keep the cookie-or-nothing behavior. Not cached
+  beyond `getAuthenticatedAppForUser`'s own request-scoped `cache()`; a fresh
+  mint costs one signing op plus one round-trip to Google per request that
+  needs it.
 - `middleware/update_session.ts` — refreshes the session cookie and drives
   the guest/auth-page/unverified-email redirects (`redirectAuthPath` /
   `homePath` / `verifyEmailPath`, the last checked via the session token's

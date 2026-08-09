@@ -1,6 +1,14 @@
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
 /**
+ * Current App Check token, or `undefined` if `appCheck` isn't configured or
+ * hasn't initialized yet. Forces a refresh only when the cached token is
+ * expired/near-expiry — mirrors `getToken`'s own semantics, just exposed
+ * here so callers (e.g. `AuthUserProvider`'s session-cookie sync) don't need
+ * to import `firebase/app-check` themselves.
+ */
+export declare function getAppCheckToken(): Promise<string | undefined>;
+/**
  * Lazily loads and initializes `firebase/app`/`firebase/auth` — a dynamic
  * import, not a static one, so consumers who never call a firebase_auth
  * export never pull these packages into their bundle or runtime at all.

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const fa: { sessionCookieName?: string } & Record<string, unknown> = {
+const fa: { sessionCookieName?: string; appCheck?: unknown } & Record<string, unknown> = {
     apiKey: 'key',
     authDomain: 'domain',
     projectId: 'proj',
@@ -30,13 +30,20 @@ vi.mock('firebase/auth', () => ({
     getAuth: (...args: unknown[]) => getAuth(...args),
 }));
 
+const mintServerAppCheckToken = vi.fn(async () => undefined as string | undefined);
+vi.mock('./mint_server_app_check_token', () => ({
+    default: (...args: unknown[]) => mintServerAppCheckToken(...args),
+}));
+
 describe('getAuthenticatedAppForUser', () => {
     beforeEach(() => {
         vi.resetModules();
         vi.clearAllMocks();
         cookieGet.mockReturnValue(undefined);
         getAuth.mockReturnValue({ authStateReady, currentUser: { uid: 'u1' } });
+        mintServerAppCheckToken.mockResolvedValue(undefined);
         delete fa.sessionCookieName;
+        delete fa.appCheck;
     });
 
     it('returns null user when no session cookie is present', async () => {
@@ -53,7 +60,56 @@ describe('getAuthenticatedAppForUser', () => {
         const result = await getAuthenticatedAppForUser();
         expect(result.currentUser).toEqual({ uid: 'u1' });
         expect(result.firebaseServerApp).toBeDefined();
-        expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: 'valid-token' });
+        expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: 'valid-token', appCheckToken: 'valid-token' });
+    });
+
+    it('forwards the App Check token cookie as appCheckToken, distinct from the session cookie', async () => {
+        cookieGet.mockImplementation((name: string) =>
+            name === '__fa_app_check_token__' ? { value: 'ac-token' } : { value: 'valid-token' },
+        );
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        await getAuthenticatedAppForUser();
+        expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: 'valid-token', appCheckToken: 'ac-token' });
+    });
+
+    it('omits appCheckToken when no App Check cookie is present and minting is unconfigured/fails', async () => {
+        cookieGet.mockImplementation((name: string) =>
+            name === '__fa_app_check_token__' ? undefined : { value: 'valid-token' },
+        );
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        await getAuthenticatedAppForUser();
+        expect(mintServerAppCheckToken).toHaveBeenCalledWith('proj', undefined);
+        expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: 'valid-token', appCheckToken: undefined });
+    });
+
+    it('falls back to a server-minted App Check token when the cookie is absent', async () => {
+        fa.appCheck = { clientEmail: 'sa@proj.iam.gserviceaccount.com', privateKey: 'pk', appId: '1:1:web:1' };
+        cookieGet.mockImplementation((name: string) =>
+            name === '__fa_app_check_token__' ? undefined : { value: 'valid-token' },
+        );
+        mintServerAppCheckToken.mockResolvedValue('minted-token');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        await getAuthenticatedAppForUser();
+        expect(mintServerAppCheckToken).toHaveBeenCalledWith('proj', fa.appCheck);
+        expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: 'valid-token', appCheckToken: 'minted-token' });
+    });
+
+    it('does not attempt to mint when the App Check cookie is already present', async () => {
+        fa.appCheck = { clientEmail: 'sa@proj.iam.gserviceaccount.com', privateKey: 'pk', appId: '1:1:web:1' };
+        cookieGet.mockImplementation((name: string) =>
+            name === '__fa_app_check_token__' ? { value: 'ac-token' } : { value: 'valid-token' },
+        );
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        await getAuthenticatedAppForUser();
+        expect(mintServerAppCheckToken).not.toHaveBeenCalled();
+        expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: 'valid-token', appCheckToken: 'ac-token' });
+    });
+
+    it('does not attempt to mint when there is no session cookie at all', async () => {
+        cookieGet.mockReturnValue(undefined);
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        await getAuthenticatedAppForUser();
+        expect(mintServerAppCheckToken).not.toHaveBeenCalled();
     });
 
     it('initializes the base app only once across repeated calls', async () => {

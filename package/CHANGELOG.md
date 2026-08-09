@@ -3,6 +3,49 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.25] - 2026-08-09
+
+### Fixed
+
+- Server-side `getAuthUser()` / `getAuthenticatedAppForUser` no longer fail
+  with `auth/firebase-app-check-token-is-invalid` when App Check enforcement
+  is turned on for Auth in the Firebase console. The client initialized App
+  Check but never forwarded its token to the server, so `initializeServerApp`
+  was always called without an `appCheckToken` and every RSC-side user lookup
+  resolved to `null`. `AuthUserProvider` now mirrors the live App Check token
+  into a client-readable cookie alongside the session cookie, and
+  `getAuthenticatedAppForUser` reads it and passes it through. Apps without
+  `appCheck` configured are unaffected — the cookie is simply absent and
+  `initializeServerApp` skips App Check validation as before.
+
+  The middleware's own token-refresh path is unaffected either way: it calls
+  Google's Secure Token REST endpoint directly rather than going through the
+  Firebase SDK, and App Check enforcement does not apply there.
+
+  The App Check cookie above is written by `AuthUserProvider` (client) and is
+  only ~1hr fresh — a cold navigation (fresh tab, hard refresh, external
+  link) renders on the server BEFORE the client has had a chance to write it,
+  even for a genuinely signed-in user, which reproduced the exact same
+  rejection the cookie was meant to fix. `getAuthenticatedAppForUser` now
+  falls back to minting an App Check token server-side (service-account
+  custom-token exchange, `jose`-signed, Edge-runtime-safe — no
+  `firebase-admin`) whenever the cookie is absent, closing that gap. This
+  fallback only activates when `firebaseAuth.appCheck.clientEmail` /
+  `privateKey` / `appId` are all configured; omit them to keep the
+  cookie-or-nothing behavior above.
+
+### Added
+
+- `firebaseAuth.appCheckTokenCookieName` — App Check token cookie name.
+  Defaults to `'__fa_app_check_token__'`.
+- `firebaseAuth.appCheckTokenCookieMaxAge` — App Check token cookie max-age
+  in seconds. Defaults to 1 hour (3600), matching the App Check token's own
+  default lifetime so the cookie doesn't outlive the token it holds.
+- `firebaseAuth.appCheck.clientEmail` / `privateKey` / `appId` — service
+  account credentials (server-only, never sent to the client) enabling
+  server-side App Check token minting as a fallback for the client cookie
+  above. `jose` added as a new dependency for this.
+
 ## [0.6.24] - 2026-08-08
 
 ### Changed

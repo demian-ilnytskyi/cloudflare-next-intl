@@ -2,11 +2,14 @@
 
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
+import type { AppCheck } from 'firebase/app-check';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
 import type { FirebaseAppCheckConfig } from '../../types/types';
 
-async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: FirebaseAppCheckConfig): Promise<void> {
+let cachedAppCheck: AppCheck | undefined;
+
+async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: FirebaseAppCheckConfig): Promise<AppCheck> {
     const { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
     if (appCheckConfig.debugToken) {
         (globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: boolean | string }).FIREBASE_APPCHECK_DEBUG_TOKEN =
@@ -15,10 +18,24 @@ async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: Fire
     const provider = appCheckConfig.recaptchaEnterpriseSiteKey
         ? new ReCaptchaEnterpriseProvider(appCheckConfig.recaptchaEnterpriseSiteKey)
         : new ReCaptchaV3Provider(appCheckConfig.recaptchaV3SiteKey as string);
-    initializeAppCheck(app, {
+    return initializeAppCheck(app, {
         provider,
         isTokenAutoRefreshEnabled: appCheckConfig.isTokenAutoRefreshEnabled ?? true,
     });
+}
+
+/**
+ * Current App Check token, or `undefined` if `appCheck` isn't configured or
+ * hasn't initialized yet. Forces a refresh only when the cached token is
+ * expired/near-expiry — mirrors `getToken`'s own semantics, just exposed
+ * here so callers (e.g. `AuthUserProvider`'s session-cookie sync) don't need
+ * to import `firebase/app-check` themselves.
+ */
+export async function getAppCheckToken(): Promise<string | undefined> {
+    if (!cachedAppCheck) return undefined;
+    const { getToken } = await import('firebase/app-check');
+    const result = await getToken(cachedAppCheck);
+    return result.token;
 }
 
 let cached: { app: FirebaseApp; auth: Auth } | undefined;
@@ -49,7 +66,7 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
                 };
                 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
                 if (fa.appCheck) {
-                    await initializeFirebaseAppCheck(app, fa.appCheck);
+                    cachedAppCheck = await initializeFirebaseAppCheck(app, fa.appCheck);
                 }
                 const auth = getAuth(app);
                 cached = { app, auth };

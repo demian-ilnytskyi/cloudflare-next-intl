@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import usePathname from '../../client/hooks/use_path_name';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
-import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
+import { getAppCheckToken, getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
 import { setAuthUserCache } from './auth_user_cache';
-import { defaultEmailVerifiedHintCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName } from '../middleware/update_session';
+import { defaultAppCheckTokenCookieName, defaultEmailVerifiedHintCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName } from '../middleware/update_session';
 import decodeJwtPayload from '../decode_jwt_payload';
 import isWhitelisted from '../is_whitelisted';
 import setCookie from '../../client/functions/set_cookie';
@@ -61,9 +61,31 @@ function writeEmailVerifiedHintCookie(emailVerifiedHintCookieName: string, email
     setCookie({ name: emailVerifiedHintCookieName, value: String(emailVerified), maxAge });
 }
 
-async function clearSession(sessionCookieName: string, refreshTokenCookieName: string, emailVerifiedHintCookieName: string, refreshTokenMaxAge: number): Promise<void> {
+function clearAppCheckTokenCookie(appCheckTokenCookieName: string): void {
+    setCookie({ name: appCheckTokenCookieName, value: '', maxAge: 0 });
+}
+
+// Mirrors the live App Check token into a client-readable cookie so
+// `getAuthenticatedAppForUser` can forward it to `initializeServerApp` —
+// required whenever App Check enforcement is on for Auth, or every
+// server-side `getAuthUser()` call is rejected with
+// `auth/firebase-app-check-token-is-invalid`. Best-effort: App Check may not
+// be configured, or a token fetch can transiently fail (e.g. reCAPTCHA not
+// yet ready) — either case just leaves the cookie unset rather than blocking
+// session sync on it.
+async function writeAppCheckTokenCookie(appCheckTokenCookieName: string, maxAge: number): Promise<void> {
+    try {
+        const token = await getAppCheckToken();
+        if (token) setCookie({ name: appCheckTokenCookieName, value: token, maxAge });
+    } catch (e) {
+        console.error('AuthUserProvider: App Check token cookie sync failed', e);
+    }
+}
+
+async function clearSession(sessionCookieName: string, refreshTokenCookieName: string, emailVerifiedHintCookieName: string, appCheckTokenCookieName: string, refreshTokenMaxAge: number): Promise<void> {
     clearSessionCookie(sessionCookieName);
     clearRefreshTokenCookie(refreshTokenCookieName);
+    clearAppCheckTokenCookie(appCheckTokenCookieName);
     // Signed-out is not "unknown" — it's a confirmed non-verified state, so
     // write 'false' explicitly rather than clearing (an absent hint means
     // "no signal yet", which forces the middleware to refresh unnecessarily
@@ -83,6 +105,8 @@ async function writeSession(
     refreshTokenCookieName: string,
     refreshTokenMaxAge: number,
     emailVerifiedHintCookieName: string,
+    appCheckTokenCookieName: string,
+    appCheckTokenMaxAge: number,
     idToken?: string,
 ): Promise<void> {
     try {
@@ -91,6 +115,7 @@ async function writeSession(
         console.error('AuthUserProvider: refresh-token cookie sync failed', e);
     }
     writeEmailVerifiedHintCookie(emailVerifiedHintCookieName, user.emailVerified, refreshTokenMaxAge);
+    await writeAppCheckTokenCookie(appCheckTokenCookieName, appCheckTokenMaxAge);
     writeSessionCookie(sessionCookieName, idToken ?? await user.getIdToken(true), maxAge);
 }
 
@@ -128,6 +153,8 @@ export default function AuthUserProvider({ initialUser = null, children }: {
     const refreshTokenMaxAge = fa.refreshTokenCookieMaxAge ?? 60 * 60 * 24 * 365;
     const refreshTokenCookieName = fa.refreshTokenCookieName ?? defaultRefreshTokenCookieName;
     const emailVerifiedHintCookieName = fa.emailVerifiedHintCookieName ?? defaultEmailVerifiedHintCookieName;
+    const appCheckTokenCookieName = fa.appCheckTokenCookieName ?? defaultAppCheckTokenCookieName;
+    const appCheckTokenMaxAge = fa.appCheckTokenCookieMaxAge ?? 60 * 60;
     const [state, setState] = useState<{ user: AuthUser | null; loading: boolean }>({
         user: initialUser,
         loading: initialUser === null,
@@ -199,9 +226,9 @@ export default function AuthUserProvider({ initialUser = null, children }: {
 
                 try {
                     if (user) {
-                        await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName);
+                        await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge);
                     } else {
-                        await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, refreshTokenMaxAge);
+                        await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge);
                     }
                 } catch (e) {
                     console.error('AuthUserProvider: session sync failed', e);
@@ -267,7 +294,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             unsubscribe?.();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [router, isAuthPage, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName]);
+    }, [router, isAuthPage, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge]);
 
     const reloadUser = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();
@@ -301,7 +328,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
                 }
             }
 
-            await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, confirmedToken);
+            await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge, confirmedToken);
 
             if (!emailVerifiedRef.current && user.emailVerified) {
                 emailVerifiedRef.current = true;
@@ -335,11 +362,11 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             const { signOut } = await getFirebaseAuthModule();
             await signOut(auth);
         } finally {
-            await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, refreshTokenMaxAge);
+            await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge);
             router.push(fa.redirectAuthPath);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fa.redirectAuthPath, sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName]);
+    }, [fa.redirectAuthPath, sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName]);
 
     return <AuthUserContext.Provider value={{ ...state, reloadUser, sendVerificationEmail, logout }}>
         {children}
