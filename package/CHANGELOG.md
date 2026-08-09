@@ -3,6 +3,31 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.28] - 2026-08-09
+
+### Fixed
+
+- `mintServerAppCheckToken`'s custom JWT used the wrong `aud` (audience)
+  claim — `.../google.firebase.appcheck.v1.FirebaseAppCheck` (the App Check
+  API's own resource name) instead of
+  `.../google.firebase.appcheck.v1.TokenExchangeService` (the token-exchange
+  service `exchangeCustomToken` actually expects). Google's real backend
+  rejects the wrong audience with an opaque `403 App attestation failed`, no
+  indication the audience is the problem — this looked identical to a
+  permissions/App-Check-provider-registration issue and cost real
+  investigation time before being traced to `firebase-admin`'s own
+  `AppCheckTokenGenerator.createCustomToken` (`token-generator.js`), which
+  this now matches exactly. Also switched the custom token's lifetime from a
+  configurable `customTokenLifetime` (default `'1h'`) to a fixed 5 minutes —
+  `firebase-admin` hardcodes this too, and Google's real minting endpoint
+  rejects longer custom-token lifetimes outright regardless of what's
+  requested, so the option was a footgun with no working range above 5
+  minutes. **Breaking:** `FirebaseAppCheckConfig.customTokenLifetime` removed
+  — it never had a value greater than 5 minutes that would actually work.
+
+  Verified against Firebase's real `exchangeCustomToken` endpoint with a
+  live service account and project (not mocked) before landing this fix.
+
 ## [0.6.27] - 2026-08-09
 
 ### Fixed

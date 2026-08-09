@@ -57,24 +57,13 @@ describe('mintServerAppCheckToken', () => {
         expect(SignJWTConstructor).toHaveBeenCalledWith({ app_id: '1:1:web:1' });
         expect(setIssuer).toHaveBeenCalledWith('sa@proj.iam.gserviceaccount.com');
         expect(setSubject).toHaveBeenCalledWith('sa@proj.iam.gserviceaccount.com');
+        expect(setAudience).toHaveBeenCalledWith('https://firebaseappcheck.googleapis.com/google.firebase.appcheck.v1.TokenExchangeService');
+        expect(setExpirationTime).toHaveBeenCalledWith('5m');
         expect(fetchMock).toHaveBeenCalledWith(
             'https://firebaseappcheck.googleapis.com/v1/projects/proj/apps/1:1:web:1:exchangeCustomToken?key=key',
             expect.objectContaining({ method: 'POST', body: JSON.stringify({ customToken: 'custom-jwt' }) }),
         );
         expect(result).toBe('ac-token');
-        expect(setExpirationTime).toHaveBeenCalledWith('1h');
-    });
-
-    it('uses a custom customTokenLifetime when configured', async () => {
-        fetchMock.mockResolvedValue({ ok: true, json: async () => ({ token: 'ac-token' }) });
-        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
-        await mintServerAppCheckToken('proj', 'key', {
-            clientEmail: 'sa@proj.iam.gserviceaccount.com',
-            privateKey: 'pk',
-            appId: '1:1:web:1',
-            customTokenLifetime: '30m',
-        });
-        expect(setExpirationTime).toHaveBeenCalledWith('30m');
     });
 
     it('returns undefined and reports when the exchange responds non-ok', async () => {

@@ -10,9 +10,13 @@ import type { FirebaseAppCheckConfig } from '../../types/types';
  *
  * Signs a short-lived custom JWT with the service account's private key
  * (`jose`, Edge/WebCrypto-compatible — no `firebase-admin`), then exchanges
- * it for an App Check token via `exchangeCustomToken`. Not cached beyond the
- * caller's own request-scoped `cache()` wrapper — a fresh mint costs one
- * signing operation plus one network round-trip, acceptable per-request but
- * not worth doing more than once per request.
+ * it for an App Check token via `exchangeCustomToken`, authenticated with
+ * the project's Web API key (`?key=`) — `exchangeCustomToken` otherwise
+ * rejects the call outright as an unregistered/unidentified caller
+ * (403 `PERMISSION_DENIED`), before the custom token itself is even
+ * evaluated. Not cached beyond the caller's own request-scoped `cache()`
+ * wrapper — a fresh mint costs one signing operation plus one network
+ * round-trip, acceptable per-request but not worth doing more than once per
+ * request.
  */
-export default function mintServerAppCheckToken(projectId: string, appCheck: FirebaseAppCheckConfig | undefined): Promise<string | undefined>;
+export default function mintServerAppCheckToken(projectId: string, apiKey: string, appCheck: FirebaseAppCheckConfig | undefined): Promise<string | undefined>;

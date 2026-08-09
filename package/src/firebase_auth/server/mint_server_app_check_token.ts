@@ -2,9 +2,24 @@ import config from '@intl-config';
 import type { FirebaseAppCheckConfig } from '../../types/types';
 import reportError from '../../error_handling/report_error';
 
+// Matches `firebase-admin`'s own `AppCheckTokenGenerator.createCustomToken`
+// exactly (`token-generator.js`) — this specific audience (the App Check
+// TOKEN EXCHANGE service, not the App Check API resource name itself) is
+// REQUIRED. The wrong-but-plausible-looking
+// `.../google.firebase.appcheck.v1.FirebaseAppCheck` audience gets rejected
+// by `exchangeCustomToken` with an opaque `403 App attestation failed`, with
+// no indication the audience is the problem.
 const APP_CHECK_CUSTOM_TOKEN_AUDIENCE =
-    'https://firebaseappcheck.googleapis.com/google.firebase.appcheck.v1.FirebaseAppCheck';
-const DEFAULT_CUSTOM_TOKEN_LIFETIME = '1h';
+    'https://firebaseappcheck.googleapis.com/google.firebase.appcheck.v1.TokenExchangeService';
+// `firebase-admin` hardcodes this custom token's own lifetime to 5 minutes
+// and does not expose it as configurable — it's a short-lived credential
+// whose only job is to be immediately exchanged for the actual App Check
+// token (whose own lifetime is controlled by Firebase, separately). Mirrored
+// here as a fixed value rather than the configurable
+// `customTokenLifetime` this used to be: Google's real backend rejects
+// longer lifetimes outright, so making it configurable only offered a
+// footgun with no working range above this default.
+const CUSTOM_TOKEN_LIFETIME = '5m';
 
 /**
  * Mints a fresh App Check token server-side via a service account, for use
@@ -43,7 +58,7 @@ export default async function mintServerAppCheckToken(
             .setSubject(appCheck.clientEmail)
             .setAudience(APP_CHECK_CUSTOM_TOKEN_AUDIENCE)
             .setIssuedAt()
-            .setExpirationTime(appCheck.customTokenLifetime ?? DEFAULT_CUSTOM_TOKEN_LIFETIME)
+            .setExpirationTime(CUSTOM_TOKEN_LIFETIME)
             .sign(privateKey);
 
         const url = `https://firebaseappcheck.googleapis.com/v1/projects/${projectId}/apps/${appCheck.appId}:exchangeCustomToken?key=${apiKey}`;

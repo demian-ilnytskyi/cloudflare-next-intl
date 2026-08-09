@@ -596,17 +596,6 @@ export interface FirebaseAppCheckConfig {
      * itself — App Check registers apps separately.
      */
     appId: string;
-    /**
-     * Lifetime of the custom JWT signed for the `exchangeCustomToken`
-     * server-side mint, as a `jose` `setExpirationTime` duration string
-     * (e.g. `'1h'`, `'30m'`, `'7d'`). Defaults to `'1h'`. This is the custom
-     * token's own lifetime, not the resulting App Check token's — Firebase
-     * controls that separately. Google's custom-token minting generally
-     * rejects lifetimes beyond 1 hour regardless of what's set here, so
-     * values longer than `'1h'` are unlikely to have any practical effect —
-     * kept configurable in case that constraint changes.
-     */
-    customTokenLifetime?: string;
 }
 export interface CookieAttributes {
     /**
