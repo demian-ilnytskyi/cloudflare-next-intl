@@ -78,7 +78,7 @@ describe('getAuthenticatedAppForUser', () => {
         );
         const { getAuthenticatedAppForUser } = await import('./firebase_server');
         await getAuthenticatedAppForUser();
-        expect(mintServerAppCheckToken).toHaveBeenCalledWith('proj', undefined);
+        expect(mintServerAppCheckToken).toHaveBeenCalledWith('proj', 'key', undefined);
         expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: 'valid-token', appCheckToken: undefined });
     });
 
@@ -90,7 +90,7 @@ describe('getAuthenticatedAppForUser', () => {
         mintServerAppCheckToken.mockResolvedValue('minted-token');
         const { getAuthenticatedAppForUser } = await import('./firebase_server');
         await getAuthenticatedAppForUser();
-        expect(mintServerAppCheckToken).toHaveBeenCalledWith('proj', fa.appCheck);
+        expect(mintServerAppCheckToken).toHaveBeenCalledWith('proj', 'key', fa.appCheck);
         expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: 'valid-token', appCheckToken: 'minted-token' });
     });
 

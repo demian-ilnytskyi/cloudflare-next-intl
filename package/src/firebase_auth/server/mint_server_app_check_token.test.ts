@@ -38,17 +38,17 @@ describe('mintServerAppCheckToken', () => {
 
     it('returns undefined when clientEmail/privateKey/appId are not fully configured', async () => {
         const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
-        expect(await mintServerAppCheckToken('proj', undefined)).toBeUndefined();
-        expect(await mintServerAppCheckToken('proj', {})).toBeUndefined();
-        expect(await mintServerAppCheckToken('proj', { clientEmail: 'a@b.com' })).toBeUndefined();
-        expect(await mintServerAppCheckToken('proj', { clientEmail: 'a@b.com', privateKey: 'pk' })).toBeUndefined();
+        expect(await mintServerAppCheckToken('proj', 'key', undefined)).toBeUndefined();
+        expect(await mintServerAppCheckToken('proj', 'key', {})).toBeUndefined();
+        expect(await mintServerAppCheckToken('proj', 'key', { clientEmail: 'a@b.com' })).toBeUndefined();
+        expect(await mintServerAppCheckToken('proj', 'key', { clientEmail: 'a@b.com', privateKey: 'pk' })).toBeUndefined();
         expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('signs a custom JWT and exchanges it for an App Check token', async () => {
         fetchMock.mockResolvedValue({ ok: true, json: async () => ({ token: 'ac-token' }) });
         const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
-        const result = await mintServerAppCheckToken('proj', {
+        const result = await mintServerAppCheckToken('proj', 'key', {
             clientEmail: 'sa@proj.iam.gserviceaccount.com',
             privateKey: 'line1\\nline2',
             appId: '1:1:web:1',
@@ -58,7 +58,7 @@ describe('mintServerAppCheckToken', () => {
         expect(setIssuer).toHaveBeenCalledWith('sa@proj.iam.gserviceaccount.com');
         expect(setSubject).toHaveBeenCalledWith('sa@proj.iam.gserviceaccount.com');
         expect(fetchMock).toHaveBeenCalledWith(
-            'https://firebaseappcheck.googleapis.com/v1/projects/proj/apps/1:1:web:1:exchangeCustomToken',
+            'https://firebaseappcheck.googleapis.com/v1/projects/proj/apps/1:1:web:1:exchangeCustomToken?key=key',
             expect.objectContaining({ method: 'POST', body: JSON.stringify({ customToken: 'custom-jwt' }) }),
         );
         expect(result).toBe('ac-token');
@@ -68,7 +68,7 @@ describe('mintServerAppCheckToken', () => {
     it('uses a custom customTokenLifetime when configured', async () => {
         fetchMock.mockResolvedValue({ ok: true, json: async () => ({ token: 'ac-token' }) });
         const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
-        await mintServerAppCheckToken('proj', {
+        await mintServerAppCheckToken('proj', 'key', {
             clientEmail: 'sa@proj.iam.gserviceaccount.com',
             privateKey: 'pk',
             appId: '1:1:web:1',
@@ -80,7 +80,7 @@ describe('mintServerAppCheckToken', () => {
     it('returns undefined and reports when the exchange responds non-ok', async () => {
         fetchMock.mockResolvedValue({ ok: false, status: 400, text: async () => 'bad request' });
         const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
-        const result = await mintServerAppCheckToken('proj', {
+        const result = await mintServerAppCheckToken('proj', 'key', {
             clientEmail: 'sa@proj.iam.gserviceaccount.com',
             privateKey: 'pk',
             appId: '1:1:web:1',
@@ -92,7 +92,7 @@ describe('mintServerAppCheckToken', () => {
     it('returns undefined and reports when signing/fetch throws', async () => {
         fetchMock.mockRejectedValue(new Error('network down'));
         const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
-        const result = await mintServerAppCheckToken('proj', {
+        const result = await mintServerAppCheckToken('proj', 'key', {
             clientEmail: 'sa@proj.iam.gserviceaccount.com',
             privateKey: 'pk',
             appId: '1:1:web:1',

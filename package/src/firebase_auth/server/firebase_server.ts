@@ -55,7 +55,7 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
     // so apps that never configure server-side minting keep today's exact
     // behavior.
     const appCheckToken = cookieStore.get(appCheckTokenCookieName)?.value
-        ?? await mintServerAppCheckToken(fa.projectId, fa.appCheck);
+        ?? await mintServerAppCheckToken(fa.projectId, fa.apiKey, fa.appCheck);
 
     try {
         if (!firebaseAppModule) firebaseAppModule = await import('firebase/app');

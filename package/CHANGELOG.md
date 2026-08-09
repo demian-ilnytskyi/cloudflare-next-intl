@@ -3,6 +3,18 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.27] - 2026-08-09
+
+### Fixed
+
+- `mintServerAppCheckToken`'s `exchangeCustomToken` call now authenticates
+  with the project's Web API key (`?key=`). Google rejected the request
+  outright as an unregistered/unidentified caller (403 `PERMISSION_DENIED`)
+  before the custom token itself was even evaluated. `mintServerAppCheckToken`
+  now takes `apiKey` as a second positional argument (before `appCheck`);
+  `getAuthenticatedAppForUser` passes `fa.apiKey` through automatically — no
+  config changes needed.
+
 ## [0.6.26] - 2026-08-09
 
 ### Changed

@@ -17,13 +17,18 @@ const DEFAULT_CUSTOM_TOKEN_LIFETIME = '1h';
  *
  * Signs a short-lived custom JWT with the service account's private key
  * (`jose`, Edge/WebCrypto-compatible — no `firebase-admin`), then exchanges
- * it for an App Check token via `exchangeCustomToken`. Not cached beyond the
- * caller's own request-scoped `cache()` wrapper — a fresh mint costs one
- * signing operation plus one network round-trip, acceptable per-request but
- * not worth doing more than once per request.
+ * it for an App Check token via `exchangeCustomToken`, authenticated with
+ * the project's Web API key (`?key=`) — `exchangeCustomToken` otherwise
+ * rejects the call outright as an unregistered/unidentified caller
+ * (403 `PERMISSION_DENIED`), before the custom token itself is even
+ * evaluated. Not cached beyond the caller's own request-scoped `cache()`
+ * wrapper — a fresh mint costs one signing operation plus one network
+ * round-trip, acceptable per-request but not worth doing more than once per
+ * request.
  */
 export default async function mintServerAppCheckToken(
     projectId: string,
+    apiKey: string,
     appCheck: FirebaseAppCheckConfig | undefined,
 ): Promise<string | undefined> {
     if (!appCheck?.clientEmail || !appCheck.privateKey || !appCheck.appId) return undefined;
@@ -41,7 +46,7 @@ export default async function mintServerAppCheckToken(
             .setExpirationTime(appCheck.customTokenLifetime ?? DEFAULT_CUSTOM_TOKEN_LIFETIME)
             .sign(privateKey);
 
-        const url = `https://firebaseappcheck.googleapis.com/v1/projects/${projectId}/apps/${appCheck.appId}:exchangeCustomToken`;
+        const url = `https://firebaseappcheck.googleapis.com/v1/projects/${projectId}/apps/${appCheck.appId}:exchangeCustomToken?key=${apiKey}`;
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
