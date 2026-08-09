@@ -26,6 +26,12 @@ import { type ReportErrorConfig } from './report_error';
  * boundary (Next.js server actions serialize arguments; an `Error` instance
  * doesn't survive that intact) and `isClient: true` is set automatically.
  *
+ * Also attaches `requestContext: { path, userAgent, referer }` (best-effort,
+ * via `next/headers` — see `resolveRequestContext`) alongside your own
+ * `params`, so `onError`/the console report shows WHERE the error happened,
+ * not just what it was — useful when diagnosing a client error without a
+ * repro, since the page and browser are often the missing piece.
+ *
  * @param config Pass the relevant slices of your `RoutingConfig` directly —
  *   `{ errorHandling: config.errorHandling, generate: config.generate }`.
  */

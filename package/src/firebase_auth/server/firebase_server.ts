@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { cache } from 'react';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
-import { defaultAppCheckTokenCookieName, defaultSessionCookieName } from '../middleware/update_session';
+import { defaultAppCheckTokenCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName, isIdTokenExpired, refreshIdToken } from '../middleware/update_session';
 import reportError from '../../error_handling/report_error';
 import mintServerAppCheckToken from './mint_server_app_check_token';
 
@@ -30,8 +30,23 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
 
     const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
     const appCheckTokenCookieName = fa.appCheckTokenCookieName ?? defaultAppCheckTokenCookieName;
+    const refreshTokenCookieName = fa.refreshTokenCookieName ?? defaultRefreshTokenCookieName;
     const cookieStore = await cookies();
-    const authIdToken = cookieStore.get(sessionCookieName)?.value;
+    let authIdToken = cookieStore.get(sessionCookieName)?.value;
+
+    // Safety net for the paths the middleware can't cover (prefetch requests,
+    // excluded matcher routes, server actions): an expired token would be
+    // rejected by `initializeServerApp` with `auth/invalid-user-token`, so
+    // mint a fresh one from the refresh-token cookie first. The refreshed
+    // token can't be written back to the cookie from here (RSC render), but
+    // the middleware persists it on the next request.
+    if (authIdToken && isIdTokenExpired(authIdToken)) {
+        const refreshToken = cookieStore.get(refreshTokenCookieName)?.value;
+        const result = refreshToken
+            ? await refreshIdToken(fa.apiKey, refreshToken)
+            : undefined;
+        authIdToken = result?.status === 'refreshed' ? result.idToken : undefined;
+    }
 
     if (!authIdToken) {
         return { firebaseServerApp: null, currentUser: null };

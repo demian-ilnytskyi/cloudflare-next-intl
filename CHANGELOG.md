@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.30
+
+### Added
+- Client-side error reports created via `createServerErrorAction` now
+  attach request context (path, user agent, referer) automatically.
+
+### Fixed
+- `exchangeCustomToken` now authenticates with the Firebase Web API key
+  and aligns token parameters with `firebase-admin` defaults.
+- `mintServerAppCheckToken` exchange requests are now authenticated using
+  the project API key.
+
 ## 0.2.2
 
 ### Fixed

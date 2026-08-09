@@ -4,6 +4,23 @@ export declare const defaultRefreshTokenCookieName = "__fa_refresh_token__";
 export declare const defaultEmailVerifiedHintCookieName = "__fa_email_verified_hint__";
 export declare const defaultAppCheckTokenCookieName = "__fa_app_check_token__";
 export declare const defaultResetPasswordPath = "/reset-password";
+export declare function isIdTokenExpired(token: string): boolean;
+export type RefreshResult = {
+    status: 'refreshed';
+    idToken: string;
+    refreshToken: string;
+} | {
+    status: 'invalid';
+} | {
+    status: 'transient-failure';
+};
+/**
+ * Mints a fresh ID token from a stored refresh token via Google's Secure
+ * Token API. No `firebase/auth` import: this runs in the Edge middleware
+ * runtime, and `firebase/auth` pulls in Node-only APIs that break Edge
+ * bundles even though this function never touches that module.
+ */
+export declare function refreshIdToken(apiKey: string, refreshToken: string): Promise<RefreshResult>;
 /**
  * Layers Firebase session-cookie validation/refresh and auth redirects onto
  * an already-built middleware response. Called internally by `intlMiddleware`
@@ -22,4 +39,4 @@ export declare const defaultResetPasswordPath = "/reset-password";
  *   state still survives the redirect.
  * @param locale The effective locale `intlMiddleware` resolved for this request.
  */
-export default function updateSession(request: NextRequest, baseResponse: NextResponse, locale: string): Promise<NextResponse>;
+export default function updateSession(request: NextRequest, baseResponse: NextResponse, locale: string, rebuildResponse?: (request: NextRequest) => NextResponse): Promise<NextResponse>;

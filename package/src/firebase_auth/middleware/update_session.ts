@@ -47,6 +47,10 @@ const DEFAULT_REFRESH_MAX_AGE = 60 * 60 * 24 * 365;
 // an extra round-trip on the very next request.
 const CLOCK_SKEW_MARGIN_MS = 60 * 1000;
 
+export function isIdTokenExpired(token: string): boolean {
+    return isJwtExpired(token);
+}
+
 function isJwtExpired(token: string): boolean {
     const decoded = decodeJwtPayload(token);
     return !decoded?.exp || decoded.exp * 1000 - CLOCK_SKEW_MARGIN_MS <= Date.now();
@@ -126,7 +130,7 @@ const INVALID_REFRESH_TOKEN_ERRORS = new Set([
     'USER_NOT_FOUND',
 ]);
 
-type RefreshResult =
+export type RefreshResult =
     | { status: 'refreshed'; idToken: string; refreshToken: string }
     | { status: 'invalid' }
     | { status: 'transient-failure' };
@@ -137,7 +141,7 @@ type RefreshResult =
  * runtime, and `firebase/auth` pulls in Node-only APIs that break Edge
  * bundles even though this function never touches that module.
  */
-async function refreshIdToken(apiKey: string, refreshToken: string): Promise<RefreshResult> {
+export async function refreshIdToken(apiKey: string, refreshToken: string): Promise<RefreshResult> {
     const cached = await getCachedRefresh(refreshToken);
     if (cached) return { status: 'refreshed', ...cached };
 
@@ -199,6 +203,7 @@ export default async function updateSession(
     request: NextRequest,
     baseResponse: NextResponse,
     locale: string,
+    rebuildResponse?: (request: NextRequest) => NextResponse,
 ): Promise<NextResponse> {
     const fa = config.firebaseAuth;
     if (!fa || fa.middlewareEnabled === false) return baseResponse;
@@ -373,6 +378,21 @@ export default async function updateSession(
     }
 
     if (refreshedToken) {
+        // `response.cookies.set` only reaches the BROWSER — the current
+        // render still reads the old, expired token from `cookies()`, so
+        // `initializeServerApp` rejects it with `auth/invalid-user-token`.
+        // Writing to `request.cookies` and rebuilding the pass-through
+        // response from that request makes the fresh token visible to this
+        // render too.
+        request.cookies.set(sessionCookieName, refreshedToken.idToken);
+        request.cookies.set(refreshTokenCookieName, refreshedToken.refreshToken);
+        if (rebuildResponse && response === baseResponse) {
+            const rebuilt = rebuildResponse(request);
+            baseResponse.cookies.getAll().forEach((cookie) => rebuilt.cookies.set(cookie));
+            baseResponse.headers.forEach((value, key) => rebuilt.headers.set(key, value));
+            response = rebuilt;
+        }
+
         response.cookies.set(sessionCookieName, refreshedToken.idToken, {
             httpOnly: true,
             secure: request.nextUrl.protocol === 'https',

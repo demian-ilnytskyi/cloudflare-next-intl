@@ -141,7 +141,9 @@ export default async function intlMiddleware(request, options) {
             if (!updateSessionModule) {
                 updateSessionModule = await import('../firebase_auth/middleware/update_session');
             }
-            response = await updateSessionModule.default(request, response, effectiveLocaleForRequest);
+            response = await updateSessionModule.default(request, response, effectiveLocaleForRequest, (refreshedRequest) => rewriteUrl
+                ? NextResponse.rewrite(rewriteUrl, { request: refreshedRequest })
+                : NextResponse.next({ request: refreshedRequest }));
         }
         return response;
     }
