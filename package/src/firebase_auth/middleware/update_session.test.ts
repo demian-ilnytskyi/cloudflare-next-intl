@@ -462,6 +462,33 @@ describe('updateSession', () => {
         expect(res.cookies.get('__fa_refresh_token__')?.value).toBe('new-refresh-token');
     });
 
+    it('rebuilds the pass-through response via rebuildResponse so the refreshed token is visible to the current render', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: 'new-id-token', refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'old-refresh-token' },
+        });
+        const base = NextResponse.next();
+        base.cookies.set('locale-cookie', 'en');
+        base.headers.set('x-base-header', 'base-value');
+        const rebuilt = NextResponse.next();
+        const rebuildResponse = vi.fn(() => rebuilt);
+
+        const res = await updateSession(req, base, 'en', rebuildResponse);
+
+        expect(rebuildResponse).toHaveBeenCalledWith(req);
+        expect(res).toBe(rebuilt);
+        expect(res.cookies.get('locale-cookie')?.value).toBe('en');
+        expect(res.headers.get('x-base-header')).toBe('base-value');
+        expect(res.cookies.get('__fa_session__')?.value).toBe('new-id-token');
+        expect(res.cookies.get('__fa_refresh_token__')?.value).toBe('new-refresh-token');
+    });
+
     it('clears an invalid session cookie when there is no refresh token to use instead', async () => {
         const { default: updateSession } = await import('./update_session');
         const req = makeRequest('https://example.com/en/dashboard', {

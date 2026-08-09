@@ -224,4 +224,54 @@ describe('intlMiddleware with firebaseAuth configured', () => {
 
         expect(updateFirebaseAuthSession).not.toHaveBeenCalled();
     });
+
+    it('passes a rebuildResponse callback that builds NextResponse.next() on the pass-through path', async () => {
+        vi.doMock('./intl_config', () => ({
+            default: {
+                locales: ['en', 'de'],
+                defaultLocale: 'en',
+                firebaseAuth: { middlewareEnabled: true, redirectAuthPath: '/login', homePath: '/', isAuthPath: () => false },
+            },
+        }));
+        let capturedRebuild: ((request: unknown) => NextResponse) | undefined;
+        const updateFirebaseAuthSession = vi.fn(async (_request: unknown, response: NextResponse, _locale: string, rebuildResponse: (request: unknown) => NextResponse) => {
+            capturedRebuild = rebuildResponse;
+            return response;
+        });
+        vi.doMock('../firebase_auth/middleware/update_session', () => ({ default: updateFirebaseAuthSession }));
+
+        const { default: intlMiddlewareWithAuth } = await import('./middleware');
+        const req = makeRequest('https://example.com/en/dashboard');
+        await intlMiddlewareWithAuth(req);
+
+        expect(capturedRebuild).toBeDefined();
+        const rebuilt = capturedRebuild!(req);
+        expect(rebuilt).toBeInstanceOf(NextResponse);
+    });
+
+    it('passes a rebuildResponse callback that builds NextResponse.rewrite() when a rewrite is in effect', async () => {
+        vi.doMock('./intl_config', () => ({
+            default: {
+                locales: ['en', 'de'],
+                defaultLocale: 'en',
+                firebaseAuth: { middlewareEnabled: true, redirectAuthPath: '/login', homePath: '/', isAuthPath: () => false },
+            },
+        }));
+        let capturedRebuild: ((request: unknown) => NextResponse) | undefined;
+        const updateFirebaseAuthSession = vi.fn(async (_request: unknown, response: NextResponse, _locale: string, rebuildResponse: (request: unknown) => NextResponse) => {
+            capturedRebuild = rebuildResponse;
+            return response;
+        });
+        vi.doMock('../firebase_auth/middleware/update_session', () => ({ default: updateFirebaseAuthSession }));
+
+        const { default: intlMiddlewareWithAuth } = await import('./middleware');
+        // Default-locale URL with no locale prefix takes the rewrite (not
+        // redirect) path, so `rewriteUrl` is set when `rebuildResponse` runs.
+        const req = makeRequest('https://example.com/dashboard');
+        await intlMiddlewareWithAuth(req);
+
+        expect(capturedRebuild).toBeDefined();
+        const rebuilt = capturedRebuild!(req);
+        expect(rebuilt).toBeInstanceOf(NextResponse);
+    });
 });

@@ -11,9 +11,16 @@ const fa = {
     isAuthPath: () => false,
 };
 
+function makeToken(): string {
+    const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url');
+    return `${header}.${payload}.sig`;
+}
+const perfToken = makeToken();
+
 vi.mock('@intl-config', () => ({ default: { firebaseAuth: fa } }));
 vi.mock('next/headers', () => ({
-    cookies: vi.fn(async () => ({ get: () => ({ value: 'perf-token-123456' }) })),
+    cookies: vi.fn(async () => ({ get: () => ({ value: perfToken }) })),
 }));
 
 const initializeApp = vi.fn(() => ({ name: 'perf-app' }));
