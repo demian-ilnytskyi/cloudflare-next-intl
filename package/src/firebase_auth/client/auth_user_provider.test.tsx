@@ -33,9 +33,11 @@ vi.mock('../../client/hooks/use_path_name', () => ({
 }));
 
 const authObj = { currentUser: null as unknown };
+const getAppCheckToken = vi.fn(async (): Promise<string | undefined> => undefined);
 vi.mock('./firebase_client', () => ({
     getFirebaseAuthClient: vi.fn(async () => ({ auth: authObj })),
     getFirebaseAuthModule: () => import('firebase/auth'),
+    getAppCheckToken: (...args: unknown[]) => getAppCheckToken(...args),
 }));
 
 const setAuthUserCache = vi.fn();
@@ -220,6 +222,30 @@ describe('AuthUserProvider', () => {
         await flush();
         expect(onSignIn).toHaveBeenCalledTimes(1);
         expect(console.error).toHaveBeenCalledWith('AuthUserProvider: onSignIn callback failed', expect.any(Error));
+        expect(document.cookie).toContain('__fa_session__=id-token');
+    });
+
+    it('writes the App Check token cookie when getAppCheckToken resolves a token', async () => {
+        getAppCheckToken.mockResolvedValueOnce('app-check-token');
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        const user = makeUser();
+        await act(async () => { idTokenListener?.(user); });
+        await flush();
+        expect(document.cookie).toContain('__fa_app_check_token__=app-check-token');
+    });
+
+    it('logs and swallows an App Check token fetch failure without blocking cookie sync', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        getAppCheckToken.mockRejectedValueOnce(new Error('boom'));
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        const user = makeUser();
+        await act(async () => { idTokenListener?.(user); });
+        await flush();
+        expect(console.error).toHaveBeenCalledWith('AuthUserProvider: App Check token cookie sync failed', expect.any(Error));
         expect(document.cookie).toContain('__fa_session__=id-token');
     });
 

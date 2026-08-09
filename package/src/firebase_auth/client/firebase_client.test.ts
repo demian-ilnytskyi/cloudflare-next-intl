@@ -34,10 +34,13 @@ vi.mock('firebase/app', () => ({
 vi.mock('firebase/auth', () => ({
     getAuth: (...args: unknown[]) => getAuth(...args),
 }));
+const getToken = vi.fn(() => Promise.resolve({ token: 'app-check-token' }));
+
 vi.mock('firebase/app-check', () => ({
     initializeAppCheck: (...args: unknown[]) => initializeAppCheck(...args),
     ReCaptchaV3Provider,
     ReCaptchaEnterpriseProvider,
+    getToken: (...args: unknown[]) => getToken(...args),
 }));
 
 describe('getFirebaseAuthClient', () => {
@@ -179,6 +182,35 @@ describe('getFirebaseAuthModule', () => {
         expect(second).toBe(first);
         const mod = await first;
         expect(mod.getAuth).toBeDefined();
+    });
+});
+
+describe('getAppCheckToken', () => {
+    beforeEach(() => {
+        vi.resetModules();
+        getApps.mockReturnValue([]);
+        getToken.mockClear();
+    });
+
+    it('returns undefined when App Check is not configured', async () => {
+        const { getAppCheckToken } = await import('./firebase_client');
+        await expect(getAppCheckToken()).resolves.toBeUndefined();
+        expect(getToken).not.toHaveBeenCalled();
+    });
+
+    it('returns the token once App Check has initialized', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    appCheck: { recaptchaV3SiteKey: 'site-key' },
+                },
+            },
+        }));
+        const { getFirebaseAuthClient, getAppCheckToken } = await import('./firebase_client');
+        await getFirebaseAuthClient();
+        await expect(getAppCheckToken()).resolves.toBe('app-check-token');
+        expect(getToken).toHaveBeenCalled();
     });
 });
 
