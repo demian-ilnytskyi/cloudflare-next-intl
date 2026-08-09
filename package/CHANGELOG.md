@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.29] - 2026-08-09
+
+### Added
+
+- `createServerErrorAction`'s returned action now attaches
+  `requestContext: { path, userAgent, referer }` alongside your own `params`
+  on every report — `path` from the `x-pathname` header `intlMiddleware` sets,
+  `userAgent`/`referer` read directly via `next/headers`. Best-effort: falls
+  back to `{}` if `next/headers` throws (e.g. outside a request scope) rather
+  than failing the report.
+
 ## [0.6.28] - 2026-08-09
 
 ### Fixed

@@ -13,11 +13,31 @@ describe('createServerErrorAction', () => {
         }));
     });
 
-    it('passes params through when provided', async () => {
+    it('passes params through when provided, merged with requestContext', async () => {
         const onError = vi.fn();
         const reportClientError = createServerErrorAction({ errorHandling: { onError } });
         await reportClientError(new Error('boom'), 'ClientComponent', { key: 'value' });
-        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ params: { key: 'value' } }));
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+            params: expect.objectContaining({ key: 'value', requestContext: expect.any(Object) }),
+        }));
+    });
+
+    it('attaches requestContext even when no params are provided', async () => {
+        const onError = vi.fn();
+        const reportClientError = createServerErrorAction({ errorHandling: { onError } });
+        await reportClientError(new Error('boom'), 'ClientComponent');
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+            params: { requestContext: expect.any(Object) },
+        }));
+    });
+
+    it('nests non-object params instead of dropping them', async () => {
+        const onError = vi.fn();
+        const reportClientError = createServerErrorAction({ errorHandling: { onError } });
+        await reportClientError(new Error('boom'), 'ClientComponent', 'a plain string param');
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+            params: { params: 'a plain string param', requestContext: expect.any(Object) },
+        }));
     });
 
     it('stringifies the error before crossing the action boundary (no live function/Error instance retained)', async () => {
