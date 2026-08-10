@@ -9,6 +9,11 @@ describe('defaultIgnoredConsoleErrors', () => {
         expect(defaultIgnoredConsoleErrors).toContain('auth/too-many-requests');
     });
 
+    it('includes the revoked-session-token noise initializeServerApp logs itself', () => {
+        expect(defaultIgnoredConsoleErrors).toContain('auth/invalid-user-token');
+        expect(defaultIgnoredConsoleErrors).toContain('FirebaseServerApp could not login user with provided authIdToken');
+    });
+
     it('does not include the generic unknown-error fallback', () => {
         expect(defaultIgnoredConsoleErrors).not.toContain('unknown');
     });

@@ -3,6 +3,15 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.33] - 2026-08-11
+
+### Changed
+
+- Added test coverage for `isIdTokenExpired`, `refreshIdToken`'s
+  `{ skipCache: true }` option, and the ON-`verifyEmailPath` forced-refresh
+  block's `invalid`-refresh-token outcome — no behavior change, closes
+  branches left uncovered by 0.6.32's fixes.
+
 ## [0.6.32] - 2026-08-10
 
 ### Fixed

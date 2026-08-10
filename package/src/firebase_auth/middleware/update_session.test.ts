@@ -206,6 +206,59 @@ describe('updateSession', () => {
         expect(res.headers.get('location')).toBe('https://example.com/verify-email');
     });
 
+    it('force-refreshes ON verifyEmailPath when the hint says verified but the claim is stale, then redirects home', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const freshToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: freshToken, refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/verify-email', {
+            cookies: {
+                __fa_session__: staleToken,
+                __fa_refresh_token__: 'old-refresh-token',
+                __fa_email_verified_hint__: 'true',
+            },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(fetchMock).toHaveBeenCalled();
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/');
+    });
+
+    it('clears the session ON verifyEmailPath when the forced refresh reports the refresh token is invalid', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 400,
+            json: async () => ({ error: { message: 'TOKEN_EXPIRED' } }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/verify-email', {
+            cookies: {
+                __fa_session__: staleToken,
+                __fa_refresh_token__: 'old-refresh-token',
+                __fa_email_verified_hint__: 'true',
+            },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(fetchMock).toHaveBeenCalled();
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/login');
+        expect(res.cookies.get('__fa_session__')?.value).toBe('');
+    });
+
     it('does not redirect to verifyEmailPath when already on it', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         const { default: updateSession } = await import('./update_session');
@@ -919,5 +972,48 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
                 'https://example.com/de/reset-password?mode=resetPassword&oobCode=a',
             );
         });
+    });
+});
+
+describe('isIdTokenExpired', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('returns false for a token that has not expired yet', async () => {
+        const { isIdTokenExpired } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
+        expect(isIdTokenExpired(token)).toBe(false);
+    });
+
+    it('returns true for a token past its exp', async () => {
+        const { isIdTokenExpired } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) - 10);
+        expect(isIdTokenExpired(token)).toBe(true);
+    });
+});
+
+describe('refreshIdToken skipCache option', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('bypasses a cache hit and re-fetches when skipCache is true', async () => {
+        const liveToken = makeJwt(Math.floor(Date.now() / 1000) + 3600);
+        const cachedResponse = { json: async () => ({ idToken: 'cached-id-token', refreshToken: 'a-refresh-token' }) };
+        const fakeCache = { match: vi.fn(async () => cachedResponse), put: vi.fn(async () => {}) };
+        vi.stubGlobal('caches', { default: fakeCache });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: liveToken, refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { refreshIdToken } = await import('./update_session');
+        const result = await refreshIdToken('api-key', 'a-refresh-token', { skipCache: true });
+
+        expect(fakeCache.match).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(result).toEqual({ status: 'refreshed', idToken: liveToken, refreshToken: 'new-refresh-token' });
     });
 });

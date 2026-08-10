@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.33
+
+### Changed
+- Added test coverage for `isIdTokenExpired`, `refreshIdToken`'s `skipCache`
+  option, and the ON-`verifyEmailPath` forced-refresh invalid-token outcome.
+  No behavior change.
+
 ## 0.6.32
 
 ### Fixed

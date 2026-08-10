@@ -352,6 +352,30 @@ describe('AuthUserProvider', () => {
         expect(onEmailVerified).toHaveBeenCalledTimes(1);
     });
 
+    it('redirects to homePath when reloadUser flips emailVerified on the SAME user object', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        mockPathname = '/verify-email';
+        const user = makeUser({ emailVerified: false });
+        authObj.currentUser = user;
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(user); });
+        await flush();
+        routerReplace.mockClear();
+
+        reload.mockImplementationOnce(async () => { user.emailVerified = true; });
+        await act(async () => { await ctxValue?.reloadUser(); });
+        await flush();
+
+        expect(routerReplace).toHaveBeenCalledWith('/');
+    });
+
     it('logs and swallows an onEmailVerified callback that throws, without blocking cookie sync', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const onEmailVerified = vi.fn(() => { throw new Error('boom'); });
