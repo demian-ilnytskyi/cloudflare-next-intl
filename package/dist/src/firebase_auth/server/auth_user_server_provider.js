@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
 import { getAuthenticatedAppForUser } from './firebase_server';
+import withRedirectQuery from '../preserve_redirect_query';
 const AuthUserProvider = dynamic(() => import('../client/auth_user_provider'));
 /**
  * Resolves the signed-in user from the session cookie and performs the
@@ -25,14 +26,19 @@ export async function resolveAuthUserAndRedirect() {
     const fa = config.firebaseAuth;
     requireFirebaseAuthConfig(fa);
     const { currentUser } = await getAuthenticatedAppForUser();
-    const path = (await headers()).get('x-pathname') ?? '/';
+    const requestHeaders = await headers();
+    const path = requestHeaders.get('x-pathname') ?? '/';
     const isAuthPage = fa.isAuthPath(path);
     const isWhiteListed = fa.whiteListPaths?.includes(path) ?? false;
+    // `x-pathname` is path-only, so the query string comes from `x-search`
+    // (set alongside it by `intlMiddleware`) — `redirect()` takes a plain
+    // string, not a URL.
+    const search = requestHeaders.get('x-search') ?? '';
     if (!isWhiteListed) {
         if (!currentUser && !isAuthPage)
-            redirect(fa.redirectAuthPath);
+            redirect(withRedirectQuery(fa.redirectAuthPath, search));
         if (currentUser && isAuthPage)
-            redirect(fa.homePath);
+            redirect(withRedirectQuery(fa.homePath, search));
     }
     return currentUser && {
         uid: currentUser.uid,

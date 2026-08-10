@@ -24,6 +24,13 @@ vi.mock('next/headers', () => ({
     headers: vi.fn(async () => ({ get: headersGet })),
 }));
 
+// `headers().get` is one mock serving both `x-pathname` and `x-search`, so it
+// must answer per-header rather than returning one blanket value.
+function setHeaders(pathname: string | null, search: string | null = null) {
+    headersGet.mockImplementation((name: string) =>
+        name === 'x-pathname' ? pathname : name === 'x-search' ? search : null);
+}
+
 const redirect = vi.fn((path: string) => {
     throw new Error(`NEXT_REDIRECT:${path}`);
 });
@@ -55,7 +62,7 @@ describe('resolveAuthUserAndRedirect', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         currentConfig = { firebaseAuth: { ...fa } };
-        headersGet.mockReturnValue('/dashboard');
+        setHeaders('/dashboard');
     });
 
     it('redirects guests to redirectAuthPath when the page is not an auth page', async () => {
@@ -66,7 +73,7 @@ describe('resolveAuthUserAndRedirect', () => {
     });
 
     it('redirects signed-in users away from auth pages to homePath', async () => {
-        headersGet.mockReturnValue('/login');
+        setHeaders('/login');
         const { getAuthenticatedAppForUser } = await import('./firebase_server');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({
             firebaseServerApp: null,
@@ -88,7 +95,7 @@ describe('resolveAuthUserAndRedirect', () => {
     });
 
     it('returns null without redirecting for a guest on an auth page', async () => {
-        headersGet.mockReturnValue('/login');
+        setHeaders('/login');
         const { getAuthenticatedAppForUser } = await import('./firebase_server');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
         const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
@@ -107,7 +114,35 @@ describe('resolveAuthUserAndRedirect', () => {
     });
 
     it('defaults to "/" when x-pathname header is missing', async () => {
-        headersGet.mockReturnValue(null);
+        setHeaders(null);
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        await expect(resolveAuthUserAndRedirect()).rejects.toThrow('NEXT_REDIRECT:/login');
+    });
+
+    it('preserves the query string when redirecting a guest to redirectAuthPath', async () => {
+        setHeaders('/dashboard', '?test=test&a=b');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        await expect(resolveAuthUserAndRedirect()).rejects.toThrow('NEXT_REDIRECT:/login?test=test&a=b');
+    });
+
+    it('preserves the query string when redirecting a signed-in user to homePath', async () => {
+        setHeaders('/login', '?test=test');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({
+            firebaseServerApp: null,
+            currentUser: { uid: 'u1', email: 'a@b.com', emailVerified: true, displayName: null } as never,
+        });
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        await expect(resolveAuthUserAndRedirect()).rejects.toThrow('NEXT_REDIRECT:/?test=test');
+    });
+
+    it('drops the query string when preserveRedirectQuery is false', async () => {
+        currentConfig.firebaseAuth!.preserveRedirectQuery = false;
+        setHeaders('/dashboard', '?test=test');
         const { getAuthenticatedAppForUser } = await import('./firebase_server');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
         const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
@@ -125,7 +160,7 @@ describe('AuthUserServerProvider', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         currentConfig = { firebaseAuth: { ...fa } };
-        headersGet.mockReturnValue('/dashboard');
+        setHeaders('/dashboard');
     });
 
     it('resolves the user and renders children inside the client AuthUserProvider', async () => {

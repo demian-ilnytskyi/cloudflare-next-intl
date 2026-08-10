@@ -3,6 +3,23 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.31] - 2026-08-10
+
+### Added
+
+- New `FirebaseAuthRoutingConfig.preserveRedirectQuery` option (defaults to
+  `true`): every `firebase_auth` redirect (`redirectAuthPath`, `homePath`,
+  `verifyEmailPath`) now carries the original request's query string over to
+  its target — e.g. `/login?ref=abc` redirecting a signed-in user to
+  `homePath` now lands on `/?ref=abc` instead of dropping to `/`. Applies
+  consistently across all three redirect layers: `intlMiddleware`'s own
+  `update_session` logic, the RSC pre-render redirect
+  (`resolveAuthUserAndRedirect`), and the client `AuthUserProvider` effect.
+  Set `preserveRedirectQuery: false` to restore the old bare-path behavior.
+  `intlMiddleware` now also sets an `x-search` header (alongside the existing
+  `x-pathname`) so the RSC layer — which has no access to the request URL,
+  only `headers()` — can read the query string too.
+
 ## [0.6.29] - 2026-08-09
 
 ### Added

@@ -133,6 +133,42 @@ describe('updateSession', () => {
         expect(res.headers.get('location')).toBe('https://example.com/');
     });
 
+    it('preserves the query string when redirecting a guest to redirectAuthPath', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard?test=test&a=b');
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.headers.get('location')).toBe('https://example.com/login?test=test&a=b');
+    });
+
+    it('preserves the query string when redirecting a signed-in user away from an auth page to homePath', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
+        const req = makeRequest('https://example.com/en/login?test=test', {
+            cookies: { __fa_session__: token },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.headers.get('location')).toBe('https://example.com/?test=test');
+    });
+
+    it('preserves the query string alongside a non-default locale prefix', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/de/dashboard?test=test');
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'de');
+        expect(res.headers.get('location')).toBe('https://example.com/de/login?test=test');
+    });
+
+    it('drops the query string when preserveRedirectQuery is false', async () => {
+        currentConfig.firebaseAuth!.preserveRedirectQuery = false;
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard?test=test');
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.headers.get('location')).toBe('https://example.com/login');
+    });
+
     it('redirects an unverified signed-in user to verifyEmailPath even when they are on an auth page (unverified takes priority over the auth-page redirect)', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         const { default: updateSession } = await import('./update_session');

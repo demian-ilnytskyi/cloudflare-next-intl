@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import config from '@intl-config';
 import decodeJwtPayload from '../decode_jwt_payload';
 import isWhitelisted from '../is_whitelisted';
+import withRedirectQuery from '../preserve_redirect_query';
 export const defaultSessionCookieName = '__fa_session__';
 export const defaultRefreshTokenCookieName = '__fa_refresh_token__';
 // Non-httpOnly: written by AuthUserProvider (client) every time it observes
@@ -203,7 +204,7 @@ export default async function updateSession(request, baseResponse, locale, rebui
         return baseResponse;
     }
     const localePrefix = locale === config.defaultLocale ? '' : requestPrefix;
-    const localeUrl = (target) => new URL(`${localePrefix}${target === '/' ? '' : target}` || '/', request.url);
+    const localeUrl = (target) => new URL(withRedirectQuery(`${localePrefix}${target === '/' ? '' : target}` || '/', request.nextUrl.search), request.url);
     // Emailed Firebase action links all arrive on the single project-wide
     // action URL carrying `?mode=<action>&oobCode=...`. Forward them to the
     // page for that mode BEFORE any auth/whitelist check below: these links

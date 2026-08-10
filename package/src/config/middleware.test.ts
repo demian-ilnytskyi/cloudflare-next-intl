@@ -122,6 +122,18 @@ describe('intlMiddleware', () => {
         expect(res.headers.get('x-pathname')).toBe('/');
     });
 
+    it('sets x-search to the request query string', async () => {
+        const req = makeRequest('https://example.com/de/blog?test=test&a=b');
+        const res = await intlMiddleware(req);
+        expect(res.headers.get('x-search')).toBe('?test=test&a=b');
+    });
+
+    it('sets x-search to an empty string when there is no query string', async () => {
+        const req = makeRequest('https://example.com/de/blog');
+        const res = await intlMiddleware(req);
+        expect(res.headers.get('x-search')).toBe('');
+    });
+
     it('sets x-pathname to the remaining path for a nested locale-prefixed URL', async () => {
         const req = makeRequest('https://example.com/de/blog/post-1');
         const res = await intlMiddleware(req);

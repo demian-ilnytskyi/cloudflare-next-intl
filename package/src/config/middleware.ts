@@ -150,6 +150,7 @@ export default async function intlMiddleware(
 
         response.headers.set('Content-Language', effectiveLocaleForRequest);
         response.headers.set('x-pathname', pathWithoutLocale);
+        response.headers.set('x-search', search);
 
         // Auto-wires the firebase_auth submodule's redirect/session-refresh
         // logic when `firebaseAuth` is configured — dynamic import so this

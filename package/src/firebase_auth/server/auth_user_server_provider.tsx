@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
 import { getAuthenticatedAppForUser } from './firebase_server';
+import withRedirectQuery from '../preserve_redirect_query';
 import type { SerializedAuthUser } from '../types';
 
 const AuthUserProvider = dynamic(() => import('../client/auth_user_provider'));
@@ -29,13 +30,19 @@ export async function resolveAuthUserAndRedirect(): Promise<SerializedAuthUser |
 
     const { currentUser } = await getAuthenticatedAppForUser();
 
-    const path = (await headers()).get('x-pathname') ?? '/';
+    const requestHeaders = await headers();
+    const path = requestHeaders.get('x-pathname') ?? '/';
     const isAuthPage = fa.isAuthPath(path);
     const isWhiteListed = fa.whiteListPaths?.includes(path) ?? false;
 
+    // `x-pathname` is path-only, so the query string comes from `x-search`
+    // (set alongside it by `intlMiddleware`) — `redirect()` takes a plain
+    // string, not a URL.
+    const search = requestHeaders.get('x-search') ?? '';
+
     if (!isWhiteListed) {
-        if (!currentUser && !isAuthPage) redirect(fa.redirectAuthPath);
-        if (currentUser && isAuthPage) redirect(fa.homePath);
+        if (!currentUser && !isAuthPage) redirect(withRedirectQuery(fa.redirectAuthPath, search));
+        if (currentUser && isAuthPage) redirect(withRedirectQuery(fa.homePath, search));
     }
 
     return currentUser && {

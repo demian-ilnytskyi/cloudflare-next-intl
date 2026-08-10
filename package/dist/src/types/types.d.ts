@@ -495,6 +495,16 @@ export interface FirebaseAuthRoutingConfig {
      * auto-corrects a missing leading slash with a warning.
      */
     actionLinkPath?: string;
+    /**
+     * Whether the middleware's own redirects (`redirectAuthPath`, `homePath`,
+     * `verifyEmailPath`) carry over the original request's query string —
+     * e.g. `/login?ref=abc` stays `/login?ref=abc` after redirecting to
+     * `homePath` for a signed-in user, instead of dropping to `/`. Defaults
+     * to `true`. The emailed-action-link forward (see
+     * {@link resetPasswordPath}) always preserves its query string
+     * regardless of this setting, since `oobCode` must survive that hop.
+     */
+    preserveRedirectQuery?: boolean;
     /** Returns true if the given (locale-stripped) path is an auth page (login/signup/etc). */
     isAuthPath: (path: string) => boolean;
     /** Locale-stripped paths exempt from all auth redirects (e.g. public marketing pages). */

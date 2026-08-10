@@ -10,6 +10,7 @@ import { setAuthUserCache } from './auth_user_cache';
 import { defaultAppCheckTokenCookieName, defaultEmailVerifiedHintCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName } from '../middleware/update_session';
 import decodeJwtPayload from '../decode_jwt_payload';
 import isWhitelisted from '../is_whitelisted';
+import withRedirectQuery from '../preserve_redirect_query';
 import setCookie from '../../client/functions/set_cookie';
 import getCookie from '../../client/functions/get_cookie';
 import clearSessionAction from '../server/clear_session_action';
@@ -191,13 +192,13 @@ export default function AuthUserProvider({ initialUser = null, children }: {
         if (!user) {
             // Signed-out on an auth page is where they're supposed to be —
             // only bounce a signed-out user away from a NON-auth page.
-            if (!isAuthPage && confirmedSignedOut) router.replace(fa.redirectAuthPath);
+            if (!isAuthPage && confirmedSignedOut) router.replace(withRedirectQuery(fa.redirectAuthPath, window.location.search));
         } else if (fa.verifyEmailPath && !user.emailVerified && pathname !== fa.verifyEmailPath) {
             // Checked before the auth-page redirect below (mirrors
             // `update_session.ts`'s same ordering): an unverified signed-in
             // user must land on verifyEmailPath even if they navigated to
             // an auth page like /login — homePath isn't reachable yet either.
-            router.replace(fa.verifyEmailPath);
+            router.replace(withRedirectQuery(fa.verifyEmailPath, window.location.search));
         } else if (isAuthPage || (fa.verifyEmailPath && user.emailVerified && pathname === fa.verifyEmailPath)) {
             // Mirrors the middleware's own signed-in-on-auth-page redirect
             // (`update_session.ts`'s `isAuthPage` branch) — needed here too
@@ -207,7 +208,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             // there until a hard refresh. A verified user reaching
             // verifyEmailPath itself gets the same "go home" treatment —
             // they're done here, same as the auth-page case.
-            router.replace(fa.homePath);
+            router.replace(withRedirectQuery(fa.homePath, window.location.search));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state, pathname, isAuthPage, isWhiteListed, confirmedSignedOut]);
