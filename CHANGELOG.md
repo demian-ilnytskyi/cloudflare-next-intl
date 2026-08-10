@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.6.32
+
+### Fixed
+- A signed-in user could render as signed out on the server
+  (`auth/invalid-user-token`) while the client stayed signed in. The
+  middleware's refresh cache could serve an ID token past its own expiry;
+  `initializeServerApp` reports a rejected token by resolving a null user
+  rather than throwing, so nothing retried; and the retry itself could
+  refresh straight back into the same cached bad token.
+- Server-side auth now retries once with a freshly minted token
+  (`refreshIdToken(..., { skipCache: true })`) and writes the new pair back
+  to cookies where the context permits it.
+
+### Changed
+- Session/refresh cookie attributes come from one shared
+  `sessionCookieOptions()` helper used by both the middleware and the
+  server-side refresh.
+
+## 0.6.31
+
+### Added
+- `FirebaseAuthRoutingConfig.preserveRedirectQuery` (default `true`) carries
+  the original request's query string across `firebase_auth` redirects.
+
 ## 0.6.30
 
 ### Added

@@ -1,9 +1,24 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import config from '@intl-config';
 export declare const defaultSessionCookieName = "__fa_session__";
 export declare const defaultRefreshTokenCookieName = "__fa_refresh_token__";
 export declare const defaultEmailVerifiedHintCookieName = "__fa_email_verified_hint__";
 export declare const defaultAppCheckTokenCookieName = "__fa_app_check_token__";
 export declare const defaultResetPasswordPath = "/reset-password";
+export declare const DEFAULT_SESSION_MAX_AGE: number;
+export declare const DEFAULT_REFRESH_MAX_AGE: number;
+/**
+ * The session/refresh cookie attributes, shared by every writer so the
+ * middleware and the RSC-side refresh can't drift into writing the same
+ * cookie pair with different flags or lifetimes.
+ *
+ * @param secure `false` only for a plain-http local dev origin — a `secure`
+ *   cookie is silently dropped there.
+ */
+export declare function sessionCookieOptions(fa: NonNullable<typeof config.firebaseAuth>, secure: boolean): {
+    session: Record<string, unknown>;
+    refresh: Record<string, unknown>;
+};
 export declare function isIdTokenExpired(token: string): boolean;
 export type RefreshResult = {
     status: 'refreshed';
@@ -20,7 +35,9 @@ export type RefreshResult = {
  * runtime, and `firebase/auth` pulls in Node-only APIs that break Edge
  * bundles even though this function never touches that module.
  */
-export declare function refreshIdToken(apiKey: string, refreshToken: string): Promise<RefreshResult>;
+export declare function refreshIdToken(apiKey: string, refreshToken: string, options?: {
+    skipCache?: boolean;
+}): Promise<RefreshResult>;
 /**
  * Layers Firebase session-cookie validation/refresh and auth redirects onto
  * an already-built middleware response. Called internally by `intlMiddleware`

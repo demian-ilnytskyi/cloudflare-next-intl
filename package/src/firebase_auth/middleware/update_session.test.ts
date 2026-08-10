@@ -723,9 +723,10 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
     });
 
     it('skips the fetch entirely on a cache hit for the same refresh token', async () => {
+        const liveToken = makeJwt(Math.floor(Date.now() / 1000) + 3600);
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
-            json: async () => ({ id_token: 'first-call-id-token', refresh_token: 'a-refresh-token' }),
+            json: async () => ({ id_token: liveToken, refresh_token: 'a-refresh-token' }),
         });
         vi.stubGlobal('fetch', fetchMock);
         const fakeCache = makeFakeCache();
@@ -744,7 +745,30 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         const res2 = await updateSession(makeReq(), NextResponse.next(), 'en');
 
         expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(res2.cookies.get('__fa_session__')?.value).toBe('first-call-id-token');
+        expect(res2.cookies.get('__fa_session__')?.value).toBe(liveToken);
+    });
+
+    it('re-fetches when the cached id token has itself expired', async () => {
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) - 10);
+        const liveToken = makeJwt(Math.floor(Date.now() / 1000) + 3600);
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce({ ok: true, json: async () => ({ id_token: staleToken, refresh_token: 'a-refresh-token' }) })
+            .mockResolvedValueOnce({ ok: true, json: async () => ({ id_token: liveToken, refresh_token: 'a-refresh-token' }) });
+        vi.stubGlobal('fetch', fetchMock);
+        const fakeCache = makeFakeCache();
+        vi.stubGlobal('caches', { default: fakeCache });
+
+        const { default: updateSession } = await import('./update_session');
+        const makeReq = () => makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'a-refresh-token' },
+        });
+
+        await updateSession(makeReq(), NextResponse.next(), 'en');
+        await vi.waitFor(() => expect(fakeCache.put).toHaveBeenCalledTimes(1));
+        const res2 = await updateSession(makeReq(), NextResponse.next(), 'en');
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(res2.cookies.get('__fa_session__')?.value).toBe(liveToken);
     });
 
     it('falls back to a real fetch (no throw) when caches.default.match rejects', async () => {

@@ -3,6 +3,49 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.32] - 2026-08-10
+
+### Fixed
+
+- A signed-in user could render as signed out on the server (`getAuthUser()`
+  returning `null` while the client still showed the account) with
+  `FirebaseServerApp could not login user with provided authIdToken` /
+  `auth/invalid-user-token` logged. Three separate causes, all fixed:
+  - **The middleware's refresh cache could serve an expired ID token.**
+    Firebase does not rotate refresh tokens, so the cache key (derived from
+    the refresh token) never changed, and a cached entry kept being handed
+    out past the ~1hr lifetime of the ID token inside it. Cache hits are now
+    validated against the token's own `exp` before use, and the cache TTL
+    dropped from 50 to 30 minutes.
+  - **A rejected token was never retried server-side.** `initializeServerApp`
+    does not reject for an invalid/revoked token — it logs the message above
+    itself and resolves `authStateReady()` with `currentUser === null`. A
+    null user now triggers one refresh-and-retry from the refresh-token
+    cookie (as does a thrown `auth/invalid-user-token`, for good measure),
+    instead of rendering the request as signed-out.
+  - **That retry could refresh into the same bad token**, since the cache
+    entry is what produced it. `refreshIdToken` accepts a new
+    `{ skipCache: true }` option, used by the retry path to force a fresh
+    round-trip.
+
+  After a successful retry the new session/refresh pair is written back to
+  the cookie jar when the context allows it (Server Actions, Route
+  Handlers); during an RSC render, where cookie writes are not permitted,
+  this is silently skipped and the middleware persists the pair on the next
+  request. The retry gives up without looping when there is no refresh-token
+  cookie, the refresh fails, or it returns the same rejected token.
+
+### Changed
+
+- Session/refresh cookie attributes are now produced by a single exported
+  `sessionCookieOptions()` helper (with `DEFAULT_SESSION_MAX_AGE` /
+  `DEFAULT_REFRESH_MAX_AGE`) shared by the middleware and the server-side
+  refresh, so the two writers cannot drift into writing the same cookie pair
+  with different flags or lifetimes. `secure` remains the one intentional
+  difference: the middleware derives it from the request protocol (so a
+  plain-http local dev origin still receives the cookie), while the
+  server-side path, which has no request URL, always sets it.
+
 ## [0.6.31] - 2026-08-10
 
 ### Added

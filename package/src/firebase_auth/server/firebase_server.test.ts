@@ -19,9 +19,10 @@ function makeToken(value: string, expInSeconds = Math.floor(Date.now() / 1000) +
 const validToken = makeToken('valid-token');
 
 const cookieGet = vi.fn();
+const cookieSet = vi.fn();
 vi.mock('@intl-config', () => ({ default: { firebaseAuth: fa } }));
 vi.mock('next/headers', () => ({
-    cookies: vi.fn(async () => ({ get: cookieGet })),
+    cookies: vi.fn(async () => ({ get: cookieGet, set: cookieSet })),
 }));
 
 const initializeApp = vi.fn(() => ({ name: 'base-app' }));
@@ -47,6 +48,7 @@ describe('getAuthenticatedAppForUser', () => {
         vi.resetModules();
         vi.clearAllMocks();
         cookieGet.mockReturnValue(undefined);
+        cookieSet.mockImplementation(() => {});
         getAuth.mockReturnValue({ authStateReady, currentUser: { uid: 'u1' } });
         mintServerAppCheckToken.mockResolvedValue(undefined);
         delete fa.sessionCookieName;
@@ -98,6 +100,179 @@ describe('getAuthenticatedAppForUser', () => {
         const result = await getAuthenticatedAppForUser();
         expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
         expect(initializeServerApp).not.toHaveBeenCalled();
+    });
+
+    it('retries with a refreshed token when initializeServerApp rejects auth/invalid-user-token', async () => {
+        const revokedToken = makeToken('revoked');
+        const invalidTokenError = Object.assign(new Error('auth/invalid-user-token'), { code: 'auth/invalid-user-token' });
+        getAuth.mockImplementationOnce(() => { throw invalidTokenError; });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: validToken, refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        cookieGet.mockImplementation((name: string) => {
+            if (name === '__fa_refresh_token__') return { value: 'old-refresh-token' };
+            if (name === '__fa_session__') return { value: revokedToken };
+            return undefined;
+        });
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const result = await getAuthenticatedAppForUser();
+        expect(fetchMock).toHaveBeenCalled();
+        expect(result.currentUser).toEqual({ uid: 'u1' });
+        expect(initializeServerApp).toHaveBeenLastCalledWith(expect.anything(), { authIdToken: validToken, appCheckToken: undefined });
+    });
+
+    it('retries with a refreshed token when initializeServerApp resolves a null user (no throw)', async () => {
+        const revokedToken = makeToken('revoked');
+        getAuth.mockReturnValueOnce({ authStateReady, currentUser: null });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: validToken, refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        cookieGet.mockImplementation((name: string) => {
+            if (name === '__fa_refresh_token__') return { value: 'old-refresh-token' };
+            if (name === '__fa_session__') return { value: revokedToken };
+            return undefined;
+        });
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const result = await getAuthenticatedAppForUser();
+        expect(fetchMock).toHaveBeenCalled();
+        expect(result.currentUser).toEqual({ uid: 'u1' });
+        expect(initializeServerApp).toHaveBeenLastCalledWith(expect.anything(), { authIdToken: validToken, appCheckToken: undefined });
+    });
+
+    it('bypasses the refresh cache when retrying a rejected token', async () => {
+        const revokedToken = makeToken('revoked');
+        getAuth.mockReturnValueOnce({ authStateReady, currentUser: null });
+        const cachedResponse = { json: async () => ({ idToken: revokedToken, refreshToken: 'old-refresh-token' }) };
+        const fakeCache = { match: vi.fn(async () => cachedResponse), put: vi.fn(async () => {}) };
+        vi.stubGlobal('caches', { default: fakeCache });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: validToken, refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        cookieGet.mockImplementation((name: string) => {
+            if (name === '__fa_refresh_token__') return { value: 'old-refresh-token' };
+            if (name === '__fa_session__') return { value: revokedToken };
+            return undefined;
+        });
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const result = await getAuthenticatedAppForUser();
+        expect(fetchMock).toHaveBeenCalled();
+        expect(result.currentUser).toEqual({ uid: 'u1' });
+    });
+
+    it('returns null user when a null user has no refresh-token cookie to retry with', async () => {
+        const revokedToken = makeToken('revoked');
+        getAuth.mockReturnValue({ authStateReady, currentUser: null });
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        cookieGet.mockImplementation((name: string) =>
+            name === '__fa_session__' ? { value: revokedToken } : undefined,
+        );
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const result = await getAuthenticatedAppForUser();
+        expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('persists the refreshed pair back to the cookie jar after a successful retry', async () => {
+        const revokedToken = makeToken('revoked');
+        getAuth.mockReturnValueOnce({ authStateReady, currentUser: null });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: validToken, refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        cookieGet.mockImplementation((name: string) => {
+            if (name === '__fa_refresh_token__') return { value: 'old-refresh-token' };
+            if (name === '__fa_session__') return { value: revokedToken };
+            return undefined;
+        });
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        await getAuthenticatedAppForUser();
+        expect(cookieSet).toHaveBeenCalledWith('__fa_session__', validToken, expect.objectContaining({ httpOnly: true, secure: true }));
+        expect(cookieSet).toHaveBeenCalledWith('__fa_refresh_token__', 'new-refresh-token', expect.objectContaining({ httpOnly: true }));
+    });
+
+    it('survives a read-only cookie jar when persisting the refreshed pair', async () => {
+        const revokedToken = makeToken('revoked');
+        getAuth.mockReturnValueOnce({ authStateReady, currentUser: null });
+        cookieSet.mockImplementation(() => { throw new Error('Cookies can only be modified in a Server Action'); });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: validToken, refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        cookieGet.mockImplementation((name: string) => {
+            if (name === '__fa_refresh_token__') return { value: 'old-refresh-token' };
+            if (name === '__fa_session__') return { value: revokedToken };
+            return undefined;
+        });
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const result = await getAuthenticatedAppForUser();
+        expect(result.currentUser).toEqual({ uid: 'u1' });
+    });
+
+    it('returns null user when the refresh returns the same rejected token after a null user', async () => {
+        const revokedToken = makeToken('revoked');
+        getAuth.mockReturnValue({ authStateReady, currentUser: null });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: revokedToken, refresh_token: 'old-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        cookieGet.mockImplementation((name: string) => {
+            if (name === '__fa_refresh_token__') return { value: 'old-refresh-token' };
+            if (name === '__fa_session__') return { value: revokedToken };
+            return undefined;
+        });
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const result = await getAuthenticatedAppForUser();
+        expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
+        expect(initializeServerApp).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns null user when the retry after auth/invalid-user-token also fails', async () => {
+        const revokedToken = makeToken('revoked');
+        const invalidTokenError = Object.assign(new Error('auth/invalid-user-token'), { code: 'auth/invalid-user-token' });
+        getAuth.mockImplementation(() => { throw invalidTokenError; });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: validToken, refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        cookieGet.mockImplementation((name: string) => {
+            if (name === '__fa_refresh_token__') return { value: 'old-refresh-token' };
+            if (name === '__fa_session__') return { value: revokedToken };
+            return undefined;
+        });
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const result = await getAuthenticatedAppForUser();
+        expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
+    });
+
+    it('does not retry when the refresh returns the same rejected token', async () => {
+        const revokedToken = makeToken('revoked');
+        const invalidTokenError = Object.assign(new Error('auth/invalid-user-token'), { code: 'auth/invalid-user-token' });
+        getAuth.mockImplementationOnce(() => { throw invalidTokenError; });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: revokedToken, refresh_token: 'old-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        cookieGet.mockImplementation((name: string) => {
+            if (name === '__fa_refresh_token__') return { value: 'old-refresh-token' };
+            if (name === '__fa_session__') return { value: revokedToken };
+            return undefined;
+        });
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const result = await getAuthenticatedAppForUser();
+        expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
+        expect(initializeServerApp).toHaveBeenCalledTimes(1);
     });
 
     it('returns null user when no session cookie is present', async () => {

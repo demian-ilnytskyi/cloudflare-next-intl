@@ -39,8 +39,27 @@ function resolveActionModePaths(fa: NonNullable<typeof config.firebaseAuth>): Re
     return { ...paths, ...fa.actionModePaths };
 }
 
-const DEFAULT_SESSION_MAX_AGE = 60 * 60 * 24 * 5;
-const DEFAULT_REFRESH_MAX_AGE = 60 * 60 * 24 * 365;
+export const DEFAULT_SESSION_MAX_AGE = 60 * 60 * 24 * 5;
+export const DEFAULT_REFRESH_MAX_AGE = 60 * 60 * 24 * 365;
+
+/**
+ * The session/refresh cookie attributes, shared by every writer so the
+ * middleware and the RSC-side refresh can't drift into writing the same
+ * cookie pair with different flags or lifetimes.
+ *
+ * @param secure `false` only for a plain-http local dev origin — a `secure`
+ *   cookie is silently dropped there.
+ */
+export function sessionCookieOptions(
+    fa: NonNullable<typeof config.firebaseAuth>,
+    secure: boolean,
+): { session: Record<string, unknown>; refresh: Record<string, unknown> } {
+    const shared = { httpOnly: true, secure, sameSite: 'lax' as const, path: '/' };
+    return {
+        session: { ...shared, maxAge: fa.sessionCookieMaxAge ?? DEFAULT_SESSION_MAX_AGE },
+        refresh: { ...shared, maxAge: fa.refreshTokenCookieMaxAge ?? DEFAULT_REFRESH_MAX_AGE },
+    };
+}
 
 // Refresh slightly before the real expiry — treating a token as expired
 // right up to its last second means normal clock skew or in-flight request
@@ -74,7 +93,7 @@ function isJwtExpired(token: string): boolean {
 // `.internal` is a non-resolvable TLD reserved by convention — no real
 // `fetch()` in this Worker could ever have populated (or could ever
 // collide with) an entry under it.
-const REFRESH_CACHE_TTL_SECONDS = 50 * 60;
+const REFRESH_CACHE_TTL_SECONDS = 30 * 60;
 const REFRESH_CACHE_KEY_ORIGIN = 'https://firebase-auth-refresh-cache.internal';
 
 function getEdgeCache(): Cache | undefined {
@@ -142,9 +161,17 @@ export type RefreshResult =
  * runtime, and `firebase/auth` pulls in Node-only APIs that break Edge
  * bundles even though this function never touches that module.
  */
-export async function refreshIdToken(apiKey: string, refreshToken: string): Promise<RefreshResult> {
-    const cached = await getCachedRefresh(refreshToken);
-    if (cached) return { status: 'refreshed', ...cached };
+export async function refreshIdToken(
+    apiKey: string,
+    refreshToken: string,
+    options?: { skipCache?: boolean },
+): Promise<RefreshResult> {
+    // `skipCache` exists for the caller that already HAS a token the Auth
+    // service rejected: the cache entry is what produced that token, so a
+    // normal cache hit would hand back the exact same rejected token and the
+    // retry could never recover.
+    const cached = options?.skipCache ? null : await getCachedRefresh(refreshToken);
+    if (cached && !isJwtExpired(cached.idToken)) return { status: 'refreshed', ...cached };
 
     try {
         const res = await fetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
@@ -396,20 +423,9 @@ export default async function updateSession(
             response = rebuilt;
         }
 
-        response.cookies.set(sessionCookieName, refreshedToken.idToken, {
-            httpOnly: true,
-            secure: request.nextUrl.protocol === 'https',
-            sameSite: 'lax',
-            path: '/',
-            maxAge: fa.sessionCookieMaxAge ?? DEFAULT_SESSION_MAX_AGE,
-        });
-        response.cookies.set(refreshTokenCookieName, refreshedToken.refreshToken, {
-            httpOnly: true,
-            secure: request.nextUrl.protocol === 'https',
-            sameSite: 'lax',
-            path: '/',
-            maxAge: fa.refreshTokenCookieMaxAge ?? DEFAULT_REFRESH_MAX_AGE,
-        });
+        const cookieOptions = sessionCookieOptions(fa, request.nextUrl.protocol === 'https');
+        response.cookies.set(sessionCookieName, refreshedToken.idToken, cookieOptions.session);
+        response.cookies.set(refreshTokenCookieName, refreshedToken.refreshToken, cookieOptions.refresh);
     }
 
     return response;

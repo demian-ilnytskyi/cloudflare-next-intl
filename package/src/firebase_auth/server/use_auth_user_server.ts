@@ -1,5 +1,4 @@
 import type { User } from 'firebase/auth';
-import { cache } from 'react';
 import { getAuthenticatedAppForUser } from './firebase_server';
 
 /**
