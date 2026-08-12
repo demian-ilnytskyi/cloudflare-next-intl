@@ -302,6 +302,26 @@ export default async function updateSession(request, baseResponse, locale, rebui
     // the claim is still accurate. Only when the hint AGREES with the claim
     // is a refresh skipped, so a genuinely unverified user with an
     // established, agreeing hint doesn't pay a refresh on every request.
+    // On verifyEmailPath itself the branch above deliberately never runs, so
+    // a token minted before the user verified keeps the page pinned even
+    // after the client has confirmed verification and mirrored it into the
+    // hint cookie. Refresh once when the hint claims `true` against a stale
+    // `false` claim, so the redirect-home branch below can observe it.
+    if (isVerifyEmailPage && hasSession && !refreshedToken
+        && decodeJwtPayload(token)?.email_verified === false
+        && request.cookies.get(emailVerifiedHintCookieName)?.value === 'true') {
+        const refreshToken = request.cookies.get(refreshTokenCookieName)?.value;
+        if (refreshToken) {
+            const result = await refreshIdToken(fa.apiKey, refreshToken);
+            if (result.status === 'refreshed') {
+                refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken };
+                token = refreshedToken.idToken;
+            }
+            else if (result.status === 'invalid') {
+                clearInvalidSession = true;
+            }
+        }
+    }
     let unverifiedEmail = false;
     if (fa.verifyEmailPath && !isVerifyEmailPage && hasSession && decodeJwtPayload(token)?.email_verified === false) {
         const hint = request.cookies.get(emailVerifiedHintCookieName)?.value;

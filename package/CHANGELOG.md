@@ -3,14 +3,20 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.34] - 2026-08-11
+
+### Changed
+
+- Minor internal improvements;
+
 ## [0.6.33] - 2026-08-11
 
 ### Changed
 
 - Added test coverage for `isIdTokenExpired`, `refreshIdToken`'s
   `{ skipCache: true }` option, and the ON-`verifyEmailPath` forced-refresh
-  block's `invalid`-refresh-token outcome — no behavior change, closes
-  branches left uncovered by 0.6.32's fixes.
+  block's `invalid`-refresh-token outcome — no behavior change, closes branches
+  left uncovered by 0.6.32's fixes.
 
 ## [0.6.32] - 2026-08-10
 
@@ -20,29 +26,28 @@ All notable changes to this package are documented here. Format follows
   returning `null` while the client still showed the account) with
   `FirebaseServerApp could not login user with provided authIdToken` /
   `auth/invalid-user-token` logged. Three separate causes, all fixed:
-  - **The middleware's refresh cache could serve an expired ID token.**
-    Firebase does not rotate refresh tokens, so the cache key (derived from
-    the refresh token) never changed, and a cached entry kept being handed
-    out past the ~1hr lifetime of the ID token inside it. Cache hits are now
-    validated against the token's own `exp` before use, and the cache TTL
-    dropped from 50 to 30 minutes.
+  - **The middleware's refresh cache could serve an expired ID token.** Firebase
+    does not rotate refresh tokens, so the cache key (derived from the refresh
+    token) never changed, and a cached entry kept being handed out past the ~1hr
+    lifetime of the ID token inside it. Cache hits are now validated against the
+    token's own `exp` before use, and the cache TTL dropped from 50 to 30
+    minutes.
   - **A rejected token was never retried server-side.** `initializeServerApp`
     does not reject for an invalid/revoked token — it logs the message above
-    itself and resolves `authStateReady()` with `currentUser === null`. A
-    null user now triggers one refresh-and-retry from the refresh-token
-    cookie (as does a thrown `auth/invalid-user-token`, for good measure),
-    instead of rendering the request as signed-out.
-  - **That retry could refresh into the same bad token**, since the cache
-    entry is what produced it. `refreshIdToken` accepts a new
-    `{ skipCache: true }` option, used by the retry path to force a fresh
-    round-trip.
+    itself and resolves `authStateReady()` with `currentUser === null`. A null
+    user now triggers one refresh-and-retry from the refresh-token cookie (as
+    does a thrown `auth/invalid-user-token`, for good measure), instead of
+    rendering the request as signed-out.
+  - **That retry could refresh into the same bad token**, since the cache entry
+    is what produced it. `refreshIdToken` accepts a new `{ skipCache: true }`
+    option, used by the retry path to force a fresh round-trip.
 
-  After a successful retry the new session/refresh pair is written back to
-  the cookie jar when the context allows it (Server Actions, Route
-  Handlers); during an RSC render, where cookie writes are not permitted,
-  this is silently skipped and the middleware persists the pair on the next
-  request. The retry gives up without looping when there is no refresh-token
-  cookie, the refresh fails, or it returns the same rejected token.
+  After a successful retry the new session/refresh pair is written back to the
+  cookie jar when the context allows it (Server Actions, Route Handlers); during
+  an RSC render, where cookie writes are not permitted, this is silently skipped
+  and the middleware persists the pair on the next request. The retry gives up
+  without looping when there is no refresh-token cookie, the refresh fails, or
+  it returns the same rejected token.
 
 ### Changed
 
@@ -52,8 +57,8 @@ All notable changes to this package are documented here. Format follows
   refresh, so the two writers cannot drift into writing the same cookie pair
   with different flags or lifetimes. `secure` remains the one intentional
   difference: the middleware derives it from the request protocol (so a
-  plain-http local dev origin still receives the cookie), while the
-  server-side path, which has no request URL, always sets it.
+  plain-http local dev origin still receives the cookie), while the server-side
+  path, which has no request URL, always sets it.
 
 ## [0.6.31] - 2026-08-10
 
@@ -61,24 +66,23 @@ All notable changes to this package are documented here. Format follows
 
 - New `FirebaseAuthRoutingConfig.preserveRedirectQuery` option (defaults to
   `true`): every `firebase_auth` redirect (`redirectAuthPath`, `homePath`,
-  `verifyEmailPath`) now carries the original request's query string over to
-  its target — e.g. `/login?ref=abc` redirecting a signed-in user to
-  `homePath` now lands on `/?ref=abc` instead of dropping to `/`. Applies
-  consistently across all three redirect layers: `intlMiddleware`'s own
-  `update_session` logic, the RSC pre-render redirect
-  (`resolveAuthUserAndRedirect`), and the client `AuthUserProvider` effect.
-  Set `preserveRedirectQuery: false` to restore the old bare-path behavior.
-  `intlMiddleware` now also sets an `x-search` header (alongside the existing
-  `x-pathname`) so the RSC layer — which has no access to the request URL,
-  only `headers()` — can read the query string too.
+  `verifyEmailPath`) now carries the original request's query string over to its
+  target — e.g. `/login?ref=abc` redirecting a signed-in user to `homePath` now
+  lands on `/?ref=abc` instead of dropping to `/`. Applies consistently across
+  all three redirect layers: `intlMiddleware`'s own `update_session` logic, the
+  RSC pre-render redirect (`resolveAuthUserAndRedirect`), and the client
+  `AuthUserProvider` effect. Set `preserveRedirectQuery: false` to restore the
+  old bare-path behavior. `intlMiddleware` now also sets an `x-search` header
+  (alongside the existing `x-pathname`) so the RSC layer — which has no access
+  to the request URL, only `headers()` — can read the query string too.
 
 ## [0.6.29] - 2026-08-09
 
 ### Added
 
 - `createServerErrorAction`'s returned action now attaches
-  `requestContext: { path, userAgent, referer }` alongside your own `params`
-  on every report — `path` from the `x-pathname` header `intlMiddleware` sets,
+  `requestContext: { path, userAgent, referer }` alongside your own `params` on
+  every report — `path` from the `x-pathname` header `intlMiddleware` sets,
   `userAgent`/`referer` read directly via `next/headers`. Best-effort: falls
   back to `{}` if `next/headers` throws (e.g. outside a request scope) rather
   than failing the report.
@@ -87,36 +91,36 @@ All notable changes to this package are documented here. Format follows
 
 ### Fixed
 
-- `mintServerAppCheckToken`'s custom JWT used the wrong `aud` (audience)
-  claim — `.../google.firebase.appcheck.v1.FirebaseAppCheck` (the App Check
-  API's own resource name) instead of
+- `mintServerAppCheckToken`'s custom JWT used the wrong `aud` (audience) claim —
+  `.../google.firebase.appcheck.v1.FirebaseAppCheck` (the App Check API's own
+  resource name) instead of
   `.../google.firebase.appcheck.v1.TokenExchangeService` (the token-exchange
-  service `exchangeCustomToken` actually expects). Google's real backend
-  rejects the wrong audience with an opaque `403 App attestation failed`, no
-  indication the audience is the problem — this looked identical to a
-  permissions/App-Check-provider-registration issue and cost real
-  investigation time before being traced to `firebase-admin`'s own
-  `AppCheckTokenGenerator.createCustomToken` (`token-generator.js`), which
-  this now matches exactly. Also switched the custom token's lifetime from a
+  service `exchangeCustomToken` actually expects). Google's real backend rejects
+  the wrong audience with an opaque `403 App attestation failed`, no indication
+  the audience is the problem — this looked identical to a
+  permissions/App-Check-provider-registration issue and cost real investigation
+  time before being traced to `firebase-admin`'s own
+  `AppCheckTokenGenerator.createCustomToken` (`token-generator.js`), which this
+  now matches exactly. Also switched the custom token's lifetime from a
   configurable `customTokenLifetime` (default `'1h'`) to a fixed 5 minutes —
   `firebase-admin` hardcodes this too, and Google's real minting endpoint
-  rejects longer custom-token lifetimes outright regardless of what's
-  requested, so the option was a footgun with no working range above 5
-  minutes. **Breaking:** `FirebaseAppCheckConfig.customTokenLifetime` removed
-  — it never had a value greater than 5 minutes that would actually work.
+  rejects longer custom-token lifetimes outright regardless of what's requested,
+  so the option was a footgun with no working range above 5 minutes.
+  **Breaking:** `FirebaseAppCheckConfig.customTokenLifetime` removed — it never
+  had a value greater than 5 minutes that would actually work.
 
-  Verified against Firebase's real `exchangeCustomToken` endpoint with a
-  live service account and project (not mocked) before landing this fix.
+  Verified against Firebase's real `exchangeCustomToken` endpoint with a live
+  service account and project (not mocked) before landing this fix.
 
 ## [0.6.27] - 2026-08-09
 
 ### Fixed
 
-- `mintServerAppCheckToken`'s `exchangeCustomToken` call now authenticates
-  with the project's Web API key (`?key=`). Google rejected the request
-  outright as an unregistered/unidentified caller (403 `PERMISSION_DENIED`)
-  before the custom token itself was even evaluated. `mintServerAppCheckToken`
-  now takes `apiKey` as a second positional argument (before `appCheck`);
+- `mintServerAppCheckToken`'s `exchangeCustomToken` call now authenticates with
+  the project's Web API key (`?key=`). Google rejected the request outright as
+  an unregistered/unidentified caller (403 `PERMISSION_DENIED`) before the
+  custom token itself was even evaluated. `mintServerAppCheckToken` now takes
+  `apiKey` as a second positional argument (before `appCheck`);
   `getAuthenticatedAppForUser` passes `fa.apiKey` through automatically — no
   config changes needed.
 
@@ -124,12 +128,12 @@ All notable changes to this package are documented here. Format follows
 
 ### Changed
 
-- **Breaking:** `FirebaseAppCheckConfig.clientEmail`, `privateKey`, and
-  `appId` are now required fields instead of optional. They were already
-  required together at runtime for server-side App Check token minting
-  (`mintServerAppCheckToken` silently no-op'd if any were missing) — this
-  just makes that a compile-time guarantee wherever `appCheck` is set. Apps
-  that configure `appCheck` only for client-side enforcement (no
+- **Breaking:** `FirebaseAppCheckConfig.clientEmail`, `privateKey`, and `appId`
+  are now required fields instead of optional. They were already required
+  together at runtime for server-side App Check token minting
+  (`mintServerAppCheckToken` silently no-op'd if any were missing) — this just
+  makes that a compile-time guarantee wherever `appCheck` is set. Apps that
+  configure `appCheck` only for client-side enforcement (no
   `clientEmail`/`privateKey`/`appId`) must now provide all three, or omit
   `appCheck` entirely to opt out of App Check.
 
@@ -137,11 +141,11 @@ All notable changes to this package are documented here. Format follows
 
 ### Fixed
 
-- Server-side `getAuthUser()` / `getAuthenticatedAppForUser` no longer fail
-  with `auth/firebase-app-check-token-is-invalid` when App Check enforcement
-  is turned on for Auth in the Firebase console. The client initialized App
-  Check but never forwarded its token to the server, so `initializeServerApp`
-  was always called without an `appCheckToken` and every RSC-side user lookup
+- Server-side `getAuthUser()` / `getAuthenticatedAppForUser` no longer fail with
+  `auth/firebase-app-check-token-is-invalid` when App Check enforcement is
+  turned on for Auth in the Firebase console. The client initialized App Check
+  but never forwarded its token to the server, so `initializeServerApp` was
+  always called without an `appCheckToken` and every RSC-side user lookup
   resolved to `null`. `AuthUserProvider` now mirrors the live App Check token
   into a client-readable cookie alongside the session cookie, and
   `getAuthenticatedAppForUser` reads it and passes it through. Apps without
@@ -153,28 +157,27 @@ All notable changes to this package are documented here. Format follows
   Firebase SDK, and App Check enforcement does not apply there.
 
   The App Check cookie above is written by `AuthUserProvider` (client) and is
-  only ~1hr fresh — a cold navigation (fresh tab, hard refresh, external
-  link) renders on the server BEFORE the client has had a chance to write it,
-  even for a genuinely signed-in user, which reproduced the exact same
-  rejection the cookie was meant to fix. `getAuthenticatedAppForUser` now
-  falls back to minting an App Check token server-side (service-account
-  custom-token exchange, `jose`-signed, Edge-runtime-safe — no
-  `firebase-admin`) whenever the cookie is absent, closing that gap. This
-  fallback only activates when `firebaseAuth.appCheck.clientEmail` /
-  `privateKey` / `appId` are all configured; omit them to keep the
-  cookie-or-nothing behavior above.
+  only ~1hr fresh — a cold navigation (fresh tab, hard refresh, external link)
+  renders on the server BEFORE the client has had a chance to write it, even for
+  a genuinely signed-in user, which reproduced the exact same rejection the
+  cookie was meant to fix. `getAuthenticatedAppForUser` now falls back to
+  minting an App Check token server-side (service-account custom-token exchange,
+  `jose`-signed, Edge-runtime-safe — no `firebase-admin`) whenever the cookie is
+  absent, closing that gap. This fallback only activates when
+  `firebaseAuth.appCheck.clientEmail` / `privateKey` / `appId` are all
+  configured; omit them to keep the cookie-or-nothing behavior above.
 
 ### Added
 
-- `firebaseAuth.appCheckTokenCookieName` — App Check token cookie name.
-  Defaults to `'__fa_app_check_token__'`.
-- `firebaseAuth.appCheckTokenCookieMaxAge` — App Check token cookie max-age
-  in seconds. Defaults to 1 hour (3600), matching the App Check token's own
-  default lifetime so the cookie doesn't outlive the token it holds.
-- `firebaseAuth.appCheck.clientEmail` / `privateKey` / `appId` — service
-  account credentials (server-only, never sent to the client) enabling
-  server-side App Check token minting as a fallback for the client cookie
-  above. `jose` added as a new dependency for this.
+- `firebaseAuth.appCheckTokenCookieName` — App Check token cookie name. Defaults
+  to `'__fa_app_check_token__'`.
+- `firebaseAuth.appCheckTokenCookieMaxAge` — App Check token cookie max-age in
+  seconds. Defaults to 1 hour (3600), matching the App Check token's own default
+  lifetime so the cookie doesn't outlive the token it holds.
+- `firebaseAuth.appCheck.clientEmail` / `privateKey` / `appId` — service account
+  credentials (server-only, never sent to the client) enabling server-side App
+  Check token minting as a fallback for the client cookie above. `jose` added as
+  a new dependency for this.
 
 ## [0.6.24] - 2026-08-08
 
@@ -195,9 +198,9 @@ All notable changes to this package are documented here. Format follows
 
 ### Changed
 
-- `firebaseAuth.appCheck.debugToken` now also accepts a fixed UUID string
-  (in addition to `true`), so local dev can reuse the same App Check debug
-  token across restarts/builds instead of registering a new one every run.
+- `firebaseAuth.appCheck.debugToken` now also accepts a fixed UUID string (in
+  addition to `true`), so local dev can reuse the same App Check debug token
+  across restarts/builds instead of registering a new one every run.
 
 ## [0.6.21] - 2026-08-08
 

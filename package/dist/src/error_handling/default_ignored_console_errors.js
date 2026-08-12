@@ -24,8 +24,15 @@ export const defaultIgnoredConsoleErrors = [
     'auth/expired-action-code',
     'auth/invalid-action-code',
     'auth/user-token-expired',
+    // Logged by `initializeServerApp` itself (not thrown) when a session
+    // cookie's token is revoked/stale — `getAuthenticatedAppForUser` already
+    // handles it by refreshing and retrying, so it's noise, not a bug.
+    'auth/invalid-user-token',
+    'FirebaseServerApp could not login user with provided authIdToken',
     'The `punycode` module is deprecated. Please use a userland alternative instead.',
     'failed to pipe response',
+    "FirebaseServerApp authIdToken is invalid: the token has expired.",
+    "failed Error: Database is closing/hidden",
     'Failed to fetch RSC payload',
     ...(process.env.NODE_ENV === 'development'
         ? ['A DurableObjectNamespace in the config referenced the class "DOQueueHandler", but no such Durable Object class is exported from the worker. Please make sure the class name matches,']
