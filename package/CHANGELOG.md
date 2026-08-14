@@ -3,6 +3,28 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.0] - 2026-08-14
+
+### Added
+
+- `cloudflare-next-intl/serverProviderStatic` — an `output: 'export'`-safe
+  drop-in for `IntlProvider`. The regular provider's client tree always has
+  a code path to the firebase-auth client provider, which imports a
+  `"use server"` file (`clear_session_action`); Next's server-actions build
+  step registers that file the moment any `import()` in the compiled module
+  graph points to it, even one gated by a runtime `if (config.firebaseAuth)`
+  check — the guard skips executing the import, not the import statement
+  itself. `output: 'export'` fails outright the instant any server action is
+  registered anywhere in the app, so this affected every static-export app,
+  not just ones using Firebase Auth. The new variant's client provider
+  (`client_provider_static`) has zero import anywhere pointing at the
+  firebase-auth client code, so there's nothing for the scanner to find. It
+  does not support `firebaseAuth` — that combination throws at render time;
+  use the regular `serverProvider` for apps that need Firebase Auth. See the
+  README's "Static export (`output: 'export'`) support" section, including
+  the webpack-alias approach for apps that import `IntlProvider` from the
+  package root and can't change that import site per build target.
+
 ## [0.6.34] - 2026-08-11
 
 ### Changed

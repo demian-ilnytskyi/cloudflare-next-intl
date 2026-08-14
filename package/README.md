@@ -166,6 +166,64 @@ export default async function RootLayout({ children, params }) {
 }
 ```
 
+### Static export (`output: 'export'`) support
+
+The regular `IntlProvider` (`cloudflare-next-intl/serverProvider`, re-exported
+from the root) always has a code path to the firebase-auth client provider,
+which imports a `"use server"` file (`clear_session_action`) for clearing
+the session cookie on logout. Next.js registers a `"use server"` file into
+the server-actions build the moment **any** `import()` in the compiled
+module graph points to it — a runtime `if (config.firebaseAuth)` guard does
+not remove the import *statement*, only skips executing it, so the file is
+still registered even on apps that never configure `firebaseAuth`.
+`output: 'export'` builds fail outright the instant any server action is
+registered anywhere in the app, so this affects every app doing a static
+export, not just ones using auth.
+
+If your app is built with `output: 'export'` and does **not** configure
+`firebaseAuth`, use `cloudflare-next-intl/serverProviderStatic` instead —
+same signature (minus `staticSafe`, which only exists to control firebase
+auth's server-side resolution), same locale/messages/cookie-consent
+behavior, but its client provider has zero import anywhere pointing at the
+firebase-auth client code, so there is nothing for Next's scanner to find:
+
+```tsx
+import { IntlProvider } from "cloudflare-next-intl/serverProviderStatic";
+```
+
+It throws at render time if `firebaseAuth` is configured — that combination
+isn't supported by this variant; use the regular `serverProvider` for apps
+that need Firebase Auth (which in turn means you can't statically export
+those routes, per the constraint above).
+
+If your app imports the regular `IntlProvider` from the package root and
+can't change that import site (e.g. it's inside another package, or you
+don't want to special-case your own source per build target), redirect it
+at the bundler level instead — alias the **resolved absolute file path**
+(not the package specifier) for both `server_provider.js` and
+`client_provider.js` to their `_static` counterparts, only when building
+for static export:
+
+```ts
+// next.config.ts
+webpack(config) {
+    if (process.env.STATIC_EXPORT === "true") {
+        // realpath, not the raw node_modules path — webpack resolves
+        // symlinks (e.g. `npm link`) to their real target before matching
+        // aliases, so an alias keyed on the symlink path would never match.
+        const root = fs.realpathSync(path.resolve(__dirname, "node_modules/cloudflare-next-intl"));
+        config.resolve.alias[path.join(root, "dist/src/server/components/server_provider.js")] =
+            path.join(root, "dist/src/server/components/server_provider_static.js");
+        // client_hooks.ts (useLocale/useTranslations) imports LocaleContext
+        // from client_provider.js directly — a second, independent edge to
+        // the same firebase-auth chain that the alias above doesn't cover.
+        config.resolve.alias[path.join(root, "dist/src/client/components/client_provider.js")] =
+            path.join(root, "dist/src/client/components/client_provider_static.js");
+    }
+    return config;
+},
+```
+
 ### SEO metadata (hreflang/canonical)
 
 ```ts

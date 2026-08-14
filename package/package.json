@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.6.34",
+  "version": "0.7.0",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -35,6 +35,10 @@
     "./serverProvider": {
       "types": "./dist/src/server/components/server_provider.d.ts",
       "import": "./dist/src/server/components/server_provider.js"
+    },
+    "./serverProviderStatic": {
+      "types": "./dist/src/server/components/server_provider_static.d.ts",
+      "import": "./dist/src/server/components/server_provider_static.js"
     },
     "./Link": {
       "types": "./dist/src/server/components/link.d.ts",
