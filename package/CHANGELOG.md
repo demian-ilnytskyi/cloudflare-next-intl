@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.1] - 2026-08-15
+
+### Added
+
+- `t.raw(key)` on the translator function returned by `getTranslations` —
+  returns the raw `TranslationEntry` (string, array, or nested object) at
+  `key` without the string-only coercion `t(key)` applies. Mirrors
+  `next-intl`'s `t.raw`. Needed for messages whose value is an array (e.g. a
+  list of social links) — `t(key)` on such a key previously warned and fell
+  back to returning the key itself, since it only ever returned `string`.
+
 ## [0.7.0] - 2026-08-14
 
 ### Added

@@ -96,6 +96,14 @@ export default async function Page() {
 }
 ```
 
+`t(key)` always returns a `string`. For a message whose value is an array
+or nested object (e.g. a list), use `t.raw(key)` to get it back as-is:
+
+```tsx
+const t = await getTranslations("Index");
+const items = t.raw("items") as string[]; // messages.Index.items
+```
+
 ### Client Components
 
 ```tsx
