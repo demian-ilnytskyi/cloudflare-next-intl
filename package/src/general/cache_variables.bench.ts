@@ -24,7 +24,9 @@ describe('cache_variables', () => {
     });
 
     bench('setTranslationCache + getTranslationCache hit', () => {
-        setTranslationCache('en-common', (k: string) => k);
+        const fn = (k: string) => k;
+        (fn as unknown as { raw: (k: string) => string }).raw = (k: string) => k;
+        setTranslationCache('en-common', fn as unknown as import('../types/types').TranslatorReturnType);
         getTranslationCache('en-common');
     });
 });

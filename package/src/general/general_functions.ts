@@ -27,8 +27,9 @@ const errorAndReturnFallback = (
     console.error(parts.join(' | '));
 
     const fallbackFn = (k: string) => k; // Fallback function simply returns the key
-    setTranslationCache(cacheKey, fallbackFn);
-    return fallbackFn;
+    (fallbackFn as TranslatorReturnType).raw = (k: string) => k;
+    setTranslationCache(cacheKey, fallbackFn as TranslatorReturnType);
+    return fallbackFn as TranslatorReturnType;
 };
 
 export function getTranslationsImpl(locale: string, messages: TranslationObject, namespace: string, cacheKey?: string): TranslatorReturnType {
@@ -41,11 +42,11 @@ export function getTranslationsImpl(locale: string, messages: TranslationObject,
     for (let i = 0; i < namespaceParts.length; i++) {
         const part = namespaceParts[i];
 
-        const nextLevel: TranslationEntry | undefined = currentLevel[part];
+        const nextLevel: TranslationEntry | undefined = Array.isArray(currentLevel) ? undefined : currentLevel[part];
 
         if (i === namespaceParts.length - 1) {
             // Last part of the namespace, should resolve to an object (the base for translations).
-            if (typeof nextLevel === 'object' && nextLevel !== null) {
+            if (typeof nextLevel === 'object' && nextLevel !== null && !Array.isArray(nextLevel)) {
                 translationsBase = nextLevel;
             } else {
                 // Namespace does not resolve to an object as expected.
@@ -101,7 +102,7 @@ export function getTranslationsImpl(locale: string, messages: TranslationObject,
                 return key; // Return the key as fallback
             }
 
-            const value: TranslationEntry = currentTranslation[part];
+            const value: TranslationEntry = Array.isArray(currentTranslation) ? undefined as never : currentTranslation[part];
 
             if (i === keyParts.length - 1) {
                 if (typeof value !== 'string') {

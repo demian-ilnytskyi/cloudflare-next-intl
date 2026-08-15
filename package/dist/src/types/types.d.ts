@@ -714,12 +714,30 @@ export interface CookieAttributes {
      */
     secure?: boolean | undefined;
 }
-export type TranslationEntry = string | TranslationObject;
+export type TranslationEntry = string | TranslationObject | TranslationEntry[];
 export interface TranslationObject {
     [key: string]: TranslationEntry;
 }
 export type ReturnType = string;
-export type TranslatorReturnType = (key: string) => ReturnType;
+export interface TranslatorReturnType {
+    /** Looks up `key` and coerces it to a `string`. If the value at `key` isn't a plain string (it's an array or object), this warns and returns `key` itself — use {@link TranslatorReturnType.raw} for those cases instead. */
+    (key: string): ReturnType;
+    /**
+     * Escape hatch for non-string message values. `t(key)` always returns a
+     * `string` and can't represent arrays/objects; `t.raw(key)` returns the
+     * value exactly as stored in `messages/<locale>.json` — string, array,
+     * or nested object, unmodified. Use it whenever a message is a list
+     * (e.g. social links, FAQ entries) rather than plain text. Mirrors
+     * `next-intl`'s `t.raw`, so existing `next-intl` usage patterns apply
+     * as-is.
+     *
+     * @example
+     * // messages/en.json: { "Index": { "items": ["a", "b", "c"] } }
+     * const t = await getTranslations("Index");
+     * const items = t.raw("items") as string[]; // ["a", "b", "c"]
+     */
+    raw(key: string): TranslationEntry;
+}
 export type changeFrequency = 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never' | undefined;
 export type Alternates = {
     languages?: Languages<string> | undefined;

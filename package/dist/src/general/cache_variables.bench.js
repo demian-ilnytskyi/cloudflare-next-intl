@@ -13,7 +13,9 @@ describe('cache_variables', () => {
         getMessageCache(undefined);
     });
     bench('setTranslationCache + getTranslationCache hit', () => {
-        setTranslationCache('en-common', (k) => k);
+        const fn = (k) => k;
+        fn.raw = (k) => k;
+        setTranslationCache('en-common', fn);
         getTranslationCache('en-common');
     });
 });
