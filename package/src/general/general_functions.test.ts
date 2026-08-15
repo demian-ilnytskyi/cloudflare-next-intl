@@ -106,4 +106,63 @@ describe('getTranslationsImpl', () => {
         expect(setTranslationCache).toHaveBeenCalledWith('custom-key', expect.any(Function));
         expect(setTranslationCache).not.toHaveBeenCalledWith('en-Common', expect.any(Function));
     });
+
+    describe('t.raw', () => {
+        const rawMessages: TranslationObject = {
+            Common: {
+                title: 'Hello',
+                items: ['a', 'b', 'c'],
+                nested: { deep: 'Deep value', list: ['x', 'y'] },
+            },
+        };
+
+        it('returns a string value unchanged', () => {
+            const t = getTranslationsImpl('en', rawMessages, 'Common');
+            expect(t.raw('title')).toBe('Hello');
+        });
+
+        it('returns an array value unchanged', () => {
+            const t = getTranslationsImpl('en', rawMessages, 'Common');
+            expect(t.raw('items')).toEqual(['a', 'b', 'c']);
+        });
+
+        it('returns a nested object value unchanged', () => {
+            const t = getTranslationsImpl('en', rawMessages, 'Common');
+            expect(t.raw('nested')).toEqual({ deep: 'Deep value', list: ['x', 'y'] });
+        });
+
+        it('resolves a dot-separated key into a nested array', () => {
+            const t = getTranslationsImpl('en', rawMessages, 'Common');
+            expect(t.raw('nested.list')).toEqual(['x', 'y']);
+        });
+
+        it('resolves a dot-separated key into a nested string', () => {
+            const t = getTranslationsImpl('en', rawMessages, 'Common');
+            expect(t.raw('nested.deep')).toBe('Deep value');
+        });
+
+        it('warns and returns key when key is missing', () => {
+            const t = getTranslationsImpl('en', rawMessages, 'Common');
+            expect(t.raw('missingKey')).toBe('missingKey');
+            expect(console.warn).toHaveBeenCalledWith(
+                expect.stringContaining('is missing for locale'),
+            );
+        });
+
+        it('warns and returns key when an intermediate segment is invalid', () => {
+            const t = getTranslationsImpl('en', rawMessages, 'Common');
+            expect(t.raw('title.extra')).toBe('title.extra');
+            expect(console.warn).toHaveBeenCalledWith(
+                expect.stringContaining('invalid structure'),
+            );
+        });
+
+        it('warns and returns key when the path leads through an array prematurely', () => {
+            const t = getTranslationsImpl('en', rawMessages, 'Common');
+            expect(t.raw('items.0')).toBe('items.0');
+            expect(console.warn).toHaveBeenCalledWith(
+                expect.stringContaining('leads to a non-object prematurely'),
+            );
+        });
+    });
 });
