@@ -31,31 +31,45 @@ vi.mock('firebase/performance', () => ({
 }));
 
 type LongTaskEntry = { duration: number };
-type ObserverCallback = (list: { getEntries: () => LongTaskEntry[] }) => void;
+type ResourceEntry = { duration: number; initiatorType: string; name: string; transferSize?: number };
+type ObserverCallback = (list: { getEntries: () => (LongTaskEntry | ResourceEntry)[] }) => void;
 
-let observerCallback: ObserverCallback | undefined;
+let observerCallbacksByType: Record<string, ObserverCallback[]>;
 let observeSpy: ReturnType<typeof vi.fn>;
 let disconnectSpy: ReturnType<typeof vi.fn>;
 let supportedEntryTypes: string[] | undefined;
 
 class FakePerformanceObserver {
     static supportedEntryTypes = supportedEntryTypes;
+    private callback: ObserverCallback;
+    private type: string | undefined;
 
     constructor(callback: ObserverCallback) {
-        observerCallback = callback;
+        this.callback = callback;
     }
 
-    observe(...args: unknown[]) {
-        observeSpy(...args);
+    observe(options: { type: string }, ...rest: unknown[]) {
+        this.type = options.type;
+        (observerCallbacksByType[options.type] ??= []).push(this.callback);
+        observeSpy(options, ...rest);
     }
 
     disconnect(...args: unknown[]) {
+        if (this.type) {
+            observerCallbacksByType[this.type] = (observerCallbacksByType[this.type] ?? []).filter(
+                (cb) => cb !== this.callback,
+            );
+        }
         disconnectSpy(...args);
     }
 }
 
 function pushLongTask(duration: number) {
-    observerCallback?.({ getEntries: () => [{ duration }] });
+    for (const cb of observerCallbacksByType.longtask ?? []) cb({ getEntries: () => [{ duration }] });
+}
+
+function pushResource(entry: ResourceEntry) {
+    for (const cb of observerCallbacksByType.resource ?? []) cb({ getEntries: () => [entry] });
 }
 
 describe('AutoFirebasePerformanceEvents', () => {
@@ -68,10 +82,10 @@ describe('AutoFirebasePerformanceEvents', () => {
         trace.mockClear();
         record.mockClear();
 
-        observerCallback = undefined;
+        observerCallbacksByType = {};
         observeSpy = vi.fn();
         disconnectSpy = vi.fn();
-        supportedEntryTypes = ['longtask'];
+        supportedEntryTypes = ['longtask', 'resource'];
         (FakePerformanceObserver as unknown as { supportedEntryTypes: string[] | undefined }).supportedEntryTypes =
             supportedEntryTypes;
         vi.stubGlobal('PerformanceObserver', FakePerformanceObserver);
@@ -165,7 +179,8 @@ describe('AutoFirebasePerformanceEvents', () => {
         (FakePerformanceObserver as unknown as { supportedEntryTypes: string[] | undefined }).supportedEntryTypes = [];
         expect(() => render(<AutoFirebasePerformanceEvents />)).not.toThrow();
         expect(observeSpy).not.toHaveBeenCalled();
-        expect(observerCallback).toBeUndefined();
+        expect(observerCallbacksByType.longtask).toBeUndefined();
+        expect(observerCallbacksByType.resource).toBeUndefined();
     });
 
     it('flushes accumulated long tasks as a route_long_tasks trace on route change', async () => {
@@ -203,5 +218,55 @@ describe('AutoFirebasePerformanceEvents', () => {
         rerender(<AutoFirebasePerformanceEvents />);
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(trace).not.toHaveBeenCalledWith(performanceInstance, 'route_long_tasks');
+    });
+
+    it('does not record a slow_resource trace for a fetch-initiated resource over threshold', async () => {
+        render(<AutoFirebasePerformanceEvents />);
+        trace.mockClear();
+        record.mockClear();
+        pushResource({ duration: 1500, initiatorType: 'fetch', name: '/api/data' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(trace).not.toHaveBeenCalledWith(performanceInstance, 'slow_resource');
+    });
+
+    it('does not record a slow_resource trace for a non-fetch resource under threshold', async () => {
+        render(<AutoFirebasePerformanceEvents />);
+        trace.mockClear();
+        record.mockClear();
+        pushResource({ duration: 500, initiatorType: 'img', name: '/image.png' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(trace).not.toHaveBeenCalledWith(performanceInstance, 'slow_resource');
+    });
+
+    it('records a slow_resource trace for a non-fetch resource over threshold', async () => {
+        render(<AutoFirebasePerformanceEvents />);
+        trace.mockClear();
+        record.mockClear();
+        pushResource({ duration: 1500, initiatorType: 'script', name: '/app.js', transferSize: 2048 });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(trace).toHaveBeenCalledWith(performanceInstance, 'slow_resource');
+        expect(record).toHaveBeenCalledWith(
+            expect.any(Number),
+            1500,
+            expect.objectContaining({
+                attributes: { initiator_type: 'script', resource: '/app.js' },
+                metrics: { transfer_size_bytes: 2048 },
+            }),
+        );
+    });
+
+    it('truncates a long resource URL to its last 100 characters', async () => {
+        render(<AutoFirebasePerformanceEvents />);
+        trace.mockClear();
+        record.mockClear();
+        const longUrl = `https://example.com/${'a'.repeat(150)}.js`;
+        pushResource({ duration: 1500, initiatorType: 'script', name: longUrl, transferSize: 100 });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(record).toHaveBeenCalledWith(
+            expect.any(Number),
+            expect.any(Number),
+            expect.objectContaining({ attributes: { initiator_type: 'script', resource: longUrl.slice(-100) } }),
+        );
+        expect((record.mock.calls[0][2] as { attributes: { resource: string } }).attributes.resource).toHaveLength(100);
     });
 });

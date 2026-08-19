@@ -32,6 +32,8 @@ async function recordFirebaseTrace(
     trace(performance, name).record(Date.now() - duration, duration, { attributes, metrics });
 }
 
+const SLOW_RESOURCE_THRESHOLD_MS = 1000;
+
 /**
  * Auto-rendered alongside `FirebaseAuthClientProvider` when
  * `firebaseAuth.performance` isn't `false` — records Firebase Performance
@@ -67,6 +69,28 @@ export default function AutoFirebasePerformanceEvents(): null {
             }
         });
         observer.observe({ type: 'longtask', buffered: true });
+        return () => observer.disconnect();
+    }, []);
+
+    // Mount-only: registers a PerformanceObserver for slow non-fetch/XHR
+    // resources (scripts, images, stylesheets, fonts, etc). Firebase
+    // Performance's own automatic network monitoring already instruments
+    // fetch/XHR, so those are skipped here to avoid duplicate signals.
+    // `buffered: true` also catches resources that loaded before this
+    // component mounted (it only mounts after `AuthUserProvider`).
+    useEffect(() => {
+        if (typeof PerformanceObserver === 'undefined' || !PerformanceObserver.supportedEntryTypes?.includes('resource')) return;
+        const observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries() as PerformanceResourceTiming[]) {
+                if (entry.initiatorType === 'fetch' || entry.initiatorType === 'xmlhttprequest') continue;
+                if (entry.duration < SLOW_RESOURCE_THRESHOLD_MS) continue;
+                void recordFirebaseTrace('slow_resource', entry.duration, {
+                    initiator_type: entry.initiatorType,
+                    resource: entry.name.slice(-100),
+                }, { transfer_size_bytes: Math.round(entry.transferSize ?? 0) });
+            }
+        });
+        observer.observe({ type: 'resource', buffered: true });
         return () => observer.disconnect();
     }, []);
 
