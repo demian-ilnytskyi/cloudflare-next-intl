@@ -35,11 +35,21 @@ vi.mock('../../firebase_auth/client/auth_user_provider', () => ({
     default: ({ children }: { children: React.ReactNode }) => <div data-testid="auth-provider">{children}</div>,
 }));
 
-vi.mock('../../cookie_consent/client/cookie_consent_provider', () => ({
-    default: ({ children, requiresConsent }: { children: React.ReactNode; requiresConsent?: boolean }) => (
-        <div data-testid="cookie-consent-provider" data-requires-consent={String(requiresConsent)}>{children}</div>
-    ),
-}));
+vi.mock('../../cookie_consent/client/cookie_consent_provider', async () => {
+    const React = await import('react');
+    return {
+        CookieConsentContext: React.createContext({
+            consent: null,
+            requiresConsent: true,
+            setConsent: () => {},
+            privacyPolicyUpdated: false,
+            acknowledgePrivacyPolicyUpdate: () => {},
+        }),
+        default: ({ children, requiresConsent }: { children: React.ReactNode; requiresConsent?: boolean }) => (
+            <div data-testid="cookie-consent-provider" data-requires-consent={String(requiresConsent)}>{children}</div>
+        ),
+    };
+});
 
 vi.mock('../../cookie_consent/client/components/cookie_consent_analytics', () => ({
     default: ({ config }: { config: Record<string, unknown> }) => (
