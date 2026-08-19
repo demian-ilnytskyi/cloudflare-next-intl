@@ -50,6 +50,25 @@ export default function AutoFirebasePerformanceEvents(): null {
     const path = usePathname();
     const isFirstRoute = useRef(true);
     const lastRouteChangeRef = useRef(Date.now());
+    const longTaskStats = useRef({ count: 0, totalDuration: 0 });
+
+    // Mount-only: registers a PerformanceObserver for long tasks (main-thread
+    // blocks >= 50ms). Not all browsers support the 'longtask' entry type, so
+    // this is a best-effort signal. The final route's tail of accumulated
+    // long tasks between the last route change and unmount is intentionally
+    // dropped rather than flushed here — this is a monitoring signal, not a
+    // billing metric, and an occasional dropped tail sample is acceptable.
+    useEffect(() => {
+        if (typeof PerformanceObserver === 'undefined' || !PerformanceObserver.supportedEntryTypes?.includes('longtask')) return;
+        const observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+                longTaskStats.current.count += 1;
+                longTaskStats.current.totalDuration += entry.duration;
+            }
+        });
+        observer.observe({ type: 'longtask', buffered: true });
+        return () => observer.disconnect();
+    }, []);
 
     useEffect(() => {
         const now = Date.now();
@@ -62,7 +81,17 @@ export default function AutoFirebasePerformanceEvents(): null {
         // Approximates navigation duration as time between path-change commits —
         // App Router exposes no public "navigation start" event this package
         // can hook into, so this is not a precise navigation timing.
-        void recordFirebaseTrace('route_change', duration, { path: path.slice(-100) });
+        // Awaited sequentially (rather than fired concurrently) so the two
+        // traces don't race each other's lazy `import('firebase/performance')`.
+        void (async () => {
+            await recordFirebaseTrace('route_change', duration, { path: path.slice(-100) });
+
+            const { count, totalDuration } = longTaskStats.current;
+            longTaskStats.current = { count: 0, totalDuration: 0 };
+            if (count > 0) {
+                await recordFirebaseTrace('route_long_tasks', totalDuration, { path }, { long_task_count: count });
+            }
+        })();
     }, [path]);
 
     return null;
