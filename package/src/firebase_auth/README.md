@@ -7,9 +7,27 @@ first, which throws a descriptive error instead of no-op'ing if that config is
 missing — this is the first thing to check when a firebase_auth call throws
 unexpectedly.
 
+## Performance Monitoring
+
+Enabled by default: configuring `firebaseAuth` is enough, and
+`getFirebaseAuthClient()` initializes `firebase/performance` on first
+resolve. Automatic traces (page load, network requests) then collect with no
+action from the consumer — nothing to render, call, or wire up.
+
+Disable with an explicit `performance: false` on `firebaseAuth`. The check is
+`fa.performance !== false`, so omitting the field means enabled; it is also
+skipped when `window` is undefined, keeping the browser-only SDK out of
+SSR/RSC. In either case `import('firebase/performance')` is never evaluated.
+
+`AutoFirebasePerformanceEvents` is auto-rendered and auto-tracks Web Vitals,
+SPA route-change duration, long tasks, and slow non-fetch resource loads as
+Firebase Performance custom traces — nothing for the consumer to render or
+call, same as the page-load/network traces above it.
+
 ## Layout
 
-- `client/` — browser-side: `firebase_client.ts` (lazy SDK getter),
+- `client/` — browser-side: `firebase_client.ts` (lazy SDK getter; also
+  initializes Performance Monitoring — see below),
   `use_auth_user.ts` (`onIdTokenChanged` hook), `auth_user_cache.ts`,
   `auth_user_provider.tsx` (context provider, syncs session cookie, and
   invokes the optional `onSignIn`/`onEmailVerified`/`onSignOut`

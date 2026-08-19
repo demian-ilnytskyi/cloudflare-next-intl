@@ -35,6 +35,58 @@ actually called, and each one throws a clear `Error` synchronously if
 than "optional peer dependency" alone: even having `firebase` installed
 does not cause it to load unless a firebase_auth export is called.
 
+## Performance Monitoring (on by default)
+
+`firebase/performance` is initialized automatically whenever `firebaseAuth`
+is configured — no opt-in flag, no extra provider, and nothing for the
+consumer to render or call. It is wired inside `getFirebaseAuthClient()`
+(`client/firebase_client.ts`) and starts collecting automatic traces (page
+load, network requests) as soon as that client first resolves.
+
+Two conditions gate it, both in `firebase_client.ts`:
+
+```ts
+const isPerformanceEnabled = fa.performance !== false && typeof window !== 'undefined';
+```
+
+- `fa.performance !== false` — note `!== false`, not truthiness: `undefined`
+  (the normal case, field omitted) means **enabled**. Only an explicit
+  `performance: false` disables it.
+- `typeof window !== 'undefined'` — the SDK is browser-only, so the import is
+  skipped entirely during SSR/RSC rather than initialized and ignored.
+
+To disable it, set the flag on `firebaseAuth`:
+
+```ts
+firebaseAuth: { /* ...secrets, routes... */, performance: false }
+```
+
+When disabled — or on the server — `import('firebase/performance')` is never
+evaluated, so the SDK stays out of the bundle's executed path. This follows
+the same lazy-dynamic-import rule as the rest of the module.
+
+`getFirebasePerformanceSync()` IS exported from `firebase_client.ts` (and
+re-exported from `firebase_auth/index.ts`), backing the auto-wired
+`AutoFirebasePerformanceEvents` component (`client/components/auto_firebase_performance_events.tsx`).
+That component is rendered automatically by `client_provider.tsx`'s
+`LocationzationClientProvider` whenever `config.firebaseAuth` is set and
+`firebaseAuth.performance !== false` — zero consumer steps, same as the
+Web Vitals → GA `AutoAnalyticsEvents` pattern in `cookie_consent/`. This
+supersedes the module's earlier no-exported-getter stance.
+
+The component auto-tracks every signal as a Firebase Performance custom trace:
+
+- Web Vitals: `web_cls`, `web_fcp`, `web_fid`, `web_lcp`, `web_ttfb`, `web_inp`
+- SPA route-change duration: `route_change`
+- Main-thread long tasks: `route_long_tasks`
+- Slow non-fetch/XHR resource loads: `slow_resource`
+
+Tests: `client/firebase_client.test.ts` → `describe('getFirebaseAuthClient Performance')`
+and `client/components/auto_firebase_performance_events.test.tsx` cover the
+default-on and `performance: false` paths, as well as signal collection.
+Run from `package/` (`cd package && npx vitest run src/...`) to ensure jsdom
+environment is applied.
+
 ## Isolation rules (do not violate)
 
 - Nothing outside `src/firebase_auth/**` imports from it **statically** —
