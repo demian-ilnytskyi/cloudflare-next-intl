@@ -108,4 +108,20 @@ describe('AutoFirebasePerformanceEvents', () => {
             expect.objectContaining({ attributes: { path: '/new-path' } }),
         );
     });
+
+    it('truncates a long path to its last 100 characters for the route_change attribute', async () => {
+        const { rerender } = render(<AutoFirebasePerformanceEvents />);
+        trace.mockClear();
+        record.mockClear();
+        const longPath = `/${'a'.repeat(150)}`;
+        currentPath = longPath;
+        rerender(<AutoFirebasePerformanceEvents />);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(record).toHaveBeenCalledWith(
+            expect.any(Number),
+            expect.any(Number),
+            expect.objectContaining({ attributes: { path: longPath.slice(-100) } }),
+        );
+        expect((record.mock.calls[0][2] as { attributes: { path: string } }).attributes.path).toHaveLength(100);
+    });
 });

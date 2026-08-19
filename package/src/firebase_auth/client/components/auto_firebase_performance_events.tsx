@@ -62,7 +62,7 @@ export default function AutoFirebasePerformanceEvents(): null {
         // Approximates navigation duration as time between path-change commits —
         // App Router exposes no public "navigation start" event this package
         // can hook into, so this is not a precise navigation timing.
-        void recordFirebaseTrace('route_change', duration, { path });
+        void recordFirebaseTrace('route_change', duration, { path: path.slice(-100) });
     }, [path]);
 
     return null;
