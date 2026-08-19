@@ -30,6 +30,11 @@ vi.mock('firebase/performance', () => ({
     trace: (...args: unknown[]) => trace(...args),
 }));
 
+const reportError = vi.fn();
+vi.mock('../../../error_handling/report_error', () => ({
+    default: (...args: unknown[]) => reportError(...args),
+}));
+
 type LongTaskEntry = { duration: number };
 type ResourceEntry = { duration: number; initiatorType: string; name: string; transferSize?: number };
 type ObserverCallback = (list: { getEntries: () => (LongTaskEntry | ResourceEntry)[] }) => void;
@@ -81,6 +86,7 @@ describe('AutoFirebasePerformanceEvents', () => {
         getFirebasePerformanceSync.mockClear();
         trace.mockClear();
         record.mockClear();
+        reportError.mockClear();
 
         observerCallbacksByType = {};
         observeSpy = vi.fn();
@@ -255,6 +261,22 @@ describe('AutoFirebasePerformanceEvents', () => {
         );
     });
 
+    it('defaults transfer_size_bytes metric to 0 when transferSize is undefined', async () => {
+        render(<AutoFirebasePerformanceEvents />);
+        trace.mockClear();
+        record.mockClear();
+        pushResource({ duration: 1200, initiatorType: 'img', name: '/large.png' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(record).toHaveBeenCalledWith(
+            expect.any(Number),
+            1200,
+            expect.objectContaining({
+                attributes: { initiator_type: 'img', resource: '/large.png' },
+                metrics: { transfer_size_bytes: 0 },
+            }),
+        );
+    });
+
     it('truncates a long resource URL to its last 100 characters', async () => {
         render(<AutoFirebasePerformanceEvents />);
         trace.mockClear();
@@ -268,5 +290,21 @@ describe('AutoFirebasePerformanceEvents', () => {
             expect.objectContaining({ attributes: { initiator_type: 'script', resource: longUrl.slice(-100) } }),
         );
         expect((record.mock.calls[0][2] as { attributes: { resource: string } }).attributes.resource).toHaveLength(100);
+    });
+
+    it('reports errors via reportError when getFirebaseAuthClient or dynamic imports fail', async () => {
+        const err = new Error('Network error');
+        getFirebaseAuthClient.mockRejectedValueOnce(err);
+        render(<AutoFirebasePerformanceEvents />);
+        expect(() => {
+            webVitalsCallback?.({ name: 'LCP', value: 100, id: '1', rating: 'good' });
+        }).not.toThrow();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(trace).not.toHaveBeenCalled();
+        expect(reportError).toHaveBeenCalledWith(undefined, {
+            error: err,
+            classOrMethodName: 'recordFirebaseTrace',
+            isClient: true,
+        });
     });
 });

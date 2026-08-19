@@ -161,5 +161,5 @@ export default async function LocationzationProvider({ language, messages, stati
             }
         }
     }
-    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, initialAuthUser: initialAuthUser, skipAuthProvider: !autoWireClientProvider, analyticsConfig: analyticsConfig, requiresConsent: requiresConsent, autoWireDialogs: config.cookieConsent?.autoWireDialogs !== false, dialogProps: config.cookieConsent?.dialogProps, updateDialogProps: config.cookieConsent?.updateDialogProps, children: children });
+    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, initialAuthUser: initialAuthUser, skipAuthProvider: !autoWireClientProvider, analyticsConfig: analyticsConfig, autoAnalyticsEventsConfig: config.cookieConsent?.autoAnalyticsEvents, requiresConsent: requiresConsent, autoWireDialogs: config.cookieConsent?.autoWireDialogs !== false, dialogProps: config.cookieConsent?.dialogProps, updateDialogProps: config.cookieConsent?.updateDialogProps, children: children });
 }

@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.2] - 2026-08-19
+
+### Added
+
+- `AutoFirebasePerformanceEvents` auto-tracks SPA route-change duration (`route_change`), main-thread long tasks (`route_long_tasks`), and slow non-fetch/XHR resource loads (`slow_resource`) as Firebase Performance custom traces alongside Web Vitals metrics.
+- `getFirebasePerformanceSync()` exported from `firebaseAuthClient` (`firebase_client.ts`).
+
 ## [0.7.1] - 2026-08-15
 
 ### Added

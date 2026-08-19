@@ -1,5 +1,6 @@
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
+import type { FirebasePerformance } from 'firebase/performance';
 /**
  * Current App Check token, or `undefined` if `appCheck` isn't configured or
  * hasn't initialized yet. Forces a refresh only when the cached token is
@@ -24,5 +25,7 @@ export declare function getFirebaseAuthClientSync(): {
     app: FirebaseApp;
     auth: Auth;
 } | undefined;
+/** Synchronous read of the cached `FirebasePerformance` instance, or `undefined` if `performance` isn't enabled or hasn't initialized yet. */
+export declare function getFirebasePerformanceSync(): FirebasePerformance | undefined;
 /** Memoized `import('firebase/auth')` — see {@link getFirebaseAuthClient} for why this is worth caching. */
 export declare function getFirebaseAuthModule(): Promise<typeof import('firebase/auth')>;

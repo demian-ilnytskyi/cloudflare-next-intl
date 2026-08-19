@@ -104,5 +104,5 @@ export default async function LocationzationProvider({ language, messages, child
             }
         }
     }
-    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, analyticsConfig: analyticsConfig, requiresConsent: requiresConsent, autoWireDialogs: config.cookieConsent?.autoWireDialogs !== false, dialogProps: config.cookieConsent?.dialogProps, updateDialogProps: config.cookieConsent?.updateDialogProps, children: children });
+    return _jsx(LocationzationClientProvider, { language: language, messages: messagesValue, analyticsConfig: analyticsConfig, autoAnalyticsEventsConfig: config.cookieConsent?.autoAnalyticsEvents, requiresConsent: requiresConsent, autoWireDialogs: config.cookieConsent?.autoWireDialogs !== false, dialogProps: config.cookieConsent?.dialogProps, updateDialogProps: config.cookieConsent?.updateDialogProps, children: children });
 }

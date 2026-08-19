@@ -3,11 +3,13 @@
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
 import type { AppCheck } from 'firebase/app-check';
+import type { FirebasePerformance } from 'firebase/performance';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
 import type { FirebaseAppCheckConfig } from '../../types/types';
 
 let cachedAppCheck: AppCheck | undefined;
+let cachedPerformance: FirebasePerformance | undefined;
 
 async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: FirebaseAppCheckConfig): Promise<AppCheck> {
     const { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
@@ -53,8 +55,13 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
     if (cached) return cached;
     if (!cachedPromise) {
         const fa = config.firebaseAuth;
-        cachedPromise = Promise.all([import('firebase/app'), import('firebase/auth')]).then(
-            async ([{ getApp, getApps, initializeApp }, { getAuth }]) => {
+        const isPerformanceEnabled = fa.performance !== false && typeof window !== 'undefined';
+        cachedPromise = Promise.all([
+            import('firebase/app'),
+            import('firebase/auth'),
+            isPerformanceEnabled ? import('firebase/performance') : Promise.resolve(null),
+        ]).then(
+            async ([{ getApp, getApps, initializeApp }, { getAuth }, perfModule]) => {
                 const firebaseConfig = {
                     apiKey: fa.apiKey,
                     authDomain: fa.authDomain,
@@ -68,6 +75,9 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
                 if (fa.appCheck) {
                     cachedAppCheck = await initializeFirebaseAppCheck(app, fa.appCheck);
                 }
+                if (perfModule) {
+                    cachedPerformance = perfModule.getPerformance(app);
+                }
                 const auth = getAuth(app);
                 cached = { app, auth };
                 return cached;
@@ -80,6 +90,11 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
 /** Synchronous read of the cached client, or `undefined` before the first `getFirebaseAuthClient()` resolves. */
 export function getFirebaseAuthClientSync(): { app: FirebaseApp; auth: Auth } | undefined {
     return cached;
+}
+
+/** Synchronous read of the cached `FirebasePerformance` instance, or `undefined` if `performance` isn't enabled or hasn't initialized yet. */
+export function getFirebasePerformanceSync(): FirebasePerformance | undefined {
+    return cachedPerformance;
 }
 
 let cachedAuthModule: Promise<typeof import('firebase/auth')> | undefined;

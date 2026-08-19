@@ -2,6 +2,7 @@
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
 let cachedAppCheck;
+let cachedPerformance;
 async function initializeFirebaseAppCheck(app, appCheckConfig) {
     const { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
     if (appCheckConfig.debugToken) {
@@ -45,7 +46,12 @@ export async function getFirebaseAuthClient() {
         return cached;
     if (!cachedPromise) {
         const fa = config.firebaseAuth;
-        cachedPromise = Promise.all([import('firebase/app'), import('firebase/auth')]).then(async ([{ getApp, getApps, initializeApp }, { getAuth }]) => {
+        const isPerformanceEnabled = fa.performance !== false && typeof window !== 'undefined';
+        cachedPromise = Promise.all([
+            import('firebase/app'),
+            import('firebase/auth'),
+            isPerformanceEnabled ? import('firebase/performance') : Promise.resolve(null),
+        ]).then(async ([{ getApp, getApps, initializeApp }, { getAuth }, perfModule]) => {
             const firebaseConfig = {
                 apiKey: fa.apiKey,
                 authDomain: fa.authDomain,
@@ -59,6 +65,9 @@ export async function getFirebaseAuthClient() {
             if (fa.appCheck) {
                 cachedAppCheck = await initializeFirebaseAppCheck(app, fa.appCheck);
             }
+            if (perfModule) {
+                cachedPerformance = perfModule.getPerformance(app);
+            }
             const auth = getAuth(app);
             cached = { app, auth };
             return cached;
@@ -69,6 +78,10 @@ export async function getFirebaseAuthClient() {
 /** Synchronous read of the cached client, or `undefined` before the first `getFirebaseAuthClient()` resolves. */
 export function getFirebaseAuthClientSync() {
     return cached;
+}
+/** Synchronous read of the cached `FirebasePerformance` instance, or `undefined` if `performance` isn't enabled or hasn't initialized yet. */
+export function getFirebasePerformanceSync() {
+    return cachedPerformance;
 }
 let cachedAuthModule;
 /** Memoized `import('firebase/auth')` — see {@link getFirebaseAuthClient} for why this is worth caching. */

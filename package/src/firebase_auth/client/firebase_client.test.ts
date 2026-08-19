@@ -36,6 +36,12 @@ vi.mock('firebase/auth', () => ({
 }));
 const getToken = vi.fn(() => Promise.resolve({ token: 'app-check-token' }));
 
+const getPerformance = vi.fn(() => ({}));
+
+vi.mock('firebase/performance', () => ({
+    getPerformance: (...args: unknown[]) => getPerformance(...args),
+}));
+
 vi.mock('firebase/app-check', () => ({
     initializeAppCheck: (...args: unknown[]) => initializeAppCheck(...args),
     ReCaptchaV3Provider,
@@ -167,6 +173,36 @@ describe('getFirebaseAuthClient App Check', () => {
             expect.anything(),
             expect.objectContaining({ isTokenAutoRefreshEnabled: false }),
         );
+    });
+});
+
+describe('getFirebaseAuthClient Performance', () => {
+    beforeEach(() => {
+        vi.resetModules();
+        getPerformance.mockClear();
+    });
+
+    it('automatically initializes performance monitoring by default on client', async () => {
+        const { getFirebaseAuthClient, getFirebasePerformanceSync } = await import('./firebase_client');
+        expect(getFirebasePerformanceSync()).toBeUndefined();
+        await getFirebaseAuthClient();
+        expect(getPerformance).toHaveBeenCalled();
+        expect(getFirebasePerformanceSync()).toBeDefined();
+    });
+
+    it('does not initialize performance monitoring when performance is false', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    performance: false,
+                },
+            },
+        }));
+        const { getFirebaseAuthClient, getFirebasePerformanceSync } = await import('./firebase_client');
+        await getFirebaseAuthClient();
+        expect(getPerformance).not.toHaveBeenCalled();
+        expect(getFirebasePerformanceSync()).toBeUndefined();
     });
 });
 

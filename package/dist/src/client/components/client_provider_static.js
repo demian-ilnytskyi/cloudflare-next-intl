@@ -17,16 +17,17 @@ export const LocaleContext = createContext(undefined);
 // for the full explanation.
 const CookieConsentProvider = dynamic(() => import("../../cookie_consent/client/cookie_consent_provider"));
 const CookieConsentAnalytics = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_analytics"));
+const AutoAnalyticsEvents = dynamic(() => import("../../cookie_consent/client/components/auto_analytics_events"));
 const CookieConsentDialog = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_dialog"));
 const PrivacyPolicyUpdateDialog = dynamic(() => import("../../cookie_consent/client/components/privacy_policy_update_dialog"));
-export default function LocationzationClientProvider({ language, messages, analyticsConfig, requiresConsent = true, autoWireDialogs = true, dialogProps, updateDialogProps, children }) {
+export default function LocationzationClientProvider({ language, messages, analyticsConfig, autoAnalyticsEventsConfig, requiresConsent = true, autoWireDialogs = true, dialogProps, updateDialogProps, children }) {
     setLocaleCache(language);
     setMessageForLocaleCache(language, messages);
     installConsoleErrorOverride(config, true);
     installGlobalErrorOverride(config);
     let providedChildren = children;
     if (config.cookieConsent) {
-        providedChildren = _jsxs(CookieConsentProvider, { requiresConsent: requiresConsent, children: [providedChildren, analyticsConfig && _jsx(CookieConsentAnalytics, { config: analyticsConfig }), autoWireDialogs && _jsx(CookieConsentDialog, { ...dialogProps }), autoWireDialogs && _jsx(PrivacyPolicyUpdateDialog, { ...updateDialogProps })] });
+        providedChildren = _jsxs(CookieConsentProvider, { requiresConsent: requiresConsent, children: [providedChildren, analyticsConfig && _jsx(CookieConsentAnalytics, { config: analyticsConfig }), analyticsConfig && (analyticsConfig.googleAnalyticsId || analyticsConfig.googleAdsId) && _jsx(AutoAnalyticsEvents, { config: autoAnalyticsEventsConfig }), autoWireDialogs && _jsx(CookieConsentDialog, { ...dialogProps }), autoWireDialogs && _jsx(PrivacyPolicyUpdateDialog, { ...updateDialogProps })] });
     }
     const contextValue = useMemo(() => ({ language, messages }), [language, messages]);
     return _jsx(LocaleContext.Provider, { value: contextValue, children: providedChildren });

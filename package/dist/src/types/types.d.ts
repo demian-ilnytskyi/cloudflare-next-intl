@@ -309,6 +309,16 @@ export interface CookieConsentRoutingConfig {
      */
     getAnalytics?: () => CookieConsentAnalyticsConfig | Promise<CookieConsentAnalyticsConfig>;
     /**
+     * Configures automatic `screen_view` (on route change) and Web Vitals
+     * (`web_cls`/`web_fcp`/`web_fid`/`web_lcp`/`web_ttfb`/`web_inp`)
+     * `gtag('event', ...)` tracking. Auto-rendered alongside
+     * `CookieConsentAnalytics` whenever Google Analytics/Ads is configured
+     * and `autoWireAnalytics` isn't `false` — no manual wiring needed. Omit
+     * to keep all events enabled with default screen names (raw pathname);
+     * set `events` to a narrower array to disable specific ones.
+     */
+    autoAnalyticsEvents?: AutoAnalyticsEventsConfig;
+    /**
      * Resolves the visitor's country code directly (ISO 3166-1 alpha-2,
      * e.g. `"DE"`) — the simplest option when you already have it from
      * somewhere (a header, a KV lookup, your own logic). Takes precedence
@@ -389,6 +399,20 @@ export interface CookieConsentGetCloudflareContext {
         async: false;
     }): CookieConsentCloudflareContext | null;
 }
+/** Auto-tracked event names — `screen_view` on route change, plus one per Web Vitals metric. All enabled by default. */
+export type AutoAnalyticsEventName = 'screen_view' | 'web_cls' | 'web_fcp' | 'web_fid' | 'web_lcp' | 'web_ttfb' | 'web_inp';
+export interface AutoAnalyticsEventsConfig {
+    /**
+     * Which auto-tracked events to send via `gtag('event', ...)`. Defaults
+     * to all of {@link AutoAnalyticsEventName}. Pass a narrower array to
+     * disable specific events (e.g. omit `'web_cls'`) while keeping the
+     * rest. Only takes effect once `gtag` is available (i.e. Google
+     * Analytics/Ads is configured and consent is granted).
+     */
+    events?: readonly AutoAnalyticsEventName[];
+    /** Maps a locale-stripped pathname to a human-readable screen name for `screen_view`'s `screen_name` param. Defaults to the raw pathname. */
+    getScreenName?: (path: string) => string;
+}
 export interface CookieConsentAnalyticsConfig {
     /** Cloudflare Web Analytics beacon token, e.g. `'{"token": "..."}'` (the raw `data-cf-beacon` attribute value). */
     cloudflareBeaconToken?: string;
@@ -440,6 +464,12 @@ export interface FirebaseAuthRoutingConfig {
     appId: string;
     /** Firebase Analytics measurement ID. */
     measurementId?: string;
+    /**
+     * Whether Firebase Performance Monitoring is initialized on the client.
+     * Enabled (`true`) by default when `firebaseAuth` is configured.
+     * Set `false` to disable Performance Monitoring initialization.
+     */
+    performance?: boolean;
     /**
      * Enables Firebase App Check on the client. Omit to leave App Check
      * uninitialized — required if App Check enforcement is turned on for

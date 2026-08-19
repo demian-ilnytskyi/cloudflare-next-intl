@@ -1,5 +1,5 @@
 import type { TranslationObject } from "../../types/types";
-import type { CookieConsentAnalyticsConfig } from "../../types/types";
+import type { CookieConsentAnalyticsConfig, AutoAnalyticsEventsConfig } from "../../types/types";
 import type { CookieConsentDialogProps } from "../../cookie_consent/client/components/cookie_consent_dialog";
 import type { PrivacyPolicyUpdateDialogProps } from "../../cookie_consent/client/components/privacy_policy_update_dialog";
 interface LocaleContextType {
@@ -7,11 +7,13 @@ interface LocaleContextType {
     messages: TranslationObject;
 }
 export declare const LocaleContext: import("react").Context<LocaleContextType | undefined>;
-export default function LocationzationClientProvider({ language, messages, analyticsConfig, requiresConsent, autoWireDialogs, dialogProps, updateDialogProps, children }: {
+export default function LocationzationClientProvider({ language, messages, analyticsConfig, autoAnalyticsEventsConfig, requiresConsent, autoWireDialogs, dialogProps, updateDialogProps, children }: {
     language: string;
     messages: TranslationObject;
     /** Resolved server-side from `cookieConsent.analytics`/`getAnalytics` when `autoWireAnalytics` isn't `false`. */
     analyticsConfig?: CookieConsentAnalyticsConfig;
+    /** From `cookieConsent.autoAnalyticsEvents` — forwarded as-is to the auto-wired `AutoAnalyticsEvents`. */
+    autoAnalyticsEventsConfig?: AutoAnalyticsEventsConfig;
     /**
      * Resolved server-side from `cookieConsent.getCountryCode`/`gdprCountries`.
      * `false` means the visitor's country doesn't require the consent

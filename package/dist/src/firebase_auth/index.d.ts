@@ -5,6 +5,6 @@ export { default as useFirebaseAuthUserServer } from './server/use_auth_user_ser
 export { createLoginAction, createSignUpAction, createForgotPasswordAction } from './client/auth_actions';
 export { default as clearFirebaseAuthSession } from './server/clear_session_action';
 export { default as updateFirebaseAuthSession, defaultSessionCookieName as firebaseAuthSessionCookieName } from './middleware/update_session';
-export { getFirebaseAuthClient } from './client/firebase_client';
+export { getFirebaseAuthClient, getFirebasePerformanceSync } from './client/firebase_client';
 export type { SerializedAuthUser, AuthFormState, AuthActionMessages, AuthUser } from './types';
 export type { FirebaseAuthRoutingConfig } from '../types/types';
