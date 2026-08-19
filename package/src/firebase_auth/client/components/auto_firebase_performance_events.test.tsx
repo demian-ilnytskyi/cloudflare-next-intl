@@ -174,6 +174,16 @@ describe('AutoFirebasePerformanceEvents', () => {
         pushLongTask(90);
         trace.mockClear();
         record.mockClear();
+        // The route_change and route_long_tasks traces are two independent
+        // fire-and-forget calls that both dynamically `import('firebase/performance')`
+        // in the same tick. Under this test environment, two concurrent
+        // first-in-flight dynamic imports of the same mocked specifier can race
+        // and the second one resolve to the real (unmocked) module instead of
+        // the mock — a test-harness artifact, not a production concern (in
+        // production there's only ever one real module, no mock to bypass).
+        // Short-circuit route_change's call here (its own trace is covered by
+        // other tests) so only route_long_tasks's import is in flight.
+        getFirebasePerformanceSync.mockImplementationOnce(() => undefined);
         currentPath = '/new-path';
         rerender(<AutoFirebasePerformanceEvents />);
         await new Promise((resolve) => setTimeout(resolve, 0));

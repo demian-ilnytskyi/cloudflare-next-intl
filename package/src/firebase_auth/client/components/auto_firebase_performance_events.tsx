@@ -81,17 +81,13 @@ export default function AutoFirebasePerformanceEvents(): null {
         // Approximates navigation duration as time between path-change commits —
         // App Router exposes no public "navigation start" event this package
         // can hook into, so this is not a precise navigation timing.
-        // Awaited sequentially (rather than fired concurrently) so the two
-        // traces don't race each other's lazy `import('firebase/performance')`.
-        void (async () => {
-            await recordFirebaseTrace('route_change', duration, { path: path.slice(-100) });
+        void recordFirebaseTrace('route_change', duration, { path: path.slice(-100) });
 
-            const { count, totalDuration } = longTaskStats.current;
-            longTaskStats.current = { count: 0, totalDuration: 0 };
-            if (count > 0) {
-                await recordFirebaseTrace('route_long_tasks', totalDuration, { path }, { long_task_count: count });
-            }
-        })();
+        const { count, totalDuration } = longTaskStats.current;
+        longTaskStats.current = { count: 0, totalDuration: 0 };
+        if (count > 0) {
+            void recordFirebaseTrace('route_long_tasks', totalDuration, { path }, { long_task_count: count });
+        }
     }, [path]);
 
     return null;
