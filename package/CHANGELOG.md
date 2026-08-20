@@ -3,6 +3,18 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.4] - 2026-08-21
+
+### Fixed
+
+- `update_session` middleware now falls back to the mode target path (e.g. `/reset-password`) when an emailed Firebase action link's `continueUrl` points to the home root (`/`).
+
+## [0.7.3] - 2026-08-20
+
+### Fixed
+
+- `update_session` middleware external origin `continueUrl` handling.
+
 ## [0.7.2] - 2026-08-19
 
 ### Added

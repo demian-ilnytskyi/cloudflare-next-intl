@@ -255,7 +255,7 @@ auto-wires `AuthUserProvider` and server-side `getAuthUser` session validation.
 Features include:
 - `createForgotPasswordAction(locale, actionCodeSettings?)`: Accepts optional Firebase `AuthActionCodeSettings` (e.g. `url` redirect link).
 - `sendVerificationEmail(actionCodeSettings?)` on `useAuthUser()`: Custom action email settings when resending email verification.
-- `followSameOriginContinueUrl`: Automatically forwards emailed action links with `continueUrl` to the specified path (or external URL) directly from `intlMiddleware` (default `true`; set `false` on `firebaseAuth` config to disable).
+- `followSameOriginContinueUrl`: Automatically forwards emailed action links with `continueUrl` to the specified path (or external URL) directly from `intlMiddleware` (default `true`; set `false` on `firebaseAuth` config to disable). If `continueUrl` points to home root (`/`), it resolves to the mode target path (e.g. `/reset-password`).
 
 ```tsx
 import ThemeSwitcher from "cloudflare-next-intl/ThemeSwitcher";

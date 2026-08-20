@@ -1052,6 +1052,28 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
 
+        it('redirects to external origin mode path when external continueUrl path is / (home root)', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2Flocalhost%3A3000',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'http://localhost:3000/reset-password?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2Flocalhost%3A3000',
+            );
+        });
+
+        it('keeps locale prefix on external continueUrl root fallback for non-default locale', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/de/auth/action?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2Flocalhost%3A3000%2F',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'de');
+            expect(res.headers.get('location')).toBe(
+                'http://localhost:3000/de/reset-password?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2Flocalhost%3A3000%2F',
+            );
+        });
+
         it('ignores continueUrl when followSameOriginContinueUrl is set to false', async () => {
             currentConfig.firebaseAuth!.followSameOriginContinueUrl = false;
             const { default: updateSession } = await import('./update_session');

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.4
+
+### Fixed
+
+- `update_session` middleware now falls back to the mode target path (e.g. `/reset-password`) when an emailed Firebase action link's `continueUrl` points to the home root (`/`).
+
+## 0.7.3
+
+### Fixed
+
+- `update_session` middleware external origin `continueUrl` handling.
+
 ## 0.6.34
 
 ### Changed
