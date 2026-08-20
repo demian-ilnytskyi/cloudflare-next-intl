@@ -1,4 +1,4 @@
-import type { AuthActionMessages, AuthFormState } from '../types';
+import type { AuthActionCodeSettings, AuthActionMessages, AuthFormState } from '../types';
 /**
  * Builds a login server action for React's `useActionState` form hook.
  * The returned function has the `(prevState, formData) => Promise<AuthFormState>`
@@ -37,10 +37,10 @@ export declare function createSignUpAction(locale: string, messages: AuthActionM
  * `formData` must contain an `email` field.
  *
  * @param locale Used to localize the returned error message.
- * @param messages Localized action messages (currently unused by this action).
+ * @param actionCodeSettings Optional settings for action email (continue URL, etc.).
  * @returns A form action: `{ success: true }` on success, `{ error }` on failure.
  * @example
- * const [state, action] = useActionState(createForgotPasswordAction(locale, messages), {});
+ * const [state, action] = useActionState(createForgotPasswordAction(locale), {});
  * <form action={action}>...</form>
  */
-export declare function createForgotPasswordAction(locale: string, messages: AuthActionMessages): (_prevState: AuthFormState, formData: FormData) => Promise<AuthFormState>;
+export declare function createForgotPasswordAction(locale: string, actionCodeSettings?: AuthActionCodeSettings): (_prevState: AuthFormState, formData: FormData) => Promise<AuthFormState>;

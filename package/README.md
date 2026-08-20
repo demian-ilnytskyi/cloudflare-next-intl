@@ -247,11 +247,22 @@ export async function generateMetadata({ params }) {
 
 ### Theme switcher
 
+### Firebase Auth
+
+Set `firebaseAuth` on your `RoutingConfig` to enable — `IntlProvider` then
+auto-wires `AuthUserProvider` and server-side `getAuthUser` session validation.
+
+Features include:
+- `createForgotPasswordAction(locale, actionCodeSettings?)`: Accepts optional Firebase `AuthActionCodeSettings` (e.g. `url` redirect link).
+- `sendVerificationEmail(actionCodeSettings?)` on `useAuthUser()`: Custom action email settings when resending email verification.
+- `followSameOriginContinueUrl`: Automatically forwards emailed action links with `continueUrl` to the specified path (or external URL) directly from `intlMiddleware` (default `true`; set `false` on `firebaseAuth` config to disable).
+
 ```tsx
 import ThemeSwitcher from "cloudflare-next-intl/ThemeSwitcher";
 
 <ThemeSwitcher lightLabelText="Light" darkLabelText="Dark" />
 ```
+
 
 ### Cookie consent
 

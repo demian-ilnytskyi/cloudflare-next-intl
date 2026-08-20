@@ -529,6 +529,12 @@ export interface FirebaseAuthRoutingConfig {
      */
     actionLinkRedirectEnabled?: boolean;
     /**
+     * When `true` (the default), if an emailed-action-link carries a `continueUrl` query parameter
+     * matching the request's origin (same domain/app), the middleware will redirect to `continueUrl`'s
+     * path instead of the static mode path (e.g. `resetPasswordPath`). Set `false` to disable.
+     */
+    followSameOriginContinueUrl?: boolean;
+    /**
      * Restricts the emailed-action-link forward (see {@link resetPasswordPath})
      * to this exact static path — set this to whatever path your Firebase
      * Console "action URL" is pinned to (e.g. `'/auth/action'`) so a `?mode=`

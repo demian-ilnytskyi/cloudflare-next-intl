@@ -4,7 +4,7 @@ import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
 import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
 import firebaseAuthErrorMessage from '../error_messages/firebase_auth_error_helper';
-import type { AuthActionMessages, AuthFormState } from '../types';
+import type { AuthActionCodeSettings, AuthActionMessages, AuthFormState } from '../types';
 
 function readCredentials(formData: FormData) {
     return {
@@ -93,13 +93,16 @@ export function createSignUpAction(locale: string, messages: AuthActionMessages)
  * `formData` must contain an `email` field.
  *
  * @param locale Used to localize the returned error message.
- * @param messages Localized action messages (currently unused by this action).
+ * @param actionCodeSettings Optional settings for action email (continue URL, etc.).
  * @returns A form action: `{ success: true }` on success, `{ error }` on failure.
  * @example
- * const [state, action] = useActionState(createForgotPasswordAction(locale, messages), {});
+ * const [state, action] = useActionState(createForgotPasswordAction(locale), {});
  * <form action={action}>...</form>
  */
-export function createForgotPasswordAction(locale: string, messages: AuthActionMessages) {
+export function createForgotPasswordAction(
+    locale: string,
+    actionCodeSettings?: AuthActionCodeSettings,
+) {
     return async function forgotPasswordAction(
         _prevState: AuthFormState,
         formData: FormData,
@@ -111,10 +114,12 @@ export function createForgotPasswordAction(locale: string, messages: AuthActionM
         const email = (formData.get('email')?.toString() ?? '').trim();
 
         try {
-            await sendPasswordResetEmail(auth, email);
+            await sendPasswordResetEmail(auth, email, actionCodeSettings);
             return { success: true };
         } catch (e) {
             return { error: firebaseAuthErrorMessage(locale, e) };
         }
     };
 }
+
+

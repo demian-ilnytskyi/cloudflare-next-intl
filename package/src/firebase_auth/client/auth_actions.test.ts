@@ -133,16 +133,16 @@ describe('createForgotPasswordAction', () => {
     it('sends a password reset email and returns success state', async () => {
         sendPasswordResetEmail.mockResolvedValue(undefined);
         const { createForgotPasswordAction } = await import('./auth_actions');
-        const action = createForgotPasswordAction('en', {});
+        const action = createForgotPasswordAction('en');
         const result = await action({}, makeFormData({ email: ' a@b.com ' }));
-        expect(sendPasswordResetEmail).toHaveBeenCalledWith({}, 'a@b.com');
+        expect(sendPasswordResetEmail).toHaveBeenCalledWith({}, 'a@b.com', undefined);
         expect(result).toEqual({ success: true });
     });
 
     it('returns a translated error message when the reset request fails', async () => {
         sendPasswordResetEmail.mockRejectedValue({ code: 'auth/invalid-email' });
         const { createForgotPasswordAction } = await import('./auth_actions');
-        const action = createForgotPasswordAction('en', {});
+        const action = createForgotPasswordAction('en');
         const result = await action({}, makeFormData({ email: 'bad' }));
         expect(result).toEqual({ error: 'translated error' });
     });
@@ -150,8 +150,19 @@ describe('createForgotPasswordAction', () => {
     it('treats a missing email field as an empty string', async () => {
         sendPasswordResetEmail.mockResolvedValue(undefined);
         const { createForgotPasswordAction } = await import('./auth_actions');
-        const action = createForgotPasswordAction('en', {});
+        const action = createForgotPasswordAction('en');
         await action({}, new FormData());
-        expect(sendPasswordResetEmail).toHaveBeenCalledWith({}, '');
+        expect(sendPasswordResetEmail).toHaveBeenCalledWith({}, '', undefined);
+    });
+
+    it('passes actionCodeSettings to sendPasswordResetEmail when provided', async () => {
+        sendPasswordResetEmail.mockResolvedValue(undefined);
+        const { createForgotPasswordAction } = await import('./auth_actions');
+        const settings = { url: 'https://example.com/login', handleCodeInApp: true };
+        const action = createForgotPasswordAction('en', settings);
+        await action({}, makeFormData({ email: 'a@b.com' }));
+        expect(sendPasswordResetEmail).toHaveBeenCalledWith({}, 'a@b.com', settings);
     });
 });
+
+

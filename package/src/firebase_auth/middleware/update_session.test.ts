@@ -972,8 +972,101 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
                 'https://example.com/de/reset-password?mode=resetPassword&oobCode=a',
             );
         });
+
+        it('redirects to continueUrl path when continueUrl matches the request origin', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fcustom-reset',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/custom-reset?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fcustom-reset',
+            );
+        });
+
+        it('strip locale prefix from continueUrl pathname if present for same origin', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/de/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fde%2Fcustom-reset',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'de');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/de/custom-reset?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fde%2Fcustom-reset',
+            );
+        });
+
+        it('falls back to mode path when continueUrl path is exact non-default locale root /de', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/de/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fde',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'de');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/de/reset-password?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fde',
+            );
+        });
+
+        it('falls back to default mode path when continueUrl is unparseable/invalid URL', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2F%3A%3Anot-a-valid-url',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/reset-password?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2F%3A%3Anot-a-valid-url',
+            );
+        });
+
+
+        it('redirects directly to external continueUrl when continueUrl is from another origin', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fother-site.com%2Freset',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://other-site.com/reset?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fother-site.com%2Freset',
+            );
+        });
+
+        it('handles relative continueUrl path correctly as same-origin', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=%2Fcustom-reset',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/custom-reset?mode=resetPassword&oobCode=a&continueUrl=%2Fcustom-reset',
+            );
+        });
+
+        it('falls back to mode path when continueUrl path is / (home root)', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/reset-password?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com',
+            );
+        });
+
+
+        it('ignores continueUrl when followSameOriginContinueUrl is set to false', async () => {
+            currentConfig.firebaseAuth!.followSameOriginContinueUrl = false;
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fcustom-reset',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/reset-password?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fcustom-reset',
+            );
+        });
     });
 });
+
+
 
 describe('isIdTokenExpired', () => {
     afterEach(() => {

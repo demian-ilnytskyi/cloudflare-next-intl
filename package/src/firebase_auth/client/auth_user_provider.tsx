@@ -14,7 +14,7 @@ import withRedirectQuery from '../preserve_redirect_query';
 import setCookie from '../../client/functions/set_cookie';
 import getCookie from '../../client/functions/get_cookie';
 import clearSessionAction from '../server/clear_session_action';
-import type { AuthUser, SerializedAuthUser } from '../types';
+import type { AuthActionCodeSettings, AuthUser, SerializedAuthUser } from '../types';
 import type { User } from 'firebase/auth';
 
 export interface AuthUserContextType {
@@ -25,10 +25,11 @@ export interface AuthUserContextType {
     /** Force-refreshes the current user's ID token/claims and re-syncs the session cookie. */
     reloadUser: () => Promise<void>;
     /** Sends a verification email to the currently signed-in user. */
-    sendVerificationEmail: () => Promise<void>;
+    sendVerificationEmail: (actionCodeSettings?: AuthActionCodeSettings) => Promise<void>;
     /** Signs out, clears the session cookie, and redirects to `firebaseAuth.redirectAuthPath`. */
     logout: () => Promise<void>;
 }
+
 
 // `null` default (instead of a `{ loading: true, ... }` stand-in) lets
 // `useAuthUser` distinguish "not wrapped in AuthUserProvider" (throw) from
@@ -349,13 +350,14 @@ export default function AuthUserProvider({ initialUser = null, children }: {
         }
     }, []);
 
-    const sendVerificationEmail = useCallback(async () => {
+    const sendVerificationEmail = useCallback(async (actionCodeSettings?: AuthActionCodeSettings) => {
         const { auth } = await getFirebaseAuthClient();
         const user = auth.currentUser;
         if (!user) return;
         const { sendEmailVerification } = await getFirebaseAuthModule();
-        await sendEmailVerification(user);
+        await sendEmailVerification(user, actionCodeSettings);
     }, []);
+
 
     const logout = useCallback(async () => {
         try {

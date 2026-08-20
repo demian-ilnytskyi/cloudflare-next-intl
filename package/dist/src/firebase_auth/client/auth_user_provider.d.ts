@@ -1,4 +1,4 @@
-import type { AuthUser, SerializedAuthUser } from '../types';
+import type { AuthActionCodeSettings, AuthUser, SerializedAuthUser } from '../types';
 export interface AuthUserContextType {
     /** Current Firebase user, or `null` if signed out (or not yet resolved while `loading`). */
     user: AuthUser | null;
@@ -7,7 +7,7 @@ export interface AuthUserContextType {
     /** Force-refreshes the current user's ID token/claims and re-syncs the session cookie. */
     reloadUser: () => Promise<void>;
     /** Sends a verification email to the currently signed-in user. */
-    sendVerificationEmail: () => Promise<void>;
+    sendVerificationEmail: (actionCodeSettings?: AuthActionCodeSettings) => Promise<void>;
     /** Signs out, clears the session cookie, and redirects to `firebaseAuth.redirectAuthPath`. */
     logout: () => Promise<void>;
 }

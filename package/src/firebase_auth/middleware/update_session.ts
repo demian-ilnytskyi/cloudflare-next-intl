@@ -273,7 +273,39 @@ export default async function updateSession(
     if (fa.actionLinkRedirectEnabled !== false && isEligibleActionPath) {
         const mode = request.nextUrl.searchParams.get('mode');
         if (mode) {
-            const target = resolveActionModePaths(fa)[mode];
+            let target: string | undefined = resolveActionModePaths(fa)[mode];
+
+            if (fa.followSameOriginContinueUrl !== false) {
+                const continueUrl = request.nextUrl.searchParams.get('continueUrl');
+                if (continueUrl) {
+                    try {
+                        const parsed = new URL(continueUrl, request.url);
+                        if (parsed.origin === request.nextUrl.origin) {
+                            let continuePath = parsed.pathname;
+                            if (locale !== config.defaultLocale) {
+                                if (continuePath.startsWith(`/${locale}/`)) {
+                                    continuePath = continuePath.slice(locale.length + 1);
+                                } else if (continuePath === `/${locale}`) {
+                                    continuePath = '/';
+                                }
+                            }
+                            if (continuePath !== '/') {
+                                target = continuePath;
+                            }
+
+
+                        } else {
+                            // External continueUrl: redirect directly to the full external URL
+                            parsed.search = request.nextUrl.search;
+                            return buildRedirect(baseResponse, parsed);
+                        }
+                    } catch {
+                        // Invalid continueUrl format — fall back to resolved mode target
+                    }
+                }
+            }
+
+
             // Skip when already on the destination — the forward sets the same
             // `?mode=` it matched on, so redirecting again would loop forever.
             if (target && target !== path) {
@@ -283,6 +315,7 @@ export default async function updateSession(
             }
         }
     }
+
 
     const isWhiteListed = isWhitelisted(path, fa.whiteListPaths);
     if (isWhiteListed) return baseResponse;

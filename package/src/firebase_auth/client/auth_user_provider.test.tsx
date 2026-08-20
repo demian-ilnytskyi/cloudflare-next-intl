@@ -642,7 +642,7 @@ describe('AuthUserProvider', () => {
         expect(reload).not.toHaveBeenCalled();
     });
 
-    it('exposes sendVerificationEmail which calls firebase when a user is present', async () => {
+    it('exposes sendVerificationEmail which calls firebase with actionCodeSettings when present', async () => {
         authObj.currentUser = makeUser();
         let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
@@ -652,9 +652,11 @@ describe('AuthUserProvider', () => {
         }
         render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
         await flush();
-        await act(async () => { await ctxValue?.sendVerificationEmail(); });
-        expect(sendEmailVerification).toHaveBeenCalled();
+        const settings = { url: 'https://example.com/verify' };
+        await act(async () => { await ctxValue?.sendVerificationEmail(settings); });
+        expect(sendEmailVerification).toHaveBeenCalledWith(authObj.currentUser, settings);
     });
+
 
     it('sendVerificationEmail is a no-op when there is no current user', async () => {
         authObj.currentUser = null;

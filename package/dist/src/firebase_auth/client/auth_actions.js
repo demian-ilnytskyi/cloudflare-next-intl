@@ -79,20 +79,20 @@ export function createSignUpAction(locale, messages) {
  * `formData` must contain an `email` field.
  *
  * @param locale Used to localize the returned error message.
- * @param messages Localized action messages (currently unused by this action).
+ * @param actionCodeSettings Optional settings for action email (continue URL, etc.).
  * @returns A form action: `{ success: true }` on success, `{ error }` on failure.
  * @example
- * const [state, action] = useActionState(createForgotPasswordAction(locale, messages), {});
+ * const [state, action] = useActionState(createForgotPasswordAction(locale), {});
  * <form action={action}>...</form>
  */
-export function createForgotPasswordAction(locale, messages) {
+export function createForgotPasswordAction(locale, actionCodeSettings) {
     return async function forgotPasswordAction(_prevState, formData) {
         requireFirebaseAuthConfig(config.firebaseAuth);
         const { auth } = await getFirebaseAuthClient();
         const { sendPasswordResetEmail } = await getFirebaseAuthModule();
         const email = (formData.get('email')?.toString() ?? '').trim();
         try {
-            await sendPasswordResetEmail(auth, email);
+            await sendPasswordResetEmail(auth, email, actionCodeSettings);
             return { success: true };
         }
         catch (e) {

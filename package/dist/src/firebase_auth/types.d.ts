@@ -20,3 +20,18 @@ export interface AuthActionMessages {
     mismatch?: string;
 }
 export type AuthUser = User | SerializedAuthUser;
+/** Settings for configuring action code emails (password reset, email verification). */
+export interface AuthActionCodeSettings {
+    url: string;
+    handleCodeInApp?: boolean;
+    iOS?: {
+        bundleId: string;
+    };
+    android?: {
+        packageName: string;
+        installApp?: boolean;
+        minimumVersion?: string;
+    };
+    dynamicLinkDomain?: string;
+    linkDomain?: string;
+}

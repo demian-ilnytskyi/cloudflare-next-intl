@@ -311,13 +311,13 @@ export default function AuthUserProvider({ initialUser = null, children }) {
             console.error('AuthUserProvider: reloadUser failed', e);
         }
     }, []);
-    const sendVerificationEmail = useCallback(async () => {
+    const sendVerificationEmail = useCallback(async (actionCodeSettings) => {
         const { auth } = await getFirebaseAuthClient();
         const user = auth.currentUser;
         if (!user)
             return;
         const { sendEmailVerification } = await getFirebaseAuthModule();
-        await sendEmailVerification(user);
+        await sendEmailVerification(user, actionCodeSettings);
     }, []);
     const logout = useCallback(async () => {
         try {
