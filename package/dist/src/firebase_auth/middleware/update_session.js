@@ -260,13 +260,10 @@ export default async function updateSession(request, baseResponse, locale, rebui
                                 target = continuePath;
                             }
                         }
-                        else if (parsed.pathname !== '/') {
-                            // External continueUrl: redirect directly to the full external URL
-                            parsed.search = request.nextUrl.search;
-                            return buildRedirect(baseResponse, parsed);
-                        }
-                        else if (target) {
-                            parsed.pathname = `${localePrefix}${target}`;
+                        else {
+                            if (parsed.pathname === '/') {
+                                parsed.pathname = fa.actionLinkPath || (target ? `${localePrefix}${target}` : '/');
+                            }
                             parsed.search = request.nextUrl.search;
                             return buildRedirect(baseResponse, parsed);
                         }

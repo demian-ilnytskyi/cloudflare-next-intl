@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.5] - 2026-08-21
+
+### Fixed
+
+- `update_session` middleware redirects cross-origin action links to `actionLinkPath` (e.g. `/auth/action`) on the target origin when `parsed.pathname` is `/`, allowing the target origin's middleware to process the action link mode.
+
 ## [0.7.4] - 2026-08-21
 
 ### Fixed

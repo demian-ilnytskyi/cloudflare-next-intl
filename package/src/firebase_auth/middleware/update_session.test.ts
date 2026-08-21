@@ -1029,6 +1029,17 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
         });
 
+        it('applies mode path to external continueUrl when its path is root', async () => {
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2Flocalhost%3A3000',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'http://localhost:3000/reset-password?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2Flocalhost%3A3000',
+            );
+        });
+
         it('handles relative continueUrl path correctly as same-origin', async () => {
             const { default: updateSession } = await import('./update_session');
             const req = makeRequest(
