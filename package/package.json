@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
 
   "main": "dist/index.js",

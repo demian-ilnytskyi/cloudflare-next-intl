@@ -75,12 +75,32 @@ function clearAppCheckTokenCookie(appCheckTokenCookieName: string): void {
 // be configured, or a token fetch can transiently fail (e.g. reCAPTCHA not
 // yet ready) — either case just leaves the cookie unset rather than blocking
 // session sync on it.
-async function writeAppCheckTokenCookie(appCheckTokenCookieName: string, maxAge: number): Promise<void> {
+async function writeAppCheckTokenCookie(appCheckTokenCookieName: string, maxAge: number): Promise<boolean> {
     try {
         const token = await getAppCheckToken();
         if (token) setCookie({ name: appCheckTokenCookieName, value: token, maxAge });
+        return true;
     } catch (e) {
         console.error('AuthUserProvider: App Check token cookie sync failed', e);
+        return false;
+    }
+}
+
+/**
+ * Wraps a `writeSession` failure with whether App Check was unavailable at
+ * the time. An App-Check-caused failure must never be read as a sign-out:
+ * the exchange failing (low reCAPTCHA score, misconfigured secret, offline)
+ * says nothing about whether the user's session is still valid.
+ */
+class SessionSyncError extends Error {
+    readonly cause: unknown;
+    readonly appCheckUnavailable: boolean;
+
+    constructor(cause: unknown, appCheckUnavailable: boolean) {
+        super('session sync failed');
+        this.name = 'SessionSyncError';
+        this.cause = cause;
+        this.appCheckUnavailable = appCheckUnavailable;
     }
 }
 
@@ -117,8 +137,17 @@ async function writeSession(
         console.error('AuthUserProvider: refresh-token cookie sync failed', e);
     }
     writeEmailVerifiedHintCookie(emailVerifiedHintCookieName, user.emailVerified, refreshTokenMaxAge);
-    await writeAppCheckTokenCookie(appCheckTokenCookieName, appCheckTokenMaxAge);
-    writeSessionCookie(sessionCookieName, idToken ?? await user.getIdToken(true), maxAge);
+    const appCheckAvailable = await writeAppCheckTokenCookie(appCheckTokenCookieName, appCheckTokenMaxAge);
+    try {
+        writeSessionCookie(sessionCookieName, idToken ?? await user.getIdToken(true), maxAge);
+    } catch (e) {
+        // With App Check enforced on Auth, a failed exchange makes the SDK
+        // attach a dummy error-token to its own refresh, so this rejects with
+        // a 401 that says nothing about the session's real validity. Tag it
+        // so the caller can tell "App Check is down" apart from "this session
+        // is gone" — the latter is the only one a sign-out may follow.
+        throw new SessionSyncError(e, !appCheckAvailable);
+    }
 }
 
 /**
@@ -171,6 +200,11 @@ export default function AuthUserProvider({ initialUser = null, children }: {
     // `initialUser`, so redirecting on the very first null caused a
     // login-then-bounce-home flash whenever the two disagreed.
     const consecutiveNulls = useRef(0);
+    // Set when a session sync failed because the App Check exchange was
+    // unavailable. While set, `onIdTokenChanged(null)` callbacks are treated
+    // as "state unknown" rather than a confirmed sign-out. Cleared as soon as
+    // any user is observed successfully.
+    const appCheckBlocked = useRef(false);
     const [confirmedSignedOut, setConfirmedSignedOut] = useState(initialUser === null);
     // Whether `onSignIn`/`onSignOut` have already fired for the CURRENT
     // signed-in/signed-out state — both seeded from `initialUser` so a
@@ -234,6 +268,11 @@ export default function AuthUserProvider({ initialUser = null, children }: {
                     }
                 } catch (e) {
                     console.error('AuthUserProvider: session sync failed', e);
+                    // An App-Check-caused failure leaves the session's real
+                    // state unknown, so the nulls the SDK emits next must not
+                    // be allowed to confirm a sign-out and bounce the user to
+                    // the login page mid-session.
+                    if (e instanceof SessionSyncError && e.appCheckUnavailable) appCheckBlocked.current = true;
                     setAuthUserCache(user);
                     setState({ user, loading: false });
                     return;
@@ -245,6 +284,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
 
                 if (user) {
                     consecutiveNulls.current = 0;
+                    appCheckBlocked.current = false;
                     setConfirmedSignedOut(false);
                     signOutCallbackFired.current = false;
 
@@ -271,7 +311,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
                     consecutiveNulls.current += 1;
                     signInCallbackFired.current = false;
 
-                    if (consecutiveNulls.current >= 2 && !signOutCallbackFired.current) {
+                    if (consecutiveNulls.current >= 2 && !signOutCallbackFired.current && !appCheckBlocked.current) {
                         setConfirmedSignedOut(true);
                         signOutCallbackFired.current = true;
                         try {
