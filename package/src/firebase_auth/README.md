@@ -29,7 +29,7 @@ call, same as the page-load/network traces above it.
 - `client/` — browser-side: `firebase_client.ts` (lazy SDK getter; also
   initializes Performance Monitoring — see below),
   `use_auth_user.ts` (`onIdTokenChanged` hook), `auth_user_cache.ts`,
-  `auth_user_provider.tsx` (context provider, syncs session cookie, and
+  `auth_user_provider.tsx` (context provider, syncs session cookie, suppresses `redirectAuthPath` navigation on `logout()` for whitelisted paths, and
   invokes the optional `onSignIn`/`onEmailVerified`/`onSignOut`
   `firebaseAuth` config callbacks exactly once per real transition — see
   their doc comments on `FirebaseAuthRoutingConfig` in `types/types.ts`),

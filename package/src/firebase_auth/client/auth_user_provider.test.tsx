@@ -687,6 +687,22 @@ describe('AuthUserProvider', () => {
         expect(document.cookie).not.toContain('__fa_refresh_token__=refresh-token');
     });
 
+    it('logout clears the session but does not navigate on a whitelisted path', async () => {
+        currentConfig.firebaseAuth!.whiteListPaths = ['/dashboard'];
+        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await act(async () => { await ctxValue?.logout(); });
+        expect(signOut).toHaveBeenCalled();
+        expect(routerPush).not.toHaveBeenCalled();
+        expect(document.cookie).not.toContain('__fa_refresh_token__=refresh-token');
+    });
+
     it('logout still clears cookie and navigates even when signOut throws', async () => {
         signOut.mockRejectedValueOnce(new Error('signout failed'));
         let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;

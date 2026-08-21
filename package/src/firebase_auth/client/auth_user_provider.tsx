@@ -366,10 +366,15 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             await signOut(auth);
         } finally {
             await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge);
-            router.push(fa.redirectAuthPath);
+            // Whitelisted paths opt out of every other auth redirect in this
+            // provider (see the effect above), so an explicit `logout()` from
+            // one must not bounce either — a page like a delete-account flow
+            // signs the user out as a STEP and still needs to render its own
+            // result afterwards.
+            if (!isWhiteListed) router.push(fa.redirectAuthPath);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fa.redirectAuthPath, sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName]);
+    }, [fa.redirectAuthPath, sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, isWhiteListed]);
 
     return <AuthUserContext.Provider value={{ ...state, reloadUser, sendVerificationEmail, logout }}>
         {children}

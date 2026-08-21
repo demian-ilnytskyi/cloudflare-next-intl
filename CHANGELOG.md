@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.7
+
+### Fixed
+
+- `logout()` in `AuthUserProvider` skips redirecting to `redirectAuthPath` when called on a whitelisted path (`whiteListPaths`), allowing pages like account deletion to finish rendering after signing out.
+
 ## 0.7.6
 
 ### Fixed

@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.7] - 2026-08-21
+
+### Fixed
+
+- `logout()` in `AuthUserProvider` skips redirecting to `redirectAuthPath` when called on a whitelisted path (`whiteListPaths`), allowing pages like account deletion to finish rendering after signing out.
+
 ## [0.7.6] - 2026-08-21
 
 ### Fixed
