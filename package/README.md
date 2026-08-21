@@ -253,9 +253,11 @@ Set `firebaseAuth` on your `RoutingConfig` to enable — `IntlProvider` then
 auto-wires `AuthUserProvider` and server-side `getAuthUser` session validation.
 
 Features include:
+- `whiteListPaths`: Array of paths exempt from auth redirects (matches exact path or path-segment prefix, e.g. `/bonds` matches `/bonds/some-slug`).
+- `actionLinkPath`: Pinned route for handling Firebase action links (e.g. `/auth/action`), prioritized during cross-origin action link redirects.
 - `createForgotPasswordAction(locale, actionCodeSettings?)`: Accepts optional Firebase `AuthActionCodeSettings` (e.g. `url` redirect link).
 - `sendVerificationEmail(actionCodeSettings?)` on `useAuthUser()`: Custom action email settings when resending email verification.
-- `followSameOriginContinueUrl`: Automatically forwards emailed action links with `continueUrl` to the specified path (or external URL) directly from `intlMiddleware` (default `true`; set `false` on `firebaseAuth` config to disable). If `continueUrl` points to home root (`/`), it resolves to the mode target path (e.g. `/reset-password`).
+- `followSameOriginContinueUrl`: Automatically forwards emailed action links with `continueUrl` to the specified path (or external URL) directly from `intlMiddleware` (default `true`; set `false` on `firebaseAuth` config to disable). If `continueUrl` points to home root (`/`), it resolves to `actionLinkPath` (if set) or the mode target path (e.g. `/reset-password`).
 
 ```tsx
 import ThemeSwitcher from "cloudflare-next-intl/ThemeSwitcher";

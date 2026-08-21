@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.6
+
+### Fixed
+
+- `update_session` middleware prioritizes `actionLinkPath` over mode target path when redirecting cross-origin action links with a `continueUrl` path of `/`.
+- `resolveAuthUserAndRedirect` on the server now uses path-segment prefix matching (`isWhitelisted`) for `whiteListPaths` (e.g. `/bonds` covers `/bonds/some-slug`), aligning server-side auth redirects with client-side whitelist rules.
+
+## 0.7.5
+
+### Fixed
+
+- `update_session` middleware redirects cross-origin action links to `actionLinkPath` (e.g. `/auth/action`) on the target origin when `parsed.pathname` is `/`, allowing the target origin's middleware to process the action link mode.
+
 ## 0.7.4
 
 ### Fixed

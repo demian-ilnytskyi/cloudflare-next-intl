@@ -6,6 +6,7 @@ import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config';
 import { getAuthenticatedAppForUser } from './firebase_server';
 import withRedirectQuery from '../preserve_redirect_query';
+import isWhitelisted from '../is_whitelisted';
 const AuthUserProvider = dynamic(() => import('../client/auth_user_provider'));
 /**
  * Resolves the signed-in user from the session cookie and performs the
@@ -29,7 +30,7 @@ export async function resolveAuthUserAndRedirect() {
     const requestHeaders = await headers();
     const path = requestHeaders.get('x-pathname') ?? '/';
     const isAuthPage = fa.isAuthPath(path);
-    const isWhiteListed = fa.whiteListPaths?.includes(path) ?? false;
+    const isWhiteListed = isWhitelisted(path, fa.whiteListPaths);
     // `x-pathname` is path-only, so the query string comes from `x-search`
     // (set alongside it by `intlMiddleware`) — `redirect()` takes a plain
     // string, not a URL.

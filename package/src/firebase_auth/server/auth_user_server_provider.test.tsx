@@ -113,6 +113,17 @@ describe('resolveAuthUserAndRedirect', () => {
         expect(redirect).not.toHaveBeenCalled();
     });
 
+    it('skips redirect logic for nested subpaths of whitelisted paths', async () => {
+        currentConfig.firebaseAuth!.whiteListPaths = ['/dashboard'];
+        setHeaders('/dashboard/subpath');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const result = await resolveAuthUserAndRedirect();
+        expect(result).toBeNull();
+        expect(redirect).not.toHaveBeenCalled();
+    });
+
     it('defaults to "/" when x-pathname header is missing', async () => {
         setHeaders(null);
         const { getAuthenticatedAppForUser } = await import('./firebase_server');

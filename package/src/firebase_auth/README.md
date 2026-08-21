@@ -79,11 +79,12 @@ call, same as the page-load/network traces above it.
   redirect above — a signed-out user following the link must not get bounced
   to `redirectAuthPath` and lose their `oobCode` — and forwards to `resetPasswordPath` / `verifyEmailPath` / `recoverEmailPath` /
   `actionModePaths` for the matching mode (or a specific path in `continueUrl`
-  when present, falling back to the mode target if `continueUrl` points to `/`),
+  when present, falling back to `actionLinkPath` (if set) or the mode target if `continueUrl` points to `/`),
   preserving the full query string.
   `actionLinkPath`, if set, restricts this to one exact static path (a
   Console action URL pinned to a path, e.g. `/auth/action`, instead of the
   bare domain root); `actionLinkRedirectEnabled: false` turns it off.
+- `is_whitelisted.ts` — path-segment prefix matching helper for `whiteListPaths` (e.g. `/bonds` covers `/bonds/some-slug`).
 - `error_messages/` — `firebase_auth_error_helper.ts` maps Firebase error
   codes to user-facing strings; `default_messages.en.ts` is the default set,
   overridable via `AuthActionMessages`.
