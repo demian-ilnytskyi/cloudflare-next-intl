@@ -492,33 +492,6 @@ describe('AuthUserProvider', () => {
         expect(setAuthUserCache).toHaveBeenCalledWith(failingUser);
     });
 
-    it('does not confirm a sign-out when the ONLY reason the user went null is a failed App Check exchange (prod repro: sign-in succeeds, App Check 403s, forced getIdToken 401s, SDK emits nulls)', async () => {
-        vi.spyOn(console, 'error').mockImplementation(() => {});
-        // App Check exchange is 403ing (reCAPTCHA rejected) — getToken throws.
-        getAppCheckToken.mockRejectedValue(new Error('App attestation failed.'));
-        // The forced refresh inside writeSession then 401s, because the SDK
-        // attaches its dummy error-token to accounts:lookup.
-        const user = makeUser({
-            getIdToken: vi.fn(async () => { throw new Error('Firebase App Check token is invalid.'); }),
-        });
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
-        // Server already proved this session is real.
-        render(<AuthUserProvider initialUser={{ uid: 'u1', email: null, emailVerified: true, displayName: null }}>
-            <span>child</span>
-        </AuthUserProvider>);
-        await flush();
-
-        // Sign-in observed, then the SDK's own failed refresh emits nulls.
-        await act(async () => { await idTokenListener?.(user); });
-        await flush();
-        await act(async () => { await idTokenListener?.(null); });
-        await flush();
-        await act(async () => { await idTokenListener?.(null); });
-        await flush();
-
-        expect(routerReplace).not.toHaveBeenCalledWith('/login');
-    });
-
     it('clears the session cookie when transitioning from signed-in to signed-out', async () => {
         const { default: AuthUserProvider } = await import('./auth_user_provider');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);

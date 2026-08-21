@@ -1,17 +1,5 @@
 # Changelog
 
-## 0.7.9
-
-### Fixed
-
-- `AuthUserProvider` no longer signs a user out when the App Check token exchange fails. With App Check enforced on Firebase Auth, a failed exchange makes the SDK attach a dummy error-token to its own token refresh, so `getIdToken(true)` rejects with a 401 and the SDK then emits `onIdTokenChanged(null)`. Those nulls previously reached the `consecutiveNulls >= 2` check and confirmed a sign-out, bouncing a just-signed-in user to `redirectAuthPath`. A sync failure caused by an unavailable App Check token is now tracked separately and blocks sign-out confirmation until a user is observed successfully again.
-
-## 0.7.8
-
-### Added
-
-- App Check remote OAuth minting.
-
 ## 0.7.7
 
 ### Fixed
