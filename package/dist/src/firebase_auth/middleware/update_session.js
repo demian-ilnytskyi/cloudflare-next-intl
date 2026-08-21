@@ -262,7 +262,12 @@ export default async function updateSession(request, baseResponse, locale, rebui
                         }
                         else {
                             if (parsed.pathname === '/') {
-                                parsed.pathname = fa.actionLinkPath || (target ? `${localePrefix}${target}` : '/');
+                                if (fa.actionLinkPath) {
+                                    parsed.pathname = fa.actionLinkPath;
+                                }
+                                else if (target) {
+                                    parsed.pathname = `${localePrefix}${target}`;
+                                }
                             }
                             parsed.search = request.nextUrl.search;
                             return buildRedirect(baseResponse, parsed);
