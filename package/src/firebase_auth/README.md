@@ -54,13 +54,41 @@ call, same as the page-load/network traces above it.
   exists to prevent, for an otherwise genuinely signed-in user (proven by a
   valid session cookie). `mint_server_app_check_token.ts` covers that gap:
   when the App Check cookie is absent, `firebase_server.ts` mints one
-  server-side via a service-account custom-token exchange (`jose`-signed,
-  Edge-runtime-safe, no `firebase-admin`), gated on
-  `appCheck.clientEmail`/`privateKey`/`appId` all being set — omit any of
-  them to skip minting and keep the cookie-or-nothing behavior. Not cached
-  beyond `getAuthenticatedAppForUser`'s own request-scoped `cache()`; a fresh
-  mint costs one signing op plus one round-trip to Google per request that
-  needs it.
+  server-side via a service-account custom-token exchange (Edge-runtime-safe,
+  no `firebase-admin`), gated on `appCheck.clientEmail`/`appId` being set
+  plus a way to sign — omit `clientEmail`/`appId` to skip minting and keep
+  the cookie-or-nothing behavior. Not cached beyond
+  `getAuthenticatedAppForUser`'s own request-scoped `cache()`; a fresh mint
+  costs one signing op plus one round-trip to Google per request that needs
+  it.
+
+  Two ways to sign, `privateKey` taking priority when both are set:
+  - **`appCheck.privateKey`** (PEM) — signed locally with `jose`. The usual
+    path; requires a service-account **key**, created via
+    `gcloud iam service-accounts keys create key.json --iam-account=<clientEmail>`
+    (or the Console: IAM & Admin → Service Accounts → Keys → Add key).
+  - **`appCheck.oauthClientId` / `oauthClientSecret` / `oauthRefreshToken`**
+    — signed remotely via IAM Credentials `signJwt`
+    (`sign_custom_token_remote.ts`). Use this when your GCP org enforces
+    `iam.disableServiceAccountKeyCreation` (Google's "Secure by Default"
+    setting on newer projects/orgs) and `keys create` is blocked outright —
+    `signJwt` doesn't create or export a key, so the constraint doesn't apply
+    to it. Get the three values by running:
+    ```sh
+    gcloud auth application-default login
+    cat ~/.config/gcloud/application_default_credentials.json
+    # -> client_id, client_secret, refresh_token
+    ```
+    then grant that identity permission to sign as the service account
+    (no key involved — just delegated signing):
+    ```sh
+    gcloud iam service-accounts add-iam-policy-binding <clientEmail> \
+      --member="user:you@example.com" --role="roles/iam.serviceAccountTokenCreator"
+    ```
+    `oauthClientId`/`oauthClientSecret` are `application_default_credentials.json`'s
+    `client_id`/`client_secret` fields — safe to hardcode `oauthClientId` (it's
+    Google's public gcloud CLI OAuth client, not a secret); treat
+    `oauthRefreshToken` as sensitive as `privateKey`.
 - `middleware/update_session.ts` — refreshes the session cookie and drives
   the guest/auth-page/unverified-email redirects (`redirectAuthPath` /
   `homePath` / `verifyEmailPath`, the last checked via the session token's

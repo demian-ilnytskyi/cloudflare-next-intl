@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.8] - 2026-08-21
+
+### Added
+
+- Firebase App Check now supports remote OAuth minting via `oauthClientId`, `oauthClientSecret`, and `oauthRefreshToken` as an alternative to `privateKey`. Use this when GCP org policies (`iam.disableServiceAccountKeyCreation`) prevent creating service account keys. Tested with new `scripts/check_app_check_signjwt.mjs` helper.
+
 ## [0.7.7] - 2026-08-21
 
 ### Fixed

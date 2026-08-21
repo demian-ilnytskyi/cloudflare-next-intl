@@ -635,9 +635,10 @@ export interface FirebaseAppCheckConfig {
      * Service account client email, used ONLY server-side to mint an App
      * Check token when the client-written App Check cookie is absent (e.g.
      * a cold navigation before `AuthUserProvider` has run — see
-     * `appCheckTokenCookieName`). Required alongside `privateKey` and
-     * `appId` for server-side minting. Never sent to the client — read only
-     * by `firebase_server.ts`.
+     * `appCheckTokenCookieName`). Required alongside `appId`, plus either
+     * `privateKey` or the `oauthClientId`/`oauthClientSecret`/
+     * `oauthRefreshToken` triple, for server-side minting. Never sent to the
+     * client — read only by `firebase_server.ts`.
      */
     clientEmail: string;
     /**
@@ -647,13 +648,35 @@ export interface FirebaseAppCheckConfig {
      * (e.g. `process.env.FIREBASE_PRIVATE_KEY`), never exposed to the
      * browser. Escaped `\n` sequences (common when stored in a single-line
      * env var) are unescaped automatically before use.
+     *
+     * Omit this and set the `oauthClientId`/`oauthClientSecret`/
+     * `oauthRefreshToken` triple instead when your GCP org enforces
+     * `iam.disableServiceAccountKeyCreation`, which blocks issuing this key
+     * in the first place. When both are set, `privateKey` takes priority.
      */
-    privateKey: string;
+    privateKey?: string;
+    /**
+     * Application Default Credentials OAuth client ID — the `client_id`
+     * field from `application_default_credentials.json` (see
+     * `gcloud auth application-default login`). Paired with
+     * `oauthClientSecret` and `oauthRefreshToken` as an alternative to
+     * `privateKey`: instead of signing the App Check custom token locally,
+     * it's signed remotely via IAM Credentials `signJwt`, authenticated as
+     * this OAuth identity. That identity needs
+     * `roles/iam.serviceAccountTokenCreator` on `clientEmail`. Use this when
+     * a service-account key can't be created (see `privateKey`). Ignored
+     * when `privateKey` is set.
+     */
+    oauthClientId?: string;
+    /** OAuth client secret paired with `oauthClientId`. Same ADC-JSON `client_secret` field, same secret-handling rules as `privateKey`. */
+    oauthClientSecret?: string;
+    /** OAuth refresh token paired with `oauthClientId`. Same ADC-JSON `refresh_token` field, same secret-handling rules as `privateKey`. */
+    oauthRefreshToken?: string;
     /**
      * Firebase App Check app ID (e.g. `"1:1234567890:web:abcdef123456"`),
-     * required alongside `clientEmail`/`privateKey` for server-side minting.
-     * Distinct from the Firebase Auth `appId` on `FirebaseAuthRoutingConfig`
-     * itself — App Check registers apps separately.
+     * required alongside `clientEmail` for server-side minting. Distinct
+     * from the Firebase Auth `appId` on `FirebaseAuthRoutingConfig` itself —
+     * App Check registers apps separately.
      */
     appId: string;
 }
