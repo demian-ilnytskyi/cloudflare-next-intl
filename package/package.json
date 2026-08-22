@@ -1,13 +1,17 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.7.8",
+  "version": "0.8.0",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
-
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": false,
+  "bin": {
+    "cfni-db-codegen": "bin/db_codegen.mjs"
+  },
   "files": [
     "dist",
+    "bin",
+    "supabase",
     "LICENSE",
     "README.md",
     "llms.txt"
@@ -172,6 +176,14 @@
     "./createServerErrorAction": {
       "types": "./dist/src/error_handling/create_server_error_action.d.ts",
       "import": "./dist/src/error_handling/create_server_error_action.js"
+    },
+    "./db": {
+      "types": "./dist/src/db/index.d.ts",
+      "import": "./dist/src/db/index.js"
+    },
+    "./dbHelpers": {
+      "types": "./dist/src/db/helpers.d.ts",
+      "import": "./dist/src/db/helpers.js"
     }
   },
   "scripts": {
@@ -216,8 +228,11 @@
   "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl#readme",
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",
+    "@supabase/supabase-js": "^2.112.3",
+    "drizzle-orm": "^0.45.2",
     "firebase": "^12.17.0",
-    "jose": "^6.2.8"
+    "jose": "^6.2.8",
+    "pg": "^8.23.0"
   },
   "peerDependencies": {
     "next": ">=12.0.0",
@@ -236,16 +251,18 @@
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^20.14.5",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitest/coverage-v8": "^3.2.7",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.28.0",
     "eslint-config-next": "15.3.3",
     "eslint-config-prettier": "^10.1.2",
     "jsdom": "^29.1.1",
     "next": "^15.3.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
     "tsup": "^8.5.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.33.1",

@@ -93,6 +93,14 @@ export interface RoutingConfig<AppLocales extends Locales, AppLocalePrefixMode e
      */
     firebaseAuth?: FirebaseAuthRoutingConfig;
     /**
+     * Configures the optional `db` submodule (Postgres/Drizzle access over a
+     * Cloudflare Hyperdrive or plain connection string). Omit entirely to keep
+     * it fully disabled — no file in this package imports `pg`/`drizzle-orm`
+     * unless a `db` export is actually called, and every such export throws a
+     * clear error if this field is missing at call time.
+     */
+    db?: DbRoutingConfig;
+    /**
      * Configures the optional `cookie_consent` submodule (cookie-consent +
      * privacy-policy-update banners). Omit entirely to keep it disabled —
      * `useCookieConsent()`/`CookieConsentProvider` will throw a descriptive
@@ -830,4 +838,89 @@ export interface IntlSitemap {
     images?: string[] | undefined;
     lastModified: Date | string | undefined;
     videos?: Videos[] | undefined
+}
+
+export interface SupabaseDbConfig {
+    /**
+     * Supabase project URL, e.g. `https://abc.supabase.co`. Defaults to
+     * `process.env.NEXT_PUBLIC_SUPABASE_URL`.
+     */
+    url?: string;
+    /**
+     * Supabase anon (publishable) key. Defaults to
+     * `process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY`. This is the only key the
+     * `db` module ever needs — never put a service-role key here.
+     */
+    anonKey?: string;
+    /**
+     * Name of the Postgres function that runs the generated SQL. Defaults to
+     * `'cfni_exec'` — the function shipped in `supabase/cfni_exec.sql`.
+     */
+    execFunction?: string;
+}
+
+export interface DbRoutingConfig {
+    /**
+     * Postgres connection string. Omit to resolve it from the Cloudflare
+     * Hyperdrive binding named by `hyperdriveBinding` instead (the normal
+     * production setup); a value here always wins over the binding, which is
+     * what makes local dev / build-time evaluation work.
+     */
+    connectionString?: string;
+    /**
+     * Name of the Hyperdrive binding on `env` whose `connectionString` is used
+     * when `connectionString` is not set. Defaults to `'HYPERDRIVE'`. Requires
+     * `generate.getCloudflareContext` to be configured.
+     */
+    hyperdriveBinding?: string;
+    /**
+     * Whether the pooled client is closed once the last in-flight
+     * `withPublicDb`/`withUserDb` call of the request finishes.
+     * Defaults to `true` (one connection per request, released to Hyperdrive
+     * immediately). Set `false` to keep the connection open for the lifetime
+     * of the isolate — faster for a long-lived server, but it holds a
+     * Hyperdrive connection slot between requests.
+     */
+    disconnectAfterRequest?: boolean;
+    /**
+     * Postgres role assumed inside `withUserDb`'s transaction. Defaults
+     * to `'authenticated'` (the Supabase RLS convention).
+     */
+    authenticatedRole?: string;
+    /**
+     * Resolves the user id injected as `request.jwt.claims->>'sub'` inside
+     * `withUserDb`. Omit when `firebaseAuth` is configured — the uid then
+     * comes from this package's own `getAuthUser()` automatically. Provide it
+     * to use a different auth source (or when `firebaseAuth` is absent).
+     */
+    getUserId?: () => Promise<string | null> | string | null;
+    /** Milliseconds `disconnectPostgres` waits for `client.end()` before giving up. Defaults to `2000`. */
+    disconnectTimeoutMs?: number;
+    /**
+     * Reaches Postgres through the Supabase Data API instead of a direct
+     * connection, using only your project URL and anon key. Set this when you
+     * have no Postgres password to give the package — `withPublicDb` and
+     * `withUserDb` behave the same either way, so switching is a config change
+     * with no app-code change.
+     *
+     * Ignored when `connectionString` or `hyperdriveBinding` is set: a direct
+     * connection always wins, so adding this block cannot silently reroute
+     * live traffic. Requires the `cfni_exec` function from
+     * `supabase/cfni_exec.sql` to be installed in your database.
+     *
+     * No multi-statement transactions: unlike connection-string mode, each
+     * statement inside a `withUserDb` callback is its own round-trip. Do not
+     * rely on multi-statement atomicity in this mode.
+     */
+    supabase?: SupabaseDbConfig;
+    /**
+     * Resolves the JWT sent as `Authorization: Bearer` for `withUserDb` in
+     * Supabase mode, which is what makes PostgREST resolve the caller as
+     * `authenticated` and apply RLS. Omit when `firebaseAuth` is configured —
+     * the signed-in user's Firebase ID token is then used automatically.
+     *
+     * Unused in connection-string mode, which identifies the user with
+     * `getUserId` and `set_config` instead.
+     */
+    getAccessToken?: () => Promise<string | null> | string | null;
 }

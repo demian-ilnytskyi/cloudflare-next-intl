@@ -13,6 +13,10 @@ and Cloudflare environment.
 - **Tree-shaking**: Properly architected for optimal tree-shaking.
 - **Error handling**: shared, opt-in `console.error` override and
   `reportError`/`withErrorHandling` helpers, GDPR-aware (consent-gated).
+- **Database**: optional Postgres/Drizzle data-access layer, reachable either
+  directly (Cloudflare Hyperdrive or a connection string) or through the
+  Supabase Data API (project URL + anon key only), with request-scoped
+  public/user contexts and RLS wiring in both modes.
 
 ## Installation
 
@@ -383,6 +387,143 @@ try {
 server-side resolution) on `ErrorHandlingParams` — reporting is skipped
 whenever `consent` is set and not `true`, since sending error reports to a
 third party without consent can itself be GDPR-relevant.
+
+### Database (`db`)
+
+Thin Postgres/Drizzle data-access layer over a Cloudflare Hyperdrive binding
+(or a plain connection string). `pg` and `drizzle-orm` ship as dependencies of
+this package, so there is nothing extra to install. They are loaded through
+dynamic `import()` inside the `db` exports, so an app that never calls a `db`
+export never pulls them into its bundle. Enable it by setting `db` on your
+`RoutingConfig`:
+
+```typescript
+// src/i18n/intl_config.ts
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
+export default setIntlConfig({
+    locales: ["en", "uk"] as const,
+    defaultLocale: "en",
+    generate: { getCloudflareContext },
+    db: { hyperdriveBinding: "HYPERDRIVE" },
+});
+```
+
+`db` fields (all optional):
+
+- `connectionString` — a Postgres connection string. Omit to resolve it from
+  the Hyperdrive binding named by `hyperdriveBinding` instead (the normal
+  production setup); a value here always wins over the binding, which is
+  what makes local dev / build-time evaluation work.
+- `hyperdriveBinding` — name of the Hyperdrive binding on `env` to read a
+  connection string from when `connectionString` is not set. Defaults to
+  `'HYPERDRIVE'`. Requires `generate.getCloudflareContext` to be configured.
+- `disconnectAfterRequest` — whether the pooled client is closed once the
+  last in-flight `withPublicDb`/`withUserDb` call of the request
+  finishes. Defaults to `true` (one connection per request, released to
+  Hyperdrive immediately). Set `false` to keep the connection open for the
+  lifetime of the isolate — faster for a long-lived server, but it holds a
+  Hyperdrive connection slot between requests.
+- `authenticatedRole` — Postgres role assumed inside `withUserDb`'s
+  transaction. Defaults to `'authenticated'` (the Supabase RLS convention).
+- `getUserId` — resolves the user id injected as
+  `request.jwt.claims->>'sub'` inside `withUserDb`. Omit when
+  `firebaseAuth` is configured — the uid then comes from this package's own
+  `getAuthUser()` automatically. Provide it to use a different auth source
+  (or when `firebaseAuth` is absent).
+- `disconnectTimeoutMs` — milliseconds `disconnectPostgres` waits for
+  `client.end()` before giving up. Defaults to `2000`.
+
+#### Choosing a transport
+
+`db` reaches Postgres one of two ways, decided by which fields you set. The
+query code is identical either way — switching is a config change only.
+
+| Config | Transport | Use when |
+|---|---|---|
+| `connectionString` or `hyperdriveBinding` | Direct Postgres via `pg` | You have a Postgres password or a Hyperdrive binding. |
+| `supabase` | Supabase Data API (PostgREST) | You only have `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. |
+
+A direct connection always wins if both are configured, so adding a `supabase`
+block cannot silently reroute live traffic.
+
+```typescript
+export default setIntlConfig({
+    locales: ["en", "uk"] as const,
+    defaultLocale: "en",
+    // reads NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY
+    db: { supabase: {} },
+});
+```
+
+```typescript
+// unchanged in both modes
+const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
+```
+
+Supabase mode requires one function in your database, shipped at
+`node_modules/cloudflare-next-intl/supabase/cfni_exec.sql`. Run it once (via
+`supabase db push`, a migration, or the SQL editor). It is `security invoker`,
+so statements execute with the caller's own privileges and RLS applies exactly
+as it does over the REST API. `@supabase/supabase-js` ships as a dependency of
+this package and is loaded through dynamic `import()` inside the `db` exports,
+same as `pg`/`drizzle-orm` — an app that never calls a `db` export never
+bundles any of them.
+
+`db.supabase` fields (all optional):
+
+- `url` — project URL. Defaults to `NEXT_PUBLIC_SUPABASE_URL`.
+- `anonKey` — anon/publishable key. Defaults to `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+  Never put a service-role key here.
+- `execFunction` — name of the exec function. Defaults to `'cfni_exec'`.
+
+`db.getAccessToken` resolves the JWT `withUserDb` sends as
+`Authorization: Bearer`, which is what makes PostgREST resolve the caller as
+`authenticated`. Omit it when `firebaseAuth` is configured — the signed-in
+user's Firebase ID token is used automatically.
+
+**Two differences to know about in Supabase mode:**
+
+- **Per-statement transactions.** Each statement in a `withUserDb` callback is
+  its own round-trip, so it is its own implicit transaction. Multi-statement
+  atomicity is available in connection-string mode only.
+- **Wider SQL surface.** `cfni_exec` runs statements your app generates, so any
+  role that can execute it can run arbitrary SQL *within that role's own
+  privileges* — a broader surface than PostgREST's normal verbs, though still
+  bounded by RLS and your grants. If your app only uses `withUserDb`, drop the
+  anon grant: `revoke execute on function public.cfni_exec(text, jsonb) from anon;`
+
+Two query wrappers, both from `cloudflare-next-intl/db`. Choose by who is
+allowed to see the rows:
+
+- `withPublicDb(fn)` — runs `fn` as the anonymous role: a pooled connection
+  with no transaction/role switch in connection-string mode, or the anon key
+  as the PostgREST bearer token in Supabase mode. No user id is attached
+  either way, so RLS policies that test `auth.jwt()->>'sub'` will deny access
+  — use `withUserDb` for user-owned rows.
+- `withUserDb(fn, uid?)` — runs `fn` as the signed-in user. In
+  connection-string mode this opens a transaction where Postgres sees the
+  resolved user id as `auth.jwt()->>'sub'` under `db.authenticatedRole`; in
+  Supabase mode identity instead rides on the JWT from `getAccessToken`/
+  Firebase, sent as `Authorization: Bearer` (see the atomicity caveat above).
+  Either way RLS behaves as it does for a PostgREST-issued call. `uid`
+  overrides the user id in connection-string mode only; when omitted there,
+  the id comes from `db.getUserId()` if set, otherwise automatically from the
+  signed-in Firebase user when `firebaseAuth` is configured — you rarely need
+  to pass it explicitly.
+
+```typescript
+// anywhere on the server
+import { withPublicDb } from "cloudflare-next-intl/db";
+
+const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
+```
+
+`cloudflare-next-intl/dbHelpers` also exports a set of generic Drizzle SQL
+helpers (`excluded`, `onConflictSet`, `ago`, `currentDate`, `windowCount`,
+`unnestLateral`, `ascNullsLast`, `alwaysTrue`, `lateral`, `aliasColumn`,
+`minOf`, `maxOf`, `roundReal`, `multiply`, `scalarFromCte`) for building
+upsert/window/lateral-join queries without dropping to raw SQL.
 
 ## License
 
