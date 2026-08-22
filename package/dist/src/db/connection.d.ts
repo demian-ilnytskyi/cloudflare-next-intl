@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import type { Client } from 'pg';
 import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
 export type DbConfig = RoutingConfig<Locales, LocalePrefixMode>;
 /** Clears the cached client/connection string. Call after changing `db` config, or between tests. */

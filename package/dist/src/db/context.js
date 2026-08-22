@@ -1,5 +1,3 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { sql } from 'drizzle-orm';
 import config from '../config/intl_config';
 import requireDbConfig from './require_config';
 import connectToPostgres, { disconnectPostgres } from './connection';
@@ -29,6 +27,7 @@ export async function withPublicContext(fn) {
     requireDbConfig(config.db);
     const client = await connectToPostgres(config);
     try {
+        const { drizzle } = await import('drizzle-orm/node-postgres');
         return await fn(drizzle(client));
     }
     finally {
@@ -47,6 +46,8 @@ export async function withUserContext(fn, uid) {
     const client = await connectToPostgres(config);
     const role = db.authenticatedRole ?? DEFAULT_ROLE;
     try {
+        const { drizzle } = await import('drizzle-orm/node-postgres');
+        const { sql } = await import('drizzle-orm');
         return await drizzle(client).transaction(async (transaction) => {
             await transaction.execute(sql `select set_config('request.jwt.claims', ${JSON.stringify({ sub: userId })}, true)`);
             await transaction.execute(sql `set local role ${sql.raw(role)}`);

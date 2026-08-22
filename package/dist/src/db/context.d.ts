@@ -1,4 +1,4 @@
-import { type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 export type DrizzleDb = NodePgDatabase<Record<string, never>>;
 /**
  * Runs `fn` against the request's pooled connection with no transaction and no

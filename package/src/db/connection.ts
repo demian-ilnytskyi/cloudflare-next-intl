@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import type { Client } from 'pg';
 import type { DbRoutingConfig, LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
 import reportError from '../error_handling/report_error';
 import requireDbConfig from './require_config';
@@ -68,6 +68,7 @@ export default async function connectToPostgres(config: DbConfig): Promise<Clien
         connectingPromise = (async () => {
             try {
                 connectionString ??= await resolveConnectionString(config, db);
+                const { Client } = await import('pg');
                 const created = serializeQueries(new Client({ connectionString }));
                 client = created;
                 connectionPromise = created.connect();

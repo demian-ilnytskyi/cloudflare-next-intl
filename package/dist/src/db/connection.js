@@ -1,4 +1,3 @@
-import { Client } from 'pg';
 import reportError from '../error_handling/report_error';
 import requireDbConfig from './require_config';
 const DEFAULT_BINDING = 'HYPERDRIVE';
@@ -57,12 +56,25 @@ export default async function connectToPostgres(config) {
     await disconnectionPromise;
     if (connectingPromise === null) {
         connectingPromise = (async () => {
-            connectionString ?? (connectionString = await resolveConnectionString(config, db));
-            const created = serializeQueries(new Client({ connectionString }));
-            client = created;
-            connectionPromise = created.connect();
-            await connectionPromise;
-            return created;
+            try {
+                connectionString ?? (connectionString = await resolveConnectionString(config, db));
+                const { Client } = await import('pg');
+                const created = serializeQueries(new Client({ connectionString }));
+                client = created;
+                connectionPromise = created.connect();
+                await connectionPromise;
+                return created;
+            }
+            catch (error) {
+                // A failed connect must not be cached forever — clear state so the
+                // next call retries instead of replaying the same rejection for the
+                // life of the Worker isolate.
+                connectingPromise = null;
+                connectionString = null;
+                client = null;
+                connectionPromise = null;
+                throw error;
+            }
         })();
     }
     activeUsers++;
