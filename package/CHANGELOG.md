@@ -3,6 +3,22 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.0] - 2026-08-23
+
+### Added
+
+- `db.supabase` config lets `withPublicDb`/`withUserDb` reach Postgres through the Supabase Data API (PostgREST) instead of a direct connection, using only `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` — no Postgres password required. Query code is identical to connection-string mode; a direct connection always wins if both are configured. Requires installing the `security invoker` SQL function shipped at `supabase/cfni_exec.sql`. `withUserDb` resolves identity from `db.getAccessToken` or the signed-in Firebase user's ID token, sent as the PostgREST bearer token, rather than a `set_config`/`set local role` transaction — so Supabase mode has no multi-statement atomicity (each statement is its own round-trip).
+- `@supabase/supabase-js` added as a dependency, loaded via dynamic `import()` alongside `pg`/`drizzle-orm` so it only bundles for apps that actually use the `db.supabase` transport.
+
+### Changed
+
+- `withPublicContext`/`withUserContext` renamed to `withPublicDb`/`withUserDb` for clarity against `generate.getCloudflareContext` in the same config surface.
+- `pg` and `drizzle-orm` moved from optional peer dependencies to regular dependencies (pinned to their latest versions) and are now lazily loaded via dynamic `import()` inside the `db` exports, so non-`db` consumers no longer need to install them and never bundle them.
+
+### Fixed
+
+- `connectToPostgres` no longer caches a failed connect attempt forever — a transient error (bad Hyperdrive binding, network blip) previously broke `db` access for the lifetime of the Worker isolate; the next call now retries.
+
 ## [0.7.8] - 2026-08-21
 
 ### Added
