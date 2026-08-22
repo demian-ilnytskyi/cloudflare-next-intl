@@ -1,7 +1,12 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { SupabaseDbConfig } from '../types/types';
 import config from '../config/intl_config';
 import requireDbConfig from './require_config';
 import connectToPostgres, { disconnectPostgres } from './connection';
+import resolveDbMode from './resolve_mode';
+import resolveSupabaseEndpoint from './supabase_config';
+import createSupabaseTransport from './supabase_transport';
+import resolveAccessToken from './access_token';
 
 /**
  * The Drizzle handle passed to `withPublicDb`/`withUserDb` callbacks. Use it
@@ -34,6 +39,15 @@ async function resolveUserId(uid?: string): Promise<string> {
 }
 
 /**
+ * Builds a Drizzle handle backed by PostgREST. `bearerToken` decides the role
+ * Postgres sees: the anon key for public access, a user JWT for `withUserDb`.
+ */
+async function supabaseDb(supabase: SupabaseDbConfig, bearerToken: string): Promise<DrizzleDb> {
+    const { drizzle } = await import('drizzle-orm/pg-proxy');
+    return drizzle(createSupabaseTransport(supabase, bearerToken)) as unknown as DrizzleDb;
+}
+
+/**
  * Runs a query as the **anonymous** role: no transaction, no role switch, no
  * user identity attached. Use this for data any visitor may read.
  *
@@ -41,8 +55,10 @@ async function resolveUserId(uid?: string): Promise<string> {
  * no user and will deny access — reach for {@link withUserDb} whenever the
  * rows depend on who is asking.
  *
- * The connection is taken from the request's shared client and released when
- * `fn` settles, even if it throws.
+ * In connection-string mode the connection is taken from the request's
+ * shared client and released when `fn` settles, even if it throws. In
+ * Supabase mode there is no connection to release — each call is one
+ * PostgREST round-trip authenticated as the anon key.
  *
  * @param fn Receives the Drizzle handle; return whatever the caller needs.
  * @returns Whatever `fn` resolves to.
@@ -52,7 +68,13 @@ async function resolveUserId(uid?: string): Promise<string> {
  * const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
  */
 export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promise<T> {
-    requireDbConfig(config.db);
+    const db = config.db;
+    requireDbConfig(db);
+    if (resolveDbMode(db) === 'supabase') {
+        const supabase = db.supabase ?? {};
+        const { anonKey } = resolveSupabaseEndpoint(supabase);
+        return fn(await supabaseDb(supabase, anonKey));
+    }
     const client = await connectToPostgres(config);
     try {
         const { drizzle } = await import('drizzle-orm/node-postgres');
@@ -63,22 +85,29 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promis
 }
 
 /**
- * Runs a query as the **signed-in user**, inside a transaction where Postgres
+ * Runs a query as the **signed-in user**.
+ *
+ * In connection-string mode this runs inside a transaction where Postgres
  * sees the resolved user id as `auth.jwt()->>'sub'` under
- * `db.authenticatedRole`. RLS policies therefore behave exactly as they do for
- * a PostgREST-issued call — this is the wrapper to use for anything
- * user-owned.
+ * `db.authenticatedRole`, so RLS policies behave exactly as they do for a
+ * PostgREST-issued call. In Supabase mode identity instead rides on the JWT
+ * sent as `Authorization: Bearer` — PostgREST resolves the `authenticated`
+ * role and populates `request.jwt.claims` itself, and each statement is its
+ * own round-trip with no cross-statement transaction (the Postgres proxy
+ * Drizzle uses in this mode cannot open one). Either way this is the wrapper
+ * to use for anything user-owned.
  *
- * The connection is taken from the request's shared client and released when
- * `fn` settles, even if it throws.
- *
- * @param fn Receives the Drizzle handle, already bound to the transaction.
- * @param uid Overrides the user id. Omit it in normal use: the id then comes
- * from `db.getUserId()` when set, otherwise from the signed-in Firebase user
- * when `firebaseAuth` is configured.
+ * @param fn Receives the Drizzle handle. In connection-string mode it is
+ * bound to a transaction; in Supabase mode it is not — do not rely on
+ * multi-statement atomicity there.
+ * @param uid Connection-string mode only: overrides the user id. Omit it in
+ * normal use — the id then comes from `db.getUserId()` when set, otherwise
+ * from the signed-in Firebase user when `firebaseAuth` is configured.
+ * Ignored in Supabase mode, which resolves identity via `db.getAccessToken`/
+ * Firebase instead — see {@link resolveAccessToken}.
  * @returns Whatever `fn` resolves to.
- * @throws If `db` is not set on your `RoutingConfig`, if no user id can be
- * resolved, or the connection fails.
+ * @throws If `db` is not set on your `RoutingConfig`, if no user id/access
+ * token can be resolved, or the connection fails.
  *
  * @example
  * const mine = await withUserDb((db) => db.select().from(orders));
@@ -86,6 +115,10 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promis
 export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: string): Promise<T> {
     const db = config.db;
     requireDbConfig(db);
+    if (resolveDbMode(db) === 'supabase') {
+        const token = await resolveAccessToken(config);
+        return fn(await supabaseDb(db.supabase ?? {}, token));
+    }
     const userId = await resolveUserId(uid);
     const client = await connectToPostgres(config);
     const role = db.authenticatedRole ?? DEFAULT_ROLE;

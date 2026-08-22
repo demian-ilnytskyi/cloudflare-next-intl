@@ -817,6 +817,24 @@ export interface IntlSitemap {
     lastModified: Date | string | undefined;
     videos?: Videos[] | undefined;
 }
+export interface SupabaseDbConfig {
+    /**
+     * Supabase project URL, e.g. `https://abc.supabase.co`. Defaults to
+     * `process.env.NEXT_PUBLIC_SUPABASE_URL`.
+     */
+    url?: string;
+    /**
+     * Supabase anon (publishable) key. Defaults to
+     * `process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY`. This is the only key the
+     * `db` module ever needs — never put a service-role key here.
+     */
+    anonKey?: string;
+    /**
+     * Name of the Postgres function that runs the generated SQL. Defaults to
+     * `'cfni_exec'` — the function shipped in `supabase/cfni_exec.sql`.
+     */
+    execFunction?: string;
+}
 export interface DbRoutingConfig {
     /**
      * Postgres connection string. Omit to resolve it from the Cloudflare
@@ -854,4 +872,31 @@ export interface DbRoutingConfig {
     getUserId?: () => Promise<string | null> | string | null;
     /** Milliseconds `disconnectPostgres` waits for `client.end()` before giving up. Defaults to `2000`. */
     disconnectTimeoutMs?: number;
+    /**
+     * Reaches Postgres through the Supabase Data API instead of a direct
+     * connection, using only your project URL and anon key. Set this when you
+     * have no Postgres password to give the package — `withPublicDb` and
+     * `withUserDb` behave the same either way, so switching is a config change
+     * with no app-code change.
+     *
+     * Ignored when `connectionString` or `hyperdriveBinding` is set: a direct
+     * connection always wins, so adding this block cannot silently reroute
+     * live traffic. Requires the `cfni_exec` function from
+     * `supabase/cfni_exec.sql` to be installed in your database.
+     *
+     * No multi-statement transactions: unlike connection-string mode, each
+     * statement inside a `withUserDb` callback is its own round-trip. Do not
+     * rely on multi-statement atomicity in this mode.
+     */
+    supabase?: SupabaseDbConfig;
+    /**
+     * Resolves the JWT sent as `Authorization: Bearer` for `withUserDb` in
+     * Supabase mode, which is what makes PostgREST resolve the caller as
+     * `authenticated` and apply RLS. Omit when `firebaseAuth` is configured —
+     * the signed-in user's Firebase ID token is then used automatically.
+     *
+     * Unused in connection-string mode, which identifies the user with
+     * `getUserId` and `set_config` instead.
+     */
+    getAccessToken?: () => Promise<string | null> | string | null;
 }

@@ -1,16 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config } = vi.hoisted(() => {
+const { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb } = vi.hoisted(() => {
     const tx = { execute: vi.fn(async () => undefined) };
     const transaction = vi.fn(async (fn: (t: unknown) => Promise<unknown>) => fn(tx));
     const connectToPostgres = vi.fn().mockResolvedValue({});
     const disconnectPostgres = vi.fn();
-    const getAuthUser = vi.fn().mockResolvedValue({ user: { uid: 'firebase-uid' }, loading: false });
+    const getAuthUser = vi.fn().mockResolvedValue({ user: { uid: 'firebase-uid', getIdToken: vi.fn().mockResolvedValue('firebase-jwt') }, loading: false });
     const config: Record<string, unknown> = { locales: ['en'], defaultLocale: 'en', db: { connectionString: 'postgresql://x' } };
-    return { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config };
+    const proxyDb = { select: vi.fn(), execute: vi.fn() };
+    const proxyDrizzle = vi.fn(() => proxyDb);
+    return { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb };
 });
 
 vi.mock('drizzle-orm/node-postgres', () => ({ drizzle: vi.fn(() => ({ transaction, select: vi.fn() })) }));
+vi.mock('drizzle-orm/pg-proxy', () => ({ drizzle: proxyDrizzle }));
 vi.mock('./connection', () => ({ default: connectToPostgres, disconnectPostgres, resetConnectionState: vi.fn() }));
 vi.mock('../firebase_auth/server/use_auth_user_server', () => ({ getAuthUser }));
 vi.mock('../config/intl_config', () => ({ default: config }));
@@ -20,6 +23,9 @@ import { withPublicDb, withUserDb } from './context';
 beforeEach(() => {
     tx.execute.mockClear();
     disconnectPostgres.mockClear();
+    connectToPostgres.mockClear();
+    proxyDrizzle.mockClear();
+    transaction.mockClear();
     config.db = { connectionString: 'postgresql://x' };
     config.firebaseAuth = undefined;
 });
@@ -68,5 +74,39 @@ describe('withUserDb', () => {
     it('throws when db config is missing', async () => {
         config.db = undefined;
         await expect(withUserDb(async () => 'ok')).rejects.toThrow(/`db` is not set/);
+    });
+});
+
+describe('supabase mode', () => {
+    beforeEach(() => {
+        config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' } };
+    });
+
+    it('withPublicDb never opens a postgres connection', async () => {
+        const result = await withPublicDb(async (db) => { expect(db).toBe(proxyDb); return 7; });
+        expect(result).toBe(7);
+        expect(connectToPostgres).not.toHaveBeenCalled();
+        expect(disconnectPostgres).not.toHaveBeenCalled();
+        expect(proxyDrizzle).toHaveBeenCalledTimes(1);
+    });
+
+    it('withUserDb runs without a drizzle transaction', async () => {
+        config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' }, getAccessToken: () => 'user-jwt' };
+        const result = await withUserDb(async (db) => { expect(db).toBe(proxyDb); return 'ok'; });
+        expect(result).toBe('ok');
+        expect(transaction).not.toHaveBeenCalled();
+        expect(tx.execute).not.toHaveBeenCalled();
+    });
+
+    it('withUserDb surfaces a missing access token', async () => {
+        config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' }, getAccessToken: () => null };
+        await expect(withUserDb(async () => 'ok')).rejects.toThrow(/access token/i);
+    });
+
+    it('still routes to postgres when a connection string is also set', async () => {
+        config.db = { connectionString: 'postgresql://x', supabase: {} };
+        await withPublicDb(async () => 1);
+        expect(connectToPostgres).toHaveBeenCalledTimes(1);
+        expect(proxyDrizzle).not.toHaveBeenCalled();
     });
 });
