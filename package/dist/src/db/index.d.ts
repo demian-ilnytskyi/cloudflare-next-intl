@@ -7,8 +7,13 @@
  * - {@link withPublicDb} — anonymous role, for data any visitor may read.
  * - {@link withUserDb} — the signed-in user, with RLS applied to their id.
  *
- * `pg` and `drizzle-orm` load through dynamic `import()` inside those
- * functions, so an app that never calls one never bundles them.
+ * Two transports reach Postgres behind that same Drizzle query API, chosen by
+ * `resolveDbMode` from which `db` config fields are set: `connectionString`/
+ * `hyperdriveBinding` for a direct connection (wins if both are configured),
+ * or `supabase` for the Supabase Data API when only a project URL and anon
+ * key are available. `pg`, `drizzle-orm`, and `@supabase/supabase-js` all
+ * load through dynamic `import()` inside these functions, so an app that
+ * never calls a `db` export never bundles any of them.
  *
  * Generic Drizzle SQL helpers (`excluded`, `onConflictSet`, `ago`, …) live in
  * the separate `cloudflare-next-intl/dbHelpers` entry point.
