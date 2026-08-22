@@ -5,8 +5,12 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": false,
+  "bin": {
+    "cfni-db-codegen": "bin/db_codegen.mjs"
+  },
   "files": [
     "dist",
+    "bin",
     "LICENSE",
     "README.md",
     "llms.txt"
