@@ -67,6 +67,18 @@ describe('withUserDb', () => {
         expect(getUserId).toHaveBeenCalled();
     });
 
+    it('sets custom authenticated role if configured', async () => {
+        config.db = { connectionString: 'postgresql://x', authenticatedRole: 'custom_role' };
+        await withUserDb(async () => 'ok', 'uid-1');
+        expect(tx.execute).toHaveBeenCalledTimes(2);
+    });
+
+    it('throws when firebase auth user is missing', async () => {
+        config.firebaseAuth = { apiKey: 'k' };
+        getAuthUser.mockResolvedValueOnce({ user: null, loading: false });
+        await expect(withUserDb(async () => 'ok')).rejects.toThrow(/user id/i);
+    });
+
     it('throws when no uid can be resolved', async () => {
         await expect(withUserDb(async () => 'ok')).rejects.toThrow(/user id/i);
     });

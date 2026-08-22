@@ -71,7 +71,7 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promis
     const db = config.db;
     requireDbConfig(db);
     if (resolveDbMode(db) === 'supabase') {
-        const supabase = db.supabase ?? {};
+        const supabase = db.supabase!;
         const { anonKey } = resolveSupabaseEndpoint(supabase);
         return fn(await supabaseDb(supabase, anonKey));
     }
@@ -117,7 +117,7 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
     requireDbConfig(db);
     if (resolveDbMode(db) === 'supabase') {
         const token = await resolveAccessToken(config);
-        return fn(await supabaseDb(db.supabase ?? {}, token));
+        return fn(await supabaseDb(db.supabase!, token));
     }
     const userId = await resolveUserId(uid);
     const client = await connectToPostgres(config);
