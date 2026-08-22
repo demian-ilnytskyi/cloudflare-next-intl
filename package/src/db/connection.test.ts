@@ -69,6 +69,17 @@ describe('connectToPostgres', () => {
         await expect(connectToPostgres(config)).rejects.toThrow(/HYPERDRIVE/);
     });
 
+    it('retries instead of caching a failed connect forever', async () => {
+        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
+        connect.mockRejectedValueOnce(new Error('connect refused'));
+        await expect(connectToPostgres(config)).rejects.toThrow('connect refused');
+
+        connect.mockResolvedValueOnce(undefined);
+        const client = await connectToPostgres(config);
+        expect(client).toBeTruthy();
+        expect(ClientMock).toHaveBeenCalledTimes(2);
+    });
+
     it('serializes concurrent queries through the client so they run one at a time', async () => {
         const order: string[] = [];
         query.mockImplementation(async (arg: string) => {

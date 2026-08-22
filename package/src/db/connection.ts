@@ -66,12 +66,23 @@ export default async function connectToPostgres(config: DbConfig): Promise<Clien
 
     if (connectingPromise === null) {
         connectingPromise = (async () => {
-            connectionString ??= await resolveConnectionString(config, db);
-            const created = serializeQueries(new Client({ connectionString }));
-            client = created;
-            connectionPromise = created.connect();
-            await connectionPromise;
-            return created;
+            try {
+                connectionString ??= await resolveConnectionString(config, db);
+                const created = serializeQueries(new Client({ connectionString }));
+                client = created;
+                connectionPromise = created.connect();
+                await connectionPromise;
+                return created;
+            } catch (error) {
+                // A failed connect must not be cached forever — clear state so the
+                // next call retries instead of replaying the same rejection for the
+                // life of the Worker isolate.
+                connectingPromise = null;
+                connectionString = null;
+                client = null;
+                connectionPromise = null;
+                throw error;
+            }
         })();
     }
     activeUsers++;
