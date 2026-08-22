@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { connect, end, query, ClientMock } = vi.hoisted(() => {
+const { connect, end, query, ClientMock, reportErrorMock } = vi.hoisted(() => {
     const connect = vi.fn().mockResolvedValue(undefined);
     const end = vi.fn().mockResolvedValue(undefined);
     const query = vi.fn().mockResolvedValue({ rows: [] });
     const ClientMock = vi.fn(() => ({ connect, end, query }));
-    return { connect, end, query, ClientMock };
+    const reportErrorMock = vi.fn().mockResolvedValue(undefined);
+    return { connect, end, query, ClientMock, reportErrorMock };
 });
 vi.mock('pg', () => ({ Client: ClientMock }));
+vi.mock('../error_handling/report_error', () => ({ default: reportErrorMock }));
 
 import connectToPostgres, { disconnectPostgres, resetConnectionState } from './connection';
 
@@ -17,6 +19,7 @@ beforeEach(() => {
     resetConnectionState();
     ClientMock.mockClear();
     end.mockClear();
+    reportErrorMock.mockClear();
 });
 
 describe('connectToPostgres', () => {
@@ -154,18 +157,56 @@ describe('disconnectPostgres', () => {
         await vi.waitFor(() => expect(end).toHaveBeenCalledTimes(1));
     });
 
-    it('logs a warning when closing the client fails', async () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-        end.mockRejectedValueOnce(new Error('close failed'));
+    it('reports the error via reportError when closing the client fails', async () => {
+        const closeError = new Error('close failed');
+        end.mockRejectedValueOnce(closeError);
+        const errorHandling = { onError: vi.fn() };
         const config = {
             ...baseConfig,
             db: { connectionString: 'postgresql://x', disconnectTimeoutMs: 50 },
+            errorHandling,
         } as never;
         await connectToPostgres(config);
         disconnectPostgres(config);
-        await vi.waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringMatching(/error disconnecting Postgres/)));
-        warn.mockRestore();
+        await vi.waitFor(() => expect(reportErrorMock).toHaveBeenCalledWith(
+            { errorHandling, generate: undefined },
+            { error: closeError, classOrMethodName: 'db.disconnectPostgres' },
+        ));
         end.mockResolvedValue(undefined);
+    });
+
+    it('reports the timeout error via reportError when client.end() never settles in time', async () => {
+        end.mockImplementationOnce(() => new Promise(() => undefined));
+        const config = {
+            ...baseConfig,
+            db: { connectionString: 'postgresql://x', disconnectTimeoutMs: 10 },
+        } as never;
+        await connectToPostgres(config);
+        disconnectPostgres(config);
+        await vi.waitFor(() => expect(reportErrorMock).toHaveBeenCalledWith(
+            { errorHandling: undefined, generate: undefined },
+            { error: expect.any(Error), classOrMethodName: 'db.disconnectPostgres' },
+        ));
+        end.mockResolvedValue(undefined);
+    });
+
+    it('still settles the disconnect (clearing disconnectionPromise) when getCloudflareContext rejects', async () => {
+        const contextError = new Error('context boom');
+        const getCloudflareContext = vi.fn().mockRejectedValue(contextError);
+        const config = {
+            ...baseConfig,
+            db: { connectionString: 'postgresql://x' },
+            generate: { getCloudflareContext },
+        } as never;
+        await connectToPostgres(config);
+        disconnectPostgres(config);
+
+        // settle() must still run (closing the client) despite getCloudflareContext
+        // rejecting, and disconnectionPromise must clear so a subsequent
+        // connectToPostgres call isn't left hanging on it forever.
+        await vi.waitFor(() => expect(end).toHaveBeenCalledTimes(1));
+        await expect(connectToPostgres(config)).resolves.toBeDefined();
+        expect(ClientMock).toHaveBeenCalledTimes(2);
     });
 
     it('allows a new connection to be created after the previous one finished closing', async () => {

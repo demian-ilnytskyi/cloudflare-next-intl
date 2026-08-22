@@ -1,5 +1,6 @@
 import { Client } from 'pg';
 import type { DbRoutingConfig, LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
+import reportError from '../error_handling/report_error';
 import requireDbConfig from './require_config';
 
 export type DbConfig = RoutingConfig<Locales, LocalePrefixMode>;
@@ -101,7 +102,10 @@ export function disconnectPostgres(config: DbConfig): void {
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout closing postgres client')), timeoutMs)),
             ]);
         } catch (error) {
-            console.warn(`db: error disconnecting Postgres: ${error}`);
+            await reportError(
+                { errorHandling: config.errorHandling, generate: config.generate },
+                { error, classOrMethodName: 'db.disconnectPostgres' },
+            );
         } finally {
             if (disconnectionPromise === endPromise) disconnectionPromise = null;
         }
@@ -113,9 +117,21 @@ export function disconnectPostgres(config: DbConfig): void {
         return;
     }
     void (async () => {
-        const context = await getContext({ async: true });
-        const waitUntil = context?.ctx?.waitUntil;
-        if (typeof waitUntil === 'function') waitUntil.call(context?.ctx, settle());
+        // No matter what happens resolving the context/waitUntil below,
+        // settle() must always run — it's the only place disconnectionPromise
+        // gets cleared, and connectToPostgres awaits that promise on every
+        // call. A rejected/throwing getContext must still fall through to
+        // settle() directly instead of leaving the disconnect stuck forever.
+        let waitUntil: ((promise: Promise<unknown>) => void) | undefined;
+        try {
+            const context = await getContext({ async: true });
+            if (typeof context?.ctx?.waitUntil === 'function') {
+                waitUntil = context.ctx.waitUntil.bind(context.ctx);
+            }
+        } catch {
+            waitUntil = undefined;
+        }
+        if (waitUntil) waitUntil(settle());
         else await settle();
     })();
 }
