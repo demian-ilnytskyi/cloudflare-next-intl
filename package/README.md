@@ -13,6 +13,8 @@ and Cloudflare environment.
 - **Tree-shaking**: Properly architected for optimal tree-shaking.
 - **Error handling**: shared, opt-in `console.error` override and
   `reportError`/`withErrorHandling` helpers, GDPR-aware (consent-gated).
+- **Database**: optional Postgres/Drizzle data-access layer over Cloudflare
+  Hyperdrive, with request-scoped public/user contexts and RLS wiring.
 
 ## Installation
 
@@ -383,6 +385,76 @@ try {
 server-side resolution) on `ErrorHandlingParams` — reporting is skipped
 whenever `consent` is set and not `true`, since sending error reports to a
 third party without consent can itself be GDPR-relevant.
+
+### Database (`db`)
+
+Thin Postgres/Drizzle data-access layer over a Cloudflare Hyperdrive binding
+(or a plain connection string). Requires `pg` and `drizzle-orm` to be
+installed in your app — both are optional peer dependencies of this package,
+not bundled. Enable it by setting `db` on your `RoutingConfig`:
+
+```typescript
+// src/i18n/intl_config.ts
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
+export default setIntlConfig({
+    locales: ["en", "uk"] as const,
+    defaultLocale: "en",
+    generate: { getCloudflareContext },
+    db: { hyperdriveBinding: "HYPERDRIVE" },
+});
+```
+
+`db` fields (all optional):
+
+- `connectionString` — a Postgres connection string. Omit to resolve it from
+  the Hyperdrive binding named by `hyperdriveBinding` instead (the normal
+  production setup); a value here always wins over the binding, which is
+  what makes local dev / build-time evaluation work.
+- `hyperdriveBinding` — name of the Hyperdrive binding on `env` to read a
+  connection string from when `connectionString` is not set. Defaults to
+  `'HYPERDRIVE'`. Requires `generate.getCloudflareContext` to be configured.
+- `disconnectAfterRequest` — whether the pooled client is closed once the
+  last in-flight `withPublicContext`/`withUserContext` call of the request
+  finishes. Defaults to `true` (one connection per request, released to
+  Hyperdrive immediately). Set `false` to keep the connection open for the
+  lifetime of the isolate — faster for a long-lived server, but it holds a
+  Hyperdrive connection slot between requests.
+- `authenticatedRole` — Postgres role assumed inside `withUserContext`'s
+  transaction. Defaults to `'authenticated'` (the Supabase RLS convention).
+- `getUserId` — resolves the user id injected as
+  `request.jwt.claims->>'sub'` inside `withUserContext`. Omit when
+  `firebaseAuth` is configured — the uid then comes from this package's own
+  `getAuthUser()` automatically. Provide it to use a different auth source
+  (or when `firebaseAuth` is absent).
+- `disconnectTimeoutMs` — milliseconds `disconnectPostgres` waits for
+  `client.end()` before giving up. Defaults to `2000`.
+
+Two context helpers, both from `cloudflare-next-intl/db`:
+
+- `withPublicContext(fn)` — runs `fn` against the request's pooled
+  connection with no transaction and no role switch; for tables readable by
+  the anon role.
+- `withUserContext(fn, uid?)` — runs `fn` inside a transaction where
+  Postgres sees the resolved user id as `auth.jwt()->>'sub'` under
+  `db.authenticatedRole`, so RLS policies behave exactly as they do for a
+  PostgREST-issued call. When `uid` is omitted, the id comes from
+  `db.getUserId()` if set, otherwise automatically from the signed-in
+  Firebase user when `firebaseAuth` is configured — you rarely need to pass
+  it explicitly.
+
+```typescript
+// anywhere on the server
+import { withPublicContext } from "cloudflare-next-intl/db";
+
+const rows = await withPublicContext((db) => db.select().from(bonds).limit(10));
+```
+
+`cloudflare-next-intl/dbHelpers` also exports a set of generic Drizzle SQL
+helpers (`excluded`, `onConflictSet`, `ago`, `currentDate`, `windowCount`,
+`unnestLateral`, `ascNullsLast`, `alwaysTrue`, `lateral`, `aliasColumn`,
+`minOf`, `maxOf`, `roundReal`, `multiply`, `scalarFromCte`) for building
+upsert/window/lateral-join queries without dropping to raw SQL.
 
 ## License
 
