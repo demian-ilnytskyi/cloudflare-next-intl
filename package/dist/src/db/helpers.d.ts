@@ -1,4 +1,4 @@
-import { type SQL, type Table } from "drizzle-orm";
+import { type SQL, type Table } from 'drizzle-orm';
 /**
  * Type-safe helper returning `excluded.<db_column_name>` SQL expressions for a Drizzle table.
  *

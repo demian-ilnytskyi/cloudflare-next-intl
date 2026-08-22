@@ -15,7 +15,7 @@ vi.mock('./connection', () => ({ default: connectToPostgres, disconnectPostgres,
 vi.mock('../firebase_auth/server/use_auth_user_server', () => ({ getAuthUser }));
 vi.mock('../config/intl_config', () => ({ default: config }));
 
-import { withPublicContext, withUserContext } from './context';
+import { withPublicDb, withUserDb } from './context';
 
 beforeEach(() => {
     tx.execute.mockClear();
@@ -24,49 +24,49 @@ beforeEach(() => {
     config.firebaseAuth = undefined;
 });
 
-describe('withPublicContext', () => {
+describe('withPublicDb', () => {
     it('runs the callback with a drizzle db and always disconnects', async () => {
-        const result = await withPublicContext(async (db) => { expect(db).toBeDefined(); return 42; });
+        const result = await withPublicDb(async (db) => { expect(db).toBeDefined(); return 42; });
         expect(result).toBe(42);
         expect(disconnectPostgres).toHaveBeenCalledTimes(1);
     });
 
     it('disconnects even when the callback throws', async () => {
-        await expect(withPublicContext(async () => { throw new Error('boom'); })).rejects.toThrow('boom');
+        await expect(withPublicDb(async () => { throw new Error('boom'); })).rejects.toThrow('boom');
         expect(disconnectPostgres).toHaveBeenCalledTimes(1);
     });
 
     it('throws when db config is missing', async () => {
         config.db = undefined;
-        await expect(withPublicContext(async () => 1)).rejects.toThrow(/`db` is not set/);
+        await expect(withPublicDb(async () => 1)).rejects.toThrow(/`db` is not set/);
     });
 });
 
-describe('withUserContext', () => {
+describe('withUserDb', () => {
     it('sets jwt claims and role inside a transaction for an explicit uid', async () => {
-        await withUserContext(async () => 'ok', 'uid-1');
+        await withUserDb(async () => 'ok', 'uid-1');
         expect(tx.execute).toHaveBeenCalledTimes(2);
     });
 
     it('falls back to the firebase auth user when no uid is given', async () => {
         config.firebaseAuth = { apiKey: 'k' };
-        await withUserContext(async () => 'ok');
+        await withUserDb(async () => 'ok');
         expect(getAuthUser).toHaveBeenCalled();
     });
 
     it('prefers db.getUserId over the firebase user', async () => {
         const getUserId = vi.fn().mockResolvedValue('custom-uid');
         config.db = { connectionString: 'postgresql://x', getUserId };
-        await withUserContext(async () => 'ok');
+        await withUserDb(async () => 'ok');
         expect(getUserId).toHaveBeenCalled();
     });
 
     it('throws when no uid can be resolved', async () => {
-        await expect(withUserContext(async () => 'ok')).rejects.toThrow(/user id/i);
+        await expect(withUserDb(async () => 'ok')).rejects.toThrow(/user id/i);
     });
 
     it('throws when db config is missing', async () => {
         config.db = undefined;
-        await expect(withUserContext(async () => 'ok')).rejects.toThrow(/`db` is not set/);
+        await expect(withUserDb(async () => 'ok')).rejects.toThrow(/`db` is not set/);
     });
 });

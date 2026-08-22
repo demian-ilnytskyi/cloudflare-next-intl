@@ -15,7 +15,15 @@ let connectingPromise: Promise<Client> | null = null;
 let disconnectionPromise: Promise<void> | null = null;
 let activeUsers = 0;
 
-/** Clears the cached client/connection string. Call after changing `db` config, or between tests. */
+/**
+ * Forgets the cached client and connection string so the next
+ * `connectToPostgres` call builds both from scratch. Intended for tests and
+ * for after a `db` config change.
+ *
+ * This drops the reference **without closing** an open connection, so only
+ * call it when no query is in flight — otherwise use `disconnectPostgres`,
+ * which closes the client properly.
+ */
 export function resetConnectionState(): void {
     connectionString = null;
     client = null;
@@ -25,6 +33,10 @@ export function resetConnectionState(): void {
     activeUsers = 0;
 }
 
+/**
+ * Resolves the connection string from `db.connectionString` first, then the
+ * Cloudflare Hyperdrive binding named by `db.hyperdriveBinding`.
+ */
 async function resolveConnectionString(config: DbConfig, db: DbRoutingConfig): Promise<string> {
     if (db.connectionString) return db.connectionString;
     const getContext = config.generate?.getCloudflareContext;
@@ -58,7 +70,20 @@ function serializeQueries(raw: Client): Client {
     return raw;
 }
 
-/** Returns the request's shared, connected client, creating it on first use. */
+/**
+ * Returns the request's shared, already-connected Postgres client, creating it
+ * on first use and reusing it for every later caller in the same request.
+ *
+ * Prefer `withPublicDb`/`withUserDb`, which call this for you and always
+ * release the connection. Reach for this directly only when you need the raw
+ * `pg` client — and then every call **must** be paired with a
+ * `disconnectPostgres` call, or the connection is never released.
+ *
+ * @param config Your routing config; `config.db` must be set.
+ * @returns The connected, shared client.
+ * @throws If `db` is not set, or no connection string can be resolved from
+ * `db.connectionString` or the Hyperdrive binding.
+ */
 export default async function connectToPostgres(config: DbConfig): Promise<Client> {
     const db = config.db;
     requireDbConfig(db);
@@ -90,7 +115,19 @@ export default async function connectToPostgres(config: DbConfig): Promise<Clien
     return connectingPromise;
 }
 
-/** Releases one caller's hold on the client, closing it when the last one finishes. */
+/**
+ * Releases one caller's hold on the shared client, closing it once the last
+ * holder of the request is done. Call it exactly once per
+ * `connectToPostgres` call.
+ *
+ * Returns immediately and finishes closing in the background (via
+ * `ctx.waitUntil` when a Cloudflare context is available), so it never delays
+ * the response. Closing errors are reported through `errorHandling`, not
+ * thrown. Does nothing when `db.disconnectAfterRequest` is `false`, which
+ * keeps the connection open for the life of the isolate.
+ *
+ * @param config Your routing config; safe to call when `config.db` is unset.
+ */
 export function disconnectPostgres(config: DbConfig): void {
     const db = config.db;
     if (!db || db.disconnectAfterRequest === false) return;

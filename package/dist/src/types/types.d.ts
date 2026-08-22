@@ -833,7 +833,7 @@ export interface DbRoutingConfig {
     hyperdriveBinding?: string;
     /**
      * Whether the pooled client is closed once the last in-flight
-     * `withPublicContext`/`withUserContext` call of the request finishes.
+     * `withPublicDb`/`withUserDb` call of the request finishes.
      * Defaults to `true` (one connection per request, released to Hyperdrive
      * immediately). Set `false` to keep the connection open for the lifetime
      * of the isolate — faster for a long-lived server, but it holds a
@@ -841,13 +841,13 @@ export interface DbRoutingConfig {
      */
     disconnectAfterRequest?: boolean;
     /**
-     * Postgres role assumed inside `withUserContext`'s transaction. Defaults
+     * Postgres role assumed inside `withUserDb`'s transaction. Defaults
      * to `'authenticated'` (the Supabase RLS convention).
      */
     authenticatedRole?: string;
     /**
      * Resolves the user id injected as `request.jwt.claims->>'sub'` inside
-     * `withUserContext`. Omit when `firebaseAuth` is configured — the uid then
+     * `withUserDb`. Omit when `firebaseAuth` is configured — the uid then
      * comes from this package's own `getAuthUser()` automatically. Provide it
      * to use a different auth source (or when `firebaseAuth` is absent).
      */

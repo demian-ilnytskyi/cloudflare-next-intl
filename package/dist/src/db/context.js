@@ -2,6 +2,10 @@ import config from '../config/intl_config';
 import requireDbConfig from './require_config';
 import connectToPostgres, { disconnectPostgres } from './connection';
 const DEFAULT_ROLE = 'authenticated';
+/**
+ * Resolves the user id for `withUserDb`, trying, in order: the explicit `uid`
+ * argument, `db.getUserId()`, then the signed-in Firebase user.
+ */
 async function resolveUserId(uid) {
     if (uid)
         return uid;
@@ -16,14 +20,28 @@ async function resolveUserId(uid) {
         if (user?.uid)
             return user.uid;
     }
-    throw new Error('db: withUserContext could not resolve a user id. Pass one explicitly, set ' +
+    throw new Error('db: withUserDb could not resolve a user id. Pass one explicitly, set ' +
         '`db.getUserId`, or configure `firebaseAuth` so the signed-in Firebase uid is used.');
 }
 /**
- * Runs `fn` against the request's pooled connection with no transaction and no
- * role switch — one statement per read, for tables readable by the anon role.
+ * Runs a query as the **anonymous** role: no transaction, no role switch, no
+ * user identity attached. Use this for data any visitor may read.
+ *
+ * Because no user id is set, RLS policies that test `auth.jwt()->>'sub'` see
+ * no user and will deny access — reach for {@link withUserDb} whenever the
+ * rows depend on who is asking.
+ *
+ * The connection is taken from the request's shared client and released when
+ * `fn` settles, even if it throws.
+ *
+ * @param fn Receives the Drizzle handle; return whatever the caller needs.
+ * @returns Whatever `fn` resolves to.
+ * @throws If `db` is not set on your `RoutingConfig`, or the connection fails.
+ *
+ * @example
+ * const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
  */
-export async function withPublicContext(fn) {
+export async function withPublicDb(fn) {
     requireDbConfig(config.db);
     const client = await connectToPostgres(config);
     try {
@@ -35,11 +53,27 @@ export async function withPublicContext(fn) {
     }
 }
 /**
- * Runs `fn` inside a transaction where Postgres sees the resolved user id as
- * `auth.jwt()->>'sub'` under `db.authenticatedRole`, so RLS policies behave
- * exactly as they do for a PostgREST-issued call.
+ * Runs a query as the **signed-in user**, inside a transaction where Postgres
+ * sees the resolved user id as `auth.jwt()->>'sub'` under
+ * `db.authenticatedRole`. RLS policies therefore behave exactly as they do for
+ * a PostgREST-issued call — this is the wrapper to use for anything
+ * user-owned.
+ *
+ * The connection is taken from the request's shared client and released when
+ * `fn` settles, even if it throws.
+ *
+ * @param fn Receives the Drizzle handle, already bound to the transaction.
+ * @param uid Overrides the user id. Omit it in normal use: the id then comes
+ * from `db.getUserId()` when set, otherwise from the signed-in Firebase user
+ * when `firebaseAuth` is configured.
+ * @returns Whatever `fn` resolves to.
+ * @throws If `db` is not set on your `RoutingConfig`, if no user id can be
+ * resolved, or the connection fails.
+ *
+ * @example
+ * const mine = await withUserDb((db) => db.select().from(orders));
  */
-export async function withUserContext(fn, uid) {
+export async function withUserDb(fn, uid) {
     const db = config.db;
     requireDbConfig(db);
     const userId = await resolveUserId(uid);

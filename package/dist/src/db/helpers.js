@@ -1,4 +1,4 @@
-import { getTableColumns, getTableName, sql } from "drizzle-orm";
+import { getTableColumns, getTableName, sql } from 'drizzle-orm';
 /**
  * Type-safe helper returning `excluded.<db_column_name>` SQL expressions for a Drizzle table.
  *

@@ -389,9 +389,11 @@ third party without consent can itself be GDPR-relevant.
 ### Database (`db`)
 
 Thin Postgres/Drizzle data-access layer over a Cloudflare Hyperdrive binding
-(or a plain connection string). Requires `pg` and `drizzle-orm` to be
-installed in your app — both are optional peer dependencies of this package,
-not bundled. Enable it by setting `db` on your `RoutingConfig`:
+(or a plain connection string). `pg` and `drizzle-orm` ship as dependencies of
+this package, so there is nothing extra to install. They are loaded through
+dynamic `import()` inside the `db` exports, so an app that never calls a `db`
+export never pulls them into its bundle. Enable it by setting `db` on your
+`RoutingConfig`:
 
 ```typescript
 // src/i18n/intl_config.ts
@@ -415,27 +417,29 @@ export default setIntlConfig({
   connection string from when `connectionString` is not set. Defaults to
   `'HYPERDRIVE'`. Requires `generate.getCloudflareContext` to be configured.
 - `disconnectAfterRequest` — whether the pooled client is closed once the
-  last in-flight `withPublicContext`/`withUserContext` call of the request
+  last in-flight `withPublicDb`/`withUserDb` call of the request
   finishes. Defaults to `true` (one connection per request, released to
   Hyperdrive immediately). Set `false` to keep the connection open for the
   lifetime of the isolate — faster for a long-lived server, but it holds a
   Hyperdrive connection slot between requests.
-- `authenticatedRole` — Postgres role assumed inside `withUserContext`'s
+- `authenticatedRole` — Postgres role assumed inside `withUserDb`'s
   transaction. Defaults to `'authenticated'` (the Supabase RLS convention).
 - `getUserId` — resolves the user id injected as
-  `request.jwt.claims->>'sub'` inside `withUserContext`. Omit when
+  `request.jwt.claims->>'sub'` inside `withUserDb`. Omit when
   `firebaseAuth` is configured — the uid then comes from this package's own
   `getAuthUser()` automatically. Provide it to use a different auth source
   (or when `firebaseAuth` is absent).
 - `disconnectTimeoutMs` — milliseconds `disconnectPostgres` waits for
   `client.end()` before giving up. Defaults to `2000`.
 
-Two context helpers, both from `cloudflare-next-intl/db`:
+Two query wrappers, both from `cloudflare-next-intl/db`. Choose by who is
+allowed to see the rows:
 
-- `withPublicContext(fn)` — runs `fn` against the request's pooled
-  connection with no transaction and no role switch; for tables readable by
-  the anon role.
-- `withUserContext(fn, uid?)` — runs `fn` inside a transaction where
+- `withPublicDb(fn)` — runs `fn` as the anonymous role against the request's
+  pooled connection, with no transaction and no role switch; for data any
+  visitor may read. No user id is attached, so RLS policies that test
+  `auth.jwt()->>'sub'` will deny access — use `withUserDb` for user-owned rows.
+- `withUserDb(fn, uid?)` — runs `fn` inside a transaction where
   Postgres sees the resolved user id as `auth.jwt()->>'sub'` under
   `db.authenticatedRole`, so RLS policies behave exactly as they do for a
   PostgREST-issued call. When `uid` is omitted, the id comes from
@@ -445,9 +449,9 @@ Two context helpers, both from `cloudflare-next-intl/db`:
 
 ```typescript
 // anywhere on the server
-import { withPublicContext } from "cloudflare-next-intl/db";
+import { withPublicDb } from "cloudflare-next-intl/db";
 
-const rows = await withPublicContext((db) => db.select().from(bonds).limit(10));
+const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
 ```
 
 `cloudflare-next-intl/dbHelpers` also exports a set of generic Drizzle SQL

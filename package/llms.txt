@@ -23,7 +23,7 @@ other subpath can be used.
 - `./localeStaticParams` — `generateStaticParams` helper for locale segments.
 - `./use` — `useLocale`/`useTranslations`; resolves to the RSC or client implementation automatically via the `react-server` export condition. Both throw `"... must be used within an IntlProvider"` if called outside one.
 - `./ThemeSwitcher` — optional light/dark toggle component.
-- `./db` — `withPublicContext(fn)` / `withUserContext(fn, uid?)` server-side Postgres/Drizzle context helpers (require `db` set on your `RoutingConfig`; require `pg`/`drizzle-orm` installed by the consumer).
+- `./db` — `withPublicDb(fn)` / `withUserDb(fn, uid?)` server-side Postgres/Drizzle context helpers (require `db` set on your `RoutingConfig`; require `pg`/`drizzle-orm` installed by the consumer).
 - `./dbHelpers` — generic Drizzle SQL helper functions (`excluded`, `onConflictSet`, `ago`, `currentDate`, `windowCount`, `unnestLateral`, `ascNullsLast`, `alwaysTrue`, `lateral`, `aliasColumn`, `minOf`, `maxOf`, `roundReal`, `multiply`, `scalarFromCte`) for use with `./db`.
 
 ## `firebaseAuth*` subpaths (require `firebaseAuth` set on your `RoutingConfig`)
@@ -49,12 +49,12 @@ other subpath can be used.
 ## `db*` subpaths (require `db` set on your `RoutingConfig`; require `pg`/`drizzle-orm` installed by the consumer)
 
 - `db.connectionString` — Postgres connection string; when omitted, resolved from the Hyperdrive binding named by `db.hyperdriveBinding` (default `'HYPERDRIVE'`) via `generate.getCloudflareContext`. An explicit `connectionString` always wins (enables local dev / build-time evaluation).
-- `db.disconnectAfterRequest` — closes the pooled client once the last in-flight `withPublicContext`/`withUserContext` call of the request finishes. Defaults to `true`; set `false` to keep the connection open for the isolate's lifetime (holds a Hyperdrive slot between requests).
-- `db.authenticatedRole` — Postgres role assumed inside `withUserContext`'s transaction. Defaults to `'authenticated'` (Supabase RLS convention).
-- `db.getUserId` — resolves the user id injected as `request.jwt.claims->>'sub'` in `withUserContext`. Omit when `firebaseAuth` is configured — the uid is then taken automatically from the signed-in Firebase user via this package's own `getAuthUser()`.
+- `db.disconnectAfterRequest` — closes the pooled client once the last in-flight `withPublicDb`/`withUserDb` call of the request finishes. Defaults to `true`; set `false` to keep the connection open for the isolate's lifetime (holds a Hyperdrive slot between requests).
+- `db.authenticatedRole` — Postgres role assumed inside `withUserDb`'s transaction. Defaults to `'authenticated'` (Supabase RLS convention).
+- `db.getUserId` — resolves the user id injected as `request.jwt.claims->>'sub'` in `withUserDb`. Omit when `firebaseAuth` is configured — the uid is then taken automatically from the signed-in Firebase user via this package's own `getAuthUser()`.
 - `db.disconnectTimeoutMs` — ms `disconnectPostgres` waits for `client.end()` before giving up. Defaults to `2000`.
-- `withPublicContext(fn)` — runs `fn` against the request's pooled connection, no transaction, no role switch; for anon-readable tables.
-- `withUserContext(fn, uid?)` — runs `fn` in a transaction with `set_config('request.jwt.claims', ...)` + `set local role`, so RLS behaves as it does for a PostgREST call. `uid` resolution order: explicit arg → `db.getUserId()` → Firebase auth uid (if `firebaseAuth` configured) → throws.
+- `withPublicDb(fn)` — runs `fn` against the request's pooled connection, no transaction, no role switch; for anon-readable tables.
+- `withUserDb(fn, uid?)` — runs `fn` in a transaction with `set_config('request.jwt.claims', ...)` + `set local role`, so RLS behaves as it does for a PostgREST call. `uid` resolution order: explicit arg → `db.getUserId()` → Firebase auth uid (if `firebaseAuth` configured) → throws.
 - `./dbHelpers` functions are plain Drizzle `sql`-building utilities with no config dependency — usable standalone.
 
 ```typescript
@@ -69,9 +69,9 @@ export default setIntlConfig({
 });
 
 // anywhere on the server
-import { withPublicContext } from "cloudflare-next-intl/db";
+import { withPublicDb } from "cloudflare-next-intl/db";
 
-const rows = await withPublicContext((db) => db.select().from(bonds).limit(10));
+const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
 ```
 
 ## Conventions
@@ -86,4 +86,4 @@ const rows = await withPublicContext((db) => db.select().from(bonds).limit(10));
 - Missing `firebaseAuth` on `RoutingConfig` throws immediately from any `firebaseAuth*` export, naming the missing config field.
 - `useLocale`/`useTranslations` (from `./use`) and `useAuthUser` (from `./useFirebaseAuthUser`) resolve to a Server- or Client-Component implementation automatically via the `react-server` export condition — always import from the subpath, never from an internal file path.
 - No unified `useFirebaseAuthUser` re-export inside `cloudflare-next-intl/firebaseAuth`'s barrel — that barrel can't replicate the `react-server` condition split, so import `cloudflare-next-intl/useFirebaseAuthUser` directly for the hook.
-- Missing `db` on `RoutingConfig` throws immediately from `withPublicContext`/`withUserContext`, naming the missing config field. `pg`/`drizzle-orm` are optional peer dependencies — not bundled, install them yourself.
+- Missing `db` on `RoutingConfig` throws immediately from `withPublicDb`/`withUserDb`, naming the missing config field. `pg`/`drizzle-orm` are optional peer dependencies — not bundled, install them yourself.
