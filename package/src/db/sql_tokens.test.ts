@@ -62,6 +62,8 @@ describe('tokenizeSql', () => {
         expect(tokenizeSql('select /* never closed')).toEqual([{ kind: 'word', value: 'select' }]);
         expect(tokenizeSql("'open")).toEqual([{ kind: 'string', value: 'open' }]);
         expect(tokenizeSql('"open')).toEqual([{ kind: 'quoted', value: 'open' }]);
+        expect(tokenizeSql('select --')).toEqual([{ kind: 'word', value: 'select' }]);
+        expect(tokenizeSql('a $')).toEqual([{ kind: 'word', value: 'a' }, { kind: 'punct', value: '$' }]);
     });
 
     it('reads decimal numbers and unknown characters as punct', () => {
