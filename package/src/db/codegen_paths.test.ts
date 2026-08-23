@@ -15,6 +15,44 @@ describe('resolveCodegenPaths', () => {
         expect(paths.check).toBe(false);
         expect(paths.timeoutMs).toBe(5000);
         expect(paths.drizzleConfig).toBe(null);
+        expect(paths.rpcDir).toBe('/app/supabase/rpc');
+        expect(paths.rpcFile).toBe('/app/supabase/rpc/cfni_exec.sql');
+        expect(paths.testsDir).toBe('/app/supabase/tests');
+        expect(paths.testsFile).toBe('/app/supabase/tests/cfni_exec.sql');
+        expect(paths.force).toBe(false);
+        expect(paths.skipExec).toBe(false);
+    });
+
+    it('reads skipExec from a flag or env var', () => {
+        expect(resolveCodegenPaths(['--skip-exec'], {}, cwd).skipExec).toBe(true);
+        expect(resolveCodegenPaths([], { CFNI_DB_SKIP_EXEC: 'true' }, cwd).skipExec).toBe(true);
+        expect(resolveCodegenPaths([], { CFNI_DB_SKIP_EXEC: 'false' }, cwd).skipExec).toBe(false);
+    });
+
+    it('derives rpc/tests dirs as siblings of a custom ddl-dir', () => {
+        const paths = resolveCodegenPaths(['--ddl-dir=sql/ddl'], {}, cwd);
+        expect(paths.rpcDir).toBe('/app/sql/rpc');
+        expect(paths.testsDir).toBe('/app/sql/tests');
+    });
+
+    it('resolves rpc-dir and tests-dir from flags', () => {
+        const paths = resolveCodegenPaths(['--rpc-dir=custom/rpc', '--tests-dir=custom/tests'], {}, cwd);
+        expect(paths.rpcDir).toBe('/app/custom/rpc');
+        expect(paths.rpcFile).toBe('/app/custom/rpc/cfni_exec.sql');
+        expect(paths.testsDir).toBe('/app/custom/tests');
+        expect(paths.testsFile).toBe('/app/custom/tests/cfni_exec.sql');
+    });
+
+    it('resolves rpc-dir and tests-dir from env when flags are absent', () => {
+        const paths = resolveCodegenPaths([], { CFNI_DB_RPC_DIR: 'env/rpc', CFNI_DB_TESTS_DIR: 'env/tests' }, cwd);
+        expect(paths.rpcDir).toBe('/app/env/rpc');
+        expect(paths.testsDir).toBe('/app/env/tests');
+    });
+
+    it('reads force from a flag or env var', () => {
+        expect(resolveCodegenPaths(['--force'], {}, cwd).force).toBe(true);
+        expect(resolveCodegenPaths([], { CFNI_DB_FORCE_EXEC: 'true' }, cwd).force).toBe(true);
+        expect(resolveCodegenPaths([], { CFNI_DB_FORCE_EXEC: 'false' }, cwd).force).toBe(false);
     });
 
     it('generates into several out dirs from repeated flags', () => {

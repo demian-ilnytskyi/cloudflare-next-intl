@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Regenerates Drizzle models by introspecting a live Postgres with drizzle-kit.
 // Usage: cfni-db-codegen [--check] [--ddl-dir=…] [--out-dir=…] [--out-file=…] [--db-url=…] [--drizzle-config=…]
+//                        [--rpc-dir=…] [--tests-dir=…] [--force] [--skip-exec]
 //
 // --out-dir may be repeated, or given a comma-separated list, to generate the
 // same schema into several projects at once (CFNI_DB_OUT_DIR accepts a
@@ -13,12 +14,23 @@
 // set, it tries the local Supabase default (127.0.0.1:54322).
 // CODEGEN_CONNECT_TIMEOUT_MS overrides the 5s default reachability-check
 // timeout — raise it for a slow/cold-starting remote or serverless target.
+//
+// After a successful (non-`--check`) run, also installs `cfni_exec.sql` (and
+// its pgTAP test file) into `--rpc-dir`/`--tests-dir` (default siblings of
+// `--ddl-dir`, e.g. `supabase/rpc`/`supabase/tests`) — but only when the
+// project's `db.supabase.rawSql` isn't explicitly `false` (read from
+// `next.config.*`'s `@intl-config` alias; a warning is printed if it can't
+// be determined). An existing, differing file is left alone unless
+// `--force`/CFNI_DB_FORCE_EXEC=true is set. Pass `--skip-exec`/
+// CFNI_DB_SKIP_EXEC=true to turn this step off entirely, or use the
+// standalone `cfni-db-install-exec` command to run only this step.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { Client } from 'pg';
 import resolveCodegenPaths from '../dist/src/db/codegen_paths.js';
+import { runInstallExecStep } from './install_exec_step.mjs';
 
 const paths = resolveCodegenPaths(process.argv.slice(2), process.env, process.cwd());
 
@@ -144,3 +156,5 @@ for (const target of paths.targets) {
     writeFileSync(target.manifest, `${JSON.stringify({ ddlHash: hash }, null, 2)}\n`);
     console.log(`✅ Generated ${relative(process.cwd(), target.outFile)}`);
 }
+
+runInstallExecStep(paths, process.cwd());

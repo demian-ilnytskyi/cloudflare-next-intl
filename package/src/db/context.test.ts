@@ -102,6 +102,12 @@ describe('supabase mode', () => {
         expect(proxyDrizzle).toHaveBeenCalledTimes(1);
     });
 
+    it('the Supabase-mode db.transaction() throws instead of running non-atomically', async () => {
+        await withPublicDb(async (db) => {
+            expect(() => (db as unknown as { transaction: () => void }).transaction()).toThrow(/transactions are not available/);
+        });
+    });
+
     it('withUserDb runs without a drizzle transaction', async () => {
         config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' }, getAccessToken: () => 'user-jwt' };
         const result = await withUserDb(async (db) => { expect(db).toBe(proxyDb); return 'ok'; });
@@ -119,6 +125,18 @@ describe('supabase mode', () => {
         config.db = { connectionString: 'postgresql://x', supabase: {} };
         await withPublicDb(async () => 1);
         expect(connectToPostgres).toHaveBeenCalledTimes(1);
+        expect(proxyDrizzle).not.toHaveBeenCalled();
+    });
+
+    it('withPublicDb throws when db.supabase.rawSql is false', async () => {
+        config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key', rawSql: false } };
+        await expect(withPublicDb(async () => 1)).rejects.toThrow(/rawSql/);
+        expect(proxyDrizzle).not.toHaveBeenCalled();
+    });
+
+    it('withUserDb throws when db.supabase.rawSql is false', async () => {
+        config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key', rawSql: false }, getAccessToken: () => 'user-jwt' };
+        await expect(withUserDb(async () => 1)).rejects.toThrow(/rawSql/);
         expect(proxyDrizzle).not.toHaveBeenCalled();
     });
 });

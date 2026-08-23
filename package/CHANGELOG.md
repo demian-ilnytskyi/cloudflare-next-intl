@@ -15,6 +15,60 @@ All notable changes to this package are documented here. Format follows
   table builders (`pgTable`, `varchar`, `index`, …) plus the `sql` tag, so
   generated schema files can import from this package instead of `drizzle-orm`
   directly.
+- New `supabaseSelect`/`supabaseInsert`/`supabaseUpsert`/`supabaseUpdate`/
+  `supabaseDelete`/`supabaseRpc` (and `*AsUser` counterparts) call the
+  Supabase REST API directly through `@supabase/supabase-js`'s `.from()`/
+  `.rpc()` — no `cfni_exec`, no raw SQL — for apps that set the new
+  `db.supabase.rawSql: false`. Filters cover the full `postgrest-js` operator
+  set (`eq` through `rangeAdjacent`, plus negation via `not`, `match`, `or`,
+  and `textSearch`) — everything `@supabase/supabase-js`'s query builder can
+  express against a single table, since `.from()` returns a `postgrest-js`
+  builder directly.
+- `supabase/tests/cfni_exec.sql`: a pgTAP suite (runnable via `supabase test
+  db`/`pg_prove`) covering `cfni_exec.sql` directly — every statement shape it
+  classifies, value fidelity, and RLS-per-role behavior. Plus
+  `src/db/cfni_exec.integration.test.ts`, a Vitest suite driving the same
+  scenarios through the real transport path (`inlineParams` → `cfni_exec` →
+  `parseComposite`) over an actual Postgres connection; it's skipped unless
+  `CFNI_TEST_DATABASE_URL` is set, so a normal `npm test` never needs a
+  database.
+- `cfni-db-codegen` now also installs `cfni_exec.sql` (and its pgTAP test
+  file) into your project — `--rpc-dir`/`--tests-dir`
+  (`CFNI_DB_RPC_DIR`/`CFNI_DB_TESTS_DIR`, default siblings of `--ddl-dir`) —
+  after a successful run, gated on the project's `db.supabase.rawSql` (read
+  from `next.config.*`'s `@intl-config` alias; a warning is printed, and
+  `true` assumed, if it can't be determined). An existing, differing target
+  is left alone unless `--force`/`CFNI_DB_FORCE_EXEC=true` is set; pass
+  `--skip-exec`/`CFNI_DB_SKIP_EXEC=true` to turn the whole step off. New
+  standalone `cfni-db-install-exec` binary runs only this step, with no
+  `drizzle-kit pull` and no live Postgres needed.
+
+### Fixed
+
+- Supabase mode (`cfni_exec`) previously accepted only a narrow subset of
+  what connection-string mode does. Now fixed:
+  - Query parameters are inlined as typed Postgres literals before the
+    statement is sent (`inline_params.ts`/`encode_param.ts`), instead of
+    being passed to `cfni_exec` for `EXECUTE ... USING` binding — which only
+    ever bound the *first* parameter correctly and always as `text`.
+  - `cfni_exec` now supports `INSERT`/`UPDATE`/`DELETE`, with or without
+    `RETURNING` (previously only `SELECT`-shaped statements worked, since
+    DML can't be wrapped in `FROM (...)`), including writable CTEs.
+  - Row values now round-trip through Postgres' composite-literal text
+    format (`r::text`, parsed back by `parse_composite.ts`) instead of
+    `json_build_array`/`row_to_json`, which re-encoded arrays as JSON
+    (`[1,2]` instead of `{1,2}`) and collapsed duplicate column names from
+    joins (`select a.*, b.*`).
+  - `cfni_exec` now returns `jsonb` instead of `json`, and a `rowCount`
+    alongside `rows`.
+  - `.transaction()` on the Supabase-mode `DrizzleDb` now throws immediately
+    (no atomicity is available over PostgREST) instead of running its
+    callback non-atomically with no warning.
+  - Firebase-ID-token auth failures against PostgREST now name Supabase
+    third-party (Firebase) auth setup as the likely fix.
+
+  Upgrading requires reinstalling `supabase/cfni_exec.sql` — the file starts
+  with `drop function if exists` so re-running it is always safe.
 
 ## [0.8.5] - 2026-08-23
 

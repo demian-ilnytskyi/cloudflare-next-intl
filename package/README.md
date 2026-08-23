@@ -464,12 +464,15 @@ const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
 
 Supabase mode requires one function in your database, shipped at
 `node_modules/cloudflare-next-intl/supabase/cfni_exec.sql`. Run it once (via
-`supabase db push`, a migration, or the SQL editor). It is `security invoker`,
-so statements execute with the caller's own privileges and RLS applies exactly
-as it does over the REST API. `@supabase/supabase-js` ships as a dependency of
-this package and is loaded through dynamic `import()` inside the `db` exports,
-same as `pg`/`drizzle-orm` — an app that never calls a `db` export never
-bundles any of them.
+`supabase db push`, a migration, or the SQL editor) — the file starts with a
+`drop function if exists` so re-running it to upgrade is always safe. It is
+`security invoker`, so statements execute with the caller's own privileges and
+RLS applies exactly as it does over the REST API; **never** change this to
+`security definer` — that would let any caller (anon included) bypass RLS
+through the function, regardless of the role PostgREST resolved them as.
+`@supabase/supabase-js` ships as a dependency of this package and is loaded
+through dynamic `import()` inside the `db` exports, same as `pg`/`drizzle-orm`
+— an app that never calls a `db` export never bundles any of them.
 
 `db.supabase` fields (all optional):
 
@@ -479,6 +482,10 @@ bundles any of them.
   Defaults to `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Never put a service-role key
   here.
 - `execFunction` — name of the exec function. Defaults to `'cfni_exec'`.
+- `rawSql` — whether `withPublicDb`/`withUserDb` may run arbitrary SQL
+  through `cfni_exec`. Defaults to `true`. Set `false` if you don't want to
+  (or can't) install `cfni_exec` — see
+  [Supabase mode without `cfni_exec`](#supabase-mode-without-cfni_exec) below.
 
 Any of `connectionString`, `supabase.url`, and `supabase.anonKey` may be a
 function instead of a string, resolved (and awaited) at use time rather than
@@ -516,7 +523,94 @@ user's Firebase ID token is used automatically.
   role that can execute it can run arbitrary SQL *within that role's own
   privileges* — a broader surface than PostgREST's normal verbs, though still
   bounded by RLS and your grants. If your app only uses `withUserDb`, drop the
-  anon grant: `revoke execute on function public.cfni_exec(text, jsonb) from anon;`
+  anon grant: `revoke execute on function public.cfni_exec(text) from anon;`
+
+**What `cfni_exec` actually supports:** plain `SELECT` (including joins with
+duplicate column names, CTEs, window functions), `INSERT`/`UPDATE`/`DELETE`
+with or without `RETURNING` (including `ON CONFLICT ... DO UPDATE` via
+`excluded`/`onConflictSet` from `cloudflare-next-intl/dbHelpers`), and
+writable CTEs (`with x as (update ... returning ...) select ... from x`).
+Every value round-trips through Postgres' own text representation, not JSON,
+so arrays/`numeric`/timestamps/`bytea` decode the same way they do in
+connection-string mode. Not supported: multi-statement transactions (each
+call is its own PostgREST round-trip — see above).
+
+#### Supabase mode without `cfni_exec`
+
+If you don't want to install `cfni_exec` at all, set `db.supabase.rawSql:
+false`. `withPublicDb`/`withUserDb` then throw immediately in Supabase mode
+instead of failing later against PostgREST, and you reach Postgres instead
+through a set of helpers that call `@supabase/supabase-js`'s `.from()`/`.rpc()`
+API directly — the same REST surface the Supabase client itself uses, no raw
+SQL involved:
+
+```typescript
+import { supabaseSelect, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseUpsert, supabaseRpc } from "cloudflare-next-intl/db";
+
+const { rows } = await supabaseSelect("bonds", {
+    where: { active: true, yield: ["gte", 5] },
+    orderBy: { column: "yield", ascending: false },
+    limit: 10,
+});
+
+await supabaseInsert("bonds", { name: "10Y", yield: 4.2 });
+await supabaseUpsert("bonds", { id: 1, yield: 4.5 }, { onConflict: "id" });
+await supabaseUpdate("bonds", { yield: 4.3 }, { where: { id: 1 } });
+await supabaseDelete("bonds", { where: { id: 1 } });
+
+// Anything a plain select/insert/update/delete/upsert can't express (joins,
+// aggregates, custom logic) — write a Postgres function, `grant execute` to
+// `anon`/`authenticated`, and call it by name. No cfni_exec needed for this
+// either, since PostgREST always supports calling a named function you own.
+const total = await supabaseRpc("total_yield", { bond_ids: [1, 2, 3] });
+```
+
+Each has a `*AsUser` counterpart (`supabaseSelectAsUser`,
+`supabaseInsertAsUser`, `supabaseUpsertAsUser`, `supabaseUpdateAsUser`,
+`supabaseDeleteAsUser`, `supabaseRpcAsUser`) that authenticates as the
+signed-in user instead of anon — same token resolution as `withUserDb`
+(`db.getAccessToken`, or the signed-in Firebase user's ID token), so RLS
+applies the same way.
+
+`supabaseSelect`/`supabaseSelectAsUser` accept:
+
+- `columns` — PostgREST column-list syntax. Defaults to `'*'`. Supports an
+  embedded resource for a foreign-key join in one round-trip, e.g.
+  `'*, author(name)'`.
+- `where` — filters, ANDed together. A bare value (`{ id: 5 }`) is shorthand
+  for `eq`; use `{ column: [operator, value] }` for any other operator —
+  `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `likeAllOf`, `likeAnyOf`, `ilike`,
+  `ilikeAllOf`, `ilikeAnyOf`, `regexMatch`, `regexIMatch`, `is`,
+  `isDistinct`, `in`, `contains`, `containedBy`, `overlaps`, `rangeGt`,
+  `rangeGte`, `rangeLt`, `rangeLte`, or `rangeAdjacent` — or
+  `{ column: ['not', operator, value] }` to negate any of them. This is the
+  complete operator set `@supabase/supabase-js`'s `.from()` builder exposes
+  (it *is* a `postgrest-js` builder — there's no separate, larger "Supabase
+  client" query surface on top of it).
+- `match` — shorthand for several `eq` filters at once (`{ status: 'active',
+  archived: false }`). ANDed with `where`.
+- `or` — a raw PostgREST `or()` filter string (e.g.
+  `'age.gt.18,status.eq.active'`) for filters spanning multiple columns in
+  one clause; ANDed with `where`/`match`.
+- `textSearch` — `{ column, query, type?, config? }` for full-text search via
+  PostgREST's `@@` operators.
+- `orderBy` — one `{ column, ascending?, nullsFirst? }`, or an array for
+  multiple `order by` clauses.
+- `limit` / `range` — row limit, or a `[from, to]` PostgREST pagination range.
+- `single` / `maybeSingle` — resolve to one row (erroring if there isn't
+  exactly one), or one row or `null` (erroring if there's more than one).
+- `count` — also return the total matching row count (`'exact'`, `'planned'`,
+  or `'estimated'`).
+
+`supabaseUpdate`/`supabaseDelete` (and their `*AsUser` forms) accept `where`/
+`match`/`or` the same way, and require at least one of them — an unfiltered
+update/delete would otherwise touch every row.
+
+This mode trades capability for not needing `cfni_exec`: everything the
+Supabase JS client itself can express against a single table (including an
+embedded-resource join) works; multi-table joins beyond that, aggregates,
+window functions, and raw SQL of any kind do not — those need `cfni_exec`, or
+a Postgres function called via `supabaseRpc`.
 
 Two query wrappers, both from `cloudflare-next-intl/db`. Choose by who is
 allowed to see the rows:
@@ -588,6 +682,10 @@ npx cfni-db-codegen --check
 | `--out-file=` | `CFNI_DB_OUT_FILE` | `schema.ts` |
 | `--db-url=` | `CODEGEN_DATABASE_URL` | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 | `--drizzle-config=` | `CFNI_DB_DRIZZLE_CONFIG` | none |
+| `--rpc-dir=` | `CFNI_DB_RPC_DIR` | sibling of `--ddl-dir`, e.g. `supabase/rpc` |
+| `--tests-dir=` | `CFNI_DB_TESTS_DIR` | sibling of `--ddl-dir`, e.g. `supabase/tests` |
+| `--force` | `CFNI_DB_FORCE_EXEC=true` | off |
+| `--skip-exec` | `CFNI_DB_SKIP_EXEC=true` | off |
 | `--check` | — | off |
 
 `--out-dir` may be repeated, or given a comma-separated list, to generate the
@@ -598,6 +696,42 @@ them and fails naming the first one that is stale.
 
 ```bash
 npx cfni-db-codegen --out-dir=src/shared/db/generated --out-dir=../other-app/src/db/generated
+```
+
+##### Keeping `cfni_exec.sql` in sync (`--rpc-dir`/`--tests-dir`/`--force`/`--skip-exec`)
+
+After a successful (non-`--check`) run, `cfni-db-codegen` also copies
+`supabase/cfni_exec.sql` and its pgTAP test file (see
+[Testing `cfni_exec.sql` itself](#testing-cfni_execsql-itself) below) into
+your project — `--rpc-dir`/`--tests-dir` (defaulting to sibling folders of
+`--ddl-dir`, so `rpc`/`tests` next to `data-base`). This keeps a project that
+enables Supabase mode's raw-SQL path always holding the current version of the
+function, without a manual copy-paste step.
+
+This step is gated on `db.supabase.rawSql` (see
+[Supabase mode without `cfni_exec`](#supabase-mode-without-cfni_exec)):
+codegen reads your `next.config.*`'s `@intl-config` alias, opens the intl
+config file it points at, and looks for a literal `rawSql: true`/`rawSql:
+false`. If it's explicitly `false`, the copy is skipped entirely — no
+`supabase/rpc`/`supabase/tests` folders are created. If it can't be
+determined (no `next.config.*` found, no alias, or `rawSql` isn't a plain
+`true`/`false` literal in the source), a warning is printed and codegen
+assumes `true`, matching `withPublicDb`/`withUserDb`'s own default.
+
+An existing target file that already matches is left untouched; one that
+exists with **different** content (a customization, or a stale version) is
+skipped with a warning rather than silently overwritten — pass `--force` (or
+set `CFNI_DB_FORCE_EXEC=true`) to overwrite it anyway. Pass `--skip-exec` (or
+set `CFNI_DB_SKIP_EXEC=true`) to turn this whole step off, independent of
+`rawSql`.
+
+To run only this step — no `drizzle-kit pull`, no live Postgres needed — use
+the standalone `cfni-db-install-exec` binary instead, which accepts the same
+`--rpc-dir`/`--tests-dir`/`--force` flags:
+
+```bash
+npx cfni-db-install-exec
+npx cfni-db-install-exec --force
 ```
 
 #### Testing code that calls `withPublicDb`/`withUserDb`
@@ -622,6 +756,35 @@ inspectable via `db.calls[i].chain.argsOf('where')` — so a test can assert not
 just "select was called" but "the second select's `.where(...)` argument was
 X". Handles `db.$with(name).as(builder)` / `db.with(...).select(...)`
 CTE-style queries the same way the real Drizzle client does.
+
+#### Testing `cfni_exec.sql` itself
+
+Because `cfni_exec.sql` runs real SQL — statement classification (SELECT vs.
+DML, writable CTEs), literal-encoding of parameters, and RLS behavior — it's
+tested two ways in this package's own repo, and both are shipped so you can
+reuse them against your own database rather than trusting the function
+untested:
+
+- `supabase/tests/cfni_exec.sql` — a [pgTAP](https://pgtap.org/) suite,
+  runnable with `supabase test db` (or `pg_prove`) once both this file and
+  `cfni_exec.sql` are installed in a database. It checks the SQL function
+  directly: every statement shape `cfni_exec` classifies (plain `SELECT`,
+  `INSERT`/`UPDATE`/`DELETE` with and without `RETURNING`, writable CTEs,
+  `ON CONFLICT DO UPDATE`), value fidelity (arrays/booleans/`numeric`/`NULL`
+  round-tripping through pg's own text form, not JSON), and that
+  `SECURITY INVOKER` really does make RLS apply per-role (`anon` vs.
+  `authenticated` see different rows under the same policy). `cfni-db-codegen`
+  and `cfni-db-install-exec` copy this file into your project the same way
+  they copy `cfni_exec.sql` itself, so it's there to run against your own
+  schema whenever you want the same confidence.
+- `src/db/cfni_exec.integration.test.ts` (in this package's source, not
+  something copied into your project) — a Vitest suite that drives the exact
+  same scenarios through the real TypeScript transport path:
+  `inlineParams` → `cfni_exec` → `parseComposite`, over an actual Postgres
+  connection. It's skipped automatically unless `CFNI_TEST_DATABASE_URL` is
+  set (e.g. to a throwaway `docker run -d -e POSTGRES_PASSWORD=postgres -p
+  55432:5432 postgres:15`), so it never runs — and never needs a database —
+  during a normal `npm test`.
 
 ## License
 

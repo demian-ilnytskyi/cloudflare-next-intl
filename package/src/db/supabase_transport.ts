@@ -1,5 +1,7 @@
 import type { SupabaseDbConfig } from '../types/types';
 import resolveSupabaseEndpoint from './supabase_config';
+import inlineParams from './inline_params';
+import parseComposite from './parse_composite';
 
 const DEFAULT_EXEC_FUNCTION = 'cfni_exec';
 
@@ -12,6 +14,33 @@ interface SupabaseRpcClient {
     rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: SupabaseRpcError | null }>;
 }
 
+interface ExecResult {
+    rows: unknown[];
+    rowCount: number | null;
+}
+
+/**
+ * `cfni_exec` returns each row as a Postgres composite-literal string (see
+ * {@link parseComposite}), so the JSON-decoded `data.rows` array here is a
+ * `string[]`, not already the `(string | null)[][]` `pg-proxy` expects —
+ * that positional-array shape is what this reconstructs.
+ */
+function parseExecResult(data: unknown): ExecResult {
+    if (Array.isArray(data)) return { rows: data.map(parseRow), rowCount: null };
+    if (data && typeof data === 'object' && 'rows' in data) {
+        const { rows, rowCount } = data as { rows: unknown; rowCount?: unknown };
+        return {
+            rows: Array.isArray(rows) ? rows.map(parseRow) : [],
+            rowCount: typeof rowCount === 'number' ? rowCount : null,
+        };
+    }
+    return { rows: [], rowCount: null };
+}
+
+function parseRow(row: unknown): unknown {
+    return typeof row === 'string' ? parseComposite(row) : row;
+}
+
 /**
  * The executor shape `drizzle-orm/pg-proxy` calls with each generated
  * statement. Declared structurally so this file never imports `drizzle-orm`.
@@ -20,7 +49,7 @@ export type SupabaseRemoteCallback = (
     sql: string,
     params: unknown[],
     method: 'all' | 'execute',
-) => Promise<{ rows: unknown[] }>;
+) => Promise<{ rows: unknown[]; rowCount?: number | null }>;
 
 /**
  * Builds the transport Drizzle uses in Supabase mode: every generated
@@ -36,6 +65,13 @@ export type SupabaseRemoteCallback = (
  *
  * Rows come back as positional arrays because `pg-proxy` maps result columns
  * by index; `cfni_exec` is what guarantees that shape.
+ *
+ * Parameters are inlined into the statement as Postgres literals (see
+ * {@link inlineParams}) before it is sent, rather than passed through to
+ * `cfni_exec` for binding — `EXECUTE ... USING` can only bind a single
+ * uniformly-typed value, which breaks for anything beyond one string param.
+ * Inlining keeps every value's real type inferable by Postgres, the same way
+ * a direct `pg` connection would send it.
  *
  * @param supabase The `db.supabase` config block.
  * @param bearerToken Token resolved as the caller's identity — the anon key,
@@ -60,9 +96,10 @@ export default function createSupabaseTransport(
 
     return async (sql, params) => {
         const client = await getClient();
-        const { data, error } = await client.rpc(execFunction, { statement: sql, params });
+        const statement = inlineParams(sql, params);
+        const { data, error } = await client.rpc(execFunction, { statement });
         if (error) throw new Error(describeFailure(error, execFunction));
-        return { rows: Array.isArray(data) ? data : [] };
+        return parseExecResult(data);
     };
 }
 
@@ -71,6 +108,16 @@ function describeFailure(error: SupabaseRpcError, execFunction: string): string 
     // first-run failure, so point at the install step instead of the raw code.
     if (error.code === 'PGRST202') {
         return `db: Supabase rejected the query — ${error.message}. Install the ${execFunction} function from supabase/cfni_exec.sql in your database.`;
+    }
+    // A 401 here almost always means the bearer token wasn't accepted as a
+    // valid JWT by PostgREST — the most common cause is a Firebase ID token
+    // reaching a project without Supabase third-party (Firebase) auth set up.
+    if (error.code === 'PGRST301' || error.code === '42501') {
+        return (
+            `db: Supabase rejected the query — ${error.message}. If you are using a Firebase ` +
+            'ID token as the bearer token, make sure Supabase third-party (Firebase) auth is ' +
+            'configured for this project, or provide `db.getAccessToken` to resolve a Supabase-issued JWT.'
+        );
     }
     return `db: Supabase rejected the query — ${error.message}.`;
 }

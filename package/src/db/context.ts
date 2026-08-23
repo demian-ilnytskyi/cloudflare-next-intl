@@ -38,13 +38,36 @@ async function resolveUserId(uid?: string): Promise<string> {
     );
 }
 
+function requireRawSql(supabase: SupabaseDbConfig): void {
+    if (supabase.rawSql === false) {
+        throw new Error(
+            'db: withPublicDb/withUserDb need `cfni_exec` to run SQL in Supabase mode, but ' +
+            '`db.supabase.rawSql` is set to `false`. Use `supabaseSelect`/`supabaseInsert`/' +
+            '`supabaseUpdate`/`supabaseDelete` instead, which call the Supabase REST API directly.',
+        );
+    }
+}
+
 /**
  * Builds a Drizzle handle backed by PostgREST. `bearerToken` decides the role
  * Postgres sees: the anon key for public access, a user JWT for `withUserDb`.
  */
 async function supabaseDb(supabase: SupabaseDbConfig, bearerToken: string): Promise<DrizzleDb> {
+    requireRawSql(supabase);
     const { drizzle } = await import('drizzle-orm/pg-proxy');
-    return drizzle(createSupabaseTransport(supabase, bearerToken)) as unknown as DrizzleDb;
+    const db = drizzle(createSupabaseTransport(supabase, bearerToken)) as unknown as DrizzleDb;
+    return Object.assign(db, {
+        // pg-proxy has no session to open a real transaction over — every
+        // statement is its own PostgREST round-trip — so failing loudly here
+        // beats silently running the callback non-atomically.
+        transaction() {
+            throw new Error(
+                'db: transactions are not available in Supabase mode. Each statement runs as its ' +
+                'own PostgREST round-trip with no shared session, so `.transaction()` cannot provide ' +
+                'atomicity. Use connection-string mode (`db.connectionString`) if you need it.',
+            );
+        },
+    });
 }
 
 /**

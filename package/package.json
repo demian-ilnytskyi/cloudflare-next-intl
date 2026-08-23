@@ -6,7 +6,8 @@
 	"types": "dist/index.d.ts",
 	"sideEffects": false,
 	"bin": {
-		"cfni-db-codegen": "bin/db_codegen.mjs"
+		"cfni-db-codegen": "bin/db_codegen.mjs",
+		"cfni-db-install-exec": "bin/db_install_exec.mjs"
 	},
 	"files": [
 		"dist",

@@ -843,6 +843,19 @@ export interface SupabaseDbConfig {
      * `'cfni_exec'` — the function shipped in `supabase/cfni_exec.sql`.
      */
     execFunction?: string;
+    /**
+     * Whether `withPublicDb`/`withUserDb` may run arbitrary SQL through the
+     * `cfni_exec` Postgres function. Defaults to `true`.
+     *
+     * Set `false` if you don't want to (or can't) install `cfni_exec` in
+     * your database — `withPublicDb`/`withUserDb` then throw immediately in
+     * Supabase mode instead of failing later against PostgREST. Use
+     * `supabaseSelect`/`supabaseInsert`/`supabaseUpdate`/`supabaseDelete`
+     * instead, which call `@supabase/supabase-js`'s `.from(table)` API
+     * directly — no Drizzle, no raw SQL, only what PostgREST's REST API
+     * itself supports.
+     */
+    rawSql?: boolean;
 }
 export interface DbRoutingConfig {
     /**

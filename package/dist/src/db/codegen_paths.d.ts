@@ -14,6 +14,12 @@ export interface CodegenPaths {
     check: boolean;
     timeoutMs: number;
     drizzleConfig: string | null;
+    rpcDir: string;
+    rpcFile: string;
+    testsDir: string;
+    testsFile: string;
+    force: boolean;
+    skipExec: boolean;
 }
 /** Resolves every codegen path from flags, then env, then the documented defaults. */
 export default function resolveCodegenPaths(argv: readonly string[], env: Record<string, string | undefined>, cwd: string): CodegenPaths;

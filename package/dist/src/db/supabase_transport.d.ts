@@ -5,6 +5,7 @@ import type { SupabaseDbConfig } from '../types/types';
  */
 export type SupabaseRemoteCallback = (sql: string, params: unknown[], method: 'all' | 'execute') => Promise<{
     rows: unknown[];
+    rowCount?: number | null;
 }>;
 /**
  * Builds the transport Drizzle uses in Supabase mode: every generated
@@ -20,6 +21,13 @@ export type SupabaseRemoteCallback = (sql: string, params: unknown[], method: 'a
  *
  * Rows come back as positional arrays because `pg-proxy` maps result columns
  * by index; `cfni_exec` is what guarantees that shape.
+ *
+ * Parameters are inlined into the statement as Postgres literals (see
+ * {@link inlineParams}) before it is sent, rather than passed through to
+ * `cfni_exec` for binding — `EXECUTE ... USING` can only bind a single
+ * uniformly-typed value, which breaks for anything beyond one string param.
+ * Inlining keeps every value's real type inferable by Postgres, the same way
+ * a direct `pg` connection would send it.
  *
  * @param supabase The `db.supabase` config block.
  * @param bearerToken Token resolved as the caller's identity — the anon key,

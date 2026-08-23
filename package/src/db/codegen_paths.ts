@@ -1,4 +1,4 @@
-import { isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 export interface CodegenTarget {
     outDir: string;
@@ -17,6 +17,12 @@ export interface CodegenPaths {
     check: boolean;
     timeoutMs: number;
     drizzleConfig: string | null;
+    rpcDir: string;
+    rpcFile: string;
+    testsDir: string;
+    testsFile: string;
+    force: boolean;
+    skipExec: boolean;
 }
 
 const DEFAULT_DDL_DIR = 'supabase/data-base';
@@ -24,6 +30,8 @@ const DEFAULT_OUT_DIR = 'src/shared/db/generated';
 const DEFAULT_OUT_FILE = 'schema.ts';
 const DEFAULT_DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_RPC_FILE_NAME = 'cfni_exec.sql';
+const DEFAULT_TESTS_FILE_NAME = 'cfni_exec.sql';
 
 function flags(argv: readonly string[], name: string): string[] {
     const prefix = `--${name}=`;
@@ -59,6 +67,11 @@ export default function resolveCodegenPaths(
     const outDir = outDirs[0]!;
     const outFileName = flag(argv, 'out-file') ?? env.CFNI_DB_OUT_FILE ?? DEFAULT_OUT_FILE;
     const drizzleConfig = flag(argv, 'drizzle-config') ?? env.CFNI_DB_DRIZZLE_CONFIG ?? null;
+    // Sibling of ddlDir (default `supabase/data-base` → `supabase`), matching
+    // where `cfni_exec.sql` ships in this package's own `supabase/` folder.
+    const supabaseRoot = dirname(ddlDir);
+    const rpcDir = abs(cwd, flag(argv, 'rpc-dir') ?? env.CFNI_DB_RPC_DIR ?? join(supabaseRoot, 'rpc'));
+    const testsDir = abs(cwd, flag(argv, 'tests-dir') ?? env.CFNI_DB_TESTS_DIR ?? join(supabaseRoot, 'tests'));
     return {
         ddlDir,
         targets: outDirs.map((dir) => ({
@@ -74,5 +87,11 @@ export default function resolveCodegenPaths(
         check: argv.includes('--check'),
         timeoutMs: Number(env.CODEGEN_CONNECT_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS,
         drizzleConfig: drizzleConfig === null ? null : abs(cwd, drizzleConfig),
+        rpcDir,
+        rpcFile: join(rpcDir, DEFAULT_RPC_FILE_NAME),
+        testsDir,
+        testsFile: join(testsDir, DEFAULT_TESTS_FILE_NAME),
+        force: argv.includes('--force') || env.CFNI_DB_FORCE_EXEC === 'true',
+        skipExec: argv.includes('--skip-exec') || env.CFNI_DB_SKIP_EXEC === 'true',
     };
 }

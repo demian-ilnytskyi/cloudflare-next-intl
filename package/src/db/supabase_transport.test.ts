@@ -18,7 +18,7 @@ beforeEach(() => {
 
 describe('createSupabaseTransport', () => {
     it('builds a client for the resolved project and forwards the bearer token via accessToken', async () => {
-        rpc.mockResolvedValue({ data: [[1, 'a']], error: null });
+        rpc.mockResolvedValue({ data: { rows: ['(1,a)'], rowCount: 1 }, error: null });
         const transport = createSupabaseTransport(endpoint, 'user-jwt');
         await transport('select $1', ['x'], 'all');
 
@@ -28,26 +28,50 @@ describe('createSupabaseTransport', () => {
         await expect(options.accessToken()).resolves.toBe('user-jwt');
     });
 
-    it('calls the configured exec function with statement and params', async () => {
-        rpc.mockResolvedValue({ data: [[1, 'a']], error: null });
+    it('inlines params into the statement before calling the configured exec function', async () => {
+        rpc.mockResolvedValue({ data: { rows: ['(1,a)'], rowCount: 1 }, error: null });
         const transport = createSupabaseTransport({ ...endpoint, execFunction: 'run_sql' }, 'anon-key');
-        const result = await transport('select $1', ['x'], 'all');
+        const result = await transport('select * from t where id = $1', [1], 'all');
 
-        expect(result).toEqual({ rows: [[1, 'a']] });
-        expect(rpc).toHaveBeenCalledWith('run_sql', { statement: 'select $1', params: ['x'] });
+        expect(result).toEqual({ rows: [['1', 'a']], rowCount: 1 });
+        expect(rpc).toHaveBeenCalledWith('run_sql', { statement: 'select * from t where id = 1' });
     });
 
     it('defaults the exec function to cfni_exec', async () => {
-        rpc.mockResolvedValue({ data: [], error: null });
+        rpc.mockResolvedValue({ data: { rows: [], rowCount: 0 }, error: null });
         const transport = createSupabaseTransport(endpoint, 'anon-key');
         await transport('select 1', [], 'all');
-        expect(rpc).toHaveBeenCalledWith('cfni_exec', { statement: 'select 1', params: [] });
+        expect(rpc).toHaveBeenCalledWith('cfni_exec', { statement: 'select 1' });
     });
 
-    it('returns an empty row set when the function yields null', async () => {
+    it('returns an empty row set when the function yields no rows key', async () => {
         rpc.mockResolvedValue({ data: null, error: null });
         const transport = createSupabaseTransport(endpoint, 'anon-key');
-        await expect(transport('update t set a = 1', [], 'execute')).resolves.toEqual({ rows: [] });
+        await expect(transport('update t set a = 1', [], 'execute')).resolves.toEqual({ rows: [], rowCount: null });
+    });
+
+    it('supports the legacy bare-array response shape', async () => {
+        rpc.mockResolvedValue({ data: ['(1,a)'], error: null });
+        const transport = createSupabaseTransport(endpoint, 'anon-key');
+        await expect(transport('select 1', [], 'all')).resolves.toEqual({ rows: [['1', 'a']], rowCount: null });
+    });
+
+    it('returns an empty row set when the object shape has a non-array rows value', async () => {
+        rpc.mockResolvedValue({ data: { rows: null, rowCount: 0 }, error: null });
+        const transport = createSupabaseTransport(endpoint, 'anon-key');
+        await expect(transport('select 1', [], 'all')).resolves.toEqual({ rows: [], rowCount: 0 });
+    });
+
+    it('passes a non-string row through unchanged', async () => {
+        rpc.mockResolvedValue({ data: { rows: [['1', 'a']], rowCount: 1 }, error: null });
+        const transport = createSupabaseTransport(endpoint, 'anon-key');
+        await expect(transport('select 1', [], 'all')).resolves.toEqual({ rows: [['1', 'a']], rowCount: 1 });
+    });
+
+    it('treats a non-number rowCount as null', async () => {
+        rpc.mockResolvedValue({ data: { rows: [], rowCount: undefined }, error: null });
+        const transport = createSupabaseTransport(endpoint, 'anon-key');
+        await expect(transport('select 1', [], 'all')).resolves.toEqual({ rows: [], rowCount: null });
     });
 
     it('surfaces the postgrest error message', async () => {
@@ -62,8 +86,14 @@ describe('createSupabaseTransport', () => {
         await expect(transport('select 1', [], 'all')).rejects.toThrow(/cfni_exec\.sql/);
     });
 
+    it('names Firebase auth setup when postgrest reports an auth failure', async () => {
+        rpc.mockResolvedValue({ data: null, error: { message: 'JWSError', code: 'PGRST301' } });
+        const transport = createSupabaseTransport(endpoint, 'anon-key');
+        await expect(transport('select 1', [], 'all')).rejects.toThrow(/Firebase/);
+    });
+
     it('reuses one client across multiple calls with the same bearer token', async () => {
-        rpc.mockResolvedValue({ data: [], error: null });
+        rpc.mockResolvedValue({ data: { rows: [], rowCount: 0 }, error: null });
         const transport = createSupabaseTransport(endpoint, 'anon-key');
         await transport('select 1', [], 'all');
         await transport('select 2', [], 'all');
