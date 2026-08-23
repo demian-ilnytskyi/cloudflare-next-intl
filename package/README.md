@@ -74,6 +74,48 @@ export default nextConfig;
 If this alias is missing, any import from `cloudflare-next-intl` throws an
 error naming the missing `@intl-config` alias at startup.
 
+### 2b. Deploying to Cloudflare Workers: alias it in `wrangler.toml` too
+
+`wrangler deploy`/`wrangler dev` bundle the Worker with their own esbuild
+pass, separate from Next's webpack/Turbopack build — the `next.config`
+alias above doesn't apply to it. Without this, `wrangler deploy` fails with
+`Could not resolve "@intl-config"`. Path is relative to `wrangler.toml`.
+
+```toml
+# wrangler.toml
+[alias]
+"@intl-config" = "./src/i18n/intl_config.ts"
+```
+
+Put `[alias]` after all top-level scalar keys (`name`, `main`,
+`compatibility_date`, `compatibility_flags`, etc.) and before any other
+`[table]`/`[[array_of_tables]]` header — TOML assigns every key that follows
+a table header to that table until the next header, so an `[alias]` placed
+earlier silently swallows the keys meant for the top level.
+
+**In a monorepo, give every Worker its own alias target — never point two
+Workers' `[alias]` at the same shared config file.** Declaring `[alias]`
+makes Wrangler eagerly resolve and bundle whatever it points to, even if
+nothing in that Worker's own code imports `@intl-config`. If a second,
+smaller Worker (e.g. a cron/background worker) points its alias at the main
+app's config file, it inherits that file's whole import graph — every
+package the main app's config touches (Firebase, a DB client, `zod`, etc.)
+must then be a dependency of the small Worker too, or the build fails with
+`Could not resolve "<package>"` for packages that Worker never actually
+uses. Give it its own minimal file instead:
+
+```typescript
+// backend/src/i18n/intl_config.ts — deliberately minimal, not the main
+// app's config: aliasing it there would drag in every dependency that
+// config touches, even ones this Worker never imports.
+import { setIntlConfig } from "cloudflare-next-intl";
+
+export default setIntlConfig({
+    locales: ["en"],
+    defaultLocale: "en",
+});
+```
+
 ### 3. Wire up the middleware
 
 ```typescript

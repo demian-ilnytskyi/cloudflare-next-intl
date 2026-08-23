@@ -10,6 +10,13 @@ compatibility_flags = [
 	"nodejs_compat"
 ]
 
+# wrangler bundles the Worker with its own esbuild pass, separate from
+# Next's webpack/Turbopack build, so the @intl-config alias in next.config.ts
+# needs to be repeated here too — see package/README.md "2b. Deploying to
+# Cloudflare Workers". Must stay above every other [table]/[[array]] header.
+[alias]
+"@intl-config" = "./src/l18n/intl_config.ts"
+
 [[r2_buckets]]
 binding = "NEXT_INC_CACHE_R2_BUCKET"
 bucket_name = "my-local-cache-bucket"
