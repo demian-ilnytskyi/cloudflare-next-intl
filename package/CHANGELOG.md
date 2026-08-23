@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.2] - 2026-08-23
+
+### Fixed
+
+- The package root barrel (`import ... from "cloudflare-next-intl"`) no longer re-exports the `db` module. `db` connects to `pg`/`drizzle-orm`/`@supabase/supabase-js`, none of which are browser-safe; re-exporting it at root meant any client component importing anything from the package root (e.g. `import { Link } from "cloudflare-next-intl"`) pulled `pg`'s Node-only internals (`fs`/`net`/`dns`/`tls`) into its bundle graph, breaking production builds. `db`/`dbHelpers`/`dbTesting` remain reachable via their dedicated subpaths, matching how `firebase_auth` was already handled. `DbRoutingConfig`/`SupabaseDbConfig` types remain available at root (type-only, no bundle cost).
+
 ## [0.8.1] - 2026-08-23
 
 ### Added
