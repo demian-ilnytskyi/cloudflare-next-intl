@@ -3,11 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.8.11] - 2026-08-23
+## [0.8.12] - 2026-08-23
 
 ### Fixed
 
 - The `cfni-db-codegen` ephemeral-Postgres fallback (added in 0.8.10) now applies DDL in each directory's `order.txt` order — mirroring `supabase/scripts/db_start.sh` — instead of a flat alphabetical walk, so a function that depends on another defined later in the alphabet no longer fails to create. It also pre-creates the standard Supabase roles (`anon`, `authenticated`, `service_role`, etc.) that a plain `embedded-postgres` cluster doesn't have, and now tears down (and removes) a partially-started ephemeral instance if DDL loading fails partway through, instead of leaking a running Postgres process and its data directory.
+- `cfni-db-codegen` no longer requires a `drizzle.config.*` in the consuming project: when `--drizzle-config`/`CFNI_DB_DRIZZLE_CONFIG` isn't set, it now generates one on the fly (pointing at the effective DB URL) instead of failing with `drizzle.config.json file does not exist`. It also now runs `drizzle-kit` from this package's own directory rather than the consumer's — `drizzle-kit` itself requires `drizzle-orm` at runtime, and npm doesn't reliably hoist this package's `drizzle-orm` dependency into a consumer's top-level `node_modules`, which previously surfaced as `Error please install required packages: 'drizzle-orm'` in projects that don't also depend on `drizzle-orm` directly.
 
 ## [0.8.10] - 2026-08-23
 

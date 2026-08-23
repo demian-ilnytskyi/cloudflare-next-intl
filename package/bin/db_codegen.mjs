@@ -40,6 +40,7 @@ import { runInstallExecStep } from './install_exec_step.mjs';
 import { startEphemeralPostgres } from './ephemeral_pg.mjs';
 import { orderedSqlFiles } from './ddl_order.mjs';
 
+const PACKAGE_ROOT = new URL('..', import.meta.url).pathname;
 const paths = resolveCodegenPaths(process.argv.slice(2), process.env, process.cwd());
 
 async function isReachable(url) {
@@ -97,6 +98,12 @@ if (paths.check) {
 
 let effectiveDbUrl = paths.dbUrl;
 let ephemeral = null;
+// drizzle-kit's own default config resolution looks for `drizzle.config.json`
+// in the cwd and errors out if it's missing — a project has no reason to
+// keep one around just for this script when --db-url/CODEGEN_DATABASE_URL
+// (or the ephemeral fallback) already says everything drizzle-kit needs. So
+// when the caller didn't pass --drizzle-config, generate one on the fly.
+let generatedConfigPath = null;
 try {
     if (!(await isReachable(paths.dbUrl))) {
         if (paths.dbUrlExplicit) failUnreachable(paths.dbUrl);
@@ -105,13 +112,34 @@ try {
         effectiveDbUrl = ephemeral.url;
     }
 
+    let configPath = paths.drizzleConfig;
+    if (!configPath) {
+        generatedConfigPath = join(paths.pullDir, '..', '.drizzle-config.json');
+        mkdirSync(join(paths.pullDir, '..'), { recursive: true });
+        writeFileSync(generatedConfigPath, JSON.stringify({
+            out: paths.pullDir,
+            dialect: 'postgresql',
+            dbCredentials: { url: effectiveDbUrl },
+        }, null, 2));
+        configPath = generatedConfigPath;
+    }
+
     rmSync(paths.pullDir, { recursive: true, force: true });
-    execFileSync('npx', ['drizzle-kit', 'pull', ...(paths.drizzleConfig ? [`--config=${paths.drizzleConfig}`] : [])], {
+    // drizzle-kit itself requires `drizzle-orm` at runtime. This package
+    // depends on drizzle-orm, but npm doesn't guarantee that dependency gets
+    // hoisted to the consuming project's own node_modules (it commonly stays
+    // nested under node_modules/cloudflare-next-intl/node_modules) — so
+    // running from *this* package's own directory, where it's guaranteed
+    // resolvable, avoids "please install required packages: drizzle-orm"
+    // when a consumer doesn't happen to have it hoisted.
+    execFileSync('npx', ['drizzle-kit', 'pull', `--config=${configPath}`], {
         stdio: 'inherit',
+        cwd: PACKAGE_ROOT,
         env: { ...process.env, CODEGEN_DATABASE_URL: effectiveDbUrl },
     });
 } finally {
     if (ephemeral) await ephemeral.stop();
+    if (generatedConfigPath) rmSync(generatedConfigPath, { force: true });
 }
 
 const pulled = join(paths.pullDir, "schema.ts");
