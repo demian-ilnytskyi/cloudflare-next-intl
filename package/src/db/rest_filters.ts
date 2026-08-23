@@ -69,7 +69,10 @@ export default function applyWhere<T extends FilterTarget>(builder: T, node: Whe
         builder.in(node.column, node.values.map((value) => resolveValue(value, params)));
         return builder;
     }
-    builder[node.operator](node.column, resolveValue(node.value, params) as never);
+    if (node.kind === 'compare') {
+        builder[node.operator](node.column, resolveValue(node.value, params) as never);
+        return builder;
+    }
     return builder;
 }
 
@@ -95,7 +98,10 @@ function serialize(node: WhereNode, params: unknown[]): string {
         const values = node.values.map((value) => encodeFilterValue(resolveValue(value, params))).join(',');
         return `${node.column}.in.(${values})`;
     }
-    return `${node.column}.${NEGATABLE[node.operator]}.${encodeFilterValue(resolveValue(node.value, params))}`;
+    if (node.kind === 'compare') {
+        return `${node.column}.${NEGATABLE[node.operator]}.${encodeFilterValue(resolveValue(node.value, params))}`;
+    }
+    throw new UnsupportedSqlError('unsupported where node');
 }
 
 function encodeFilterValue(value: unknown): string {

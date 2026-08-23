@@ -32,7 +32,7 @@ export default async function executeRest(
     let builder: RestQueryBuilder;
 
     if (statement.kind === 'select') {
-        builder = table.select(columnList(projection));
+        builder = table.select(columnList(statement.projection));
         if (statement.where) applyWhere(builder, statement.where, params);
         for (const term of statement.orderBy) {
             builder = builder.order(term.column, { ascending: term.ascending, nullsFirst: term.nullsFirst });
