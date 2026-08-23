@@ -44,7 +44,7 @@ describe('parseStatement — select', () => {
         const rejected = [
             'select * from "a" inner join "b" on "a"."id" = "b"."a_id"',
             'select * from "a", "b"',
-            'select count(*) from "a"',
+            'select max("a") from "a"',
             'select * from "a" group by "b"',
             'select distinct "a" from "b"',
             'select * from "a" union select * from "b"',
@@ -173,6 +173,24 @@ describe('parseStatement — mutations', () => {
         for (const sql of rejected) {
             expect(() => parseStatement(sql), sql).toThrow(UnsupportedSqlError);
         }
+    });
+});
+
+describe('parseStatement — count(*)', () => {
+    it('parses a lone count(*) projection, aliased or not', () => {
+        expect(parseStatement('select count(*) from "t" where "a" = $1')).toMatchObject({
+            projection: 'count',
+            table: 't',
+        });
+        expect(parseStatement('select count(*) as "n" from "t"')).toMatchObject({ projection: 'count' });
+    });
+
+    it('still rejects count(*) mixed with columns and other aggregates', () => {
+        expect(() => parseStatement('select count(*), "a" from "t"')).toThrow(UnsupportedSqlError);
+        expect(() => parseStatement('select sum("a") from "t"')).toThrow(UnsupportedSqlError);
+        expect(() => parseStatement('select count("a") from "t"')).toThrow(UnsupportedSqlError);
+        expect(() => parseStatement('delete from "t" returning count(*)')).toThrow(UnsupportedSqlError);
+        expect(() => parseStatement('delete from "t" returning count(*) from')).toThrow(UnsupportedSqlError);
     });
 });
 

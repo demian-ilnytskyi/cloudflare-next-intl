@@ -27,9 +27,18 @@ export default async function executeRest(
     statement: ParsedStatement,
     params: unknown[],
 ): Promise<{ rows: unknown[][]; rowCount: number | null }> {
-    const projection = statement.kind === 'select' ? statement.projection : statement.returning;
     const table = client.from(statement.table);
     let builder: RestQueryBuilder;
+
+    if (statement.kind === 'select' && statement.projection === 'count') {
+        builder = table.select('', { count: 'exact', head: true });
+        if (statement.where) applyWhere(builder, statement.where, params);
+        const { error, count } = await (builder as unknown as Promise<RestQueryResult<Record<string, unknown>[]>>);
+        if (error) throw new Error(`db: Supabase rejected the query — ${error.message}.`);
+        return { rows: [[count]], rowCount: 1 };
+    }
+
+    const projection = statement.kind === 'select' ? statement.projection : statement.returning;
 
     if (statement.kind === 'select') {
         builder = table.select(columnList(statement.projection));
@@ -75,7 +84,7 @@ export default async function executeRest(
     return { rows, rowCount: rows.length };
 }
 
-function withProjection(builder: RestQueryBuilder, projection: Projection[] | 'all' | undefined): RestQueryBuilder {
+function withProjection(builder: RestQueryBuilder, projection: Projection[] | 'all' | 'count' | undefined): RestQueryBuilder {
     if (!projection) return builder.select('', { count: 'exact', head: true });
     return builder.select(columnList(projection));
 }
@@ -96,12 +105,13 @@ function requirePlainUpsert(set: Record<string, unknown>): void {
     }
 }
 
-function projectionOf(projection: Projection[] | 'all'): Projection[] {
+function projectionOf(projection: Projection[] | 'all' | 'count'): Projection[] {
     if (projection === 'all') throw new UnsupportedSqlError('`*` projection over the REST API');
+    if (projection === 'count') throw new UnsupportedSqlError('`count(*)` in `returning`');
     return projection;
 }
 
-function columnList(projection: Projection[] | 'all'): string {
+function columnList(projection: Projection[] | 'all' | 'count'): string {
     return projectionOf(projection)
         .map(({ column, alias }) => (alias ? `${alias}:${column}` : column))
         .join(',');

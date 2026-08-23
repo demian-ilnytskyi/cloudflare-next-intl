@@ -127,13 +127,13 @@ describe('createSupabaseTransport — REST translation', () => {
         rpc.mockResolvedValue({ data: { rows: [], rowCount: 0 }, error: null });
 
         const run = createSupabaseTransport({ url: 'https://p.supabase.co', anonKey: 'anon' }, 'anon');
-        await run('select count(*) from "t"', [], 'all');
-        expect(rpc).toHaveBeenCalledWith('cfni_exec', { statement: 'select count(*) from "t"' });
+        await run('select sum("a") from "t"', [], 'all');
+        expect(rpc).toHaveBeenCalledWith('cfni_exec', { statement: 'select sum("a") from "t"' });
     });
 
     it('explains the limitation instead of falling back when rawSql is false', async () => {
         const run = createSupabaseTransport({ url: 'https://p.supabase.co', anonKey: 'anon', rawSql: false }, 'anon');
-        await expect(run('select count(*) from "t"', [], 'all')).rejects.toThrow(
+        await expect(run('select sum("a") from "t"', [], 'all')).rejects.toThrow(
             /cannot be expressed through the Supabase REST API[\s\S]*db\.supabase\.rawSql[\s\S]*db\.connectionString/,
         );
         expect(rpc).not.toHaveBeenCalled();

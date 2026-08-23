@@ -19,7 +19,7 @@ export interface OrderBy {
 export interface ParsedSelect {
     kind: 'select';
     table: string;
-    projection: Projection[] | 'all';
+    projection: Projection[] | 'all' | 'count';
     where?: WhereNode;
     orderBy: OrderBy[];
     limit?: SqlValue;
@@ -250,6 +250,7 @@ function parseReturning(tokens: SqlToken[], start: number): { value: Projection[
     if (!isWord(tokens[start], 'returning')) return { value: undefined, next: start };
     if (isPunct(tokens[start + 1], '*')) return { value: 'all', next: start + 2 };
     const projection = parseProjection(tokens, start + 1);
+    if (projection.value === 'count') throw new UnsupportedSqlError('`count(*)` in `returning`');
     return { value: projection.value, next: projection.next };
 }
 
@@ -330,7 +331,13 @@ function readIdentifierList(tokens: SqlToken[], start: number): { names: string[
     return { names, next: index + 1 };
 }
 
-function parseProjection(tokens: SqlToken[], start: number): { value: Projection[] | 'all'; next: number } {
+function parseProjection(tokens: SqlToken[], start: number): { value: Projection[] | 'all' | 'count'; next: number } {
+    if (isWord(tokens[start], 'count') && isPunct(tokens[start + 1], '(') && isPunct(tokens[start + 2], '*') && isPunct(tokens[start + 3], ')')) {
+        let next = start + 4;
+        if (isWord(tokens[next], 'as')) next = readIdentifier(tokens, next + 1, 'projection alias').next;
+        if (!isWord(tokens[next], 'from')) throw new UnsupportedSqlError('`count(*)` combined with other projections');
+        return { value: 'count', next };
+    }
     if (isPunct(tokens[start], '*') && isWord(tokens[start + 1], 'from')) return { value: 'all', next: start + 1 };
 
     const projections: Projection[] = [];

@@ -35,7 +35,7 @@ describe('applyWhere', () => {
                 { kind: 'compare', column: 'b', operator: 'gte', value: { kind: 'literal', value: 3 } },
                 { kind: 'is', column: 'c', negated: false },
                 { kind: 'is', column: 'd', negated: true },
-                { kind: 'in', column: 'e', values: [{ kind: 'literal', value: 1 }, { kind: 'literal', value: 2 }] },
+                { kind: 'in', column: 'e', values: [{ kind: 'literal', value: 1 }, { kind: 'literal', value: 2 }], negated: false },
             ],
         };
         applyWhere(builder, node, ['x']);
@@ -69,7 +69,7 @@ describe('applyWhere', () => {
                         { kind: 'is', column: 'e', negated: true },
                     ],
                 },
-                { kind: 'in', column: 'd', values: [{ kind: 'literal', value: 'x,y' }] },
+                { kind: 'in', column: 'd', values: [{ kind: 'literal', value: 'x,y' }], negated: false },
             ],
         };
         applyWhere(builder, node, []);
@@ -95,5 +95,64 @@ describe('applyWhere', () => {
                 ],
             }, [{}]),
         ).toThrow(UnsupportedSqlError);
+    });
+});
+
+describe('applyWhere — extended operators', () => {
+    it('forwards each extended operator to its builder method', () => {
+        const { calls, builder } = recorder();
+        const operators = [
+            'regexMatch', 'regexIMatch', 'contains', 'containedBy', 'overlaps',
+            'rangeGt', 'rangeGte', 'rangeLt', 'rangeLte', 'rangeAdjacent', 'isDistinct',
+        ] as const;
+        for (const operator of operators) {
+            applyWhere(builder, { kind: 'compare', column: 'a', operator, value: { kind: 'literal', value: 'v' } }, []);
+        }
+        expect(calls).toEqual(operators.map((operator) => `${operator}("a","v")`));
+    });
+
+    it('applies not in and text search', () => {
+        const { calls, builder } = recorder();
+        applyWhere(builder, { kind: 'in', column: 'a', values: [{ kind: 'literal', value: 1 }], negated: true }, []);
+        applyWhere(builder, { kind: 'textSearch', column: 'b', value: { kind: 'literal', value: 'cat' }, type: 'plain', config: 'english' }, []);
+        applyWhere(builder, { kind: 'textSearch', column: 'c', value: { kind: 'literal', value: 'dog' } }, []);
+        expect(calls).toEqual([
+            'not("a","in",[1])',
+            'textSearch("b","cat",{"type":"plain","config":"english"})',
+            'textSearch("c","dog")',
+        ]);
+    });
+
+    it('serialises extended operators inside an or() string', () => {
+        const { calls, builder } = recorder();
+        applyWhere(builder, {
+            kind: 'or',
+            children: [
+                { kind: 'compare', column: 'a', operator: 'contains', value: { kind: 'literal', value: 'x' } },
+                { kind: 'in', column: 'b', values: [{ kind: 'literal', value: 1 }], negated: true },
+                { kind: 'textSearch', column: 'c', value: { kind: 'literal', value: 'cat' }, type: 'plain' },
+                { kind: 'textSearch', column: 'd', value: { kind: 'literal', value: 'dog' }, type: 'phrase', config: 'english' },
+                { kind: 'textSearch', column: 'e', value: { kind: 'literal', value: 'bird' }, type: 'websearch' },
+                { kind: 'textSearch', column: 'f', value: { kind: 'literal', value: 'fish' } },
+            ],
+        }, []);
+        expect(calls).toEqual(['or("a.cs.x,not.b.in.(1),c.plfts.cat,d.phfts(english).dog,e.wfts.bird,f.fts.fish")']);
+    });
+
+    it('handles boolean values in filter serialization', () => {
+        const { calls, builder } = recorder();
+        applyWhere(builder, {
+            kind: 'or',
+            children: [
+                { kind: 'compare', column: 'a', operator: 'eq', value: { kind: 'literal', value: true } },
+            ],
+        }, []);
+        expect(calls).toEqual(['or("a.eq.true")']);
+    });
+
+    it('throws for unknown where node kind in serialize and returns builder in applyWhere', () => {
+        expect(() => applyWhere(recorder().builder, { kind: 'or', children: [{ kind: 'unknown' as never }] }, [])).toThrow(UnsupportedSqlError);
+        const { builder } = recorder();
+        expect(applyWhere(builder, { kind: 'unknown' as never }, [])).toBe(builder);
     });
 });

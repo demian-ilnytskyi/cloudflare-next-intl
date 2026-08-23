@@ -201,4 +201,39 @@ describe('executeRest', () => {
             await executeRest(client, { kind: 'select', table: 't', projection: [{ column: 'id' }], orderBy: [] }, []),
         ).toEqual({ rows: [[null]], rowCount: 1 });
     });
+
+    it('runs a count(*) select as a head request and returns one positional count', async () => {
+        const { client, calls } = stubClient({ data: null, count: 42 });
+        const result = await executeRest(
+            client,
+            { kind: 'select', table: 't', projection: 'count', orderBy: [] },
+            [],
+        );
+        expect(calls[0]!.args).toEqual(['', { count: 'exact', head: true }]);
+        expect(result).toEqual({ rows: [[42]], rowCount: 1 });
+    });
+
+    it('runs a count(*) select with where', async () => {
+        const { client } = stubClient({ data: null, count: 10 });
+        const result = await executeRest(
+            client,
+            { kind: 'select', table: 't', projection: 'count', orderBy: [], where: { kind: 'is', column: 'b', negated: false } },
+            [],
+        );
+        expect(result).toEqual({ rows: [[10]], rowCount: 1 });
+    });
+
+    it('surfaces postgrest error on count(*) select', async () => {
+        const { client } = stubClient({ data: null, error: { message: 'count error' } });
+        await expect(
+            executeRest(client, { kind: 'select', table: 't', projection: 'count', orderBy: [] }, []),
+        ).rejects.toThrow('db: Supabase rejected the query — count error.');
+    });
+
+    it('rejects count in projectionOf for non-select', async () => {
+        const { client } = stubClient({ data: null });
+        await expect(
+            executeRest(client, { kind: 'delete', table: 't', returning: 'count' as never }, []),
+        ).rejects.toThrow(UnsupportedSqlError);
+    });
 });

@@ -31,7 +31,7 @@ describe('tokenizeSql', () => {
     });
 
     it('reads multi-character operators as one token', () => {
-        expect(tokenizeSql('a <> b >= c <= d != e')).toEqual([
+        expect(tokenizeSql('a <> b >= c <= d != e -|- f ~* g @> h <@ i && j >> k << l &> m &< n @@ o')).toEqual([
             { kind: 'word', value: 'a' },
             { kind: 'punct', value: '<>' },
             { kind: 'word', value: 'b' },
@@ -41,6 +41,26 @@ describe('tokenizeSql', () => {
             { kind: 'word', value: 'd' },
             { kind: 'punct', value: '!=' },
             { kind: 'word', value: 'e' },
+            { kind: 'punct', value: '-|-' },
+            { kind: 'word', value: 'f' },
+            { kind: 'punct', value: '~*' },
+            { kind: 'word', value: 'g' },
+            { kind: 'punct', value: '@>' },
+            { kind: 'word', value: 'h' },
+            { kind: 'punct', value: '<@' },
+            { kind: 'word', value: 'i' },
+            { kind: 'punct', value: '&&' },
+            { kind: 'word', value: 'j' },
+            { kind: 'punct', value: '>>' },
+            { kind: 'word', value: 'k' },
+            { kind: 'punct', value: '<<' },
+            { kind: 'word', value: 'l' },
+            { kind: 'punct', value: '&>' },
+            { kind: 'word', value: 'm' },
+            { kind: 'punct', value: '&<' },
+            { kind: 'word', value: 'n' },
+            { kind: 'punct', value: '@@' },
+            { kind: 'word', value: 'o' },
         ]);
     });
 

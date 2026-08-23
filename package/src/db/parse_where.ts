@@ -7,7 +7,12 @@ export type SqlValue =
     | { kind: 'literal'; value: string | number | boolean | null };
 
 /** PostgREST-expressible comparison operators. */
-export type CompareOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike';
+export type CompareOperator =
+    | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike'
+    | 'regexMatch' | 'regexIMatch'
+    | 'contains' | 'containedBy' | 'overlaps'
+    | 'rangeGt' | 'rangeGte' | 'rangeLt' | 'rangeLte' | 'rangeAdjacent'
+    | 'isDistinct';
 
 /** One node of a parsed `where` tree. */
 export type WhereNode =
@@ -15,7 +20,8 @@ export type WhereNode =
     | { kind: 'not'; child: WhereNode }
     | { kind: 'compare'; column: string; operator: CompareOperator; value: SqlValue }
     | { kind: 'is'; column: string; negated: boolean }
-    | { kind: 'in'; column: string; values: SqlValue[] };
+    | { kind: 'in'; column: string; values: SqlValue[]; negated: boolean }
+    | { kind: 'textSearch'; column: string; value: SqlValue; type?: 'plain' | 'phrase' | 'websearch'; config?: string };
 
 /** A parsed `where` tree plus the index the caller should resume from. */
 export interface WhereParse {
@@ -31,6 +37,23 @@ const OPERATORS: Record<string, CompareOperator> = {
     '>=': 'gte',
     '<': 'lt',
     '<=': 'lte',
+    '~': 'regexMatch',
+    '~*': 'regexIMatch',
+    '@>': 'contains',
+    '<@': 'containedBy',
+    '&&': 'overlaps',
+    '>>': 'rangeGt',
+    '<<': 'rangeLt',
+    '&>': 'rangeGte',
+    '&<': 'rangeLte',
+    '-|-': 'rangeAdjacent',
+};
+
+const TS_QUERY_TYPES: Record<string, 'plain' | 'phrase' | 'websearch' | undefined> = {
+    to_tsquery: undefined,
+    plainto_tsquery: 'plain',
+    phraseto_tsquery: 'phrase',
+    websearch_to_tsquery: 'websearch',
 };
 
 const CLAUSE_TERMINATORS = new Set(['order', 'limit', 'offset', 'returning', 'group', 'having', 'window', 'union', 'on']);
@@ -106,12 +129,31 @@ function parseComparison(tokens: SqlToken[], start: number): WhereParse {
             negated = true;
             index++;
         }
+        if (isWord(tokens[index], 'distinct') && isWord(tokens[index + 1], 'from')) {
+            const value = readValue(tokens, index + 2);
+            const comp: WhereNode = {
+                kind: 'compare',
+                column: column.name,
+                operator: 'isDistinct',
+                value: value.value,
+            };
+            return {
+                node: negated ? { kind: 'not', child: comp } : comp,
+                next: value.next,
+            };
+        }
         if (!isWord(tokens[index], 'null')) throw new UnsupportedSqlError('`is` against a non-null value');
         return { node: { kind: 'is', column: column.name, negated }, next: index + 1 };
     }
 
-    if (isWord(token, 'in')) {
+    let notIn = false;
+    if (isWord(token, 'not') && isWord(tokens[index + 1], 'in')) {
+        notIn = true;
+        index += 2;
+    } else if (isWord(token, 'in')) {
         index++;
+    }
+    if (notIn || isWord(token, 'in')) {
         if (!isPunct(tokens[index], '(')) throw new UnsupportedSqlError('`in` without a value list');
         index++;
         const values: SqlValue[] = [];
@@ -126,7 +168,35 @@ function parseComparison(tokens: SqlToken[], start: number): WhereParse {
             break;
         }
         if (!isPunct(tokens[index], ')')) throw new UnsupportedSqlError('unterminated `in` value list');
-        return { node: { kind: 'in', column: column.name, values }, next: index + 1 };
+        return { node: { kind: 'in', column: column.name, values, negated: notIn }, next: index + 1 };
+    }
+
+    if (isPunct(token, '@@')) {
+        const call = tokens[index + 1];
+        if (call?.kind !== 'word' || !(call.value in TS_QUERY_TYPES)) {
+            throw new UnsupportedSqlError(`full-text search via "${describe(call)}"`);
+        }
+        if (!isPunct(tokens[index + 2], '(')) throw new UnsupportedSqlError('malformed text-search call');
+        let cursor = index + 3;
+        let config: string | undefined;
+        const first = readValue(tokens, cursor);
+        cursor = first.next;
+        let query = first.value;
+        if (isPunct(tokens[cursor], ',')) {
+            if (first.value.kind !== 'literal' || typeof first.value.value !== 'string') {
+                throw new UnsupportedSqlError('non-literal text-search configuration');
+            }
+            config = first.value.value;
+            const second = readValue(tokens, cursor + 1);
+            query = second.value;
+            cursor = second.next;
+        }
+        if (!isPunct(tokens[cursor], ')')) throw new UnsupportedSqlError('unterminated text-search call');
+        const node: WhereNode = { kind: 'textSearch', column: column.name, value: query };
+        const type = TS_QUERY_TYPES[call.value];
+        if (type) node.type = type;
+        if (config) node.config = config;
+        return { node, next: cursor + 1 };
     }
 
     if (isWord(token, 'like') || isWord(token, 'ilike')) {
