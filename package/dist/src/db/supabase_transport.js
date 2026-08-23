@@ -1,4 +1,7 @@
-import resolveSupabaseEndpoint from './supabase_config';
+import createRestClient from './rest_client';
+import parseStatement from './parse_statement';
+import executeRest from './rest_execute';
+import UnsupportedSqlError from './unsupported_sql';
 import inlineParams from './inline_params';
 import parseComposite from './parse_composite';
 const DEFAULT_EXEC_FUNCTION = 'cfni_exec';
@@ -25,8 +28,10 @@ function parseRow(row) {
 }
 /**
  * Builds the transport Drizzle uses in Supabase mode: every generated
- * statement is sent through `@supabase/supabase-js`'s `.rpc()` to the
- * `cfni_exec` function over PostgREST.
+ * statement is first translated into `@supabase/supabase-js` `.from()` calls;
+ * anything PostgREST cannot express falls back to `cfni_exec`, and if
+ * `db.supabase.rawSql` is `false` the call throws naming the construct that
+ * needs raw SQL.
  *
  * `bearerToken` decides who Postgres thinks is calling — the anon key for
  * public reads, a user's JWT for `withUserDb` — delivered through the
@@ -36,14 +41,7 @@ function parseRow(row) {
  * statement this transport is asked to run.
  *
  * Rows come back as positional arrays because `pg-proxy` maps result columns
- * by index; `cfni_exec` is what guarantees that shape.
- *
- * Parameters are inlined into the statement as Postgres literals (see
- * {@link inlineParams}) before it is sent, rather than passed through to
- * `cfni_exec` for binding — `EXECUTE ... USING` can only bind a single
- * uniformly-typed value, which breaks for anything beyond one string param.
- * Inlining keeps every value's real type inferable by Postgres, the same way
- * a direct `pg` connection would send it.
+ * by index.
  *
  * @param supabase The `db.supabase` config block.
  * @param bearerToken Token resolved as the caller's identity — the anon key,
@@ -52,23 +50,32 @@ function parseRow(row) {
  */
 export default function createSupabaseTransport(supabase, bearerToken) {
     const execFunction = supabase.execFunction ?? DEFAULT_EXEC_FUNCTION;
-    let clientPromise = null;
-    async function getClient() {
-        clientPromise ?? (clientPromise = (async () => {
-            const { url, anonKey } = await resolveSupabaseEndpoint(supabase);
-            const { createClient } = await import('@supabase/supabase-js');
-            return createClient(url, anonKey, { accessToken: async () => bearerToken });
-        })());
-        return clientPromise;
-    }
+    const getClient = createRestClient(supabase, bearerToken);
     return async (sql, params) => {
         const client = await getClient();
-        const statement = inlineParams(sql, params);
-        const { data, error } = await client.rpc(execFunction, { statement });
-        if (error)
-            throw new Error(describeFailure(error, execFunction));
-        return parseExecResult(data);
+        try {
+            return await executeRest(client, parseStatement(sql), params);
+        }
+        catch (error) {
+            if (!(error instanceof UnsupportedSqlError))
+                throw error;
+            if (supabase.rawSql === false)
+                throw new Error(unsupportedMessage(error, execFunction));
+            return runExec(client, sql, params, execFunction);
+        }
     };
+}
+async function runExec(client, sql, params, execFunction) {
+    const statement = inlineParams(sql, params);
+    const { data, error } = await client.rpc(execFunction, { statement });
+    if (error)
+        throw new Error(describeFailure(error, execFunction));
+    return parseExecResult(data);
+}
+function unsupportedMessage(error, execFunction) {
+    return (`${error.message} \`db.supabase.rawSql\` is \`false\`, so it cannot fall back to raw SQL either. ` +
+        `Install the ${execFunction} function from supabase/cfni_exec.sql and drop \`rawSql: false\`, ` +
+        'or use `db.connectionString` for a direct Postgres connection.');
 }
 function describeFailure(error, execFunction) {
     // PGRST202 is PostgREST's "no such function" — by far the most likely

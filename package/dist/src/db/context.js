@@ -27,19 +27,11 @@ async function resolveUserId(uid) {
     throw new Error('db: withUserDb could not resolve a user id. Pass one explicitly, set ' +
         '`db.getUserId`, or configure `firebaseAuth` so the signed-in Firebase uid is used.');
 }
-function requireRawSql(supabase) {
-    if (supabase.rawSql === false) {
-        throw new Error('db: withPublicDb/withUserDb need `cfni_exec` to run SQL in Supabase mode, but ' +
-            '`db.supabase.rawSql` is set to `false`. Use `supabaseSelect`/`supabaseInsert`/' +
-            '`supabaseUpdate`/`supabaseDelete` instead, which call the Supabase REST API directly.');
-    }
-}
 /**
  * Builds a Drizzle handle backed by PostgREST. `bearerToken` decides the role
  * Postgres sees: the anon key for public access, a user JWT for `withUserDb`.
  */
 async function supabaseDb(supabase, bearerToken) {
-    requireRawSql(supabase);
     const { drizzle } = await import('drizzle-orm/pg-proxy');
     const db = drizzle(createSupabaseTransport(supabase, bearerToken));
     return Object.assign(db, {
