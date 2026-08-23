@@ -33,6 +33,14 @@ import {
 	max,
 	min,
 	sql,
+	inArray,
+	notInArray,
+	ne,
+	like,
+	ilike,
+	between,
+	not,
+	exists,
 } from './helpers';
 
 const sample = pgTable('sample', {
@@ -110,5 +118,13 @@ describe('re-exported drizzle-orm operators', () => {
 		expect(max(sample.price)).toBeDefined();
 		expect(min(sample.price)).toBeDefined();
 		expect(sql`now()`).toBeDefined();
+		expect(inArray(sample.isin, ['a', 'b'])).toBeDefined();
+		expect(notInArray(sample.isin, ['a', 'b'])).toBeDefined();
+		expect(ne(sample.price, 1)).toBeDefined();
+		expect(like(sample.isin, '%a%')).toBeDefined();
+		expect(ilike(sample.isin, '%a%')).toBeDefined();
+		expect(between(sample.price, 1, 2)).toBeDefined();
+		expect(not(eq(sample.price, 1))).toBeDefined();
+		expect(typeof exists).toBe('function');
 	});
 });

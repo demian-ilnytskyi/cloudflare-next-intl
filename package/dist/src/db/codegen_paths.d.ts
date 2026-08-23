@@ -1,5 +1,11 @@
+export interface CodegenTarget {
+    outDir: string;
+    outFile: string;
+    manifest: string;
+}
 export interface CodegenPaths {
     ddlDir: string;
+    targets: CodegenTarget[];
     outDir: string;
     outFile: string;
     pullDir: string;

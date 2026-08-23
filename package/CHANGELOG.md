@@ -3,6 +3,19 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.6] - 2026-08-23
+
+### Added
+
+- `dbHelpers` re-exports more `drizzle-orm` predicates so consumers building
+  queries against `withPublicDb`/`withUserDb` no longer need a direct
+  `drizzle-orm` dependency: `inArray`, `notInArray`, `ne`, `like`, `ilike`,
+  `between`, `not`, and `exists` join the existing operators.
+- New `cloudflare-next-intl/dbSchema` entrypoint re-exports `drizzle-orm/pg-core`
+  table builders (`pgTable`, `varchar`, `index`, …) plus the `sql` tag, so
+  generated schema files can import from this package instead of `drizzle-orm`
+  directly.
+
 ## [0.8.5] - 2026-08-23
 
 ### Added

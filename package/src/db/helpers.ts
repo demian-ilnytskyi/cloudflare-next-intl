@@ -17,6 +17,14 @@ import {
 	sum,
 	max,
 	min,
+	inArray,
+	notInArray,
+	ne,
+	like,
+	ilike,
+	between,
+	not,
+	exists,
 	type SQL,
 	type Table,
 } from 'drizzle-orm';
@@ -27,7 +35,7 @@ import {
  * `DrizzleDb` never needs its own `drizzle-orm` import for common predicates,
  * ordering, and aggregates.
  */
-export { eq, and, or, asc, desc, gte, gt, lte, lt, isNull, isNotNull, count, sum, max, min, sql };
+export { eq, and, or, asc, desc, gte, gt, lte, lt, isNull, isNotNull, count, sum, max, min, sql, inArray, notInArray, ne, like, ilike, between, not, exists };
 
 /**
  * Type-safe helper returning `excluded.<db_column_name>` SQL expressions for a Drizzle table.

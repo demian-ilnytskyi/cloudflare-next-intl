@@ -551,12 +551,22 @@ helpers (`excluded`, `onConflictSet`, `ago`, `currentDate`, `windowCount`,
 upsert/window/lateral-join queries without dropping to raw SQL, plus a
 re-export of `drizzle-orm`'s common query-building primitives (`eq`, `and`,
 `or`, `asc`, `desc`, `gte`, `gt`, `lte`, `lt`, `isNull`, `isNotNull`, `count`,
-`sum`, `max`, `min`, `sql`) — so code that only builds queries against the
+`sum`, `max`, `min`, `sql`, `inArray`, `notInArray`, `ne`, `like`, `ilike`,
+`between`, `not`, `exists`) — so code that only builds queries against the
 `DrizzleDb` handle from `withPublicDb`/`withUserDb` doesn't need its own
-`drizzle-orm` import for these. Anything not listed here (schema definitions,
-`drizzle-orm/pg-core` column builders, relations) still comes from
-`drizzle-orm` directly — this package re-exports the query-operator surface
-only, not the whole library.
+`drizzle-orm` import for these.
+
+For schema definitions, `cloudflare-next-intl/dbSchema` re-exports the
+`drizzle-orm/pg-core` table and column builders (`pgTable`, `varchar`,
+`integer`, `index`, `pgEnum`, …) alongside the `sql` tag, so generated schema
+files can import from this package too:
+
+```ts
+import { pgTable, varchar, integer } from 'cloudflare-next-intl/dbSchema';
+```
+
+Relations and any other advanced Drizzle surface still come from `drizzle-orm`
+directly.
 
 #### Schema codegen (`cfni-db-codegen`)
 
