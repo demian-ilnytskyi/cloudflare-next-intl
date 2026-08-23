@@ -1,6 +1,6 @@
 {
 	"name": "cloudflare-next-intl",
-	"version": "0.8.6",
+	"version": "0.8.7",
 	"description": "Optimized Next Intl Package Special for App Router and Cloudflare",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -181,6 +181,10 @@
 		"./db": {
 			"types": "./dist/src/db/index.d.ts",
 			"import": "./dist/src/db/index.js"
+		},
+		"./dbEslint": {
+			"types": "./dist/src/db/eslint_config.d.ts",
+			"import": "./dist/src/db/eslint_config.js"
 		},
 		"./dbHelpers": {
 			"types": "./dist/src/db/helpers.d.ts",

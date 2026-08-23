@@ -38,22 +38,11 @@ async function resolveUserId(uid?: string): Promise<string> {
     );
 }
 
-function requireRawSql(supabase: SupabaseDbConfig): void {
-    if (supabase.rawSql === false) {
-        throw new Error(
-            'db: withPublicDb/withUserDb need `cfni_exec` to run SQL in Supabase mode, but ' +
-            '`db.supabase.rawSql` is set to `false`. Use `supabaseSelect`/`supabaseInsert`/' +
-            '`supabaseUpdate`/`supabaseDelete` instead, which call the Supabase REST API directly.',
-        );
-    }
-}
-
 /**
  * Builds a Drizzle handle backed by PostgREST. `bearerToken` decides the role
  * Postgres sees: the anon key for public access, a user JWT for `withUserDb`.
  */
 async function supabaseDb(supabase: SupabaseDbConfig, bearerToken: string): Promise<DrizzleDb> {
-    requireRawSql(supabase);
     const { drizzle } = await import('drizzle-orm/pg-proxy');
     const db = drizzle(createSupabaseTransport(supabase, bearerToken)) as unknown as DrizzleDb;
     return Object.assign(db, {

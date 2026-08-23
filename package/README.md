@@ -577,82 +577,60 @@ so arrays/`numeric`/timestamps/`bytea` decode the same way they do in
 connection-string mode. Not supported: multi-statement transactions (each
 call is its own PostgREST round-trip — see above).
 
-#### Supabase mode without `cfni_exec`
+#### Supabase mode and REST translation
 
-If you don't want to install `cfni_exec` at all, set `db.supabase.rawSql:
-false`. `withPublicDb`/`withUserDb` then throw immediately in Supabase mode
-instead of failing later against PostgREST, and you reach Postgres instead
-through a set of helpers that call `@supabase/supabase-js`'s `.from()`/`.rpc()`
-API directly — the same REST surface the Supabase client itself uses, no raw
-SQL involved:
+You write the exact same Drizzle code with `withPublicDb`/`withUserDb` in Supabase mode as in connection-string mode. Behind the scenes, the transport translates each statement into `@supabase/supabase-js` `.from()` PostgREST calls whenever possible:
 
 ```typescript
-import { supabaseSelect, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseUpsert, supabaseRpc } from "cloudflare-next-intl/db";
+import { withPublicDb, withUserDb } from "cloudflare-next-intl/db";
+import { eq, gte, desc } from "cloudflare-next-intl/dbHelpers";
 
-const { rows } = await supabaseSelect("bonds", {
-    where: { active: true, yield: ["gte", 5] },
-    orderBy: { column: "yield", ascending: false },
-    limit: 10,
-});
+// Automatically translated to PostgREST REST calls:
+const rows = await withPublicDb((db) =>
+    db.select({ id: bonds.id, name: bonds.name, yield: bonds.yield })
+        .from(bonds)
+        .where(gte(bonds.yield, 5))
+        .orderBy(desc(bonds.yield))
+        .limit(10)
+);
 
-await supabaseInsert("bonds", { name: "10Y", yield: 4.2 });
-await supabaseUpsert("bonds", { id: 1, yield: 4.5 }, { onConflict: "id" });
-await supabaseUpdate("bonds", { yield: 4.3 }, { where: { id: 1 } });
-await supabaseDelete("bonds", { where: { id: 1 } });
-
-// Anything a plain select/insert/update/delete/upsert can't express (joins,
-// aggregates, custom logic) — write a Postgres function, `grant execute` to
-// `anon`/`authenticated`, and call it by name. No cfni_exec needed for this
-// either, since PostgREST always supports calling a named function you own.
-const total = await supabaseRpc("total_yield", { bond_ids: [1, 2, 3] });
+await withPublicDb((db) => db.insert(bonds).values({ name: "10Y", yield: 4.2 }));
+await withPublicDb((db) =>
+    db.insert(bonds)
+        .values({ id: 1, name: "10Y", yield: 4.5 })
+        .onConflictDoUpdate({ target: bonds.id, set: { yield: 4.5 } })
+);
+await withPublicDb((db) => db.update(bonds).set({ yield: 4.3 }).where(eq(bonds.id, 1)));
+await withPublicDb((db) => db.delete(bonds).where(eq(bonds.id, 1)));
 ```
 
-Each has a `*AsUser` counterpart (`supabaseSelectAsUser`,
-`supabaseInsertAsUser`, `supabaseUpsertAsUser`, `supabaseUpdateAsUser`,
-`supabaseDeleteAsUser`, `supabaseRpcAsUser`) that authenticates as the
-signed-in user instead of anon — same token resolution as `withUserDb`
-(`db.getAccessToken`, or the signed-in Firebase user's ID token), so RLS
-applies the same way.
+**Transport routing:**
+1. **REST translation first:** Single-table `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `on conflict`, and `returning` are mapped to `@supabase/supabase-js` `.from()` calls.
+2. **`cfni_exec` fallback:** Statements PostgREST cannot express (joins, CTEs, complex subqueries) fall back to the `cfni_exec` SQL-exec function.
+3. **`rawSql: false` mode:** If `db.supabase.rawSql: false` is configured (when `cfni_exec` is not installed), any statement requiring raw SQL throws an error explaining the limitation and how to resolve it.
 
-`supabaseSelect`/`supabaseSelectAsUser` accept:
+| Operation | REST API | `cfni_exec` fallback |
+| --- | --- | --- |
+| Single-table `SELECT` (projections, `count(*)`, `WHERE`, `ORDER BY`, `LIMIT`, `OFFSET`) | Supported | Used if untranslatable |
+| Single-table `INSERT` / `UPDATE` / `DELETE` | Supported | Used if untranslatable |
+| `ON CONFLICT DO NOTHING / UPDATE` | Supported | Supported |
+| `RETURNING` clauses | Supported | Supported |
+| Operators: `=`, `<>`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `ilike`, `is [not] null`, `[not] in`, `is [not] distinct from`, `~`, `~*`, `@>`, `<@`, `&&`, `>>`, `<<`, `&>`, `&<`, `-|-`, `@@` | Supported | Supported |
+| Multi-table joins, CTEs, non-count aggregates, `GROUP BY`, `UNION`, `DISTINCT`, raw SQL | Not supported by REST | Supported |
+| Multi-statement transactions | Not supported | Not supported (Postgres connection only) |
 
-- `columns` — PostgREST column-list syntax. Defaults to `'*'`. Supports an
-  embedded resource for a foreign-key join in one round-trip, e.g.
-  `'*, author(name)'`.
-- `where` — filters, ANDed together. A bare value (`{ id: 5 }`) is shorthand
-  for `eq`; use `{ column: [operator, value] }` for any other operator —
-  `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `likeAllOf`, `likeAnyOf`, `ilike`,
-  `ilikeAllOf`, `ilikeAnyOf`, `regexMatch`, `regexIMatch`, `is`,
-  `isDistinct`, `in`, `contains`, `containedBy`, `overlaps`, `rangeGt`,
-  `rangeGte`, `rangeLt`, `rangeLte`, or `rangeAdjacent` — or
-  `{ column: ['not', operator, value] }` to negate any of them. This is the
-  complete operator set `@supabase/supabase-js`'s `.from()` builder exposes
-  (it *is* a `postgrest-js` builder — there's no separate, larger "Supabase
-  client" query surface on top of it).
-- `match` — shorthand for several `eq` filters at once (`{ status: 'active',
-  archived: false }`). ANDed with `where`.
-- `or` — a raw PostgREST `or()` filter string (e.g.
-  `'age.gt.18,status.eq.active'`) for filters spanning multiple columns in
-  one clause; ANDed with `where`/`match`.
-- `textSearch` — `{ column, query, type?, config? }` for full-text search via
-  PostgREST's `@@` operators.
-- `orderBy` — one `{ column, ascending?, nullsFirst? }`, or an array for
-  multiple `order by` clauses.
-- `limit` / `range` — row limit, or a `[from, to]` PostgREST pagination range.
-- `single` / `maybeSingle` — resolve to one row (erroring if there isn't
-  exactly one), or one row or `null` (erroring if there's more than one).
-- `count` — also return the total matching row count (`'exact'`, `'planned'`,
-  or `'estimated'`).
+#### Enforcing single API via ESLint (`cloudflare-next-intl/dbEslint`)
 
-`supabaseUpdate`/`supabaseDelete` (and their `*AsUser` forms) accept `where`/
-`match`/`or` the same way, and require at least one of them — an unfiltered
-update/delete would otherwise touch every row.
+To prevent application code from bypassing the single `db` API with direct driver imports (`@supabase/supabase-js`, `pg`, `postgres`, or deep `dist/` paths), spread the shipped flat-config fragment in your `eslint.config.js`:
 
-This mode trades capability for not needing `cfni_exec`: everything the
-Supabase JS client itself can express against a single table (including an
-embedded-resource join) works; multi-table joins beyond that, aggregates,
-window functions, and raw SQL of any kind do not — those need `cfni_exec`, or
-a Postgres function called via `supabaseRpc`.
+```typescript
+import dbEslint from "cloudflare-next-intl/dbEslint";
+
+export default [
+    ...dbEslint,
+    // your other configs...
+];
+```
 
 Two query wrappers, both from `cloudflare-next-intl/db`. Choose by who is
 allowed to see the rows:
@@ -828,6 +806,16 @@ untested:
   55432:5432 postgres:15`), so it never runs — and never needs a database —
   during a normal `npm test`.
 
+## AI Agent Setup & Conventions
+
+When using AI coding assistants (Claude Code, Cursor, Copilot, Antigravity) with `cloudflare-next-intl`:
+
+- **One Database API**: Always use `withPublicDb` or `withUserDb` from `cloudflare-next-intl/db`. Never import `@supabase/supabase-js`, `pg`, or `postgres` in application code.
+- **Drizzle Schema & Helpers**: Always import schema definitions from `cloudflare-next-intl/dbSchema` (`pgTable`, `text`, `timestamp`, `uuid`, etc.) and query operators from `cloudflare-next-intl/dbHelpers` (`eq`, `and`, `or`, `inArray`, `count`, etc.).
+- **Lint Enforcement**: Spread `...dbEslint` from `cloudflare-next-intl/dbEslint` in `eslint.config.js` to catch accidental driver imports.
+- **Reference Document**: Direct AI tools to `llms.txt` in this package for concise rules and subpath exports.
+
 ## License
 
 MIT
+

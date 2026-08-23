@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Client } from 'pg';
 import parseComposite from './parse_composite';
 import inlineParams from './inline_params';
 
@@ -20,7 +21,7 @@ import inlineParams from './inline_params';
 const DATABASE_URL = process.env.CFNI_TEST_DATABASE_URL;
 
 describe.skipIf(!DATABASE_URL)('cfni_exec (integration)', () => {
-    let client: import('pg').Client;
+    let client: Client;
 
     async function exec(sql: string, params: unknown[] = []): Promise<{ rows: (string | null)[][]; rowCount: number | null }> {
         const statement = inlineParams(sql, params);

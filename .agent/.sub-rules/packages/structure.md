@@ -1,7 +1,7 @@
 # Package Structure — `package/src/**`
 
 Companion files: [config-and-routing.md](config-and-routing.md),
-[server-client-split.md](server-client-split.md).
+[server-client-split.md](server-client-split.md), [db.md](db.md).
 
 ## Folder layout
 
@@ -12,6 +12,7 @@ package/src/
 ├── server/       # RSC-only: server_provider, Link, helper_script, use_functions, locale_static_params
 ├── client/       # "use client": client_provider, LocaleLink, hooks, cookie helpers
 ├── theme_switcher/ # self-contained dark-mode toggle module
+├── db/           # Postgres/Supabase data access layer: wrappers, transport, AST parser, REST execute
 ├── types/        # RoutingConfig, TranslationObject, MiddlewareCustomHandler — .d.ts + types.ts
 └── test_utils/   # vitest fixtures only, never shipped/covered
 ```
