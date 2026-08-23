@@ -104,7 +104,7 @@ class FakeDrizzleDb {
         return this.makeChain('delete', args);
     }
     async execute(...args) {
-        this.calls.push({ method: 'execute', args, chain: new ChainableQuery(() => []) });
+        this.calls.push({ method: 'execute', args });
         const next = this.queue.shift();
         if (!next)
             throw new Error('FakeDrizzleDb: no queued result left for execute()');

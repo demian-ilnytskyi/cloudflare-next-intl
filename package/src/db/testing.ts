@@ -99,7 +99,7 @@ class ChainableQuery implements PromiseLike<Row[]> {
 class FakeDrizzleDb {
     private readonly queue: QueuedResult[];
     /** Top-level calls captured for assertions — each entry's `chain` is the same `ChainableQuery` returned to the caller, so its recorded `.where()`/`.values()`/etc. arguments are inspectable via `chain.argsOf(...)`. */
-    public readonly calls: { method: string; args: unknown[]; chain: ChainableQuery }[] = [];
+    public readonly calls: { method: string; args: unknown[]; chain?: ChainableQuery }[] = [];
 
     constructor(queue: QueuedResult[]) {
         this.queue = [...queue];
@@ -134,7 +134,7 @@ class FakeDrizzleDb {
     }
 
     async execute(...args: unknown[]): Promise<{ rows: Row[] }> {
-        this.calls.push({ method: 'execute', args, chain: new ChainableQuery(() => []) });
+        this.calls.push({ method: 'execute', args });
         const next = this.queue.shift();
         if (!next) throw new Error('FakeDrizzleDb: no queued result left for execute()');
         return { rows: next.rows };

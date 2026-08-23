@@ -77,7 +77,7 @@ declare class FakeDrizzleDb {
     readonly calls: {
         method: string;
         args: unknown[];
-        chain: ChainableQuery;
+        chain?: ChainableQuery;
     }[];
     constructor(queue: QueuedResult[]);
     private takeRows;

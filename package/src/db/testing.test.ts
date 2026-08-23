@@ -52,12 +52,13 @@ describe('FakeDrizzleDb', () => {
 
     it('records leftJoin/innerJoin/groupBy/values/set/returning/as calls', async () => {
         const db = makeFakeDb([rowsResult([]), rowsResult([])]);
-        await db.select().from('t').leftJoin('u', 'on').innerJoin('v', 'on').groupBy('id');
+        await db.select().from('t').leftJoin('u', 'on').innerJoin('v', 'on').groupBy('id').as('alias');
         await db.insert('t').values({ a: 1 }).returning();
         const [selectCall, insertCall] = db.calls;
         expect(selectCall.chain.argsOf('leftJoin')).toEqual(['u', 'on']);
         expect(selectCall.chain.argsOf('innerJoin')).toEqual(['v', 'on']);
         expect(selectCall.chain.argsOf('groupBy')).toEqual(['id']);
+        expect(selectCall.chain.argsOf('as')).toEqual(['alias']);
         expect(insertCall.chain.argsOf('values')).toEqual([{ a: 1 }]);
         expect(insertCall.chain.argsOf('returning')).toEqual([]);
     });
