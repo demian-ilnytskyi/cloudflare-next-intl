@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.8] - 2026-08-23
+
+### Fixed
+
+- `supabase/cfni_exec.sql`: set `search_path = public` on both `cfni_exec` and
+  `cfni_top_level_verb` to resolve the Supabase Security Advisor
+  "Function Search Path Mutable" lint errors (`0011_function_search_path_mutable`).
+
 ## [0.8.7] - 2026-08-23
 
 ### Breaking

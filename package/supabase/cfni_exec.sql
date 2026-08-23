@@ -34,6 +34,7 @@ create or replace function public.cfni_exec(statement text)
 returns jsonb
 language plpgsql
 security invoker
+set search_path = public
 as $$
 declare
     top_level_verb text;
@@ -102,6 +103,7 @@ create or replace function public.cfni_top_level_verb(statement text)
 returns text
 language plpgsql
 immutable
+set search_path = ''
 as $$
 declare
     stripped text;
