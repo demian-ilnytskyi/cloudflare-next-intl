@@ -525,6 +525,29 @@ helpers (`excluded`, `onConflictSet`, `ago`, `currentDate`, `windowCount`,
 `minOf`, `maxOf`, `roundReal`, `multiply`, `scalarFromCte`) for building
 upsert/window/lateral-join queries without dropping to raw SQL.
 
+#### Testing code that calls `withPublicDb`/`withUserDb`
+
+`cloudflare-next-intl/dbTesting` exports a fake `DrizzleDb` so repository/unit
+tests don't need a real Postgres connection:
+
+```typescript
+import { makeFakeDb, rowsResult } from "cloudflare-next-intl/dbTesting";
+
+const db = makeFakeDb([rowsResult([{ id: 1 }])]);
+const rows = await db.select().from(bonds).limit(10);
+// rows === [{ id: 1 }]
+```
+
+`makeFakeDb(results)` takes an ordered queue of `rowsResult(rows)` (for
+`select`/`insert`/`update`/`delete`) and `executeResult(rows)` (for
+`execute(...)`) entries, consumed one per terminal call in the exact order
+your code issues them. Every intermediate chain call (`.where(...)`,
+`.values(...)`, `.orderBy(...)`, etc.) is recorded with its exact arguments,
+inspectable via `db.calls[i].chain.argsOf('where')` — so a test can assert not
+just "select was called" but "the second select's `.where(...)` argument was
+X". Handles `db.$with(name).as(builder)` / `db.with(...).select(...)`
+CTE-style queries the same way the real Drizzle client does.
+
 ## License
 
 MIT

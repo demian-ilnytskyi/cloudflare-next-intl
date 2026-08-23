@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.1] - 2026-08-23
+
+### Added
+
+- `cloudflare-next-intl/dbTesting` — exports `makeFakeDb`/`rowsResult`/`executeResult`, a fake `DrizzleDb` for unit-testing code that calls `withPublicDb`/`withUserDb` without a real Postgres connection. Records every intermediate chain call (`.where()`, `.values()`, etc.) with its exact arguments for assertions, and handles `$with`/`with` CTE-style queries.
+
 ## [0.8.0] - 2026-08-23
 
 ### Added
