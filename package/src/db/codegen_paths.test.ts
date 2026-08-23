@@ -17,6 +17,27 @@ describe('resolveCodegenPaths', () => {
         expect(paths.drizzleConfig).toBe(null);
     });
 
+    it('generates into several out dirs from repeated flags', () => {
+        const paths = resolveCodegenPaths(['--out-dir=a/gen', '--out-dir=/other/gen'], {}, cwd);
+        expect(paths.targets.map((t) => t.outFile)).toEqual([
+            '/app/a/gen/schema.ts',
+            '/other/gen/schema.ts',
+        ]);
+        expect(paths.outDir).toBe('/app/a/gen');
+    });
+
+    it('accepts a comma separated out dir list from env', () => {
+        const paths = resolveCodegenPaths([], { CFNI_DB_OUT_DIR: 'a/gen, b/gen' }, cwd);
+        expect(paths.targets.map((t) => t.manifest)).toEqual([
+            '/app/a/gen/manifest.json',
+            '/app/b/gen/manifest.json',
+        ]);
+    });
+
+    it('defaults to a single target', () => {
+        expect(resolveCodegenPaths([], {}, cwd).targets).toHaveLength(1);
+    });
+
     it('honours flags over env over defaults', () => {
         const paths = resolveCodegenPaths(
             ['--out-dir=db/models', '--check'],

@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.5] - 2026-08-23
+
+### Added
+
+- `cfni-db-codegen` can generate into several projects in one run: `--out-dir` is now repeatable and accepts a comma-separated list (as does `CFNI_DB_OUT_DIR`). The database is introspected once and the identical schema plus `manifest.json` is written to every target; `--check` verifies all of them and fails naming the first stale one. A single `--out-dir` behaves exactly as before.
+- Documented the previously undocumented `cfni-db-codegen` CLI (flags, env vars, defaults) in the README and `llms.txt`.
+
 ## [0.8.4] - 2026-08-23
 
 ### Removed

@@ -60,6 +60,7 @@ Two transports, picked by which `db` fields are set — `pg`/`drizzle-orm`/`@sup
 - `withPublicDb(fn)` — anonymous role. Direct-Postgres mode: the request's pooled connection, no transaction, no role switch. Supabase mode: the anon key as the PostgREST bearer token. Either way, no user id is attached — RLS keyed on `auth.jwt()` denies access.
 - `withUserDb(fn, uid?)` — signed-in-user role. Direct-Postgres mode: a transaction with `set_config('request.jwt.claims', ...)` + `set local role`, `uid` resolution order explicit arg → `db.getUserId()` → Firebase auth uid → throws. Supabase mode: identity rides on the JWT from `db.getAccessToken`/Firebase instead (`uid` param is ignored), no transaction wraps the call.
 - `./dbHelpers` functions are plain Drizzle `sql`-building utilities with no config dependency — usable standalone.
+- `cfni-db-codegen` binary — regenerates Drizzle models via `drizzle-kit pull`. Flags/env: `--ddl-dir`/`CFNI_DB_DDL_DIR`, `--out-dir`/`CFNI_DB_OUT_DIR`, `--out-file`/`CFNI_DB_OUT_FILE`, `--db-url`/`CODEGEN_DATABASE_URL`, `--drizzle-config`/`CFNI_DB_DRIZZLE_CONFIG`, `--check`. `--out-dir` is repeatable and accepts a comma-separated list, so one run generates the same schema (and `manifest.json`) into several projects; `--check` verifies every target.
 
 ```typescript
 // src/i18n/intl_config.ts

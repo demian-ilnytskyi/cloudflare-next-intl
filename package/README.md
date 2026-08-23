@@ -558,6 +558,38 @@ re-export of `drizzle-orm`'s common query-building primitives (`eq`, `and`,
 `drizzle-orm` directly — this package re-exports the query-operator surface
 only, not the whole library.
 
+#### Schema codegen (`cfni-db-codegen`)
+
+The package ships a `cfni-db-codegen` binary that regenerates Drizzle models by
+introspecting a live Postgres with `drizzle-kit pull`, patches drizzle-kit's
+bare function-call defaults into raw-SQL-wrapped ones, and writes a
+`manifest.json` next to the schema so `--check` can fail CI when the DDL
+changed without regenerating.
+
+```bash
+npx cfni-db-codegen
+npx cfni-db-codegen --check
+```
+
+| Flag | Env | Default |
+| --- | --- | --- |
+| `--ddl-dir=` | `CFNI_DB_DDL_DIR` | `supabase/data-base` |
+| `--out-dir=` | `CFNI_DB_OUT_DIR` | `src/shared/db/generated` |
+| `--out-file=` | `CFNI_DB_OUT_FILE` | `schema.ts` |
+| `--db-url=` | `CODEGEN_DATABASE_URL` | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
+| `--drizzle-config=` | `CFNI_DB_DRIZZLE_CONFIG` | none |
+| `--check` | — | off |
+
+`--out-dir` may be repeated, or given a comma-separated list, to generate the
+same schema into several projects in one run (`CFNI_DB_OUT_DIR` accepts a
+comma-separated list too). The database is introspected once and the identical
+schema plus manifest is written to every target; `--check` verifies all of
+them and fails naming the first one that is stale.
+
+```bash
+npx cfni-db-codegen --out-dir=src/shared/db/generated --out-dir=../other-app/src/db/generated
+```
+
 #### Testing code that calls `withPublicDb`/`withUserDb`
 
 `cloudflare-next-intl/dbTesting` exports a fake `DrizzleDb` so repository/unit
