@@ -75,3 +75,104 @@ describe('parseStatement — select', () => {
         expect(() => parseStatement('   ')).toThrow(UnsupportedSqlError);
     });
 });
+
+describe('parseStatement — mutations', () => {
+    it('parses a multi-row insert with returning and various value types', () => {
+        expect(
+            parseStatement('insert into "users" ("id", "name", "active", "deleted", "score", "ref") values ($1, $2, true, false, -5, null), ($3, \'bob\', true, false, 10, null) returning "users"."id", "name" as "n"'),
+        ).toEqual({
+            kind: 'insert',
+            table: 'users',
+            columns: ['id', 'name', 'active', 'deleted', 'score', 'ref'],
+            rows: [
+                [{ kind: 'param', index: 1 }, { kind: 'param', index: 2 }, { kind: 'literal', value: true }, { kind: 'literal', value: false }, { kind: 'literal', value: -5 }, { kind: 'literal', value: null }],
+                [{ kind: 'param', index: 3 }, { kind: 'literal', value: 'bob' }, { kind: 'literal', value: true }, { kind: 'literal', value: false }, { kind: 'literal', value: 10 }, { kind: 'literal', value: null }],
+            ],
+            returning: [{ column: 'id' }, { column: 'name', alias: 'n' }],
+        });
+    });
+
+    it('parses on conflict do nothing', () => {
+        expect(parseStatement('insert into "t" ("a") values ($1) on conflict ("a") do nothing').onConflict).toEqual({
+            columns: ['a'],
+            action: 'nothing',
+        });
+    });
+
+    it('parses on conflict do update set with excluded and literal values and table qualifiers', () => {
+        expect(
+            parseStatement('insert into "t" ("t"."a", "b") values ($1, $2) on conflict ("t"."a") do update set "t"."b" = excluded."b", "c" = $3')
+                .onConflict,
+        ).toEqual({
+            columns: ['a'],
+            action: 'update',
+            set: {
+                b: { kind: 'excluded', column: 'b' },
+                c: { kind: 'param', index: 3 },
+            },
+        });
+    });
+
+    it('parses an update with where and returning *', () => {
+        expect(parseStatement('update "t" set "t"."a" = -1, "b" = null where "id" = $2 returning *')).toEqual({
+            kind: 'update',
+            table: 't',
+            set: { a: { kind: 'literal', value: -1 }, b: { kind: 'literal', value: null } },
+            where: { kind: 'compare', column: 'id', operator: 'eq', value: { kind: 'param', index: 2 } },
+            returning: 'all',
+        });
+    });
+
+    it('parses a delete with where and returning', () => {
+        expect(parseStatement('delete from "t" where "id" = $1 returning "id"')).toEqual({
+            kind: 'delete',
+            table: 't',
+            where: { kind: 'compare', column: 'id', operator: 'eq', value: { kind: 'param', index: 1 } },
+            returning: [{ column: 'id' }],
+        });
+    });
+
+    it('rejects mutation forms PostgREST cannot express', () => {
+        const rejected = [
+            'insert into "t" select * from "u"',
+            'insert into "t" default values',
+            'insert into "t" ("a") values ($1) on conflict ("a") do update set "b" = "t"."b" + 1',
+            'insert into "t" ("a") values ($1) on conflict on constraint "c" do nothing',
+            'insert into "t" ("a") values ($1) on conflict ("a") do delete',
+            'insert "t" ("a") values ($1)',
+            'insert into "t" ("a") values',
+            'insert into "t" ("a") ($1)',
+            'insert into "t" values ($1)',
+            'insert into "t" (1) values ($1)',
+            'insert into "t" ("t".) values ($1)',
+            'insert into "t" ("a",) values ($1)',
+            'insert into "t" ("a") values ($1,)',
+            'insert into "t" ("a") values ($1',
+            'insert into "t" ("a") values (foo)',
+            'insert into "t" ("a") values ($1) on',
+            'insert into "t" ("a") values ($1) on conflict',
+            'insert into "t" ("a") values ($1) on conflict ("a")',
+            'insert into "t" ("a") values ($1) on conflict ("a") do',
+            'insert into "t" ("a") values ($1) on conflict ("a") do update',
+            'insert into "t" ("a") values ($1) on conflict ("a") do update set',
+            'insert into "t" ("a") values ($1) on conflict ("a") do update set "b" =',
+            'insert into "t" ("a") values ($1) on conflict ("a") do update set "b"',
+            'insert into "t" ("a") values ($1) returning',
+            'insert into "t" ("a") values ($1) trailing',
+            'update "t"',
+            'update "t" set',
+            'update "t" set "a" = "b" where "id" = $1',
+            'update "t" from "u" set "a" = $1',
+            'update "t" set "a" = $1 returning "x" as "y", lower("z")',
+            'delete "t" where "id" = $1',
+            'delete from "t" using "u" where "t"."id" = "u"."id"',
+            'insert into "t" ("a", "b"',
+            'delete from "t" where "id" = $1 returning * from',
+            'truncate "t"',
+        ];
+        for (const sql of rejected) {
+            expect(() => parseStatement(sql), sql).toThrow(UnsupportedSqlError);
+        }
+    });
+});
+
