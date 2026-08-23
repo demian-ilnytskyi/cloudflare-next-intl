@@ -11,6 +11,8 @@ export interface CodegenPaths {
     pullDir: string;
     manifest: string;
     dbUrl: string;
+    dbUrlExplicit: boolean;
+    ephemeralDir: string;
     check: boolean;
     timeoutMs: number;
     drizzleConfig: string | null;

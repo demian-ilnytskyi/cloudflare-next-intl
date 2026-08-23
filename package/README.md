@@ -778,6 +778,15 @@ them and fails naming the first one that is stale.
 npx cfni-db-codegen --out-dir=src/shared/db/generated --out-dir=../other-app/src/db/generated
 ```
 
+If no `--db-url`/`CODEGEN_DATABASE_URL` is set and nothing is reachable at the
+local Supabase default, `cfni-db-codegen` falls back to a throwaway,
+local-only Postgres started via the optional `embedded-postgres` package (a
+prebuilt binary, no Docker required): install it once with
+`npm install --save-dev embedded-postgres`, and no local DB setup is needed —
+the DDL in `--ddl-dir` is loaded into it, introspected, and it's torn down
+after. Passing an explicit `--db-url`/`CODEGEN_DATABASE_URL` skips this
+fallback entirely and fails loudly if that target is unreachable.
+
 ##### Keeping `cfni_exec.sql` in sync (`--rpc-dir`/`--rpc-file-name`/`--tests-dir`/`--tests-file-name`/`--force`/`--skip-exec`)
 
 After a successful (non-`--check`) run, `cfni-db-codegen` also copies

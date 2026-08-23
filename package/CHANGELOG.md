@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.10] - 2026-08-23
+
+### Added
+
+- `cfni-db-codegen` no longer requires a running local Postgres/Docker/Supabase to work: when no `--db-url`/`CODEGEN_DATABASE_URL` is set and nothing is reachable at the local Supabase default, it now falls back to a throwaway, local-only Postgres started via `embedded-postgres` (a prebuilt binary, no Docker) — the DDL in `--ddl-dir` is loaded into it, introspected, and it's torn down afterward. `embedded-postgres` is now a regular dependency, so this works out of the box with no extra install step. Passing an explicit `--db-url`/`CODEGEN_DATABASE_URL` skips the fallback entirely and still fails loudly if that target is unreachable.
+
 ## [0.8.9] - 2026-08-23
 
 ### Added

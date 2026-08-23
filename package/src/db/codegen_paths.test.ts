@@ -12,6 +12,8 @@ describe('resolveCodegenPaths', () => {
         expect(paths.manifest).toBe('/app/src/shared/db/generated/manifest.json');
         expect(paths.pullDir).toBe('/app/src/shared/db/.drizzle-pull');
         expect(paths.dbUrl).toBe('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
+        expect(paths.dbUrlExplicit).toBe(false);
+        expect(paths.ephemeralDir).toBe('/app/src/shared/db/.drizzle-ephemeral-pg');
         expect(paths.check).toBe(false);
         expect(paths.timeoutMs).toBe(5000);
         expect(paths.drizzleConfig).toBe(null);
@@ -143,5 +145,11 @@ describe('resolveCodegenPaths', () => {
             cwd,
         );
         expect(paths.dbUrl).toBe('postgresql://flag');
+    });
+
+    it('marks dbUrlExplicit true only when a flag or env var set it', () => {
+        expect(resolveCodegenPaths([], {}, cwd).dbUrlExplicit).toBe(false);
+        expect(resolveCodegenPaths(['--db-url=postgresql://flag'], {}, cwd).dbUrlExplicit).toBe(true);
+        expect(resolveCodegenPaths([], { CODEGEN_DATABASE_URL: 'postgresql://env' }, cwd).dbUrlExplicit).toBe(true);
     });
 });

@@ -37,24 +37,31 @@ import { join, relative } from 'node:path';
 import { Client } from 'pg';
 import resolveCodegenPaths from '../dist/src/db/codegen_paths.js';
 import { runInstallExecStep } from './install_exec_step.mjs';
+import { startEphemeralPostgres } from './ephemeral_pg.mjs';
 
 const paths = resolveCodegenPaths(process.argv.slice(2), process.env, process.cwd());
 
-async function assertReachable(url) {
+async function isReachable(url) {
     const client = new Client({ connectionString: url, connectionTimeoutMillis: paths.timeoutMs });
     try {
         await client.connect();
         await client.end();
-    } catch (error) {
+        return true;
+    } catch {
         await client.end().catch(() => { /* already failed to connect */ });
-        console.error(`❌ Could not reach Postgres at ${url}\n   (${error.message})`);
-        console.error("\n   drizzle-kit pull needs a live Postgres to introspect — any one works, this script has no Docker dependency of its own. Pick one:");
-        console.error("   - Local Supabase (needs Docker running):  ./supabase/scripts/db_start.sh --reset");
-        console.error("   - A native Postgres you already have:     CODEGEN_DATABASE_URL=postgresql://... npm run db:codegen");
-        console.error("   - A remote/staging database:              CODEGEN_DATABASE_URL=postgresql://... npm run db:codegen");
-        console.error(`   Slow/cold-starting target? Raise the timeout: CODEGEN_CONNECT_TIMEOUT_MS=15000 npm run db:codegen`);
-        process.exit(1);
+        return false;
     }
+}
+
+function failUnreachable(url) {
+    console.error(`❌ Could not reach Postgres at ${url}`);
+    console.error("\n   drizzle-kit pull needs a live Postgres to introspect — any one works, this script has no Docker dependency of its own. Pick one:");
+    console.error("   - Local Supabase (needs Docker running):  ./supabase/scripts/db_start.sh --reset");
+    console.error("   - A native Postgres you already have:     CODEGEN_DATABASE_URL=postgresql://... npm run db:codegen");
+    console.error("   - A remote/staging database:              CODEGEN_DATABASE_URL=postgresql://... npm run db:codegen");
+    console.error("   - Zero setup (no Docker/Postgres at all):  npm install --save-dev embedded-postgres  (auto-used as a fallback)");
+    console.error(`   Slow/cold-starting target? Raise the timeout: CODEGEN_CONNECT_TIMEOUT_MS=15000 npm run db:codegen`);
+    process.exit(1);
 }
 
 function sqlFiles(dir) {
@@ -87,10 +94,24 @@ if (paths.check) {
     process.exit(0);
 }
 
-await assertReachable(paths.dbUrl);
+let effectiveDbUrl = paths.dbUrl;
+let ephemeral = null;
+if (!(await isReachable(paths.dbUrl))) {
+    if (paths.dbUrlExplicit) failUnreachable(paths.dbUrl);
+    ephemeral = await startEphemeralPostgres(paths.ephemeralDir, sqlFiles(paths.ddlDir));
+    if (!ephemeral) failUnreachable(paths.dbUrl);
+    effectiveDbUrl = ephemeral.url;
+}
 
 rmSync(paths.pullDir, { recursive: true, force: true });
-execFileSync('npx', ['drizzle-kit', 'pull', ...(paths.drizzleConfig ? [`--config=${paths.drizzleConfig}`] : [])], { stdio: 'inherit' });
+try {
+    execFileSync('npx', ['drizzle-kit', 'pull', ...(paths.drizzleConfig ? [`--config=${paths.drizzleConfig}`] : [])], {
+        stdio: 'inherit',
+        env: { ...process.env, CODEGEN_DATABASE_URL: effectiveDbUrl },
+    });
+} finally {
+    if (ephemeral) await ephemeral.stop();
+}
 
 const pulled = join(paths.pullDir, "schema.ts");
 if (!existsSync(pulled)) {
