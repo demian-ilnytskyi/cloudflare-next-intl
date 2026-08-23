@@ -3,6 +3,16 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Breaking
+
+- Removed `supabaseSelect`, `supabaseInsert`, `supabaseUpsert`, `supabaseUpdate`, `supabaseDelete`, `supabaseRpc` and their `*AsUser` counterparts. Use `withPublicDb`/`withUserDb`; in Supabase mode statements are now translated to PostgREST calls automatically and only fall back to `cfni_exec` when they cannot be.
+
+### Added
+
+- `cloudflare-next-intl/dbEslint`: a flat-config fragment that blocks direct `@supabase/supabase-js`/`pg`/`postgres` imports in application code.
+
 ## [0.8.6] - 2026-08-23
 
 ### Added
