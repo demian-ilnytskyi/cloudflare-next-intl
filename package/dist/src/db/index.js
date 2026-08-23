@@ -7,6 +7,11 @@
  * - {@link withPublicDb} — anonymous role, for data any visitor may read.
  * - {@link withUserDb} — the signed-in user, with RLS applied to their id.
  *
+ * Need more than one statement to succeed or fail together?
+ * - {@link withPublicTransaction} / {@link withUserTransaction} — build
+ *   queries with `.toSQL()` instead of executing them; every statement then
+ *   runs atomically, whichever transport mode is active.
+ *
  * Two transports reach Postgres behind that same Drizzle query API, chosen by
  * `resolveDbMode` from which `db` config fields are set: `connectionString`
  * for a direct connection (wins if both are configured), or `supabase` for
@@ -18,10 +23,12 @@
  * statement is first translated into `@supabase/supabase-js` `.from()` calls;
  * anything PostgREST cannot express falls back to `cfni_exec`, and if
  * `db.supabase.rawSql` is `false` the call throws naming the construct that
- * needs raw SQL. `.transaction()` is never available in Supabase mode.
+ * needs raw SQL. `withPublicDb`/`withUserDb`'s `.transaction()` is never
+ * available in Supabase mode — reach for `withPublicTransaction`/
+ * `withUserTransaction` there instead.
  *
  * Generic Drizzle SQL helpers (`excluded`, `onConflictSet`, `ago`, …) live in
  * the separate `cloudflare-next-intl/dbHelpers` entry point.
  */
-export { withPublicDb, withUserDb } from './context';
+export { withPublicDb, withUserDb, withPublicTransaction, withUserTransaction } from './context';
 export { default as connectToPostgres, disconnectPostgres, resetConnectionState } from './connection';

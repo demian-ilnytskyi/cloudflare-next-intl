@@ -874,6 +874,12 @@ export interface SupabaseDbConfig {
      * conflict`, `returning`) and throw for anything else — joins,
      * aggregates, CTEs, transactions — naming the construct that needs raw
      * SQL. Defaults to `true`.
+     *
+     * Also gates `withUserTransaction`/`withPublicTransaction`: their
+     * `cfni_exec_batch` function ships in the same `supabase/cfni_exec.sql`
+     * file and needs `cfni_exec` itself to run each statement, so batching
+     * is on whenever this is (there is no separate flag for it) and throws
+     * the same install-or-use-`connectionString` error when this is `false`.
      */
     rawSql?: boolean;
 }

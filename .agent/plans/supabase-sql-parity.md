@@ -101,9 +101,14 @@ Keep `cfni_exec` param-free; do the substitution in
   `.transaction()` throws
   `db: transactions are not available in Supabase mode …` instead of running
   non-atomically.
-- Add `cfni_exec_batch(statements json)` and route `withUserDb` bodies that
-  need atomicity through it only if we later expose an explicit batch API —
-  out of scope here, noted as the follow-up for real transactions.
+- **Done (0.8.9):** shipped `cfni_exec_batch(statements text[])` — runs every
+  statement in the array inside one plpgsql call (an implicit transaction),
+  so a failure on any statement rolls back everything before it — plus
+  `withUserTransaction`/`withPublicTransaction` on the TypeScript side, which
+  take a `build` callback returning `.toSQL()`-built queries (never executed
+  directly) and send them as one `cfni_exec_batch` round trip. See
+  `package/src/db/transaction_batch.ts`, `package/src/db/context.ts`, and the
+  README's "Multi-statement transactions" section.
 
 ### 5. Array/bytea column mapping
 - Once values arrive as pg text (step 3), the remaining mismatch is array

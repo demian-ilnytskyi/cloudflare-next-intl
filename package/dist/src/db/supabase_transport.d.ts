@@ -1,4 +1,24 @@
 import type { SupabaseDbConfig } from '../types/types';
+export interface SupabaseRpcError {
+    message: string;
+    code?: string;
+}
+export interface ExecResult {
+    rows: unknown[];
+    rowCount: number | null;
+}
+/**
+ * `cfni_exec` returns each row as a Postgres composite-literal string (see
+ * {@link parseComposite}), so the JSON-decoded `data.rows` array here is a
+ * `string[]`, not already the `(string | null)[][]` `pg-proxy` expects —
+ * that positional-array shape is what this reconstructs.
+ *
+ * Exported for {@link ../transaction_batch}, which decodes each element of
+ * `cfni_exec_batch`'s result array the same way this decodes a single
+ * `cfni_exec` result — the two functions return one `{rows, rowCount}` shape
+ * per statement either way.
+ */
+export declare function parseExecResult(data: unknown): ExecResult;
 /**
  * The executor shape `drizzle-orm/pg-proxy` calls with each generated
  * statement. Declared structurally so this file never imports `drizzle-orm`.
@@ -30,3 +50,8 @@ export type SupabaseRemoteCallback = (sql: string, params: unknown[], method: 'a
  * @returns A callback suitable for `drizzle-orm/pg-proxy`'s `drizzle()`.
  */
 export default function createSupabaseTransport(supabase: SupabaseDbConfig, bearerToken: string): SupabaseRemoteCallback;
+/**
+ * Exported for {@link ../transaction_batch}, which reports `cfni_exec_batch`
+ * RPC failures the same way this reports `cfni_exec` failures.
+ */
+export declare function describeFailure(error: SupabaseRpcError, execFunction: string): string;

@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.9] - 2026-08-23
+
+### Added
+
+- `withUserTransaction`/`withPublicTransaction` (`cloudflare-next-intl/db`): run several statements atomically in Supabase mode, where `withUserDb`/`withPublicDb`'s `.transaction()` cannot (each of their statements is an independent PostgREST round-trip with no shared session). `build` returns queries built with `.toSQL()` — never executed directly — which are rendered and sent as one `cfni_exec_batch` call; the Postgres function runs them in order inside a single plpgsql call, itself an implicit transaction, so a failure on any statement rolls back everything before it in the batch. In connection-string mode these throw, pointing back at `withUserDb`/`withPublicDb`'s own `.transaction()`, which already provides real atomicity there.
+- `supabase/cfni_exec.sql`: added `cfni_exec_batch(statements text[])`, the atomic batch runner behind the new TypeScript API. Ships and installs alongside `cfni_exec` (same file, same `cfni-db-codegen`/`cfni-db-install-exec` step) and follows the same `db.supabase.rawSql` gate — no separate config flag.
+- `cfni-db-codegen`/`cfni-db-install-exec`: `--rpc-file-name=`/`--tests-file-name=` (also `CFNI_DB_RPC_FILE_NAME`/`CFNI_DB_TESTS_FILE_NAME`) let a project rename the installed `cfni_exec.sql`/its pgTAP test file — useful now that the file ships both `cfni_exec` and `cfni_exec_batch`. Default unchanged (`cfni_exec.sql` for both).
+
 ## [0.8.8] - 2026-08-23
 
 ### Fixed

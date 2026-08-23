@@ -558,9 +558,11 @@ user's Firebase ID token is used automatically.
 
 **Two differences to know about in Supabase mode:**
 
-- **Per-statement transactions.** Each statement in a `withUserDb` callback is
-  its own round-trip, so it is its own implicit transaction. Multi-statement
-  atomicity is available in connection-string mode only.
+- **Per-statement transactions in `withUserDb`/`withPublicDb`.** Each
+  statement in one of their callbacks is its own round-trip, so it is its own
+  implicit transaction — `.transaction()` throws there instead of running
+  non-atomically. Reach for `withUserTransaction`/`withPublicTransaction`
+  (below) when you need more than one statement to succeed or fail together.
 - **Wider SQL surface.** `cfni_exec` runs statements your app generates, so any
   role that can execute it can run arbitrary SQL *within that role's own
   privileges* — a broader surface than PostgREST's normal verbs, though still
@@ -574,8 +576,55 @@ with or without `RETURNING` (including `ON CONFLICT ... DO UPDATE` via
 writable CTEs (`with x as (update ... returning ...) select ... from x`).
 Every value round-trips through Postgres' own text representation, not JSON,
 so arrays/`numeric`/timestamps/`bytea` decode the same way they do in
-connection-string mode. Not supported: multi-statement transactions (each
-call is its own PostgREST round-trip — see above).
+connection-string mode. `withUserDb`/`withPublicDb` do not run multiple
+statements atomically (each call is its own PostgREST round-trip) — see
+[Multi-statement transactions](#multi-statement-transactions-withusertransaction-withpublictransaction)
+below for the API that does.
+
+#### Multi-statement transactions (`withUserTransaction`/`withPublicTransaction`)
+
+`withUserDb`/`withPublicDb` cannot provide atomicity across statements in
+Supabase mode — there is no shared session for `.transaction()` to open, so
+it throws there instead of silently running non-atomically. Reach for
+`withUserTransaction`/`withPublicTransaction` (also from
+`cloudflare-next-intl/db`) whenever a write needs more than one statement to
+succeed or fail together.
+
+They take a `build` callback that **builds** queries instead of executing
+them — call `.toSQL()` on each Drizzle query and return the array, rather
+than `await`ing the query directly:
+
+```typescript
+import { withUserTransaction } from "cloudflare-next-intl/db";
+import { invitations, contractorAccessGrants } from "@/shared/db/generated/schema";
+
+const [invitationResult, grantResult] = await withUserTransaction((db) => [
+    db.insert(invitations).values({ email: "a@b.com" }).returning().toSQL(),
+    db.insert(contractorAccessGrants).values({ propertyId: 1 }).toSQL(),
+]);
+```
+
+Every query in the array is rendered and sent to Postgres as **one**
+`cfni_exec_batch` call: the function runs each statement in order inside a
+single plpgsql call, which is itself an implicit transaction, so a failure on
+any statement rolls back every statement that ran before it in the same
+batch. `cfni_exec_batch` ships alongside `cfni_exec` in the same
+`supabase/cfni_exec.sql` file (installed the same way — see
+[Schema codegen](#schema-codegen-cfni-db-codegen) below) and is available
+whenever `cfni_exec` is: there is no separate config flag, and
+`db.supabase.rawSql: false` turns off both.
+
+Each result is the same `{ rows, rowCount }` shape a single `cfni_exec` call
+returns — decode rows the same way you would from `db.execute(sql\`...\`)`.
+
+`await`ing a query directly inside `build` (instead of calling `.toSQL()`)
+throws immediately, naming the mistake, rather than hanging or silently
+running that one statement outside the batch with no atomicity.
+
+In connection-string mode, use `withUserDb`/`withPublicDb`'s own
+`.transaction()` instead — it already provides real atomicity there, so
+`withUserTransaction`/`withPublicTransaction` throw rather than duplicate
+that path.
 
 #### Supabase mode and REST translation
 
@@ -617,7 +666,8 @@ await withPublicDb((db) => db.delete(bonds).where(eq(bonds.id, 1)));
 | `RETURNING` clauses | Supported | Supported |
 | Operators: `=`, `<>`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `ilike`, `is [not] null`, `[not] in`, `is [not] distinct from`, `~`, `~*`, `@>`, `<@`, `&&`, `>>`, `<<`, `&>`, `&<`, `-|-`, `@@` | Supported | Supported |
 | Multi-table joins, CTEs, non-count aggregates, `GROUP BY`, `UNION`, `DISTINCT`, raw SQL | Not supported by REST | Supported |
-| Multi-statement transactions | Not supported | Not supported (Postgres connection only) |
+| Multi-statement transactions in `withUserDb`/`withPublicDb` | Not supported | Not supported (each call is its own round-trip) |
+| Multi-statement transactions via `withUserTransaction`/`withPublicTransaction` | N/A — batch-only API | Supported (`cfni_exec_batch`, one round-trip) |
 
 #### Enforcing single API via ESLint (`cloudflare-next-intl/dbEslint`)
 
@@ -632,8 +682,9 @@ export default [
 ];
 ```
 
-Two query wrappers, both from `cloudflare-next-intl/db`. Choose by who is
-allowed to see the rows:
+Four query wrappers, all from `cloudflare-next-intl/db`. Choose by who is
+allowed to see the rows, then by whether you need more than one statement to
+succeed or fail together:
 
 - `withPublicDb(fn)` — runs `fn` as the anonymous role: a pooled connection
   with no transaction/role switch in connection-string mode, or the anon key
@@ -650,6 +701,13 @@ allowed to see the rows:
   the id comes from `db.getUserId()` if set, otherwise automatically from the
   signed-in Firebase user when `firebaseAuth` is configured — you rarely need
   to pass it explicitly.
+- `withPublicTransaction(build)` / `withUserTransaction(build)` — same role
+  split as above, but for a write that needs more than one statement to
+  succeed or fail together. See
+  [Multi-statement transactions](#multi-statement-transactions-withusertransaction-withpublictransaction)
+  above — `build` returns built (`.toSQL()`) queries rather than executing
+  them, and these two are currently Supabase-mode only (connection-string
+  mode already has real atomicity via `withUserDb`/`withPublicDb`).
 
 ```typescript
 // anywhere on the server
@@ -703,7 +761,9 @@ npx cfni-db-codegen --check
 | `--db-url=` | `CODEGEN_DATABASE_URL` | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 | `--drizzle-config=` | `CFNI_DB_DRIZZLE_CONFIG` | none |
 | `--rpc-dir=` | `CFNI_DB_RPC_DIR` | sibling of `--ddl-dir`, e.g. `supabase/rpc` |
+| `--rpc-file-name=` | `CFNI_DB_RPC_FILE_NAME` | `cfni_exec.sql` |
 | `--tests-dir=` | `CFNI_DB_TESTS_DIR` | sibling of `--ddl-dir`, e.g. `supabase/tests` |
+| `--tests-file-name=` | `CFNI_DB_TESTS_FILE_NAME` | `cfni_exec.sql` |
 | `--force` | `CFNI_DB_FORCE_EXEC=true` | off |
 | `--skip-exec` | `CFNI_DB_SKIP_EXEC=true` | off |
 | `--check` | — | off |
@@ -718,15 +778,21 @@ them and fails naming the first one that is stale.
 npx cfni-db-codegen --out-dir=src/shared/db/generated --out-dir=../other-app/src/db/generated
 ```
 
-##### Keeping `cfni_exec.sql` in sync (`--rpc-dir`/`--tests-dir`/`--force`/`--skip-exec`)
+##### Keeping `cfni_exec.sql` in sync (`--rpc-dir`/`--rpc-file-name`/`--tests-dir`/`--tests-file-name`/`--force`/`--skip-exec`)
 
 After a successful (non-`--check`) run, `cfni-db-codegen` also copies
 `supabase/cfni_exec.sql` and its pgTAP test file (see
 [Testing `cfni_exec.sql` itself](#testing-cfni_execsql-itself) below) into
 your project — `--rpc-dir`/`--tests-dir` (defaulting to sibling folders of
-`--ddl-dir`, so `rpc`/`tests` next to `data-base`). This keeps a project that
-enables Supabase mode's raw-SQL path always holding the current version of the
-function, without a manual copy-paste step.
+`--ddl-dir`, so `rpc`/`tests` next to `data-base`), each named `cfni_exec.sql`
+by default. This keeps a project that enables Supabase mode's raw-SQL path
+always holding the current version of the function, without a manual
+copy-paste step. Since the file now ships both `cfni_exec` and
+`cfni_exec_batch` (see
+[Multi-statement transactions](#multi-statement-transactions-withusertransaction-withpublictransaction)
+above), pass `--rpc-file-name=`/`--tests-file-name=` (or
+`CFNI_DB_RPC_FILE_NAME`/`CFNI_DB_TESTS_FILE_NAME`) if you'd rather install it
+under a name that reflects that, e.g. `cfni_exec_and_batch.sql`.
 
 This step is gated on `db.supabase.rawSql` (see
 [Supabase mode without `cfni_exec`](#supabase-mode-without-cfni_exec)):
@@ -747,7 +813,8 @@ set `CFNI_DB_SKIP_EXEC=true`) to turn this whole step off, independent of
 
 To run only this step — no `drizzle-kit pull`, no live Postgres needed — use
 the standalone `cfni-db-install-exec` binary instead, which accepts the same
-`--rpc-dir`/`--tests-dir`/`--force` flags:
+`--rpc-dir`/`--rpc-file-name`/`--tests-dir`/`--tests-file-name`/`--force`
+flags:
 
 ```bash
 npx cfni-db-install-exec

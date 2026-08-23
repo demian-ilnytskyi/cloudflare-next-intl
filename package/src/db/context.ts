@@ -1,4 +1,5 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { Query } from 'drizzle-orm';
 import type { SupabaseDbConfig } from '../types/types';
 import config from '../config/intl_config';
 import requireDbConfig from './require_config';
@@ -7,6 +8,8 @@ import resolveDbMode from './resolve_mode';
 import resolveSupabaseEndpoint from './supabase_config';
 import createSupabaseTransport from './supabase_transport';
 import resolveAccessToken from './access_token';
+import runTransactionBatch, { type BatchQuery } from './transaction_batch';
+import type { ExecResult } from './supabase_transport';
 
 /**
  * The Drizzle handle passed to `withPublicDb`/`withUserDb` callbacks. Use it
@@ -57,6 +60,26 @@ async function supabaseDb(supabase: SupabaseDbConfig, bearerToken: string): Prom
             );
         },
     });
+}
+
+/**
+ * Builds a Drizzle handle with no working transport, for
+ * `withUserTransaction`/`withPublicTransaction` callbacks in Supabase mode.
+ * Query builders' `.toSQL()` never touches the session, so this is safe to
+ * hand out purely for building statements — but `await`ing a query directly
+ * (instead of collecting its `.toSQL()` output) throws immediately here
+ * instead of hanging or silently running outside the batch.
+ */
+function buildOnlyDb(): DrizzleDb {
+    const throwIfExecuted = () => {
+        throw new Error(
+            'db: this Drizzle handle is for building statements only — call `.toSQL()` on each ' +
+            'query and return the array, do not `await`/execute it directly. Awaiting a query ' +
+            'inside a withUserTransaction/withPublicTransaction callback runs it outside the ' +
+            'batch, with no atomicity, which is exactly what these wrappers exist to prevent.',
+        );
+    };
+    return new Proxy({}, { get: () => throwIfExecuted }) as unknown as DrizzleDb;
 }
 
 /**
@@ -145,4 +168,111 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
     } finally {
         disconnectPostgres(config);
     }
+}
+
+/** One statement's `{rows, rowCount}` result from a `withUserTransaction`/`withPublicTransaction` batch. */
+export type { ExecResult as TransactionResult } from './supabase_transport';
+
+/**
+ * Runs several statements atomically, whichever transport mode is active.
+ *
+ * `build` does not execute its queries — it **builds** them and returns the
+ * array. Call `.toSQL()` on each Drizzle query instead of `await`ing it
+ * (`await`ing throws immediately here; see {@link buildOnlyDb}). This is
+ * only reachable in Supabase mode — connection-string mode already has real
+ * atomicity through `withUserDb`/`withPublicDb`'s own `.transaction()`, so
+ * `withUserTransaction`/`withPublicTransaction` throw there instead of
+ * duplicating that path. In Supabase mode, where `.transaction()` cannot
+ * open a session, every query is inlined and sent as one `cfni_exec_batch`
+ * call: the Postgres function runs them in order inside a single plpgsql
+ * call, which is itself an implicit transaction, so a failure on any
+ * statement rolls back every statement before it.
+ *
+ * @param db The already-resolved `db` config.
+ * @param bearerToken The anon key or user JWT.
+ * @param build Returns the queries to run, via `.toSQL()` — never executes them directly.
+ * @returns One result per query, in the same order as `build`'s array.
+ */
+function requireSupabaseTransactionMode(db: NonNullable<typeof config.db>): SupabaseDbConfig {
+    if (resolveDbMode(db) !== 'supabase') {
+        throw new Error(
+            'db: withUserTransaction/withPublicTransaction only run their Supabase-mode batch path ' +
+            'right now. In connection-string mode, use withUserDb/withPublicDb\'s own `.transaction()` ' +
+            '— it already provides real atomicity there.',
+        );
+    }
+    const supabase = db.supabase!;
+    if (supabase.rawSql === false) {
+        throw new Error(
+            'db: withUserTransaction/withPublicTransaction need `cfni_exec_batch`, which runs through ' +
+            '`cfni_exec` — both are unavailable while `db.supabase.rawSql` is `false`. Install ' +
+            'cfni_exec.sql and drop `rawSql: false`, or use `db.connectionString` for a direct ' +
+            'Postgres connection instead.',
+        );
+    }
+    return supabase;
+}
+
+async function runTransaction(
+    supabase: SupabaseDbConfig,
+    bearerToken: string,
+    build: (db: DrizzleDb) => Promise<Query[]> | Query[],
+): Promise<ExecResult[]> {
+    const queries = await build(buildOnlyDb());
+    const batchQueries: BatchQuery[] = queries.map((query) => ({ sql: query.sql, params: query.params }));
+    return runTransactionBatch(supabase, bearerToken, batchQueries);
+}
+
+/**
+ * Runs several statements atomically as the **anonymous** role.
+ *
+ * See {@link runTransaction} for the batching mechanism. `build` must not
+ * execute its queries — return their `.toSQL()` form instead.
+ *
+ * @param build Returns the queries to run, in order.
+ * @returns One `{rows, rowCount}` result per query, in the same order.
+ * @throws If `db` is not set, if this isn't Supabase mode (connection-string
+ * mode already has real transactions via `withPublicDb`), or if any
+ * statement in the batch fails — the whole batch is then rolled back.
+ *
+ * @example
+ * const [inserted] = await withPublicTransaction((db) => [
+ *     db.insert(logEntries).values({ event: 'visit' }).toSQL(),
+ * ]);
+ */
+export async function withPublicTransaction(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): Promise<ExecResult[]> {
+    const db = config.db;
+    requireDbConfig(db);
+    const supabase = requireSupabaseTransactionMode(db);
+    const { anonKey } = await resolveSupabaseEndpoint(supabase);
+    return runTransaction(supabase, anonKey, build);
+}
+
+/**
+ * Runs several statements atomically as the **signed-in user**.
+ *
+ * See {@link runTransaction} for the batching mechanism and
+ * {@link withUserDb} for how the caller's identity is resolved. In Supabase
+ * mode this is the wrapper to reach for whenever a user-owned write needs
+ * more than one statement to succeed or fail together — `withUserDb` alone
+ * cannot provide that there.
+ *
+ * @param build Returns the queries to run, in order. Do not execute them —
+ * call `.toSQL()` on each and return the array.
+ * @returns One `{rows, rowCount}` result per query, in the same order.
+ * @throws If `db` is not set, if no access token can be resolved, if this
+ * isn't Supabase mode, or if any statement in the batch fails — the whole
+ * batch is then rolled back.
+ *
+ * @example
+ * const [invitation] = await withUserTransaction((db) => [
+ *     db.insert(invitations).values({ email }).returning().toSQL(),
+ * ]);
+ */
+export async function withUserTransaction(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): Promise<ExecResult[]> {
+    const db = config.db;
+    requireDbConfig(db);
+    const supabase = requireSupabaseTransactionMode(db);
+    const token = await resolveAccessToken(config);
+    return runTransaction(supabase, token, build);
 }

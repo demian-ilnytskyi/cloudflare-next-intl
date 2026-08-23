@@ -4,7 +4,7 @@
 // generation, exposed standalone for when you only want this and nothing
 // else (no drizzle-kit pull, no live Postgres needed).
 //
-// Usage: cfni-db-install-exec [--rpc-dir=…] [--tests-dir=…] [--force]
+// Usage: cfni-db-install-exec [--rpc-dir=…] [--rpc-file-name=…] [--tests-dir=…] [--tests-file-name=…] [--force]
 //
 // Gated on the project's `db.supabase.rawSql` (read from `next.config.*`'s
 // `@intl-config` alias) the same way cfni-db-codegen's step is — pass

@@ -1,4 +1,6 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { Query } from 'drizzle-orm';
+import type { ExecResult } from './supabase_transport';
 /**
  * The Drizzle handle passed to `withPublicDb`/`withUserDb` callbacks. Use it
  * exactly like a normal Drizzle database (`db.select().from(table)`); it is
@@ -55,3 +57,45 @@ export declare function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Prom
  * const mine = await withUserDb((db) => db.select().from(orders));
  */
 export declare function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: string): Promise<T>;
+/** One statement's `{rows, rowCount}` result from a `withUserTransaction`/`withPublicTransaction` batch. */
+export type { ExecResult as TransactionResult } from './supabase_transport';
+/**
+ * Runs several statements atomically as the **anonymous** role.
+ *
+ * See {@link runTransaction} for the batching mechanism. `build` must not
+ * execute its queries — return their `.toSQL()` form instead.
+ *
+ * @param build Returns the queries to run, in order.
+ * @returns One `{rows, rowCount}` result per query, in the same order.
+ * @throws If `db` is not set, if this isn't Supabase mode (connection-string
+ * mode already has real transactions via `withPublicDb`), or if any
+ * statement in the batch fails — the whole batch is then rolled back.
+ *
+ * @example
+ * const [inserted] = await withPublicTransaction((db) => [
+ *     db.insert(logEntries).values({ event: 'visit' }).toSQL(),
+ * ]);
+ */
+export declare function withPublicTransaction(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): Promise<ExecResult[]>;
+/**
+ * Runs several statements atomically as the **signed-in user**.
+ *
+ * See {@link runTransaction} for the batching mechanism and
+ * {@link withUserDb} for how the caller's identity is resolved. In Supabase
+ * mode this is the wrapper to reach for whenever a user-owned write needs
+ * more than one statement to succeed or fail together — `withUserDb` alone
+ * cannot provide that there.
+ *
+ * @param build Returns the queries to run, in order. Do not execute them —
+ * call `.toSQL()` on each and return the array.
+ * @returns One `{rows, rowCount}` result per query, in the same order.
+ * @throws If `db` is not set, if no access token can be resolved, if this
+ * isn't Supabase mode, or if any statement in the batch fails — the whole
+ * batch is then rolled back.
+ *
+ * @example
+ * const [invitation] = await withUserTransaction((db) => [
+ *     db.insert(invitations).values({ email }).returning().toSQL(),
+ * ]);
+ */
+export declare function withUserTransaction(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): Promise<ExecResult[]>;

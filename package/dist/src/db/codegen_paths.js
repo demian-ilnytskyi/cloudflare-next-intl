@@ -38,6 +38,8 @@ export default function resolveCodegenPaths(argv, env, cwd) {
     const supabaseRoot = dirname(ddlDir);
     const rpcDir = abs(cwd, flag(argv, 'rpc-dir') ?? env.CFNI_DB_RPC_DIR ?? join(supabaseRoot, 'rpc'));
     const testsDir = abs(cwd, flag(argv, 'tests-dir') ?? env.CFNI_DB_TESTS_DIR ?? join(supabaseRoot, 'tests'));
+    const rpcFileName = flag(argv, 'rpc-file-name') ?? env.CFNI_DB_RPC_FILE_NAME ?? DEFAULT_RPC_FILE_NAME;
+    const testsFileName = flag(argv, 'tests-file-name') ?? env.CFNI_DB_TESTS_FILE_NAME ?? DEFAULT_TESTS_FILE_NAME;
     return {
         ddlDir,
         targets: outDirs.map((dir) => ({
@@ -54,9 +56,9 @@ export default function resolveCodegenPaths(argv, env, cwd) {
         timeoutMs: Number(env.CODEGEN_CONNECT_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS,
         drizzleConfig: drizzleConfig === null ? null : abs(cwd, drizzleConfig),
         rpcDir,
-        rpcFile: join(rpcDir, DEFAULT_RPC_FILE_NAME),
+        rpcFile: join(rpcDir, rpcFileName),
         testsDir,
-        testsFile: join(testsDir, DEFAULT_TESTS_FILE_NAME),
+        testsFile: join(testsDir, testsFileName),
         force: argv.includes('--force') || env.CFNI_DB_FORCE_EXEC === 'true',
         skipExec: argv.includes('--skip-exec') || env.CFNI_DB_SKIP_EXEC === 'true',
     };

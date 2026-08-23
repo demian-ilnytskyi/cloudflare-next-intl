@@ -139,11 +139,52 @@ begin
 end;
 $$;
 
+-- Runs several statements as one atomic unit: `execute`d one at a time via
+-- `cfni_exec`, all inside this single function body, so a failure on any
+-- statement rolls back everything the batch already did — a plpgsql function
+-- call is itself an implicit transaction, which is what makes this atomic
+-- even though `pg-proxy` (the Supabase-mode transport) can open no
+-- transaction of its own: each statement it sends is normally its own
+-- independent PostgREST round-trip with no shared session. This is the
+-- explicit batch API for that gap — see `withUserTransaction`/
+-- `withPublicTransaction` on the TypeScript side, which render every query
+-- in the callback with `.toSQL()` up front (nothing executes until the
+-- batch is sent) and pass the resulting array here as one call.
+--
+-- Returns a jsonb array with one `cfni_exec`-shaped `{rows, rowCount}` result
+-- per input statement, in the same order — so the caller can read each
+-- statement's own result the way it would outside a batch.
+--
+-- SECURITY INVOKER for the same reason as `cfni_exec`: the whole batch runs
+-- with the caller's own privileges, so RLS applies per statement exactly as
+-- it would if each ran on its own.
+create or replace function public.cfni_exec_batch(statements text[])
+returns jsonb
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+    results jsonb := '[]'::jsonb;
+    statement text;
+begin
+    foreach statement in array statements loop
+        results := results || jsonb_build_array(public.cfni_exec(statement));
+    end loop;
+    return results;
+end;
+$$;
+
 revoke all on function public.cfni_exec(text) from public;
 grant execute on function public.cfni_exec(text) to authenticated;
 -- Grant to anon only if your app calls withPublicDb:
 grant execute on function public.cfni_exec(text) to anon;
 grant execute on function public.cfni_exec(text) to service_role;
+
+revoke all on function public.cfni_exec_batch(text[]) from public;
+grant execute on function public.cfni_exec_batch(text[]) to authenticated;
+grant execute on function public.cfni_exec_batch(text[]) to anon;
+grant execute on function public.cfni_exec_batch(text[]) to service_role;
 
 revoke all on function public.cfni_top_level_verb(text) from public;
 grant execute on function public.cfni_top_level_verb(text) to authenticated;

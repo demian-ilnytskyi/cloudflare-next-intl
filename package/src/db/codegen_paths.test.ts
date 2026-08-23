@@ -49,6 +49,27 @@ describe('resolveCodegenPaths', () => {
         expect(paths.testsDir).toBe('/app/env/tests');
     });
 
+    it('resolves rpc-file-name and tests-file-name from flags', () => {
+        const paths = resolveCodegenPaths(['--rpc-file-name=cfni_exec_and_batch.sql', '--tests-file-name=cfni_exec_and_batch.sql'], {}, cwd);
+        expect(paths.rpcFile).toBe('/app/supabase/rpc/cfni_exec_and_batch.sql');
+        expect(paths.testsFile).toBe('/app/supabase/tests/cfni_exec_and_batch.sql');
+    });
+
+    it('resolves rpc-file-name and tests-file-name from env when flags are absent', () => {
+        const paths = resolveCodegenPaths(
+            [],
+            { CFNI_DB_RPC_FILE_NAME: 'env_exec.sql', CFNI_DB_TESTS_FILE_NAME: 'env_exec_tests.sql' },
+            cwd,
+        );
+        expect(paths.rpcFile).toBe('/app/supabase/rpc/env_exec.sql');
+        expect(paths.testsFile).toBe('/app/supabase/tests/env_exec_tests.sql');
+    });
+
+    it('honors a custom rpc-file-name flag together with a custom rpc-dir', () => {
+        const paths = resolveCodegenPaths(['--rpc-dir=custom/rpc', '--rpc-file-name=my_exec.sql'], {}, cwd);
+        expect(paths.rpcFile).toBe('/app/custom/rpc/my_exec.sql');
+    });
+
     it('reads force from a flag or env var', () => {
         expect(resolveCodegenPaths(['--force'], {}, cwd).force).toBe(true);
         expect(resolveCodegenPaths([], { CFNI_DB_FORCE_EXEC: 'true' }, cwd).force).toBe(true);

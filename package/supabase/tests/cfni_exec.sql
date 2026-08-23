@@ -5,7 +5,7 @@
 -- checks the SQL function itself and its RLS interaction directly in
 -- Postgres, without going through the transport/JS parsing layer.
 begin;
-select plan(20);
+select plan(26);
 
 do $$
 begin
@@ -143,6 +143,49 @@ select is(
     (cfni_exec('select * from cfni_test_a') ->> 'rowCount')::int,
     (select count(*)::int from cfni_test_a),
     'authenticated sees all rows under its permissive select policy'
+);
+reset role;
+
+-- cfni_exec_batch
+
+select is(
+    cfni_exec_batch(array[
+        'insert into cfni_test_a (id, name) values (30, ''batch1'') returning id, name',
+        'insert into cfni_test_a (id, name) values (31, ''batch2'') returning id, name'
+    ]),
+    '[{"rows": ["(30,batch1)"], "rowCount": 1}, {"rows": ["(31,batch2)"], "rowCount": 1}]'::jsonb,
+    'batch runs every statement and returns one cfni_exec-shaped result per statement, in order'
+);
+
+select is(
+    (select count(*) from cfni_test_a where id in (30, 31)),
+    2::bigint,
+    'both batched inserts committed'
+);
+
+select throws_ok(
+    $$select cfni_exec_batch(array[
+        'insert into cfni_test_a (id, name) values (40, ''ok'')',
+        'insert into cfni_test_a (id, name) values (invalid syntax'
+    ])$$,
+    null, null,
+    'a later statement failing raises out of the batch call'
+);
+
+select is(
+    (select count(*) from cfni_test_a where id = 40),
+    0::bigint,
+    'an earlier statement in a failed batch is rolled back — the batch is atomic'
+);
+
+select is(pg_proc.prosecdef, false, 'cfni_exec_batch is security invoker, not security definer')
+from pg_proc where proname = 'cfni_exec_batch';
+
+set role anon;
+select is(
+    cfni_exec_batch(array['select * from cfni_test_a where id = 30']),
+    '[{"rows": [], "rowCount": 0}]'::jsonb,
+    'cfni_exec_batch applies RLS per statement just like cfni_exec — anon sees no rows here'
 );
 reset role;
 

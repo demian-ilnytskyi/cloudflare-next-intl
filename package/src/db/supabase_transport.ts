@@ -8,12 +8,12 @@ import parseComposite from './parse_composite';
 
 const DEFAULT_EXEC_FUNCTION = 'cfni_exec';
 
-interface SupabaseRpcError {
+export interface SupabaseRpcError {
     message: string;
     code?: string;
 }
 
-interface ExecResult {
+export interface ExecResult {
     rows: unknown[];
     rowCount: number | null;
 }
@@ -23,8 +23,13 @@ interface ExecResult {
  * {@link parseComposite}), so the JSON-decoded `data.rows` array here is a
  * `string[]`, not already the `(string | null)[][]` `pg-proxy` expects —
  * that positional-array shape is what this reconstructs.
+ *
+ * Exported for {@link ../transaction_batch}, which decodes each element of
+ * `cfni_exec_batch`'s result array the same way this decodes a single
+ * `cfni_exec` result — the two functions return one `{rows, rowCount}` shape
+ * per statement either way.
  */
-function parseExecResult(data: unknown): ExecResult {
+export function parseExecResult(data: unknown): ExecResult {
     if (Array.isArray(data)) return { rows: data.map(parseRow), rowCount: null };
     if (data && typeof data === 'object' && 'rows' in data) {
         const { rows, rowCount } = data as { rows: unknown; rowCount?: unknown };
@@ -111,7 +116,11 @@ function unsupportedMessage(error: UnsupportedSqlError, execFunction: string): s
     );
 }
 
-function describeFailure(error: SupabaseRpcError, execFunction: string): string {
+/**
+ * Exported for {@link ../transaction_batch}, which reports `cfni_exec_batch`
+ * RPC failures the same way this reports `cfni_exec` failures.
+ */
+export function describeFailure(error: SupabaseRpcError, execFunction: string): string {
     // PGRST202 is PostgREST's "no such function" — by far the most likely
     // first-run failure, so point at the install step instead of the raw code.
     if (error.code === 'PGRST202') {

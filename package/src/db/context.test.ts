@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb } = vi.hoisted(() => {
+const { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb, runTransactionBatch } = vi.hoisted(() => {
     const tx = { execute: vi.fn(async () => undefined) };
     const transaction = vi.fn(async (fn: (t: unknown) => Promise<unknown>) => fn(tx));
     const connectToPostgres = vi.fn().mockResolvedValue({});
@@ -9,7 +9,8 @@ const { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, con
     const config: Record<string, unknown> = { locales: ['en'], defaultLocale: 'en', db: { connectionString: 'postgresql://x' } };
     const proxyDb = { select: vi.fn(), execute: vi.fn() };
     const proxyDrizzle = vi.fn(() => proxyDb);
-    return { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb };
+    const runTransactionBatch = vi.fn();
+    return { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb, runTransactionBatch };
 });
 
 vi.mock('drizzle-orm/node-postgres', () => ({ drizzle: vi.fn(() => ({ transaction, select: vi.fn() })) }));
@@ -17,8 +18,9 @@ vi.mock('drizzle-orm/pg-proxy', () => ({ drizzle: proxyDrizzle }));
 vi.mock('./connection', () => ({ default: connectToPostgres, disconnectPostgres, resetConnectionState: vi.fn() }));
 vi.mock('../firebase_auth/server/use_auth_user_server', () => ({ getAuthUser }));
 vi.mock('../config/intl_config', () => ({ default: config }));
+vi.mock('./transaction_batch', () => ({ default: runTransactionBatch }));
 
-import { withPublicDb, withUserDb } from './context';
+import { withPublicDb, withUserDb, withPublicTransaction, withUserTransaction } from './context';
 
 beforeEach(() => {
     tx.execute.mockClear();
@@ -26,6 +28,7 @@ beforeEach(() => {
     connectToPostgres.mockClear();
     proxyDrizzle.mockClear();
     transaction.mockClear();
+    runTransactionBatch.mockReset();
     config.db = { connectionString: 'postgresql://x' };
     config.firebaseAuth = undefined;
 });
@@ -126,5 +129,62 @@ describe('supabase mode', () => {
         await withPublicDb(async () => 1);
         expect(connectToPostgres).toHaveBeenCalledTimes(1);
         expect(proxyDrizzle).not.toHaveBeenCalled();
+    });
+});
+
+describe('withUserTransaction / withPublicTransaction', () => {
+    beforeEach(() => {
+        config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' }, getAccessToken: () => 'user-jwt' };
+    });
+
+    it('sends the queries build() returns to runTransactionBatch, as {sql, params}', async () => {
+        runTransactionBatch.mockResolvedValue([{ rows: [['1']], rowCount: 1 }]);
+        const result = await withUserTransaction(() => [{ sql: 'insert into t (id) values ($1)', params: [1] }]);
+        expect(result).toEqual([{ rows: [['1']], rowCount: 1 }]);
+        expect(runTransactionBatch).toHaveBeenCalledWith(
+            { url: 'https://abc.supabase.co', anonKey: 'anon-key' },
+            'user-jwt',
+            [{ sql: 'insert into t (id) values ($1)', params: [1] }],
+        );
+    });
+
+    it('withPublicTransaction uses the anon key, not an access token', async () => {
+        config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' } };
+        runTransactionBatch.mockResolvedValue([]);
+        await withPublicTransaction(() => []);
+        expect(runTransactionBatch).toHaveBeenCalledWith(expect.anything(), 'anon-key', []);
+    });
+
+    it('the build callback receives a handle that throws if executed instead of built', async () => {
+        runTransactionBatch.mockResolvedValue([]);
+        await withUserTransaction((db) => {
+            expect(() => (db as unknown as { select: () => void }).select()).toThrow(/for building statements only/);
+            return [];
+        });
+    });
+
+    it('throws instead of running in connection-string mode — that mode already has real transactions', async () => {
+        config.db = { connectionString: 'postgresql://x' };
+        await expect(withUserTransaction(() => [])).rejects.toThrow(/withUserDb\/withPublicDb/);
+        expect(runTransactionBatch).not.toHaveBeenCalled();
+    });
+
+    it('throws when db.supabase.rawSql is false, without attempting the batch call', async () => {
+        config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key', rawSql: false }, getAccessToken: () => 'user-jwt' };
+        await expect(withUserTransaction(() => [])).rejects.toThrow(/rawSql.*false/);
+        expect(runTransactionBatch).not.toHaveBeenCalled();
+    });
+
+    it('throws when db config is missing', async () => {
+        config.db = undefined;
+        await expect(withUserTransaction(() => [])).rejects.toThrow(/`db` is not set/);
+        await expect(withPublicTransaction(() => [])).rejects.toThrow(/`db` is not set/);
+    });
+
+    it('propagates a batch failure — the caller sees the whole batch was rolled back', async () => {
+        runTransactionBatch.mockRejectedValue(new Error('db: Supabase rejected the query — constraint violated.'));
+        await expect(withUserTransaction(() => [{ sql: 'insert into t (id) values ($1)', params: [1] }])).rejects.toThrow(
+            /constraint violated/,
+        );
     });
 });

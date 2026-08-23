@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 // Regenerates Drizzle models by introspecting a live Postgres with drizzle-kit.
 // Usage: cfni-db-codegen [--check] [--ddl-dir=…] [--out-dir=…] [--out-file=…] [--db-url=…] [--drizzle-config=…]
-//                        [--rpc-dir=…] [--tests-dir=…] [--force] [--skip-exec]
+//                        [--rpc-dir=…] [--rpc-file-name=…] [--tests-dir=…] [--tests-file-name=…] [--force] [--skip-exec]
+//
+// --rpc-file-name/--tests-file-name (also CFNI_DB_RPC_FILE_NAME/
+// CFNI_DB_TESTS_FILE_NAME) rename the installed cfni_exec.sql/its pgTAP test
+// file in the consuming project — e.g. if a project prefers a name that
+// reflects the file now ships both `cfni_exec` and `cfni_exec_batch`. Default
+// to `cfni_exec.sql` for both, unchanged from before.
 //
 // --out-dir may be repeated, or given a comma-separated list, to generate the
 // same schema into several projects at once (CFNI_DB_OUT_DIR accepts a
