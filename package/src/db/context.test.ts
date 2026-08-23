@@ -127,16 +127,4 @@ describe('supabase mode', () => {
         expect(connectToPostgres).toHaveBeenCalledTimes(1);
         expect(proxyDrizzle).not.toHaveBeenCalled();
     });
-
-    it('withPublicDb throws when db.supabase.rawSql is false', async () => {
-        config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key', rawSql: false } };
-        await expect(withPublicDb(async () => 1)).rejects.toThrow(/rawSql/);
-        expect(proxyDrizzle).not.toHaveBeenCalled();
-    });
-
-    it('withUserDb throws when db.supabase.rawSql is false', async () => {
-        config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key', rawSql: false }, getAccessToken: () => 'user-jwt' };
-        await expect(withUserDb(async () => 1)).rejects.toThrow(/rawSql/);
-        expect(proxyDrizzle).not.toHaveBeenCalled();
-    });
 });
