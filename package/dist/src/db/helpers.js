@@ -1,4 +1,11 @@
-import { getTableColumns, getTableName, sql } from 'drizzle-orm';
+import { getTableColumns, getTableName, sql, eq, and, or, asc, desc, gte, gt, lte, lt, isNull, isNotNull, count, sum, max, min, } from 'drizzle-orm';
+/**
+ * Re-exported `drizzle-orm` query-building primitives, so code that only
+ * calls `withPublicDb`/`withUserDb` and builds queries against the returned
+ * `DrizzleDb` never needs its own `drizzle-orm` import for common predicates,
+ * ordering, and aggregates.
+ */
+export { eq, and, or, asc, desc, gte, gt, lte, lt, isNull, isNotNull, count, sum, max, min, sql };
 /**
  * Type-safe helper returning `excluded.<db_column_name>` SQL expressions for a Drizzle table.
  *

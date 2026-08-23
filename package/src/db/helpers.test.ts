@@ -16,6 +16,22 @@ import {
 	roundReal,
 	multiply,
 	scalarFromCte,
+	eq,
+	and,
+	or,
+	asc,
+	desc,
+	gte,
+	gt,
+	lte,
+	lt,
+	isNull,
+	isNotNull,
+	count,
+	sum,
+	max,
+	min,
+	sql,
 } from './helpers';
 
 const sample = pgTable('sample', {
@@ -71,5 +87,26 @@ describe('sql expression helpers', () => {
 		expect(maxOf(aliasColumn('c', 'x'))).toBeDefined();
 		expect(roundReal(multiply(minOf(sample.price), 100), 2)).toBeDefined();
 		expect(scalarFromCte('filtered', maxOf(sample.price))).toBeDefined();
+	});
+});
+
+describe('re-exported drizzle-orm operators', () => {
+	it('build query predicates/aggregates without throwing', () => {
+		expect(eq(sample.price, 1)).toBeDefined();
+		expect(and(eq(sample.price, 1), eq(sample.isin, 'x'))).toBeDefined();
+		expect(or(eq(sample.price, 1), eq(sample.isin, 'x'))).toBeDefined();
+		expect(asc(sample.price)).toBeDefined();
+		expect(desc(sample.price)).toBeDefined();
+		expect(gte(sample.price, 1)).toBeDefined();
+		expect(gt(sample.price, 1)).toBeDefined();
+		expect(lte(sample.price, 1)).toBeDefined();
+		expect(lt(sample.price, 1)).toBeDefined();
+		expect(isNull(sample.price)).toBeDefined();
+		expect(isNotNull(sample.price)).toBeDefined();
+		expect(count(sample.price)).toBeDefined();
+		expect(sum(sample.price)).toBeDefined();
+		expect(max(sample.price)).toBeDefined();
+		expect(min(sample.price)).toBeDefined();
+		expect(sql`now()`).toBeDefined();
 	});
 });
