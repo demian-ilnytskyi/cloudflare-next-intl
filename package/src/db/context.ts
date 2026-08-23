@@ -22,9 +22,11 @@ const DEFAULT_ROLE = 'authenticated';
 
 /**
  * Resolves the user id for `withUserDb`, trying, in order: the explicit `uid`
- * argument, `db.getUserId()`, then the signed-in Firebase user.
+ * argument, `db.getUserId()`, then the signed-in Firebase user. `uid` may be
+ * `null` (as well as omitted) to mean "skip this source, try the next one" —
+ * useful when the caller's own uid lookup can itself come back empty.
  */
-async function resolveUserId(uid?: string): Promise<string> {
+async function resolveUserId(uid?: string | null): Promise<string> {
     if (uid) return uid;
     const db = config.db;
     requireDbConfig(db);
@@ -105,12 +107,12 @@ function buildOnlyDb(): DrizzleDb {
 export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promise<T> {
     const db = config.db;
     requireDbConfig(db);
-    if (resolveDbMode(db) === 'supabase') {
-        const supabase = db.supabase!;
-        const { anonKey } = await resolveSupabaseEndpoint(supabase);
-        return fn(await supabaseDb(supabase, anonKey));
+    const resolved = await resolveDbMode(db);
+    if (resolved.mode === 'supabase') {
+        const { anonKey } = await resolveSupabaseEndpoint(resolved.supabase);
+        return fn(await supabaseDb(resolved.supabase, anonKey));
     }
-    const client = await connectToPostgres(config);
+    const client = await connectToPostgres(config, resolved.connectionString);
     try {
         const { drizzle } = await import('drizzle-orm/node-postgres');
         return await fn(drizzle(client) as unknown as DrizzleDb);
@@ -135,11 +137,14 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promis
  * @param fn Receives the Drizzle handle. In connection-string mode it is
  * bound to a transaction; in Supabase mode it is not — do not rely on
  * multi-statement atomicity there.
- * @param uid Connection-string mode only: overrides the user id. Omit it in
- * normal use — the id then comes from `db.getUserId()` when set, otherwise
- * from the signed-in Firebase user when `firebaseAuth` is configured.
- * Ignored in Supabase mode, which resolves identity via `db.getAccessToken`/
- * Firebase instead — see {@link resolveAccessToken}.
+ * @param uid Connection-string mode only: overrides the user id. Omit it, or
+ * pass `null`, in normal use — either way the id then comes from
+ * `db.getUserId()` when set, otherwise from the signed-in Firebase user when
+ * `firebaseAuth` is configured. `null` is accepted alongside `undefined` so a
+ * caller's own lookup (which may itself come back empty) can be passed
+ * straight through without an extra check. Ignored in Supabase mode, which
+ * resolves identity via `db.getAccessToken`/Firebase instead — see
+ * {@link resolveAccessToken}.
  * @returns Whatever `fn` resolves to.
  * @throws If `db` is not set on your `RoutingConfig`, if no user id/access
  * token can be resolved, or the connection fails.
@@ -147,15 +152,16 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promis
  * @example
  * const mine = await withUserDb((db) => db.select().from(orders));
  */
-export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: string): Promise<T> {
+export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: string | null): Promise<T> {
     const db = config.db;
     requireDbConfig(db);
-    if (resolveDbMode(db) === 'supabase') {
+    const resolved = await resolveDbMode(db);
+    if (resolved.mode === 'supabase') {
         const token = await resolveAccessToken(config);
-        return fn(await supabaseDb(db.supabase!, token));
+        return fn(await supabaseDb(resolved.supabase, token));
     }
     const userId = await resolveUserId(uid);
-    const client = await connectToPostgres(config);
+    const client = await connectToPostgres(config, resolved.connectionString);
     const role = db.authenticatedRole ?? DEFAULT_ROLE;
     try {
         const { drizzle } = await import('drizzle-orm/node-postgres');
@@ -193,15 +199,16 @@ export type { ExecResult as TransactionResult } from './supabase_transport';
  * @param build Returns the queries to run, via `.toSQL()` — never executes them directly.
  * @returns One result per query, in the same order as `build`'s array.
  */
-function requireSupabaseTransactionMode(db: NonNullable<typeof config.db>): SupabaseDbConfig {
-    if (resolveDbMode(db) !== 'supabase') {
+async function requireSupabaseTransactionMode(db: NonNullable<typeof config.db>): Promise<SupabaseDbConfig> {
+    const resolved = await resolveDbMode(db);
+    if (resolved.mode !== 'supabase') {
         throw new Error(
             'db: withUserTransaction/withPublicTransaction only run their Supabase-mode batch path ' +
             'right now. In connection-string mode, use withUserDb/withPublicDb\'s own `.transaction()` ' +
             '— it already provides real atomicity there.',
         );
     }
-    const supabase = db.supabase!;
+    const supabase = resolved.supabase;
     if (supabase.rawSql === false) {
         throw new Error(
             'db: withUserTransaction/withPublicTransaction need `cfni_exec_batch`, which runs through ' +
@@ -243,7 +250,7 @@ async function runTransaction(
 export async function withPublicTransaction(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): Promise<ExecResult[]> {
     const db = config.db;
     requireDbConfig(db);
-    const supabase = requireSupabaseTransactionMode(db);
+    const supabase = await requireSupabaseTransactionMode(db);
     const { anonKey } = await resolveSupabaseEndpoint(supabase);
     return runTransaction(supabase, anonKey, build);
 }
@@ -272,7 +279,7 @@ export async function withPublicTransaction(build: (db: DrizzleDb) => Promise<Qu
 export async function withUserTransaction(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): Promise<ExecResult[]> {
     const db = config.db;
     requireDbConfig(db);
-    const supabase = requireSupabaseTransactionMode(db);
+    const supabase = await requireSupabaseTransactionMode(db);
     const token = await resolveAccessToken(config);
     return runTransaction(supabase, token, build);
 }

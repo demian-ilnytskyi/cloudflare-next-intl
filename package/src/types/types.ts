@@ -848,20 +848,32 @@ export interface IntlSitemap {
  */
 export type ConfigValue<T> = T | (() => T | Promise<T>);
 
+/**
+ * A {@link ConfigValue} whose function form may also return `null` to mean
+ * "this source has nothing — fall through to the next one" (an env var
+ * default, or another resolver), the same way `getUserId`/`getAccessToken`
+ * already do. `undefined` means the same thing; both are treated
+ * identically by every resolver that reads one of these.
+ */
+export type FallibleConfigValue<T> = ConfigValue<T | null | undefined>;
+
 export interface SupabaseDbConfig {
     /**
      * Supabase project URL, e.g. `https://abc.supabase.co`. Defaults to
      * `process.env.NEXT_PUBLIC_SUPABASE_URL`. May be a function (sync or
-     * async) resolved on each use.
+     * async) resolved on each use — return `null`/`undefined` from it to
+     * fall through to the environment variable instead of erroring.
      */
-    url?: ConfigValue<string | undefined>;
+    url?: FallibleConfigValue<string>;
     /**
      * Supabase anon (publishable) key. Defaults to
      * `process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY`. This is the only key the
      * `db` module ever needs — never put a service-role key here. May be a
-     * function (sync or async) resolved on each use.
+     * function (sync or async) resolved on each use — return
+     * `null`/`undefined` from it to fall through to the environment variable
+     * instead of erroring.
      */
-    anonKey?: ConfigValue<string | undefined>;
+    anonKey?: FallibleConfigValue<string>;
     /**
      * Name of the Postgres function that runs the generated SQL. Defaults to
      * `'cfni_exec'` — the function shipped in `supabase/cfni_exec.sql`.
@@ -890,9 +902,11 @@ export interface DbRoutingConfig {
      * resolved on each connect. The function form is how you reach a value that
      * isn't available at module scope — e.g. a Cloudflare Hyperdrive binding:
      * `connectionString: async () => (await getCloudflareContext({ async: true
-     * })).env.HYPERDRIVE.connectionString`.
+     * })).env.HYPERDRIVE.connectionString`. Return `null`/`undefined` from it
+     * when there is nothing to give — both surface the same "could not
+     * resolve a Postgres connection string" error as leaving this unset.
      */
-    connectionString?: ConfigValue<string | undefined>;
+    connectionString?: FallibleConfigValue<string>;
     /**
      * Whether the pooled client is closed once the last in-flight
      * `withPublicDb`/`withUserDb` call of the request finishes.

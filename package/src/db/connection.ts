@@ -74,11 +74,15 @@ function serializeQueries(raw: Client): Client {
  * `disconnectPostgres` call, or the connection is never released.
  *
  * @param config Your routing config; `config.db` must be set.
+ * @param resolved A connection string already resolved by the caller (e.g.
+ * `resolveDbMode`, which has to call `db.connectionString` itself to decide
+ * the transport) — pass it to skip resolving `db.connectionString` a second
+ * time. Omit it to have this function resolve it itself, as before.
  * @returns The connected, shared client.
  * @throws If `db` is not set, or no connection string can be resolved from
  * `db.connectionString`.
  */
-export default async function connectToPostgres(config: DbConfig): Promise<Client> {
+export default async function connectToPostgres(config: DbConfig, resolved?: string | undefined): Promise<Client> {
     const db = config.db;
     requireDbConfig(db);
     await disconnectionPromise;
@@ -86,7 +90,7 @@ export default async function connectToPostgres(config: DbConfig): Promise<Clien
     if (connectingPromise === null) {
         connectingPromise = (async () => {
             try {
-                connectionString ??= await resolveConnectionString(db);
+                connectionString ??= resolved ?? await resolveConnectionString(db);
                 const { Client } = await import('pg');
                 const created = serializeQueries(new Client({ connectionString }));
                 client = created;

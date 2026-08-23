@@ -44,11 +44,14 @@ export declare function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Prom
  * @param fn Receives the Drizzle handle. In connection-string mode it is
  * bound to a transaction; in Supabase mode it is not — do not rely on
  * multi-statement atomicity there.
- * @param uid Connection-string mode only: overrides the user id. Omit it in
- * normal use — the id then comes from `db.getUserId()` when set, otherwise
- * from the signed-in Firebase user when `firebaseAuth` is configured.
- * Ignored in Supabase mode, which resolves identity via `db.getAccessToken`/
- * Firebase instead — see {@link resolveAccessToken}.
+ * @param uid Connection-string mode only: overrides the user id. Omit it, or
+ * pass `null`, in normal use — either way the id then comes from
+ * `db.getUserId()` when set, otherwise from the signed-in Firebase user when
+ * `firebaseAuth` is configured. `null` is accepted alongside `undefined` so a
+ * caller's own lookup (which may itself come back empty) can be passed
+ * straight through without an extra check. Ignored in Supabase mode, which
+ * resolves identity via `db.getAccessToken`/Firebase instead — see
+ * {@link resolveAccessToken}.
  * @returns Whatever `fn` resolves to.
  * @throws If `db` is not set on your `RoutingConfig`, if no user id/access
  * token can be resolved, or the connection fails.
@@ -56,7 +59,7 @@ export declare function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Prom
  * @example
  * const mine = await withUserDb((db) => db.select().from(orders));
  */
-export declare function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: string): Promise<T>;
+export declare function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: string | null): Promise<T>;
 /** One statement's `{rows, rowCount}` result from a `withUserTransaction`/`withPublicTransaction` batch. */
 export type { ExecResult as TransactionResult } from './supabase_transport';
 /**

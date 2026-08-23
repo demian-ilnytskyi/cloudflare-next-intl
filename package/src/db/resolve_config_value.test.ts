@@ -17,4 +17,16 @@ describe('resolveConfigValue', () => {
     it('returns undefined when nothing is configured', async () => {
         await expect(resolveConfigValue(undefined)).resolves.toBeUndefined();
     });
+
+    it('passes through a direct null', async () => {
+        await expect(resolveConfigValue(null)).resolves.toBeNull();
+    });
+
+    it('passes through null from a sync resolver', async () => {
+        await expect(resolveConfigValue(() => null)).resolves.toBeNull();
+    });
+
+    it('passes through null from an async resolver', async () => {
+        await expect(resolveConfigValue(async () => null)).resolves.toBeNull();
+    });
 });

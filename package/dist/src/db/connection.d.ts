@@ -21,11 +21,15 @@ export declare function resetConnectionState(): void;
  * `disconnectPostgres` call, or the connection is never released.
  *
  * @param config Your routing config; `config.db` must be set.
+ * @param resolved A connection string already resolved by the caller (e.g.
+ * `resolveDbMode`, which has to call `db.connectionString` itself to decide
+ * the transport) — pass it to skip resolving `db.connectionString` a second
+ * time. Omit it to have this function resolve it itself, as before.
  * @returns The connected, shared client.
  * @throws If `db` is not set, or no connection string can be resolved from
  * `db.connectionString`.
  */
-export default function connectToPostgres(config: DbConfig): Promise<Client>;
+export default function connectToPostgres(config: DbConfig, resolved?: string | undefined): Promise<Client>;
 /**
  * Releases one caller's hold on the shared client, closing it once the last
  * holder of the request is done. Call it exactly once per

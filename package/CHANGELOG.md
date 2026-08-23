@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.14] - 2026-08-24
+
+### Added
+
+- `db.supabase.url`/`db.supabase.anonKey`/`db.connectionString`, when given as a function, may now return `null` (not just `undefined`) to mean "nothing here" — matching `db.getUserId`/`db.getAccessToken`, which already accepted `string | null`. Both are treated identically wherever these are resolved; this only widens the accepted type so a resolver returning `someValue ?? null` type-checks.
+- `withUserDb`'s `uid` parameter now also accepts `null` (previously only `string | undefined`), so a caller's own uid lookup — which may itself come back empty — can be passed straight through without an extra `?? undefined`.
+- `resolveDbMode` now actually calls (and awaits) a function-based `db.connectionString` to decide the transport, instead of only checking that it is set. A resolver that resolves to `null`/`undefined` now falls through to `db.supabase` instead of locking in Postgres mode and failing later in `connectToPostgres` with no Supabase fallback ever tried. It returns the resolved value alongside the chosen mode (`{ mode: 'postgres', connectionString } | { mode: 'supabase', supabase }`) so `connectToPostgres` never has to resolve `db.connectionString` a second time — `connectToPostgres` now takes an optional second `resolved` argument for this, defaulting to its previous self-resolving behavior when omitted.
+
 ## [0.8.13] - 2026-08-23
 
 ### Fixed

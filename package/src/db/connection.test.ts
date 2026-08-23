@@ -57,6 +57,20 @@ describe('connectToPostgres', () => {
         await expect(connectToPostgres(config)).rejects.toThrow(/`db.connectionString`/);
     });
 
+    it('uses an already-resolved connection string instead of resolving db.connectionString itself', async () => {
+        const connectionString = vi.fn().mockResolvedValue('postgresql://should-not-be-called');
+        const config = { ...baseConfig, db: { connectionString } } as never;
+        await connectToPostgres(config, 'postgresql://pre-resolved');
+        expect(ClientMock).toHaveBeenCalledWith({ connectionString: 'postgresql://pre-resolved' });
+        expect(connectionString).not.toHaveBeenCalled();
+    });
+
+    it('falls back to resolving db.connectionString when the pre-resolved value is undefined', async () => {
+        const config = { ...baseConfig, db: { connectionString: 'postgresql://fallback' } } as never;
+        await connectToPostgres(config, undefined);
+        expect(ClientMock).toHaveBeenCalledWith({ connectionString: 'postgresql://fallback' });
+    });
+
     it('retries instead of caching a failed connect forever', async () => {
         const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
         connect.mockRejectedValueOnce(new Error('connect refused'));
