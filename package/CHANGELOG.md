@@ -3,7 +3,7 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.8.7] - 2026-08-23
 
 ### Breaking
 
@@ -12,6 +12,7 @@ All notable changes to this package are documented here. Format follows
 ### Added
 
 - `cloudflare-next-intl/dbEslint`: a flat-config fragment that blocks direct `@supabase/supabase-js`/`pg`/`postgres` imports in application code.
+- Automatic PostgREST SQL translation supporting single-table `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `ON CONFLICT`, `RETURNING`, `count(*)`, and 20+ SQL comparison/regex/range/fts operators.
 
 ## [0.8.6] - 2026-08-23
 

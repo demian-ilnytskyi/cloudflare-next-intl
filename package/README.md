@@ -806,6 +806,16 @@ untested:
   55432:5432 postgres:15`), so it never runs — and never needs a database —
   during a normal `npm test`.
 
+## AI Agent Setup & Conventions
+
+When using AI coding assistants (Claude Code, Cursor, Copilot, Antigravity) with `cloudflare-next-intl`:
+
+- **One Database API**: Always use `withPublicDb` or `withUserDb` from `cloudflare-next-intl/db`. Never import `@supabase/supabase-js`, `pg`, or `postgres` in application code.
+- **Drizzle Schema & Helpers**: Always import schema definitions from `cloudflare-next-intl/dbSchema` (`pgTable`, `text`, `timestamp`, `uuid`, etc.) and query operators from `cloudflare-next-intl/dbHelpers` (`eq`, `and`, `or`, `inArray`, `count`, etc.).
+- **Lint Enforcement**: Spread `...dbEslint` from `cloudflare-next-intl/dbEslint` in `eslint.config.js` to catch accidental driver imports.
+- **Reference Document**: Direct AI tools to `llms.txt` in this package for concise rules and subpath exports.
+
 ## License
 
 MIT
+

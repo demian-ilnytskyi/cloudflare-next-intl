@@ -98,3 +98,24 @@ const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
 - No unified `useFirebaseAuthUser` re-export inside `cloudflare-next-intl/firebaseAuth`'s barrel — that barrel can't replicate the `react-server` condition split, so import `cloudflare-next-intl/useFirebaseAuthUser` directly for the hook.
 - Missing `db` on `RoutingConfig` throws immediately from `withPublicDb`/`withUserDb`, naming the missing config field. `pg`, `drizzle-orm`, and `@supabase/supabase-js` ship as dependencies and load via dynamic `import()` — nothing to install yourself, and nothing bundles unless a `db` export is called.
 - In Supabase mode, statements are automatically translated to PostgREST REST calls; unsupported statements fall back to `cfni_exec`. Setting `db.supabase.rawSql: false` disables `cfni_exec` fallback and throws for untranslatable queries.
+
+## Instructions for AI Agents / Coding Assistants
+
+When setting up or writing code for a project using `cloudflare-next-intl`:
+
+1. **Path Alias Setup (`@intl-config`)**:
+   - `tsconfig.json`: `"paths": { "@intl-config": ["./src/i18n/intl_config.ts"] }`
+   - `next.config.mjs`: `webpack: (config) => { config.resolve.alias['@intl-config'] = path.resolve('./src/i18n/intl_config.ts'); return config; }`
+2. **Configuration (`src/i18n/intl_config.ts`)**:
+   - Use `setIntlConfig({ locales: ['en', ...], defaultLocale: 'en', db: { ... } })`
+3. **Database Rules (Strict)**:
+   - **DO NOT** install or import `@supabase/supabase-js`, `pg`, `postgres`, or `drizzle-orm` directly.
+   - **Import query runners from `cloudflare-next-intl/db`**: `withPublicDb((db) => ...)` (anon role), `withUserDb((db) => ...)` (authenticated user role with RLS).
+   - **Import schema builders from `cloudflare-next-intl/dbSchema`**: `pgTable`, `text`, `integer`, `timestamp`, `uuid`, `varchar`, `sql`, etc.
+   - **Import query helpers from `cloudflare-next-intl/dbHelpers`**: `eq`, `and`, `or`, `inArray`, `notInArray`, `count`, `desc`, `asc`, etc.
+   - **Add ESLint enforcement**: In `eslint.config.js`, spread `dbEslint` from `cloudflare-next-intl/dbEslint`.
+4. **Auth Rules**:
+   - For client and server auth state, import `useAuthUser` from `cloudflare-next-intl/useFirebaseAuthUser`.
+   - Wrap client component root with `AuthUserProvider` from `cloudflare-next-intl/firebaseAuthClientProvider` (or use auto-wired `IntlProvider`).
+5. **Codegen**:
+   - Run `npx cfni-db-codegen` to pull Postgres schemas into typesafe Drizzle models using `cloudflare-next-intl/dbSchema`.

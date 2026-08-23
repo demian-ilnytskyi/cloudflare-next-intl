@@ -21,10 +21,10 @@ export interface ParsedSelect {
     offset?: SqlValue;
 }
 /** The `excluded.<column>` reference an upsert's `do update set` may use. */
-export type ExcludedRef = {
+export interface ExcludedRef {
     kind: 'excluded';
     column: string;
-};
+}
 /** A parsed `on conflict` clause. */
 export type OnConflict = {
     columns: string[];
