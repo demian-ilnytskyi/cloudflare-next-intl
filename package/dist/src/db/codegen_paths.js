@@ -4,6 +4,13 @@ const DEFAULT_OUT_DIR = 'src/shared/db/generated';
 const DEFAULT_OUT_FILE = 'schema.ts';
 const DEFAULT_DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 const DEFAULT_TIMEOUT_MS = 5000;
+function flags(argv, name) {
+    const prefix = `--${name}=`;
+    return argv.filter((arg) => arg.startsWith(prefix)).map((arg) => arg.slice(prefix.length));
+}
+function list(value) {
+    return value.split(',').map((part) => part.trim()).filter(Boolean);
+}
 function flag(argv, name) {
     const prefix = `--${name}=`;
     const hit = argv.find((arg) => arg.startsWith(prefix));
@@ -15,11 +22,22 @@ function abs(cwd, value) {
 /** Resolves every codegen path from flags, then env, then the documented defaults. */
 export default function resolveCodegenPaths(argv, env, cwd) {
     const ddlDir = abs(cwd, flag(argv, 'ddl-dir') ?? env.CFNI_DB_DDL_DIR ?? DEFAULT_DDL_DIR);
-    const outDir = abs(cwd, flag(argv, 'out-dir') ?? env.CFNI_DB_OUT_DIR ?? DEFAULT_OUT_DIR);
+    const outDirArgs = flags(argv, 'out-dir').flatMap(list);
+    const outDirs = (outDirArgs.length > 0
+        ? outDirArgs
+        : list(env.CFNI_DB_OUT_DIR ?? '')).map((dir) => abs(cwd, dir));
+    if (outDirs.length === 0)
+        outDirs.push(abs(cwd, DEFAULT_OUT_DIR));
+    const outDir = outDirs[0];
     const outFileName = flag(argv, 'out-file') ?? env.CFNI_DB_OUT_FILE ?? DEFAULT_OUT_FILE;
     const drizzleConfig = flag(argv, 'drizzle-config') ?? env.CFNI_DB_DRIZZLE_CONFIG ?? null;
     return {
         ddlDir,
+        targets: outDirs.map((dir) => ({
+            outDir: dir,
+            outFile: join(dir, outFileName),
+            manifest: join(dir, 'manifest.json'),
+        })),
         outDir,
         outFile: join(outDir, outFileName),
         pullDir: resolve(outDir, '..', '.drizzle-pull'),
