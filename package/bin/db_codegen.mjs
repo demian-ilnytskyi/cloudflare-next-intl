@@ -33,14 +33,14 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { createRequire } from 'node:module';
+import { dirname, join, relative } from 'node:path';
 import { Client } from 'pg';
 import resolveCodegenPaths from '../dist/src/db/codegen_paths.js';
 import { runInstallExecStep } from './install_exec_step.mjs';
 import { startEphemeralPostgres } from './ephemeral_pg.mjs';
 import { orderedSqlFiles } from './ddl_order.mjs';
 
-const PACKAGE_ROOT = new URL('..', import.meta.url).pathname;
 const paths = resolveCodegenPaths(process.argv.slice(2), process.env, process.cwd());
 
 async function isReachable(url) {
@@ -128,13 +128,21 @@ try {
     // drizzle-kit itself requires `drizzle-orm` at runtime. This package
     // depends on drizzle-orm, but npm doesn't guarantee that dependency gets
     // hoisted to the consuming project's own node_modules (it commonly stays
-    // nested under node_modules/cloudflare-next-intl/node_modules) — so
-    // running from *this* package's own directory, where it's guaranteed
-    // resolvable, avoids "please install required packages: drizzle-orm"
-    // when a consumer doesn't happen to have it hoisted.
-    execFileSync('npx', ['drizzle-kit', 'pull', `--config=${configPath}`], {
+    // nested under node_modules/cloudflare-next-intl/node_modules). `npx
+    // drizzle-kit` resolves the binary through its own lookup rather than
+    // Node's normal upward node_modules walk from this file, which — even
+    // pinned to this package's own directory as cwd — resolved drizzle-orm
+    // inconsistently across runs. Resolving and invoking drizzle-kit's own
+    // installed binary directly sidesteps npx's resolution entirely: Node's
+    // ordinary require() from that file's real location always finds
+    // drizzle-orm right next to it in this package's own node_modules.
+    // `drizzle-kit/bin.cjs` isn't in the package's `exports` map, so it can't
+    // be require.resolve()'d directly — but its main entry point can, and
+    // `bin.cjs` always sits next to it (declared via `bin` in package.json).
+    const drizzleKitEntry = createRequire(import.meta.url).resolve('drizzle-kit');
+    const drizzleKitBin = join(dirname(drizzleKitEntry), 'bin.cjs');
+    execFileSync(process.execPath, [drizzleKitBin, 'pull', `--config=${configPath}`], {
         stdio: 'inherit',
-        cwd: PACKAGE_ROOT,
         env: { ...process.env, CODEGEN_DATABASE_URL: effectiveDbUrl },
     });
 } finally {

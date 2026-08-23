@@ -1,6 +1,6 @@
 {
 	"name": "cloudflare-next-intl",
-	"version": "0.8.12",
+	"version": "0.8.13",
 	"description": "Optimized Next Intl Package Special for App Router and Cloudflare",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -242,6 +242,7 @@
 	"dependencies": {
 		"@microsoft/clarity": "^1.0.2",
 		"@supabase/supabase-js": "^2.112.3",
+		"drizzle-kit": "^0.31.10",
 		"drizzle-orm": "^0.45.2",
 		"embedded-postgres": "^18.4.0-beta.17",
 		"firebase": "^12.17.0",
@@ -269,7 +270,6 @@
 		"@types/react": "^19.0.0",
 		"@types/react-dom": "^19.0.0",
 		"@vitest/coverage-v8": "^3.2.7",
-		"drizzle-kit": "^0.31.10",
 		"eslint": "^9.28.0",
 		"eslint-config-next": "15.3.3",
 		"eslint-config-prettier": "^10.1.2",

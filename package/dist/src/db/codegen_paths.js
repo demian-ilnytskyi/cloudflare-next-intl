@@ -33,10 +33,13 @@ export default function resolveCodegenPaths(argv, env, cwd) {
     const outDir = outDirs[0];
     const outFileName = flag(argv, 'out-file') ?? env.CFNI_DB_OUT_FILE ?? DEFAULT_OUT_FILE;
     const drizzleConfig = flag(argv, 'drizzle-config') ?? env.CFNI_DB_DRIZZLE_CONFIG ?? null;
-    // Sibling of ddlDir (default `supabase/data-base` → `supabase`), matching
-    // where `cfni_exec.sql` ships in this package's own `supabase/` folder.
+    // rpcDir defaults inside ddlDir itself (default `supabase/data-base` →
+    // `supabase/data-base/rpcs`), matching where a project's DDL walk (and
+    // this package's own `supabase/data-base/rpcs/`) actually keeps RPC
+    // definitions. testsDir stays a sibling of ddlDir (`supabase/tests`) —
+    // pgTAP tests aren't part of the DDL a project applies to its database.
     const supabaseRoot = dirname(ddlDir);
-    const rpcDir = abs(cwd, flag(argv, 'rpc-dir') ?? env.CFNI_DB_RPC_DIR ?? join(supabaseRoot, 'rpc'));
+    const rpcDir = abs(cwd, flag(argv, 'rpc-dir') ?? env.CFNI_DB_RPC_DIR ?? join(ddlDir, 'rpcs'));
     const testsDir = abs(cwd, flag(argv, 'tests-dir') ?? env.CFNI_DB_TESTS_DIR ?? join(supabaseRoot, 'tests'));
     const rpcFileName = flag(argv, 'rpc-file-name') ?? env.CFNI_DB_RPC_FILE_NAME ?? DEFAULT_RPC_FILE_NAME;
     const testsFileName = flag(argv, 'tests-file-name') ?? env.CFNI_DB_TESTS_FILE_NAME ?? DEFAULT_TESTS_FILE_NAME;

@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.13] - 2026-08-23
+
+### Fixed
+
+- `cfni-db-codegen` moved `drizzle-kit` from a devDependency to a real dependency of this package, and now invokes its installed `bin.cjs` directly instead of shelling out through `npx drizzle-kit`. Previously, once published, a consumer relying on this package's own `drizzle-orm`/`drizzle-kit` (rather than adding both directly) would hit `Error please install required packages: 'drizzle-orm'` — `npx`'s own binary resolution didn't reliably walk back to this package's `node_modules` the way a plain `require()` from this file always does, and `drizzle-kit` wasn't guaranteed to be installed there at all since it was dev-only.
+- The default rpc install location moved from `<sibling of --ddl-dir>/rpc` to `<--ddl-dir>/rpcs` (e.g. `supabase/data-base/rpcs` for the documented `supabase/data-base` default) — matching where a project's own DDL walk (and this package's own `supabase/data-base/rpcs/`) actually keeps `cfni_exec.sql`, instead of a path nothing else in a project's DDL structure uses. `--rpc-dir`/`CFNI_DB_RPC_DIR` override it exactly as before if a project already uses the old layout.
+
 ## [0.8.12] - 2026-08-23
 
 ### Fixed

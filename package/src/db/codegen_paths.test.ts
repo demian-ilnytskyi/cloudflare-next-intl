@@ -16,8 +16,8 @@ describe('resolveCodegenPaths', () => {
         expect(paths.check).toBe(false);
         expect(paths.timeoutMs).toBe(5000);
         expect(paths.drizzleConfig).toBe(null);
-        expect(paths.rpcDir).toBe('/app/supabase/rpc');
-        expect(paths.rpcFile).toBe('/app/supabase/rpc/cfni_exec.sql');
+        expect(paths.rpcDir).toBe('/app/supabase/data-base/rpcs');
+        expect(paths.rpcFile).toBe('/app/supabase/data-base/rpcs/cfni_exec.sql');
         expect(paths.testsDir).toBe('/app/supabase/tests');
         expect(paths.testsFile).toBe('/app/supabase/tests/cfni_exec.sql');
         expect(paths.force).toBe(false);
@@ -30,9 +30,9 @@ describe('resolveCodegenPaths', () => {
         expect(resolveCodegenPaths([], { CFNI_DB_SKIP_EXEC: 'false' }, cwd).skipExec).toBe(false);
     });
 
-    it('derives rpc/tests dirs as siblings of a custom ddl-dir', () => {
+    it('derives rpc dir inside, and tests dir as a sibling of, a custom ddl-dir', () => {
         const paths = resolveCodegenPaths(['--ddl-dir=sql/ddl'], {}, cwd);
-        expect(paths.rpcDir).toBe('/app/sql/rpc');
+        expect(paths.rpcDir).toBe('/app/sql/ddl/rpcs');
         expect(paths.testsDir).toBe('/app/sql/tests');
     });
 
@@ -52,7 +52,7 @@ describe('resolveCodegenPaths', () => {
 
     it('resolves rpc-file-name and tests-file-name from flags', () => {
         const paths = resolveCodegenPaths(['--rpc-file-name=cfni_exec_and_batch.sql', '--tests-file-name=cfni_exec_and_batch.sql'], {}, cwd);
-        expect(paths.rpcFile).toBe('/app/supabase/rpc/cfni_exec_and_batch.sql');
+        expect(paths.rpcFile).toBe('/app/supabase/data-base/rpcs/cfni_exec_and_batch.sql');
         expect(paths.testsFile).toBe('/app/supabase/tests/cfni_exec_and_batch.sql');
     });
 
@@ -62,7 +62,7 @@ describe('resolveCodegenPaths', () => {
             { CFNI_DB_RPC_FILE_NAME: 'env_exec.sql', CFNI_DB_TESTS_FILE_NAME: 'env_exec_tests.sql' },
             cwd,
         );
-        expect(paths.rpcFile).toBe('/app/supabase/rpc/env_exec.sql');
+        expect(paths.rpcFile).toBe('/app/supabase/data-base/rpcs/env_exec.sql');
         expect(paths.testsFile).toBe('/app/supabase/tests/env_exec_tests.sql');
     });
 

@@ -760,7 +760,7 @@ npx cfni-db-codegen --check
 | `--out-file=` | `CFNI_DB_OUT_FILE` | `schema.ts` |
 | `--db-url=` | `CODEGEN_DATABASE_URL` | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 | `--drizzle-config=` | `CFNI_DB_DRIZZLE_CONFIG` | none |
-| `--rpc-dir=` | `CFNI_DB_RPC_DIR` | sibling of `--ddl-dir`, e.g. `supabase/rpc` |
+| `--rpc-dir=` | `CFNI_DB_RPC_DIR` | inside `--ddl-dir`, e.g. `supabase/data-base/rpcs` |
 | `--rpc-file-name=` | `CFNI_DB_RPC_FILE_NAME` | `cfni_exec.sql` |
 | `--tests-dir=` | `CFNI_DB_TESTS_DIR` | sibling of `--ddl-dir`, e.g. `supabase/tests` |
 | `--tests-file-name=` | `CFNI_DB_TESTS_FILE_NAME` | `cfni_exec.sql` |
@@ -792,9 +792,9 @@ fallback entirely and fails loudly if that target is unreachable.
 After a successful (non-`--check`) run, `cfni-db-codegen` also copies
 `supabase/cfni_exec.sql` and its pgTAP test file (see
 [Testing `cfni_exec.sql` itself](#testing-cfni_execsql-itself) below) into
-your project — `--rpc-dir`/`--tests-dir` (defaulting to sibling folders of
-`--ddl-dir`, so `rpc`/`tests` next to `data-base`), each named `cfni_exec.sql`
-by default. This keeps a project that enables Supabase mode's raw-SQL path
+your project — `--rpc-dir` (defaulting inside `--ddl-dir`, so `rpcs` under
+`data-base`) and `--tests-dir` (defaulting to a sibling of `--ddl-dir`, so
+`tests` next to `data-base`), each named `cfni_exec.sql` by default. This keeps a project that enables Supabase mode's raw-SQL path
 always holding the current version of the function, without a manual
 copy-paste step. Since the file now ships both `cfni_exec` and
 `cfni_exec_batch` (see
@@ -808,7 +808,7 @@ This step is gated on `db.supabase.rawSql` (see
 codegen reads your `next.config.*`'s `@intl-config` alias, opens the intl
 config file it points at, and looks for a literal `rawSql: true`/`rawSql:
 false`. If it's explicitly `false`, the copy is skipped entirely — no
-`supabase/rpc`/`supabase/tests` folders are created. If it can't be
+`supabase/data-base/rpcs`/`supabase/tests` folders are created. If it can't be
 determined (no `next.config.*` found, no alias, or `rawSql` isn't a plain
 `true`/`false` literal in the source), a warning is printed and codegen
 assumes `true`, matching `withPublicDb`/`withUserDb`'s own default.
