@@ -8,6 +8,7 @@ All notable changes to this package are documented here. Format follows
 ### Added
 
 - `cloudflare-next-intl/dbTesting` — exports `makeFakeDb`/`rowsResult`/`executeResult`, a fake `DrizzleDb` for unit-testing code that calls `withPublicDb`/`withUserDb` without a real Postgres connection. Records every intermediate chain call (`.where()`, `.values()`, etc.) with its exact arguments for assertions, and handles `$with`/`with` CTE-style queries.
+- `cloudflare-next-intl/dbHelpers` now re-exports `drizzle-orm`'s common query-building primitives (`eq`, `and`, `or`, `asc`, `desc`, `gte`, `gt`, `lte`, `lt`, `isNull`, `isNotNull`, `count`, `sum`, `max`, `min`, `sql`), so repository code that only builds queries against the `DrizzleDb` handle no longer needs its own `drizzle-orm` import for these.
 
 ## [0.8.0] - 2026-08-23
 

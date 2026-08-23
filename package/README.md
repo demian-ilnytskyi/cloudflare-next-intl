@@ -523,7 +523,15 @@ const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
 helpers (`excluded`, `onConflictSet`, `ago`, `currentDate`, `windowCount`,
 `unnestLateral`, `ascNullsLast`, `alwaysTrue`, `lateral`, `aliasColumn`,
 `minOf`, `maxOf`, `roundReal`, `multiply`, `scalarFromCte`) for building
-upsert/window/lateral-join queries without dropping to raw SQL.
+upsert/window/lateral-join queries without dropping to raw SQL, plus a
+re-export of `drizzle-orm`'s common query-building primitives (`eq`, `and`,
+`or`, `asc`, `desc`, `gte`, `gt`, `lte`, `lt`, `isNull`, `isNotNull`, `count`,
+`sum`, `max`, `min`, `sql`) — so code that only builds queries against the
+`DrizzleDb` handle from `withPublicDb`/`withUserDb` doesn't need its own
+`drizzle-orm` import for these. Anything not listed here (schema definitions,
+`drizzle-orm/pg-core` column builders, relations) still comes from
+`drizzle-orm` directly — this package re-exports the query-operator surface
+only, not the whole library.
 
 #### Testing code that calls `withPublicDb`/`withUserDb`
 
