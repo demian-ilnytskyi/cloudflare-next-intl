@@ -611,11 +611,12 @@ await withPublicDb((db) => db.delete(bonds).where(eq(bonds.id, 1)));
 
 | Operation | REST API | `cfni_exec` fallback |
 | --- | --- | --- |
-| Single-table `SELECT` | Supported | Used if untranslatable |
+| Single-table `SELECT` (projections, `count(*)`, `WHERE`, `ORDER BY`, `LIMIT`, `OFFSET`) | Supported | Used if untranslatable |
 | Single-table `INSERT` / `UPDATE` / `DELETE` | Supported | Used if untranslatable |
 | `ON CONFLICT DO NOTHING / UPDATE` | Supported | Supported |
 | `RETURNING` clauses | Supported | Supported |
-| Joins, CTEs, Aggregates, Raw SQL | Not supported by REST | Supported |
+| Operators: `=`, `<>`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `ilike`, `is [not] null`, `[not] in`, `is [not] distinct from`, `~`, `~*`, `@>`, `<@`, `&&`, `>>`, `<<`, `&>`, `&<`, `-|-`, `@@` | Supported | Supported |
+| Multi-table joins, CTEs, non-count aggregates, `GROUP BY`, `UNION`, `DISTINCT`, raw SQL | Not supported by REST | Supported |
 | Multi-statement transactions | Not supported | Not supported (Postgres connection only) |
 
 #### Enforcing single API via ESLint (`cloudflare-next-intl/dbEslint`)

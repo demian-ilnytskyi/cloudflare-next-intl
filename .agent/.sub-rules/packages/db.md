@@ -24,11 +24,12 @@ Companion files: [structure.md](structure.md), [package-authoring.md](package-au
 
 ## Supported REST Subset
 
-- Single-table `SELECT` (projections, WHERE filters, ORDER BY, LIMIT, OFFSET).
+- Single-table `SELECT` (projections, lone `count(*)`, WHERE filters, ORDER BY, LIMIT, OFFSET).
 - Single-table `INSERT` (multi-row, `ON CONFLICT DO NOTHING / UPDATE`).
 - Single-table `UPDATE` and `DELETE` with WHERE filters.
 - Positional `RETURNING` projections.
-- Unsupported over REST: multi-table joins, CTEs, window functions, raw SQL fragments (`*` projection without explicit columns) -> falls back to `cfni_exec`.
+- Supported WHERE operators: `=`, `<>`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `ilike`, `is [not] null`, `[not] in`, `is [not] distinct from`, `~`, `~*`, `@>`, `<@`, `&&`, `>>`, `<<`, `&>`, `&<`, `-|-`, and `@@` text search.
+- Unsupported over REST: multi-table joins, CTEs, non-count aggregates (`sum`, `avg`, `min`, `max`), `group by`, `having`, `union`, `select distinct`, raw SQL -> falls back to `cfni_exec`.
 
 ## Positional Rows
 
