@@ -53,7 +53,6 @@ export default function resolveCodegenPaths(argv, env, cwd) {
         manifest: join(outDir, 'manifest.json'),
         dbUrl: flag(argv, 'db-url') ?? env.CODEGEN_DATABASE_URL ?? DEFAULT_DB_URL,
         dbUrlExplicit: flag(argv, 'db-url') !== undefined || env.CODEGEN_DATABASE_URL !== undefined,
-        ephemeralDir: resolve(outDir, '..', '.drizzle-ephemeral-pg'),
         check: argv.includes('--check'),
         timeoutMs: Number(env.CODEGEN_CONNECT_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS,
         drizzleConfig: drizzleConfig === null ? null : abs(cwd, drizzleConfig),

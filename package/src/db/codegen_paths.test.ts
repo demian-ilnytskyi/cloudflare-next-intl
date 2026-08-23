@@ -13,7 +13,6 @@ describe('resolveCodegenPaths', () => {
         expect(paths.pullDir).toBe('/app/src/shared/db/.drizzle-pull');
         expect(paths.dbUrl).toBe('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
         expect(paths.dbUrlExplicit).toBe(false);
-        expect(paths.ephemeralDir).toBe('/app/src/shared/db/.drizzle-ephemeral-pg');
         expect(paths.check).toBe(false);
         expect(paths.timeoutMs).toBe(5000);
         expect(paths.drizzleConfig).toBe(null);

@@ -38,6 +38,7 @@ import { Client } from 'pg';
 import resolveCodegenPaths from '../dist/src/db/codegen_paths.js';
 import { runInstallExecStep } from './install_exec_step.mjs';
 import { startEphemeralPostgres } from './ephemeral_pg.mjs';
+import { orderedSqlFiles } from './ddl_order.mjs';
 
 const paths = resolveCodegenPaths(process.argv.slice(2), process.env, process.cwd());
 
@@ -96,15 +97,15 @@ if (paths.check) {
 
 let effectiveDbUrl = paths.dbUrl;
 let ephemeral = null;
-if (!(await isReachable(paths.dbUrl))) {
-    if (paths.dbUrlExplicit) failUnreachable(paths.dbUrl);
-    ephemeral = await startEphemeralPostgres(paths.ephemeralDir, sqlFiles(paths.ddlDir));
-    if (!ephemeral) failUnreachable(paths.dbUrl);
-    effectiveDbUrl = ephemeral.url;
-}
-
-rmSync(paths.pullDir, { recursive: true, force: true });
 try {
+    if (!(await isReachable(paths.dbUrl))) {
+        if (paths.dbUrlExplicit) failUnreachable(paths.dbUrl);
+        ephemeral = await startEphemeralPostgres(orderedSqlFiles(paths.ddlDir));
+        if (!ephemeral) failUnreachable(paths.dbUrl);
+        effectiveDbUrl = ephemeral.url;
+    }
+
+    rmSync(paths.pullDir, { recursive: true, force: true });
     execFileSync('npx', ['drizzle-kit', 'pull', ...(paths.drizzleConfig ? [`--config=${paths.drizzleConfig}`] : [])], {
         stdio: 'inherit',
         env: { ...process.env, CODEGEN_DATABASE_URL: effectiveDbUrl },

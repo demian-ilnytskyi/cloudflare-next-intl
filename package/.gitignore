@@ -47,3 +47,6 @@ boundled/
 
 # OpenNext
 /.open-next
+
+# cfni-db-codegen ephemeral Postgres fallback
+/.drizzle-ephemeral-pg
