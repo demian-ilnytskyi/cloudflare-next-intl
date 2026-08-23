@@ -21,11 +21,11 @@ const DEFAULT_EXEC_FUNCTION = 'cfni_exec';
  * @returns A callback suitable for `drizzle-orm/pg-proxy`'s `drizzle()`.
  */
 export default function createSupabaseTransport(supabase, bearerToken) {
-    const { url, anonKey } = resolveSupabaseEndpoint(supabase);
     const execFunction = supabase.execFunction ?? DEFAULT_EXEC_FUNCTION;
     let clientPromise = null;
     async function getClient() {
         clientPromise ?? (clientPromise = (async () => {
+            const { url, anonKey } = await resolveSupabaseEndpoint(supabase);
             const { createClient } = await import('@supabase/supabase-js');
             return createClient(url, anonKey, { accessToken: async () => bearerToken });
         })());

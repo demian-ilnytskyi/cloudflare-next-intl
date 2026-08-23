@@ -17,4 +17,5 @@ export type {
     CookieConsentGetCloudflareContext,
     DbRoutingConfig,
     SupabaseDbConfig,
+    ConfigValue,
 } from './types';

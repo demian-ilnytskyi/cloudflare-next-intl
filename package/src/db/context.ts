@@ -72,7 +72,7 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promis
     requireDbConfig(db);
     if (resolveDbMode(db) === 'supabase') {
         const supabase = db.supabase!;
-        const { anonKey } = resolveSupabaseEndpoint(supabase);
+        const { anonKey } = await resolveSupabaseEndpoint(supabase);
         return fn(await supabaseDb(supabase, anonKey));
     }
     const client = await connectToPostgres(config);

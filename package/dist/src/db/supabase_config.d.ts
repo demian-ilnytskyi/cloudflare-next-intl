@@ -13,6 +13,7 @@ export interface ResolvedSupabaseEndpoint {
  *
  * @param supabase The `db.supabase` config block.
  * @returns The project URL and anon key to build a Supabase client from.
+ * Values given as functions are resolved here.
  * @throws If neither config nor environment supplies a URL or an anon key.
  */
-export default function resolveSupabaseEndpoint(supabase: SupabaseDbConfig): ResolvedSupabaseEndpoint;
+export default function resolveSupabaseEndpoint(supabase: SupabaseDbConfig): Promise<ResolvedSupabaseEndpoint>;

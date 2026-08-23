@@ -46,12 +46,12 @@ export default function createSupabaseTransport(
     supabase: SupabaseDbConfig,
     bearerToken: string,
 ): SupabaseRemoteCallback {
-    const { url, anonKey } = resolveSupabaseEndpoint(supabase);
     const execFunction = supabase.execFunction ?? DEFAULT_EXEC_FUNCTION;
     let clientPromise: Promise<SupabaseRpcClient> | null = null;
 
     async function getClient(): Promise<SupabaseRpcClient> {
         clientPromise ??= (async () => {
+            const { url, anonKey } = await resolveSupabaseEndpoint(supabase);
             const { createClient } = await import('@supabase/supabase-js');
             return createClient(url, anonKey, { accessToken: async () => bearerToken }) as unknown as SupabaseRpcClient;
         })();

@@ -411,10 +411,12 @@ export default setIntlConfig({
 
 `db` fields (all optional):
 
-- `connectionString` — a Postgres connection string. Omit to resolve it from
-  the Hyperdrive binding named by `hyperdriveBinding` instead (the normal
-  production setup); a value here always wins over the binding, which is
-  what makes local dev / build-time evaluation work.
+- `connectionString` — a Postgres connection string, or a sync/async function
+  returning one (resolved on each connect, so the value can come from a secret
+  store). Omit to resolve it from the Hyperdrive binding named by
+  `hyperdriveBinding` instead (the normal production setup); a value here
+  always wins over the binding, which is what makes local dev / build-time
+  evaluation work.
 - `hyperdriveBinding` — name of the Hyperdrive binding on `env` to read a
   connection string from when `connectionString` is not set. Defaults to
   `'HYPERDRIVE'`. Requires `generate.getCloudflareContext` to be configured.
@@ -472,10 +474,34 @@ bundles any of them.
 
 `db.supabase` fields (all optional):
 
-- `url` — project URL. Defaults to `NEXT_PUBLIC_SUPABASE_URL`.
-- `anonKey` — anon/publishable key. Defaults to `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-  Never put a service-role key here.
+- `url` — project URL, or a sync/async function returning one. Defaults to
+  `NEXT_PUBLIC_SUPABASE_URL`.
+- `anonKey` — anon/publishable key, or a sync/async function returning one.
+  Defaults to `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Never put a service-role key
+  here.
 - `execFunction` — name of the exec function. Defaults to `'cfni_exec'`.
+
+Any of `connectionString`, `supabase.url`, and `supabase.anonKey` may be a
+function instead of a string, resolved (and awaited) at use time rather than
+when the config object is built — useful when the value lives in a secret
+store or a Cloudflare binding rather than an environment variable:
+
+```typescript
+export default setIntlConfig({
+    locales: ["en", "uk"] as const,
+    defaultLocale: "en",
+    generate: { getCloudflareContext },
+    db: {
+        supabase: {
+            url: "https://abc.supabase.co",
+            anonKey: async () => {
+                const { env } = await getCloudflareContext({ async: true });
+                return env.SUPABASE_ANON_KEY.get();
+            },
+        },
+    },
+});
+```
 
 `db.getAccessToken` resolves the JWT `withUserDb` sends as
 `Authorization: Bearer`, which is what makes PostgREST resolve the caller as

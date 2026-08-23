@@ -1,5 +1,6 @@
 import reportError from '../error_handling/report_error';
 import requireDbConfig from './require_config';
+import resolveConfigValue from './resolve_config_value';
 const DEFAULT_BINDING = 'HYPERDRIVE';
 const DEFAULT_DISCONNECT_TIMEOUT_MS = 2000;
 let connectionString = null;
@@ -30,8 +31,9 @@ export function resetConnectionState() {
  * Cloudflare Hyperdrive binding named by `db.hyperdriveBinding`.
  */
 async function resolveConnectionString(config, db) {
-    if (db.connectionString)
-        return db.connectionString;
+    const configured = await resolveConfigValue(db.connectionString);
+    if (configured)
+        return configured;
     const getContext = config.generate?.getCloudflareContext;
     if (getContext) {
         const context = await getContext({ async: true });

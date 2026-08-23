@@ -817,18 +817,27 @@ export interface IntlSitemap {
     lastModified: Date | string | undefined;
     videos?: Videos[] | undefined;
 }
+/**
+ * A config value that may be given directly, or as a sync/async function
+ * resolved at use time. The function form lets a value come from a secret
+ * store, a Cloudflare binding, or any other source that isn't available when
+ * the config object is first created.
+ */
+export type ConfigValue<T> = T | (() => T | Promise<T>);
 export interface SupabaseDbConfig {
     /**
      * Supabase project URL, e.g. `https://abc.supabase.co`. Defaults to
-     * `process.env.NEXT_PUBLIC_SUPABASE_URL`.
+     * `process.env.NEXT_PUBLIC_SUPABASE_URL`. May be a function (sync or
+     * async) resolved on each use.
      */
-    url?: string;
+    url?: ConfigValue<string | undefined>;
     /**
      * Supabase anon (publishable) key. Defaults to
      * `process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY`. This is the only key the
-     * `db` module ever needs — never put a service-role key here.
+     * `db` module ever needs — never put a service-role key here. May be a
+     * function (sync or async) resolved on each use.
      */
-    anonKey?: string;
+    anonKey?: ConfigValue<string | undefined>;
     /**
      * Name of the Postgres function that runs the generated SQL. Defaults to
      * `'cfni_exec'` — the function shipped in `supabase/cfni_exec.sql`.
@@ -840,9 +849,10 @@ export interface DbRoutingConfig {
      * Postgres connection string. Omit to resolve it from the Cloudflare
      * Hyperdrive binding named by `hyperdriveBinding` instead (the normal
      * production setup); a value here always wins over the binding, which is
-     * what makes local dev / build-time evaluation work.
+     * what makes local dev / build-time evaluation work. May be a function
+     * (sync or async) resolved on each connect.
      */
-    connectionString?: string;
+    connectionString?: ConfigValue<string | undefined>;
     /**
      * Name of the Hyperdrive binding on `env` whose `connectionString` is used
      * when `connectionString` is not set. Defaults to `'HYPERDRIVE'`. Requires

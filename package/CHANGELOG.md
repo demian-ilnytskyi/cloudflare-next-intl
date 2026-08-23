@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.3] - 2026-08-23
+
+### Changed
+
+- `db.connectionString`, `db.supabase.url`, and `db.supabase.anonKey` each now accept either a string or a sync/async function returning one, typed as the new exported `ConfigValue<T>`. Function values are resolved at use time rather than when the config object is created, so a connection string or Supabase key can come from a secret store, a Cloudflare binding, or any other source that isn't available at module scope. Passing plain strings behaves exactly as before, so this is a source-compatible change.
+- `resolveSupabaseEndpoint` is now `async` (it may have to await a resolver). In Supabase mode the URL and anon key are resolved inside the cached client factory, so resolution happens once per client instead of on every statement. `resolveDbMode` stays synchronous — a function value is truthy, which is already the correct "direct Postgres is configured" signal, and it is never invoked just to pick a mode.
+
 ## [0.8.2] - 2026-08-23
 
 ### Fixed

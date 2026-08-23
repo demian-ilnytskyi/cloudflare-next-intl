@@ -2,6 +2,7 @@ import type { Client } from 'pg';
 import type { DbRoutingConfig, LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
 import reportError from '../error_handling/report_error';
 import requireDbConfig from './require_config';
+import resolveConfigValue from './resolve_config_value';
 
 export type DbConfig = RoutingConfig<Locales, LocalePrefixMode>;
 
@@ -38,7 +39,8 @@ export function resetConnectionState(): void {
  * Cloudflare Hyperdrive binding named by `db.hyperdriveBinding`.
  */
 async function resolveConnectionString(config: DbConfig, db: DbRoutingConfig): Promise<string> {
-    if (db.connectionString) return db.connectionString;
+    const configured = await resolveConfigValue(db.connectionString);
+    if (configured) return configured;
     const getContext = config.generate?.getCloudflareContext;
     if (getContext) {
         const context = await getContext({ async: true });

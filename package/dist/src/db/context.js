@@ -60,7 +60,7 @@ export async function withPublicDb(fn) {
     requireDbConfig(db);
     if (resolveDbMode(db) === 'supabase') {
         const supabase = db.supabase;
-        const { anonKey } = resolveSupabaseEndpoint(supabase);
+        const { anonKey } = await resolveSupabaseEndpoint(supabase);
         return fn(await supabaseDb(supabase, anonKey));
     }
     const client = await connectToPostgres(config);
