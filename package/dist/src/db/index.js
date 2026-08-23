@@ -8,10 +8,9 @@
  * - {@link withUserDb} — the signed-in user, with RLS applied to their id.
  *
  * Two transports reach Postgres behind that same Drizzle query API, chosen by
- * `resolveDbMode` from which `db` config fields are set: `connectionString`/
- * `hyperdriveBinding` for a direct connection (wins if both are configured),
- * or `supabase` for the Supabase Data API when only a project URL and anon
- * key are available. `pg`, `drizzle-orm`, and `@supabase/supabase-js` all
+ * `resolveDbMode` from which `db` config fields are set: `connectionString`
+ * for a direct connection (wins if both are configured), or `supabase` for
+ * the Supabase Data API when only a project URL and anon key are available. `pg`, `drizzle-orm`, and `@supabase/supabase-js` all
  * load through dynamic `import()` inside these functions, so an app that
  * never calls a `db` export never bundles any of them.
  *

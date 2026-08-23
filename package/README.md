@@ -14,7 +14,7 @@ and Cloudflare environment.
 - **Error handling**: shared, opt-in `console.error` override and
   `reportError`/`withErrorHandling` helpers, GDPR-aware (consent-gated).
 - **Database**: optional Postgres/Drizzle data-access layer, reachable either
-  directly (Cloudflare Hyperdrive or a connection string) or through the
+  directly (a connection string, e.g. from Cloudflare Hyperdrive) or through the
   Supabase Data API (project URL + anon key only), with request-scoped
   public/user contexts and RLS wiring in both modes.
 
@@ -390,8 +390,8 @@ third party without consent can itself be GDPR-relevant.
 
 ### Database (`db`)
 
-Thin Postgres/Drizzle data-access layer over a Cloudflare Hyperdrive binding
-(or a plain connection string). `pg` and `drizzle-orm` ship as dependencies of
+Thin Postgres/Drizzle data-access layer over a Postgres connection string
+(which may come from a Cloudflare Hyperdrive binding). `pg` and `drizzle-orm` ship as dependencies of
 this package, so there is nothing extra to install. They are loaded through
 dynamic `import()` inside the `db` exports, so an app that never calls a `db`
 export never pulls them into its bundle. Enable it by setting `db` on your
@@ -405,21 +405,20 @@ export default setIntlConfig({
     locales: ["en", "uk"] as const,
     defaultLocale: "en",
     generate: { getCloudflareContext },
-    db: { hyperdriveBinding: "HYPERDRIVE" },
+    db: {
+        connectionString: async () =>
+            (await getCloudflareContext({ async: true })).env.HYPERDRIVE
+                .connectionString,
+    },
 });
 ```
 
 `db` fields (all optional):
 
 - `connectionString` — a Postgres connection string, or a sync/async function
-  returning one (resolved on each connect, so the value can come from a secret
-  store). Omit to resolve it from the Hyperdrive binding named by
-  `hyperdriveBinding` instead (the normal production setup); a value here
-  always wins over the binding, which is what makes local dev / build-time
-  evaluation work.
-- `hyperdriveBinding` — name of the Hyperdrive binding on `env` to read a
-  connection string from when `connectionString` is not set. Defaults to
-  `'HYPERDRIVE'`. Requires `generate.getCloudflareContext` to be configured.
+  returning one (resolved on each connect). The function form is how you reach
+  a value that isn't available at module scope — a Cloudflare Hyperdrive
+  binding, or a secret store — as in the example above.
 - `disconnectAfterRequest` — whether the pooled client is closed once the
   last in-flight `withPublicDb`/`withUserDb` call of the request
   finishes. Defaults to `true` (one connection per request, released to
@@ -443,7 +442,7 @@ query code is identical either way — switching is a config change only.
 
 | Config | Transport | Use when |
 |---|---|---|
-| `connectionString` or `hyperdriveBinding` | Direct Postgres via `pg` | You have a Postgres password or a Hyperdrive binding. |
+| `connectionString` | Direct Postgres via `pg` | You have a Postgres connection string, or a Hyperdrive binding to read one from. |
 | `supabase` | Supabase Data API (PostgREST) | You only have `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. |
 
 A direct connection always wins if both are configured, so adding a `supabase`

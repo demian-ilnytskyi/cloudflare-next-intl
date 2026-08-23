@@ -27,7 +27,7 @@ describe('connectToPostgres', () => {
         await expect(connectToPostgres({ ...baseConfig } as never)).rejects.toThrow(/`db` is not set/);
     });
 
-    it('throws when neither connectionString nor a Hyperdrive binding resolves', async () => {
+    it('throws when no connectionString resolves', async () => {
         const config = { ...baseConfig, db: {} } as never;
         await expect(connectToPostgres(config)).rejects.toThrow(/connection string/i);
     });
@@ -39,34 +39,22 @@ describe('connectToPostgres', () => {
         expect(ClientMock).toHaveBeenCalledTimes(1);
     });
 
-    it('reads the connection string from the Hyperdrive binding when not set directly', async () => {
-        const getCloudflareContext = vi.fn().mockResolvedValue({
-            env: { HYPERDRIVE: { connectionString: 'postgresql://hyperdrive' } },
-            ctx: { waitUntil: vi.fn() },
-        });
-        const config = { ...baseConfig, db: {}, generate: { getCloudflareContext } } as never;
+    it('resolves a connectionString given as an async function', async () => {
+        const connectionString = vi.fn().mockResolvedValue('postgresql://hyperdrive');
+        const config = { ...baseConfig, db: { connectionString } } as never;
         await connectToPostgres(config);
         expect(ClientMock).toHaveBeenCalledWith({ connectionString: 'postgresql://hyperdrive' });
     });
 
-    it('reads the connection string from a custom Hyperdrive binding name', async () => {
-        const getCloudflareContext = vi.fn().mockResolvedValue({
-            env: { CUSTOM_BINDING: { connectionString: 'postgresql://custom' } },
-            ctx: { waitUntil: vi.fn() },
-        });
-        const config = {
-            ...baseConfig,
-            db: { hyperdriveBinding: 'CUSTOM_BINDING' },
-            generate: { getCloudflareContext },
-        } as never;
+    it('resolves a connectionString given as a sync function', async () => {
+        const config = { ...baseConfig, db: { connectionString: () => 'postgresql://sync' } } as never;
         await connectToPostgres(config);
-        expect(ClientMock).toHaveBeenCalledWith({ connectionString: 'postgresql://custom' });
+        expect(ClientMock).toHaveBeenCalledWith({ connectionString: 'postgresql://sync' });
     });
 
-    it('throws naming the default binding when getCloudflareContext resolves nothing', async () => {
-        const getCloudflareContext = vi.fn().mockResolvedValue(null);
-        const config = { ...baseConfig, db: {}, generate: { getCloudflareContext } } as never;
-        await expect(connectToPostgres(config)).rejects.toThrow(/HYPERDRIVE/);
+    it('throws pointing at connectionString when a resolver returns nothing', async () => {
+        const config = { ...baseConfig, db: { connectionString: () => undefined } } as never;
+        await expect(connectToPostgres(config)).rejects.toThrow(/`db.connectionString`/);
     });
 
     it('retries instead of caching a failed connect forever', async () => {

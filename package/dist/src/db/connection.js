@@ -1,7 +1,6 @@
 import reportError from '../error_handling/report_error';
 import requireDbConfig from './require_config';
 import resolveConfigValue from './resolve_config_value';
-const DEFAULT_BINDING = 'HYPERDRIVE';
 const DEFAULT_DISCONNECT_TIMEOUT_MS = 2000;
 let connectionString = null;
 let client = null;
@@ -27,24 +26,16 @@ export function resetConnectionState() {
     activeUsers = 0;
 }
 /**
- * Resolves the connection string from `db.connectionString` first, then the
- * Cloudflare Hyperdrive binding named by `db.hyperdriveBinding`.
+ * Resolves the connection string from `db.connectionString`, awaiting it when
+ * it was given as a function.
  */
-async function resolveConnectionString(config, db) {
+async function resolveConnectionString(db) {
     const configured = await resolveConfigValue(db.connectionString);
     if (configured)
         return configured;
-    const getContext = config.generate?.getCloudflareContext;
-    if (getContext) {
-        const context = await getContext({ async: true });
-        const env = context?.env;
-        const binding = env?.[db.hyperdriveBinding ?? DEFAULT_BINDING];
-        if (binding?.connectionString)
-            return binding.connectionString;
-    }
-    throw new Error('db: could not resolve a Postgres connection string. Set `db.connectionString`, or ' +
-        `configure \`generate.getCloudflareContext\` and a \`${db.hyperdriveBinding ?? DEFAULT_BINDING}\` ` +
-        'Hyperdrive binding on your Worker.');
+    throw new Error('db: could not resolve a Postgres connection string. Set `db.connectionString` ' +
+        'to a connection string, or to a function returning one (e.g. reading a ' +
+        'Hyperdrive binding off `getCloudflareContext().env`).');
 }
 // A single `pg.Client` is not safe for concurrent queries; Next.js fires many
 // in parallel per request. Serializing every `query` through one promise chain
@@ -75,7 +66,7 @@ function serializeQueries(raw) {
  * @param config Your routing config; `config.db` must be set.
  * @returns The connected, shared client.
  * @throws If `db` is not set, or no connection string can be resolved from
- * `db.connectionString` or the Hyperdrive binding.
+ * `db.connectionString`.
  */
 export default async function connectToPostgres(config) {
     const db = config.db;
@@ -84,7 +75,7 @@ export default async function connectToPostgres(config) {
     if (connectingPromise === null) {
         connectingPromise = (async () => {
             try {
-                connectionString ?? (connectionString = await resolveConnectionString(config, db));
+                connectionString ?? (connectionString = await resolveConnectionString(db));
                 const { Client } = await import('pg');
                 const created = serializeQueries(new Client({ connectionString }));
                 client = created;

@@ -871,19 +871,13 @@ export interface SupabaseDbConfig {
 
 export interface DbRoutingConfig {
     /**
-     * Postgres connection string. Omit to resolve it from the Cloudflare
-     * Hyperdrive binding named by `hyperdriveBinding` instead (the normal
-     * production setup); a value here always wins over the binding, which is
-     * what makes local dev / build-time evaluation work. May be a function
-     * (sync or async) resolved on each connect.
+     * Postgres connection string, or a function (sync or async) returning one,
+     * resolved on each connect. The function form is how you reach a value that
+     * isn't available at module scope — e.g. a Cloudflare Hyperdrive binding:
+     * `connectionString: async () => (await getCloudflareContext({ async: true
+     * })).env.HYPERDRIVE.connectionString`.
      */
     connectionString?: ConfigValue<string | undefined>;
-    /**
-     * Name of the Hyperdrive binding on `env` whose `connectionString` is used
-     * when `connectionString` is not set. Defaults to `'HYPERDRIVE'`. Requires
-     * `generate.getCloudflareContext` to be configured.
-     */
-    hyperdriveBinding?: string;
     /**
      * Whether the pooled client is closed once the last in-flight
      * `withPublicDb`/`withUserDb` call of the request finishes.
@@ -914,7 +908,7 @@ export interface DbRoutingConfig {
      * `withUserDb` behave the same either way, so switching is a config change
      * with no app-code change.
      *
-     * Ignored when `connectionString` or `hyperdriveBinding` is set: a direct
+     * Ignored when `connectionString` is set: a direct
      * connection always wins, so adding this block cannot silently reroute
      * live traffic. Requires the `cfni_exec` function from
      * `supabase/cfni_exec.sql` to be installed in your database.

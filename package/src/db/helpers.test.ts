@@ -16,6 +16,7 @@ import {
 	roundReal,
 	multiply,
 	scalarFromCte,
+	scalarFrom,
 	eq,
 	and,
 	or,
@@ -87,6 +88,7 @@ describe('sql expression helpers', () => {
 		expect(maxOf(aliasColumn('c', 'x'))).toBeDefined();
 		expect(roundReal(multiply(minOf(sample.price), 100), 2)).toBeDefined();
 		expect(scalarFromCte('filtered', maxOf(sample.price))).toBeDefined();
+		expect(scalarFrom(sql.raw('filtered'), maxOf(sample.price))).toBeDefined();
 	});
 });
 

@@ -23,7 +23,7 @@ export declare function resetConnectionState(): void;
  * @param config Your routing config; `config.db` must be set.
  * @returns The connected, shared client.
  * @throws If `db` is not set, or no connection string can be resolved from
- * `db.connectionString` or the Hyperdrive binding.
+ * `db.connectionString`.
  */
 export default function connectToPostgres(config: DbConfig): Promise<Client>;
 /**

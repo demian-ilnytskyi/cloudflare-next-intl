@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.4] - 2026-08-23
+
+### Removed
+
+- **Breaking:** `db.hyperdriveBinding` is gone, along with the implicit `'HYPERDRIVE'` binding lookup. `db.connectionString` is now the only way to configure direct Postgres access. A Hyperdrive binding is still fully supported — read it in a `connectionString` function, which is resolved on each connect: `connectionString: async () => (await getCloudflareContext({ async: true })).env.HYPERDRIVE.connectionString`. This removes a second, magic resolution path in favour of the explicit one added in 0.8.3, so where the connection string comes from is visible in your own config.
+- `resolveDbMode` now selects direct Postgres from `connectionString` alone; `connectToPostgres` no longer touches `generate.getCloudflareContext`, and its "no connection string" error points at `db.connectionString` instead of naming a binding.
+
+### Migration
+
+Replace `db: { hyperdriveBinding: "HYPERDRIVE" }` with a `connectionString` function reading that binding (see above). Configs already setting `connectionString` need no change.
+
 ## [0.8.3] - 2026-08-23
 
 ### Changed

@@ -162,6 +162,25 @@ export function multiply(expression: unknown, factor: number): SQL<number> {
     return sql`${expression} * ${factor}`;
 }
 
+/**
+ * Wraps an aggregate over a subquery/CTE as a scalar subquery:
+ * `(select <expr> from <source>)`.
+ *
+ * Unlike {@link scalarFromCte} this takes the Drizzle CTE/subquery object
+ * rather than its name, so the source is referenced through the query builder
+ * and its columns stay typed.
+ *
+ * @param source A Drizzle CTE or subquery to read from.
+ * @param expression The aggregate expression to select.
+ * @returns A scalar subquery usable directly in a `select({...})`.
+ *
+ * @example
+ * select({ lowest: scalarFrom(filtered, minOf(filtered.price)) })
+ */
+export function scalarFrom<T = unknown>(source: unknown, expression: unknown): SQL<T> {
+    return sql`(select ${expression} from ${source})`;
+}
+
 /** Wraps an expression as a scalar subquery over a named CTE: `(select <expr> from <cte>)`. */
 export function scalarFromCte<T = unknown>(cte: string, expression: unknown): SQL<T> {
     return sql`(select ${expression} from ${sql.raw(cte)})`;

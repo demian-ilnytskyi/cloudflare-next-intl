@@ -6,8 +6,8 @@ describe('resolveDbMode', () => {
         expect(resolveDbMode({ connectionString: 'postgresql://x' })).toBe('postgres');
     });
 
-    it('picks postgres for a hyperdrive binding', () => {
-        expect(resolveDbMode({ hyperdriveBinding: 'HYPERDRIVE' })).toBe('postgres');
+    it('picks postgres for a connectionString function', () => {
+        expect(resolveDbMode({ connectionString: () => 'postgresql://x' })).toBe('postgres');
     });
 
     it('picks supabase when a supabase block is set', () => {
@@ -18,7 +18,7 @@ describe('resolveDbMode', () => {
         expect(resolveDbMode({ connectionString: 'postgresql://x', supabase: {} })).toBe('postgres');
     });
 
-    it('defaults to postgres when nothing is set, so the existing hyperdrive default still applies', () => {
+    it('defaults to postgres when nothing is set, so connectToPostgres raises the specific error', () => {
         expect(resolveDbMode({})).toBe('postgres');
     });
 });

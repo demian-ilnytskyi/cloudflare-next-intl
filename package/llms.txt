@@ -50,7 +50,7 @@ other subpath can be used.
 
 Two transports, picked by which `db` fields are set — `pg`/`drizzle-orm`/`@supabase/supabase-js` ship as dependencies and load via dynamic `import()`, so nothing bundles unless a `db` export is called.
 
-- Direct Postgres (wins if configured): `db.connectionString` — Postgres connection string or a sync/async function returning one (resolved on each connect); when omitted, resolved from the Hyperdrive binding named by `db.hyperdriveBinding` (default `'HYPERDRIVE'`) via `generate.getCloudflareContext`. An explicit `connectionString` always wins (enables local dev / build-time evaluation).
+- Direct Postgres (wins if configured): `db.connectionString` — Postgres connection string, or a sync/async function returning one (resolved on each connect). The function form is the way to read a value unavailable at module scope, e.g. a Cloudflare Hyperdrive binding: `connectionString: async () => (await getCloudflareContext({ async: true })).env.HYPERDRIVE.connectionString`. There is no separate `hyperdriveBinding` option.
 - Supabase Data API (used only when neither of the above is set): `db.supabase` — `{ url?, anonKey?, execFunction? }` where `url`/`anonKey` each accept a string or a sync/async function returning one, defaulting `url`/`anonKey` to `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`. Requires installing `supabase/cfni_exec.sql` (a `security invoker` SQL-exec function) in your database. No multi-statement transactions — each statement in a `withUserDb` callback is its own round-trip.
 - `db.disconnectAfterRequest` — direct-Postgres mode only: closes the pooled client once the last in-flight `withPublicDb`/`withUserDb` call of the request finishes. Defaults to `true`; set `false` to keep the connection open for the isolate's lifetime (holds a Hyperdrive slot between requests).
 - `db.authenticatedRole` — direct-Postgres mode only: Postgres role assumed inside `withUserDb`'s transaction. Defaults to `'authenticated'` (Supabase RLS convention).
@@ -69,7 +69,11 @@ export default setIntlConfig({
     locales: ["en", "uk"] as const,
     defaultLocale: "en",
     generate: { getCloudflareContext },
-    db: { hyperdriveBinding: "HYPERDRIVE" },
+    db: {
+        connectionString: async () =>
+            (await getCloudflareContext({ async: true })).env.HYPERDRIVE
+                .connectionString,
+    },
 });
 
 // anywhere on the server
