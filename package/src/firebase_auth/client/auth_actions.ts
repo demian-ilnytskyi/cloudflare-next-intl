@@ -166,4 +166,37 @@ export function createSendSignInLinkAction(
     };
 }
 
+/**
+ * Completes a passwordless email-link sign-in. Called directly (not via
+ * `useActionState`) from an effect on the link-landing page, once the URL
+ * and the user's email (recovered from `localStorage`, or re-entered if
+ * the link was opened on a different device) are both known.
+ *
+ * @param locale Used to localize the returned error message.
+ * @param url The full URL the user landed on (`window.location.href`).
+ * @param email The email address to complete sign-in for.
+ * @returns `{ success: true }` on success, `{ error }` if the URL isn't a
+ *   valid sign-in link or sign-in otherwise fails.
+ * @example
+ * const result = await completeSignInWithLink(locale, window.location.href, email);
+ */
+export async function completeSignInWithLink(
+    locale: string,
+    url: string,
+    email: string,
+): Promise<AuthFormState> {
+    requireFirebaseAuthConfig(config.firebaseAuth);
+    const { auth } = await getFirebaseAuthClient();
+    const { isSignInWithEmailLink, signInWithEmailLink } = await getFirebaseAuthModule();
 
+    if (!isSignInWithEmailLink(auth, url)) {
+        return { error: firebaseAuthErrorMessage(locale, { code: 'auth/invalid-action-code' }) };
+    }
+
+    try {
+        await signInWithEmailLink(auth, email, url);
+        return { success: true };
+    } catch (e) {
+        return { error: firebaseAuthErrorMessage(locale, e) };
+    }
+}
