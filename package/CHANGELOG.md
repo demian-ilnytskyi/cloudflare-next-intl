@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.21] - 2026-08-24
+
+### Added
+
+- **Passwordless (email-link) Firebase sign-in actions.** `createSendSignInLinkAction(locale, actionCodeSettings)` in `./firebaseAuthActions` — factory returning a `useActionState`-shaped form action that sends a Firebase sign-in link; returns `{ success: true, email }` on success so the caller can persist the trimmed email (e.g. to `localStorage`) for the completion step. `completeSignInWithLink(locale, url, email)` — plain async function (not `useActionState`-shaped, since it runs from an effect on the emailed link's landing page rather than a form submit) that completes the sign-in. Both exported from the package root and the `./firebaseAuthActions` subpath.
+- `AuthFormState` (in `./firebaseAuthActions`'s shared types) gains an optional `email?: string` field, populated by `createSendSignInLinkAction`.
+
 ## [0.8.20] - 2026-08-24
 
 ### Fixed
