@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.21
+
+### Added
+
+- `createSendSignInLinkAction(locale, actionCodeSettings)` and `completeSignInWithLink(locale, url, email)` in the Firebase auth client actions module, for passwordless email-link sign-in. Both exported from the package root and the `./firebaseAuthActions` subpath alongside the existing password actions.
+- `AuthFormState` gains an optional `email?: string` field, returned by `createSendSignInLinkAction` so callers can persist it (e.g. to `localStorage`) for the link-completion step.
+
 ## 0.7.7
 
 ### Fixed
