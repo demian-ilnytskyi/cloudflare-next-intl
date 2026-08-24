@@ -38,5 +38,5 @@
  */
 export { withPublicDb, withUserDb } from './context';
 export type { DrizzleDb, TransactionResult } from './context';
-export { default as connectToPostgres, disconnectPostgres, resetConnectionState } from './connection';
+export { connectToPostgres, disconnectPostgres, resetConnectionState } from './connection';
 export type { DbRoutingConfig } from '../types/types';
