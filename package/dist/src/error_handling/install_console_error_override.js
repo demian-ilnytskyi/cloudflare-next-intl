@@ -1,6 +1,4 @@
 import reportError, { consoleOverrideState } from './report_error';
-import stringifyUnknown from './stringify_unknown';
-import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors';
 /**
  * Replaces the global `console.error` so every `console.error(...)` call is
  * also routed through `config.errorHandling.onError`/`reportError` — the
@@ -36,7 +34,8 @@ import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors';
  * `config.errorHandling.ignoreConsoleErrors` (default
  * `defaultIgnoredConsoleErrors` — this package's own Firebase Auth error
  * codes for expected user-input failures) and `ignoreConsoleError` both
- * skip reporting a matching call while still logging it normally.
+ * skip reporting a matching call while still logging it normally — checked
+ * inside `reportError` itself, so this override doesn't duplicate the check.
  *
  * @param config Pass the relevant slices of your `RoutingConfig` directly —
  *   `{ errorHandling: config.errorHandling, generate: config.generate }`.
@@ -58,12 +57,6 @@ export default function installConsoleErrorOverride(config, isClient) {
         if (!suppressOnClient) {
             originalConsoleError(message, ...optionalParams);
         }
-        const stringified = stringifyUnknown(message, isClient);
-        const ignoreList = config.errorHandling?.ignoreConsoleErrors ?? defaultIgnoredConsoleErrors;
-        if (ignoreList.some((ignored) => stringified.includes(ignored)))
-            return;
-        if (config.errorHandling?.ignoreConsoleError?.(stringified))
-            return;
         void reportError(config, { error: message, classOrMethodName: 'Global Console Error Handler', params: optionalParams, isClient });
     };
     override.__isErrorHandlingOverride = true;

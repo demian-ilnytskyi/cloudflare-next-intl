@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.20] - 2026-08-24
+
+### Fixed
+
+- **Unhandled `'error'` event on the shared Postgres/Hyperdrive client.** `connectToPostgres`'s `pg.Client` is an `EventEmitter` that can outlive a single request (`db.disconnectAfterRequest: false`). When Hyperdrive/Postgres closed its idle socket, `pg` emitted `'error'` with no listener attached — Node treats that as unhandled and throws, crashing whatever unrelated request happened to be running in the isolate at that moment (surfaced to users as a generic top-level "Something went wrong" error page, unrelated to the page they were on). `connectToPostgres` now attaches an `'error'` listener that resets the cached client/connection state (so the next call reconnects cleanly) and reports anything other than the expected "Connection closed" shape through `errorHandling.onError`.
+- **`ignoreConsoleErrors`/`ignoreConsoleError` now apply to every `reportError` call, not just `console.error`.** Previously this filter was only checked inside `installConsoleErrorOverride`'s patched `console.error` — a direct `reportError`/`reportClientError` call (e.g. a caught DB error, or an error boundary reporting `error`) always reached `errorHandling.onError` regardless of the ignore list. The check now lives in `reportError` itself, so both paths share one ignore list; `installConsoleErrorOverride` no longer duplicates it.
+
 ## [0.8.19] - 2026-08-24
 
 ### Fixed

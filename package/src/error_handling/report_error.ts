@@ -1,6 +1,7 @@
 import type { ErrorHandlingParams, ErrorHandlingRoutingConfig, GenerateRoutingConfig } from '../types/types';
 import formatErrorMessage from './format_error_message';
 import stringifyUnknown from './stringify_unknown';
+import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors';
 
 export interface ReportErrorConfig {
     errorHandling?: ErrorHandlingRoutingConfig;
@@ -121,6 +122,17 @@ export default async function reportError(
 
     if (errorHandling?.enable === false) return;
     if (params.consent !== undefined && params.consent !== true) return;
+
+    // `ignoreConsoleErrors`/`ignoreConsoleError` used to only be consulted by
+    // `installConsoleErrorOverride`'s patched `console.error` — any direct
+    // `reportError`/`reportClientError` call (a caught DB/query error, an
+    // error boundary's `reportClientError(error, ...)`, etc.) skipped this
+    // check entirely and always reached `onError`. Checking it here instead
+    // makes every path share the one ignore list.
+    const stringified = stringifyUnknown(params.error, params.isClient);
+    const ignoreList = errorHandling?.ignoreConsoleErrors ?? defaultIgnoredConsoleErrors;
+    if (ignoreList.some((ignored) => stringified.includes(ignored))) return;
+    if (errorHandling?.ignoreConsoleError?.(stringified)) return;
 
     if (errorHandling?.dedup !== false) {
         const throttleMs = errorHandling?.throttleMs ?? DEFAULT_THROTTLE_MS;

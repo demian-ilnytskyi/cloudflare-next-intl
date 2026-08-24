@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { connect, end, query, ClientMock, reportErrorMock } = vi.hoisted(() => {
+const { connect, end, query, on, ClientMock, reportErrorMock } = vi.hoisted(() => {
     const connect = vi.fn().mockResolvedValue(undefined);
     const end = vi.fn().mockResolvedValue(undefined);
     const query = vi.fn().mockResolvedValue({ rows: [] });
-    const ClientMock = vi.fn(() => ({ connect, end, query }));
+    const on = vi.fn();
+    const ClientMock = vi.fn(() => ({ connect, end, query, on }));
     const reportErrorMock = vi.fn().mockResolvedValue(undefined);
-    return { connect, end, query, ClientMock, reportErrorMock };
+    return { connect, end, query, on, ClientMock, reportErrorMock };
 });
 vi.mock('pg', () => ({ Client: ClientMock }));
 vi.mock('../error_handling/report_error', () => ({ default: reportErrorMock }));
@@ -19,8 +20,16 @@ beforeEach(() => {
     resetConnectionState();
     ClientMock.mockClear();
     end.mockClear();
+    on.mockClear();
     reportErrorMock.mockClear();
 });
+
+/** Grabs the `'error'` listener `connectToPostgres` registered on the shared client. */
+function getErrorListener(): (error: Error) => void {
+    const call = on.mock.calls.find(([event]) => event === 'error');
+    if (!call) throw new Error('no error listener was registered');
+    return call[1] as (error: Error) => void;
+}
 
 describe('connectToPostgres', () => {
     it('throws when db config is missing', async () => {
@@ -107,10 +116,67 @@ describe('connectToPostgres', () => {
     });
 
     it('leaves the client as-is when it has no query function to wrap', async () => {
-        ClientMock.mockImplementationOnce(() => ({ connect, end }) as never);
+        ClientMock.mockImplementationOnce(() => ({ connect, end, on: vi.fn() }) as never);
         const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
         const c = await connectToPostgres(config);
         expect((c as unknown as { query?: unknown }).query).toBeUndefined();
+    });
+
+    describe('client error listener', () => {
+        // Regression guard: an earlier version of this listener matched
+        // `/connection closed/i`, a string `pg` never actually emits (that
+        // text only exists in React's own RSC client, as the error it shows
+        // once a streamed response gets cut off mid-flight — which an
+        // unhandled crash here would itself cause). That mismatch meant every
+        // real idle-close event still reached `reportError`, defeating the
+        // "swallow it" contract this listener exists for — hence asserting
+        // against pg's actual message text below, not a guessed one.
+        it.each([
+            ['Connection terminated unexpectedly', 'the idle-close message pg actually emits'],
+            ['Connection terminated', "pg's message when the client itself was ending"],
+        ])('swallows a %j client error ( %s ) without reporting it', async (message) => {
+            const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
+            await connectToPostgres(config);
+            getErrorListener()(new Error(message));
+            expect(reportErrorMock).not.toHaveBeenCalled();
+        });
+
+        it('resets the cached client on error so the next call reconnects', async () => {
+            const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
+            await connectToPostgres(config);
+            getErrorListener()(new Error('Connection terminated unexpectedly'));
+
+            const client2 = await connectToPostgres(config);
+            expect(client2).toBeDefined();
+            expect(ClientMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('reports a client error that is not the expected "Connection terminated" shape', async () => {
+            const errorHandling = { onError: vi.fn() };
+            const config = { ...baseConfig, db: { connectionString: 'postgresql://x' }, errorHandling } as never;
+            await connectToPostgres(config);
+            const unexpected = new Error('ECONNRESET');
+            getErrorListener()(unexpected);
+            expect(reportErrorMock).toHaveBeenCalledWith(
+                { errorHandling, generate: undefined },
+                { error: unexpected, classOrMethodName: 'db.connectToPostgres.clientError' },
+            );
+        });
+
+        it('does not reset a newer client when a stale error fires after reconnecting', async () => {
+            const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
+            await connectToPostgres(config);
+            const staleListener = getErrorListener();
+
+            getErrorListener()(new Error('Connection terminated unexpectedly'));
+            await connectToPostgres(config);
+            expect(ClientMock).toHaveBeenCalledTimes(2);
+
+            staleListener(new Error('Connection terminated unexpectedly'));
+            const client3 = await connectToPostgres(config);
+            expect(client3).toBeDefined();
+            expect(ClientMock).toHaveBeenCalledTimes(2);
+        });
     });
 });
 

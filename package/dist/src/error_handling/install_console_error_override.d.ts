@@ -34,7 +34,8 @@ import { type ReportErrorConfig } from './report_error';
  * `config.errorHandling.ignoreConsoleErrors` (default
  * `defaultIgnoredConsoleErrors` — this package's own Firebase Auth error
  * codes for expected user-input failures) and `ignoreConsoleError` both
- * skip reporting a matching call while still logging it normally.
+ * skip reporting a matching call while still logging it normally — checked
+ * inside `reportError` itself, so this override doesn't duplicate the check.
  *
  * @param config Pass the relevant slices of your `RoutingConfig` directly —
  *   `{ errorHandling: config.errorHandling, generate: config.generate }`.

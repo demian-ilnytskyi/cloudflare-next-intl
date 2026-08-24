@@ -115,6 +115,29 @@ export default async function connectToPostgres(config, resolved) {
             connectionString = resolved ?? await resolveConnectionString(db);
             const { Client } = await import('pg');
             const created = serializeQueries(new Client({ connectionString }));
+            // The shared client outlives a single request (see the module doc)
+            // and Hyperdrive/Postgres can close its idle socket at any time. `pg`
+            // surfaces that as an `'error'` event on the `Client`, which is an
+            // `EventEmitter` — with no listener, Node treats it as unhandled and
+            // throws, crashing whatever unrelated request happens to be running
+            // in the isolate at that moment. Listening here converts it into a
+            // clean reset so the next call reconnects instead.
+            created.on('error', (error) => {
+                if (client === created) {
+                    client = null;
+                    connectionString = null;
+                    connectionPromise = null;
+                }
+                // `pg` emits "Connection terminated"/"Connection terminated
+                // unexpectedly" (lib/client.js) — never "Connection closed" —
+                // when the idle socket dies outside a query. That's the
+                // expected shape of this event (Hyperdrive/Postgres recycling
+                // the connection, not a query failure): swallow it entirely,
+                // don't report or log it.
+                if (/connection terminated/i.test(error.message))
+                    return;
+                void reportError({ errorHandling: config.errorHandling, generate: config.generate }, { error, classOrMethodName: 'db.connectToPostgres.clientError' });
+            });
             client = created;
             await created.connect();
             return created;
