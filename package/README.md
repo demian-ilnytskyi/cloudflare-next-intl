@@ -560,9 +560,8 @@ user's Firebase ID token is used automatically.
 
 - **Per-statement transactions in `withUserDb`/`withPublicDb`.** Each
   statement in one of their callbacks is its own round-trip, so it is its own
-  implicit transaction — `.transaction()` throws there instead of running
-  non-atomically. Reach for `withUserTransaction`/`withPublicTransaction`
-  (below) when you need more than one statement to succeed or fail together.
+  implicit transaction. Call `.transaction(...)` on the handle (below) when
+  you need more than one statement to succeed or fail together.
 - **Wider SQL surface.** `cfni_exec` runs statements your app generates, so any
   role that can execute it can run arbitrary SQL *within that role's own
   privileges* — a broader surface than PostgREST's normal verbs, though still
@@ -577,31 +576,36 @@ writable CTEs (`with x as (update ... returning ...) select ... from x`).
 Every value round-trips through Postgres' own text representation, not JSON,
 so arrays/`numeric`/timestamps/`bytea` decode the same way they do in
 connection-string mode. `withUserDb`/`withPublicDb` do not run multiple
-statements atomically (each call is its own PostgREST round-trip) — see
-[Multi-statement transactions](#multi-statement-transactions-withusertransaction-withpublictransaction)
-below for the API that does.
+statements atomically on their own (each call is its own PostgREST
+round-trip) — see [Multi-statement transactions](#multi-statement-transactions-dbtransaction)
+below for the `.transaction()` API that does.
 
-#### Multi-statement transactions (`withUserTransaction`/`withPublicTransaction`)
+#### Multi-statement transactions (`db.transaction()`)
 
-`withUserDb`/`withPublicDb` cannot provide atomicity across statements in
-Supabase mode — there is no shared session for `.transaction()` to open, so
-it throws there instead of silently running non-atomically. Reach for
-`withUserTransaction`/`withPublicTransaction` (also from
-`cloudflare-next-intl/db`) whenever a write needs more than one statement to
-succeed or fail together.
+Call `.transaction(...)` on the handle `withUserDb`/`withPublicDb` hand your
+callback whenever a write needs more than one statement to succeed or fail
+together — same method name in both transport modes.
 
-They take a `build` callback that **builds** queries instead of executing
-them — call `.toSQL()` on each Drizzle query and return the array, rather
-than `await`ing the query directly:
+In connection-string mode this is a real Drizzle transaction: `await
+db.transaction(async (tx) => { await tx.insert(...); await tx.update(...); })`,
+and a later statement may use an earlier one's result, exactly like plain
+Drizzle usage.
+
+In Supabase mode there is no shared session for `.transaction()` to open, so
+its callback instead **builds** queries rather than executing them — call
+`.toSQL()` on each Drizzle query and return the array, rather than `await`ing
+the query directly:
 
 ```typescript
-import { withUserTransaction } from "cloudflare-next-intl/db";
+import { withUserDb } from "cloudflare-next-intl/db";
 import { invitations, contractorAccessGrants } from "@/shared/db/generated/schema";
 
-const [invitationResult, grantResult] = await withUserTransaction((db) => [
-    db.insert(invitations).values({ email: "a@b.com" }).returning().toSQL(),
-    db.insert(contractorAccessGrants).values({ propertyId: 1 }).toSQL(),
-]);
+const [invitationResult, grantResult] = await withUserDb((db) =>
+    db.transaction((tx) => [
+        tx.insert(invitations).values({ email: "a@b.com" }).returning().toSQL(),
+        tx.insert(contractorAccessGrants).values({ propertyId: 1 }).toSQL(),
+    ]),
+);
 ```
 
 Every query in the array is rendered and sent to Postgres as **one**
@@ -617,14 +621,13 @@ whenever `cfni_exec` is: there is no separate config flag, and
 Each result is the same `{ rows, rowCount }` shape a single `cfni_exec` call
 returns — decode rows the same way you would from `db.execute(sql\`...\`)`.
 
-`await`ing a query directly inside `build` (instead of calling `.toSQL()`)
-throws immediately, naming the mistake, rather than hanging or silently
-running that one statement outside the batch with no atomicity.
-
-In connection-string mode, use `withUserDb`/`withPublicDb`'s own
-`.transaction()` instead — it already provides real atomicity there, so
-`withUserTransaction`/`withPublicTransaction` throw rather than duplicate
-that path.
+`await`ing a query directly inside the Supabase-mode `.transaction()`
+callback (instead of calling `.toSQL()`) throws immediately, naming the
+mistake, rather than hanging or silently running that one statement outside
+the batch with no atomicity. This also means, unlike connection-string mode,
+a later statement in a Supabase-mode `.transaction()` callback cannot read an
+earlier one's result — build every statement from arguments/closures you
+already have.
 
 #### Supabase mode and REST translation
 
@@ -666,8 +669,8 @@ await withPublicDb((db) => db.delete(bonds).where(eq(bonds.id, 1)));
 | `RETURNING` clauses | Supported | Supported |
 | Operators: `=`, `<>`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `ilike`, `is [not] null`, `[not] in`, `is [not] distinct from`, `~`, `~*`, `@>`, `<@`, `&&`, `>>`, `<<`, `&>`, `&<`, `-|-`, `@@` | Supported | Supported |
 | Multi-table joins, CTEs, non-count aggregates, `GROUP BY`, `UNION`, `DISTINCT`, raw SQL | Not supported by REST | Supported |
-| Multi-statement transactions in `withUserDb`/`withPublicDb` | Not supported | Not supported (each call is its own round-trip) |
-| Multi-statement transactions via `withUserTransaction`/`withPublicTransaction` | N/A — batch-only API | Supported (`cfni_exec_batch`, one round-trip) |
+| Multi-statement transactions without calling `.transaction()` | Not supported | Not supported (each call is its own round-trip) |
+| Multi-statement transactions via `db.transaction()` | N/A — build-and-return API | Supported (`cfni_exec_batch`, one round-trip) |
 
 #### Enforcing single API via ESLint (`cloudflare-next-intl/dbEslint`)
 
@@ -682,9 +685,10 @@ export default [
 ];
 ```
 
-Four query wrappers, all from `cloudflare-next-intl/db`. Choose by who is
-allowed to see the rows, then by whether you need more than one statement to
-succeed or fail together:
+Two query wrappers, both from `cloudflare-next-intl/db`. Choose by who is
+allowed to see the rows; call `.transaction(...)` on the handle either one
+hands your callback when a write needs more than one statement to succeed or
+fail together (see [Multi-statement transactions](#multi-statement-transactions-dbtransaction) above):
 
 - `withPublicDb(fn)` — runs `fn` as the anonymous role: a pooled connection
   with no transaction/role switch in connection-string mode, or the anon key
@@ -701,13 +705,6 @@ succeed or fail together:
   the id comes from `db.getUserId()` if set, otherwise automatically from the
   signed-in Firebase user when `firebaseAuth` is configured — you rarely need
   to pass it explicitly.
-- `withPublicTransaction(build)` / `withUserTransaction(build)` — same role
-  split as above, but for a write that needs more than one statement to
-  succeed or fail together. See
-  [Multi-statement transactions](#multi-statement-transactions-withusertransaction-withpublictransaction)
-  above — `build` returns built (`.toSQL()`) queries rather than executing
-  them, and these two are currently Supabase-mode only (connection-string
-  mode already has real atomicity via `withUserDb`/`withPublicDb`).
 
 ```typescript
 // anywhere on the server
@@ -798,7 +795,7 @@ your project — `--rpc-dir` (defaulting inside `--ddl-dir`, so `rpcs` under
 always holding the current version of the function, without a manual
 copy-paste step. Since the file now ships both `cfni_exec` and
 `cfni_exec_batch` (see
-[Multi-statement transactions](#multi-statement-transactions-withusertransaction-withpublictransaction)
+[Multi-statement transactions](#multi-statement-transactions-dbtransaction)
 above), pass `--rpc-file-name=`/`--tests-file-name=` (or
 `CFNI_DB_RPC_FILE_NAME`/`CFNI_DB_TESTS_FILE_NAME`) if you'd rather install it
 under a name that reflects that, e.g. `cfni_exec_and_batch.sql`.

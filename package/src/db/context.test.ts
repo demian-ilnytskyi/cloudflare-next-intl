@@ -20,7 +20,7 @@ vi.mock('../firebase_auth/server/use_auth_user_server', () => ({ getAuthUser }))
 vi.mock('../config/intl_config', () => ({ default: config }));
 vi.mock('./transaction_batch', () => ({ default: runTransactionBatch }));
 
-import { withPublicDb, withUserDb, withPublicTransaction, withUserTransaction } from './context';
+import { withPublicDb, withUserDb } from './context';
 
 beforeEach(() => {
     tx.execute.mockClear();
@@ -105,10 +105,19 @@ describe('supabase mode', () => {
         expect(proxyDrizzle).toHaveBeenCalledTimes(1);
     });
 
-    it('the Supabase-mode db.transaction() throws instead of running non-atomically', async () => {
-        await withPublicDb(async (db) => {
-            expect(() => (db as unknown as { transaction: () => void }).transaction()).toThrow(/transactions are not available/);
-        });
+    it('the Supabase-mode db.transaction() runs its build callback as one batch', async () => {
+        runTransactionBatch.mockResolvedValue([{ rows: [['1']], rowCount: 1 }]);
+        const result = await withPublicDb(async (db) =>
+            (db as unknown as { transaction: (build: () => unknown) => Promise<unknown> }).transaction(() => [
+                { sql: 'insert into t (id) values ($1)', params: [1] },
+            ]),
+        );
+        expect(result).toEqual([{ rows: [['1']], rowCount: 1 }]);
+        expect(runTransactionBatch).toHaveBeenCalledWith(
+            { url: 'https://abc.supabase.co', anonKey: 'anon-key' },
+            'anon-key',
+            [{ sql: 'insert into t (id) values ($1)', params: [1] }],
+        );
     });
 
     it('withUserDb runs without a drizzle transaction', async () => {
@@ -132,14 +141,16 @@ describe('supabase mode', () => {
     });
 });
 
-describe('withUserTransaction / withPublicTransaction', () => {
+describe('db.transaction() in Supabase mode', () => {
     beforeEach(() => {
         config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' }, getAccessToken: () => 'user-jwt' };
     });
 
+    interface BatchDb { transaction: (build: (db: unknown) => unknown) => Promise<unknown> }
+
     it('sends the queries build() returns to runTransactionBatch, as {sql, params}', async () => {
         runTransactionBatch.mockResolvedValue([{ rows: [['1']], rowCount: 1 }]);
-        const result = await withUserTransaction(() => [{ sql: 'insert into t (id) values ($1)', params: [1] }]);
+        const result = await withUserDb((db) => (db as unknown as BatchDb).transaction(() => [{ sql: 'insert into t (id) values ($1)', params: [1] }]));
         expect(result).toEqual([{ rows: [['1']], rowCount: 1 }]);
         expect(runTransactionBatch).toHaveBeenCalledWith(
             { url: 'https://abc.supabase.co', anonKey: 'anon-key' },
@@ -148,43 +159,33 @@ describe('withUserTransaction / withPublicTransaction', () => {
         );
     });
 
-    it('withPublicTransaction uses the anon key, not an access token', async () => {
+    it('withPublicDb uses the anon key, not an access token', async () => {
         config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' } };
         runTransactionBatch.mockResolvedValue([]);
-        await withPublicTransaction(() => []);
+        await withPublicDb((db) => (db as unknown as BatchDb).transaction(() => []));
         expect(runTransactionBatch).toHaveBeenCalledWith(expect.anything(), 'anon-key', []);
     });
 
     it('the build callback receives a handle that throws if executed instead of built', async () => {
         runTransactionBatch.mockResolvedValue([]);
-        await withUserTransaction((db) => {
-            expect(() => (db as unknown as { select: () => void }).select()).toThrow(/for building statements only/);
-            return [];
-        });
-    });
-
-    it('throws instead of running in connection-string mode — that mode already has real transactions', async () => {
-        config.db = { connectionString: 'postgresql://x' };
-        await expect(withUserTransaction(() => [])).rejects.toThrow(/withUserDb\/withPublicDb/);
-        expect(runTransactionBatch).not.toHaveBeenCalled();
+        await withUserDb((db) =>
+            (db as unknown as BatchDb).transaction((build) => {
+                expect(() => (build as unknown as { select: () => void }).select()).toThrow(/for building statements only/);
+                return [];
+            }),
+        );
     });
 
     it('throws when db.supabase.rawSql is false, without attempting the batch call', async () => {
         config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key', rawSql: false }, getAccessToken: () => 'user-jwt' };
-        await expect(withUserTransaction(() => [])).rejects.toThrow(/rawSql.*false/);
+        await expect(withUserDb((db) => (db as unknown as BatchDb).transaction(() => []))).rejects.toThrow(/rawSql.*false/);
         expect(runTransactionBatch).not.toHaveBeenCalled();
-    });
-
-    it('throws when db config is missing', async () => {
-        config.db = undefined;
-        await expect(withUserTransaction(() => [])).rejects.toThrow(/`db` is not set/);
-        await expect(withPublicTransaction(() => [])).rejects.toThrow(/`db` is not set/);
     });
 
     it('propagates a batch failure — the caller sees the whole batch was rolled back', async () => {
         runTransactionBatch.mockRejectedValue(new Error('db: Supabase rejected the query — constraint violated.'));
-        await expect(withUserTransaction(() => [{ sql: 'insert into t (id) values ($1)', params: [1] }])).rejects.toThrow(
-            /constraint violated/,
-        );
+        await expect(
+            withUserDb((db) => (db as unknown as BatchDb).transaction(() => [{ sql: 'insert into t (id) values ($1)', params: [1] }])),
+        ).rejects.toThrow(/constraint violated/);
     });
 });

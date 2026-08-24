@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.16] - 2026-08-24
+
+### Changed
+
+- **Breaking:** `withUserTransaction`/`withPublicTransaction` are removed. Multi-statement atomicity is now reached through `.transaction(...)` on the handle `withUserDb`/`withPublicDb` already hand your callback — one method name in both transport modes. In connection-string mode this is unchanged (a real Drizzle transaction, later statements may use earlier results); in Supabase mode it now runs on `.transaction()` too, atomically via `cfni_exec_batch`, though its callback must build queries (`.toSQL()`) rather than execute them, same as `withUserTransaction`/`withPublicTransaction` required before — only the entry point moved.
+
 ## [0.8.15] - 2026-08-24
 
 ### Added

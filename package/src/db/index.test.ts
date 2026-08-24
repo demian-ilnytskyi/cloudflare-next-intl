@@ -8,9 +8,7 @@ describe('db entry point', () => {
             'disconnectPostgres',
             'resetConnectionState',
             'withPublicDb',
-            'withPublicTransaction',
             'withUserDb',
-            'withUserTransaction',
         ]);
     });
 });

@@ -887,11 +887,11 @@ export interface SupabaseDbConfig {
      * aggregates, CTEs, transactions — naming the construct that needs raw
      * SQL. Defaults to `true`.
      *
-     * Also gates `withUserTransaction`/`withPublicTransaction`: their
-     * `cfni_exec_batch` function ships in the same `supabase/cfni_exec.sql`
-     * file and needs `cfni_exec` itself to run each statement, so batching
-     * is on whenever this is (there is no separate flag for it) and throws
-     * the same install-or-use-`connectionString` error when this is `false`.
+     * Also gates Supabase-mode `db.transaction(...)`: its `cfni_exec_batch`
+     * function ships in the same `supabase/cfni_exec.sql` file and needs
+     * `cfni_exec` itself to run each statement, so batching is on whenever
+     * this is (there is no separate flag for it) and throws the same
+     * install-or-use-`connectionString` error when this is `false`.
      */
     rawSql?: boolean;
 }
@@ -942,9 +942,12 @@ export interface DbRoutingConfig {
      * live traffic. Requires the `cfni_exec` function from
      * `supabase/cfni_exec.sql` to be installed in your database.
      *
-     * No multi-statement transactions: unlike connection-string mode, each
-     * statement inside a `withUserDb` callback is its own round-trip. Do not
-     * rely on multi-statement atomicity in this mode.
+     * Each statement inside a plain `withUserDb` callback is its own
+     * round-trip — no shared session. Call `.transaction(...)` on the handle
+     * for atomicity across statements instead: it batches them into one
+     * `cfni_exec_batch` call, though (unlike connection-string mode) a later
+     * statement in the callback cannot read an earlier one's result — see
+     * the `db` entry point's module doc.
      */
     supabase?: SupabaseDbConfig;
     /**

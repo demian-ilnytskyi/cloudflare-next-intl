@@ -32,8 +32,8 @@ export interface BatchQuery {
  *
  * @param supabase The `db.supabase` config block.
  * @param bearerToken Token resolved as the caller's identity — the anon key
- * for {@link ../context.withPublicTransaction}, a user JWT for
- * {@link ../context.withUserTransaction}.
+ * for `withPublicDb`'s handle, a user JWT for `withUserDb`'s — see
+ * `context.ts`'s `runTransaction`, which backs both handles' `.transaction()`.
  * @param queries The statements to run, in order. An empty array is a no-op
  * that still makes the round trip, matching `cfni_exec_batch(array[]::text[])`.
  * @returns One `{rows, rowCount}` result per query, in the same order.
