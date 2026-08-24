@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.18] - 2026-08-24
+
+### Fixed
+
+- **Concurrent `withUserDb`/`withPublicDb` calls in Postgres/Hyperdrive mode:** every request in a Worker isolate shares one `pg.Client`. When a single request issued more than one `withUserDb`/`withPublicDb` call concurrently (e.g. several `Promise.all`'d reads, each opening its own transaction), their `BEGIN`/`SET LOCAL ROLE`/`set_config('request.jwt.claims', ...)`/`COMMIT` statements could interleave on that one connection, so one caller's role/RLS identity could leak into another's queries mid-flight — surfacing as intermittent, page-dependent query failures. `withUserDb`/`withPublicDb` now serialize their entire transaction body through a session-scoped lock (`withSessionLock`, `db/connection.ts`) so only one caller's session state is active on the shared client at a time. Supabase mode is unaffected — it never shared a live session in the first place.
+- `connectToPostgres`'s concurrent-caller race (two callers both starting a new client when both saw `client === null` before either had awaited anything) is now closed by setting the connecting guard synchronously before any `await`.
+
 ## [0.8.17] - 2026-08-24
 
 ### Fixed

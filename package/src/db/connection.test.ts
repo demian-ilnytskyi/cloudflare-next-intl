@@ -11,7 +11,7 @@ const { connect, end, query, ClientMock, reportErrorMock } = vi.hoisted(() => {
 vi.mock('pg', () => ({ Client: ClientMock }));
 vi.mock('../error_handling/report_error', () => ({ default: reportErrorMock }));
 
-import connectToPostgres, { disconnectPostgres, resetConnectionState } from './connection';
+import connectToPostgres, { disconnectPostgres, resetConnectionState, withSessionLock } from './connection';
 
 const baseConfig = { locales: ['en'] as const, defaultLocale: 'en' };
 
@@ -230,5 +230,45 @@ describe('disconnectPostgres', () => {
         const client2 = await connectToPostgres(config);
         expect(client2).toBeDefined();
         expect(ClientMock).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe('withSessionLock', () => {
+    it('returns what fn resolves to', async () => {
+        await expect(withSessionLock(async () => 'ok')).resolves.toBe('ok');
+    });
+
+    it('serializes overlapping callers so one finishes before the next starts', async () => {
+        const order: string[] = [];
+        const first = withSessionLock(async () => {
+            order.push('first-start');
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            order.push('first-end');
+        });
+        const second = withSessionLock(async () => {
+            order.push('second-start');
+            order.push('second-end');
+        });
+        await Promise.all([first, second]);
+        expect(order).toEqual(['first-start', 'first-end', 'second-start', 'second-end']);
+    });
+
+    it('releases the lock even when fn throws, so the next caller still runs', async () => {
+        const order: string[] = [];
+        const failing = withSessionLock(async () => {
+            order.push('failing');
+            throw new Error('boom');
+        }).catch(() => undefined);
+        const next = withSessionLock(async () => {
+            order.push('next');
+        });
+        await Promise.all([failing, next]);
+        expect(order).toEqual(['failing', 'next']);
+    });
+
+    it('propagates fn\'s rejection to its own caller', async () => {
+        await expect(withSessionLock(async () => {
+            throw new Error('boom');
+        })).rejects.toThrow('boom');
     });
 });

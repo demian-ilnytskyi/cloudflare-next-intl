@@ -1,6 +1,6 @@
 import config from '../config/intl_config';
 import requireDbConfig from './require_config';
-import connectToPostgres, { disconnectPostgres } from './connection';
+import connectToPostgres, { disconnectPostgres, withSessionLock } from './connection';
 import resolveDbMode from './resolve_mode';
 import resolveSupabaseEndpoint from './supabase_config';
 import createSupabaseTransport from './supabase_transport';
@@ -131,10 +131,12 @@ export async function withPublicDb(fn) {
     }
     const client = await connectToPostgres(config, resolved.connectionString);
     try {
-        const { drizzle } = await import('drizzle-orm/node-postgres');
-        const drizzleHandle = drizzle(client);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return await fn(await postgresDb(drizzleHandle, client));
+        return await withSessionLock(async () => {
+            const { drizzle } = await import('drizzle-orm/node-postgres');
+            const drizzleHandle = drizzle(client);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return await fn(await postgresDb(drizzleHandle, client));
+        });
     }
     finally {
         disconnectPostgres(config);
@@ -186,15 +188,17 @@ export async function withUserDb(fn, uid) {
     const client = await connectToPostgres(config, resolved.connectionString);
     const role = db.authenticatedRole ?? DEFAULT_ROLE;
     try {
-        const { drizzle } = await import('drizzle-orm/node-postgres');
-        const { sql } = await import('drizzle-orm');
-        return await drizzle(client).transaction(async (transaction) => {
-            await transaction.execute(sql `select set_config('request.jwt.claims', ${JSON.stringify({ sub: userId })}, true)`);
-            await transaction.execute(sql `set local role ${sql.raw(role)}`);
-            // The transaction handle's session.client is the live pg socket — use it directly.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const txClient = transaction.session?.client ?? client;
-            return fn(await postgresDb(transaction, txClient));
+        return await withSessionLock(async () => {
+            const { drizzle } = await import('drizzle-orm/node-postgres');
+            const { sql } = await import('drizzle-orm');
+            return await drizzle(client).transaction(async (transaction) => {
+                await transaction.execute(sql `select set_config('request.jwt.claims', ${JSON.stringify({ sub: userId })}, true)`);
+                await transaction.execute(sql `set local role ${sql.raw(role)}`);
+                // The transaction handle's session.client is the live pg socket — use it directly.
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const txClient = transaction.session?.client ?? client;
+                return fn(await postgresDb(transaction, txClient));
+            });
         });
     }
     finally {

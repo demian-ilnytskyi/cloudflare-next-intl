@@ -5,9 +5,33 @@ const DEFAULT_DISCONNECT_TIMEOUT_MS = 2000;
 let connectionString = null;
 let client = null;
 let connectionPromise = null;
-let connectingPromise = null;
 let disconnectionPromise = null;
 let activeUsers = 0;
+let sessionLock = Promise.resolve();
+/**
+ * Runs `fn` exclusively against the shared client: no other
+ * `withSessionLock` caller's queries can interleave with `fn`'s until it
+ * settles. `serializeQueries` alone only orders individual `.query()` calls —
+ * it does nothing to stop a *different* concurrent request's queries from
+ * landing between, say, a transaction's `BEGIN`/`SET LOCAL ROLE` and its
+ * `COMMIT` on the one `pg.Client` every request in the isolate shares. That
+ * gap let one request's role/RLS identity leak into another's queries
+ * whenever two requests overlapped in the same Worker isolate. Every caller
+ * that opens a transaction, or otherwise depends on session-scoped state
+ * (`SET LOCAL`, `set_config(..., true)`), MUST run inside this lock.
+ */
+export async function withSessionLock(fn) {
+    const previous = sessionLock;
+    let release;
+    sessionLock = new Promise((resolve) => { release = resolve; });
+    await previous;
+    try {
+        return await fn();
+    }
+    finally {
+        release();
+    }
+}
 /**
  * Forgets the cached client and connection string so the next
  * `connectToPostgres` call builds both from scratch. Intended for tests and
@@ -21,9 +45,9 @@ export function resetConnectionState() {
     connectionString = null;
     client = null;
     connectionPromise = null;
-    connectingPromise = null;
     disconnectionPromise = null;
     activeUsers = 0;
+    sessionLock = Promise.resolve();
 }
 /**
  * Resolves the connection string from `db.connectionString`, awaiting it when
@@ -76,31 +100,35 @@ export default async function connectToPostgres(config, resolved) {
     const db = config.db;
     requireDbConfig(db);
     await disconnectionPromise;
-    if (connectingPromise === null) {
-        connectingPromise = (async () => {
-            try {
-                connectionString ?? (connectionString = resolved ?? await resolveConnectionString(db));
-                const { Client } = await import('pg');
-                const created = serializeQueries(new Client({ connectionString }));
-                client = created;
-                connectionPromise = created.connect();
-                await connectionPromise;
-                return created;
-            }
-            catch (error) {
-                // A failed connect must not be cached forever — clear state so the
-                // next call retries instead of replaying the same rejection for the
-                // life of the Worker isolate.
-                connectingPromise = null;
-                connectionString = null;
-                client = null;
-                connectionPromise = null;
-                throw error;
-            }
+    // Guards the race between concurrent callers that both see `client ===
+    // null` before either has awaited anything: `connectionPromise` is set
+    // synchronously (before the `await`s below) so every caller in the same
+    // microtask tick shares the one client being created instead of each
+    // starting its own.
+    if (connectionPromise === null) {
+        connectionPromise = (async () => {
+            connectionString = resolved ?? await resolveConnectionString(db);
+            const { Client } = await import('pg');
+            const created = serializeQueries(new Client({ connectionString }));
+            client = created;
+            await created.connect();
+            return created;
         })();
     }
     activeUsers++;
-    return connectingPromise;
+    try {
+        return await connectionPromise;
+    }
+    catch (error) {
+        // A failed connect must not be cached forever — clear state so the
+        // next call retries instead of replaying the same rejection for the
+        // life of the Worker isolate.
+        activeUsers = Math.max(0, activeUsers - 1);
+        connectionString = null;
+        client = null;
+        connectionPromise = null;
+        throw error;
+    }
 }
 /**
  * Releases one caller's hold on the shared client, closing it once the last
@@ -127,7 +155,6 @@ export function disconnectPostgres(config) {
     // instead of reusing one that is about to close.
     client = null;
     connectionPromise = null;
-    connectingPromise = null;
     const endPromise = closing.end();
     disconnectionPromise = endPromise;
     const timeoutMs = db.disconnectTimeoutMs ?? DEFAULT_DISCONNECT_TIMEOUT_MS;

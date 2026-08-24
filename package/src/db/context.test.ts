@@ -25,7 +25,7 @@ const { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, con
 
 vi.mock('drizzle-orm/node-postgres', () => ({ drizzle: vi.fn(() => ({ transaction, select: vi.fn() })) }));
 vi.mock('drizzle-orm/pg-proxy', () => ({ drizzle: proxyDrizzle }));
-vi.mock('./connection', () => ({ default: connectToPostgres, disconnectPostgres, resetConnectionState: vi.fn() }));
+vi.mock('./connection', () => ({ default: connectToPostgres, disconnectPostgres, resetConnectionState: vi.fn(), withSessionLock: vi.fn(async (fn: () => Promise<unknown>) => fn()) }));
 vi.mock('../firebase_auth/server/use_auth_user_server', () => ({ getAuthUser }));
 vi.mock('../config/intl_config', () => ({ default: config }));
 vi.mock('./transaction_batch', () => ({ default: runTransactionBatch }));

@@ -2,6 +2,19 @@ import type { Client } from 'pg';
 import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
 export type DbConfig = RoutingConfig<Locales, LocalePrefixMode>;
 /**
+ * Runs `fn` exclusively against the shared client: no other
+ * `withSessionLock` caller's queries can interleave with `fn`'s until it
+ * settles. `serializeQueries` alone only orders individual `.query()` calls —
+ * it does nothing to stop a *different* concurrent request's queries from
+ * landing between, say, a transaction's `BEGIN`/`SET LOCAL ROLE` and its
+ * `COMMIT` on the one `pg.Client` every request in the isolate shares. That
+ * gap let one request's role/RLS identity leak into another's queries
+ * whenever two requests overlapped in the same Worker isolate. Every caller
+ * that opens a transaction, or otherwise depends on session-scoped state
+ * (`SET LOCAL`, `set_config(..., true)`), MUST run inside this lock.
+ */
+export declare function withSessionLock<T>(fn: () => Promise<T>): Promise<T>;
+/**
  * Forgets the cached client and connection string so the next
  * `connectToPostgres` call builds both from scratch. Intended for tests and
  * for after a `db` config change.
