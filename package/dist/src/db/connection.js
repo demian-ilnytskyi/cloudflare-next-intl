@@ -134,7 +134,7 @@ export default async function connectToPostgres(config, resolved) {
                 // expected shape of this event (Hyperdrive/Postgres recycling
                 // the connection, not a query failure): swallow it entirely,
                 // don't report or log it.
-                if (/connection terminated/i.test(error.message))
+                if (/(connection terminated|connection closed)/i.test(error.message))
                     return;
                 void reportError({ errorHandling: config.errorHandling, generate: config.generate }, { error, classOrMethodName: 'db.connectToPostgres.clientError' });
             });
