@@ -1,4 +1,5 @@
 import { setTranslationCache } from "./cache_variables";
+import reportError from "../error_handling/report_error";
 /**
  * Logs a warning message and returns a fallback translation function.
  * This function helps in debugging missing translations or incorrect structures.
@@ -16,7 +17,11 @@ const errorAndReturnFallback = (message, cacheKey, locale, namespace, key) => {
         key ? `Key: "${key}"` : '',
         `Locale: "${locale}"`,
     ].filter(Boolean); // Filter out empty parts
-    console.error(parts.join(' | '));
+    void reportError(undefined, {
+        error: parts.join(' | '),
+        classOrMethodName: 'getTranslationsImpl',
+        params: { locale, namespace, key },
+    });
     const fallbackFn = (k) => k; // Fallback function simply returns the key
     fallbackFn.raw = (k) => k;
     setTranslationCache(cacheKey, fallbackFn);

@@ -32,8 +32,10 @@ describe('languageDetecotr', () => {
 
     it('catches unexpected errors during parsing and returns default locale', () => {
         const original = String.prototype.trim;
+        const boom = new Error('boom');
+        void boom.stack; // force V8 to lazily format+cache the stack before trim is patched below
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (String.prototype as any).trim = () => { throw new Error('boom'); };
+        (String.prototype as any).trim = () => { throw boom; };
         try {
             expect(languageDetecotr('de')).toBe('en');
         } finally {

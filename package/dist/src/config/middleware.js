@@ -3,6 +3,7 @@ import { languageDetecotr } from '../server/functions/get_user_locale';
 import config from './intl_config';
 import { isBotCookieKey, localeCookieName } from './cookie_key';
 import { cache } from 'react';
+import reportError from '../error_handling/report_error';
 const sameSite = false;
 const defaultCookieOption = {
     path: '/', // Cookie is valid for the entire domain
@@ -149,8 +150,10 @@ export default async function intlMiddleware(request, options) {
         return response;
     }
     catch (e) {
-        console.error('[cloudflare-next-intl] intlMiddleware failed and fell back to passing the request through unmodified ' +
-            '(no locale rewrite/redirect, no firebase_auth session refresh). Underlying error:', e);
+        void reportError({ errorHandling: config.errorHandling, generate: config.generate }, {
+            error: e,
+            classOrMethodName: 'intlMiddleware',
+        });
         return NextResponse.next({
             request,
         });

@@ -99,6 +99,6 @@ describe('getLocale', () => {
         vi.mocked(cookies).mockRejectedValueOnce(new Error('no request context'));
         const { getLocale } = await import('./server');
         expect(await getLocale()).toBe('en');
-        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error accessing cookies'));
+        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[getLocale] Error:'));
     });
 });

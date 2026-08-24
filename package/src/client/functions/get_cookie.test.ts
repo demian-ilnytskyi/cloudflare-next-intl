@@ -43,7 +43,7 @@ describe('getCookie', () => {
         });
         try {
             expect(getCookie('foo')).toBeNull();
-            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Get cookie on client side error'));
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[getCookie] Error:'));
         } finally {
             delete (document as unknown as { cookie?: unknown }).cookie;
         }

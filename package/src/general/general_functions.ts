@@ -1,5 +1,6 @@
 import type { TranslationEntry, TranslationObject, ReturnType, TranslatorReturnType } from "../types/types";
 import { setTranslationCache } from "./cache_variables";
+import reportError from "../error_handling/report_error";
 
 /**
  * Logs a warning message and returns a fallback translation function.
@@ -24,7 +25,11 @@ const errorAndReturnFallback = (
         key ? `Key: "${key}"` : '',
         `Locale: "${locale}"`,
     ].filter(Boolean); // Filter out empty parts
-    console.error(parts.join(' | '));
+    void reportError(undefined, {
+        error: parts.join(' | '),
+        classOrMethodName: 'getTranslationsImpl',
+        params: { locale, namespace, key },
+    });
 
     const fallbackFn = (k: string) => k; // Fallback function simply returns the key
     (fallbackFn as TranslatorReturnType).raw = (k: string) => k;

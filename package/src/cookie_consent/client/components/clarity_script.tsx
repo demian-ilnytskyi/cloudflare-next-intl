@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import reportError from '../../../error_handling/report_error';
 
 let cachedClarityModule: Promise<typeof import('@microsoft/clarity')> | undefined;
 
@@ -25,7 +26,11 @@ export default function ClarityScript({ projectId }: { projectId: string }): nul
                 Clarity.init(projectId);
                 Clarity.consent();
             })
-            .catch((error) => console.error(`cloudflare-next-intl: failed to load @microsoft/clarity: ${error}`));
+            .catch((error) => void reportError(undefined, {
+                error,
+                classOrMethodName: 'ClarityScript',
+                isClient: true,
+            }));
     }, [projectId]);
     return null;
 }

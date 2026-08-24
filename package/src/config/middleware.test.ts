@@ -169,7 +169,7 @@ describe('intlMiddleware', () => {
         const handler = vi.fn().mockImplementation(() => { throw new Error('boom'); });
         const res = await intlMiddleware(req, { middlewareHandler: handler });
         expect(res.status).toBe(200);
-        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('intlMiddleware failed'), expect.any(Error));
+        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[intlMiddleware] Error: Error: boom'));
     });
 });
 

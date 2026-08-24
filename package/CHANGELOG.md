@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.25] - 2026-08-25
+
+### Fixed
+
+- **Internal library errors now route through `reportError`/`errorHandling` instead of calling `console.error` directly.** `intlMiddleware`, `getLocale`, `languageDetecotr`, `alternatesLinks`, `getCookie`, `setCookie`, `ClarityScript`, and `getTranslationsImpl` previously logged straight to `console.error`, bypassing `errorHandling.onError`, dedup/throttling, and `ignoreConsoleErrors` — so these internal failures were invisible to your configured error reporter (Sentry, Telegram, etc). They're now reported the same way your own `reportError` calls are.
+
 ## [0.8.24] - 2026-08-24
 
 ### Fixed
