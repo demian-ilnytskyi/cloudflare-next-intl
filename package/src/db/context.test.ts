@@ -303,5 +303,38 @@ describe('db.transaction() in Postgres/Hyperdrive mode — regression', () => {
         'uid-1');
         expect(result).toEqual([{ rows: [], rowCount: null }]);
     });
+
+    it('falls back to the top-level client when session.client is undefined on transaction handle', async () => {
+        // Temporarily delete session.client to trigger the fallback
+        const originalSession = tx.session;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (tx as any).session = undefined;
+
+        tx._clientQuery.mockResolvedValueOnce(makeQueryResult([{ id: 99 }]));
+
+        const result = await withUserDb((db) =>
+            (db as unknown as BatchDb).transaction(() => [
+                { sql: 'select id from t', params: [] },
+            ]),
+        'uid-1');
+
+        // Restore mock session
+        tx.session = originalSession;
+
+        expect(tx._clientQuery).toHaveBeenCalledTimes(1);
+        expect(result).toEqual([{ rows: [{ id: 99 }], rowCount: 1 }]);
+    });
+
+    it('falls back to empty array if query results rows is undefined', async () => {
+        tx._clientQuery.mockResolvedValueOnce({ rows: undefined as any, rowCount: 0 });
+
+        const result = await withUserDb((db) =>
+            (db as unknown as BatchDb).transaction(() => [
+                { sql: 'select id from t', params: [] },
+            ]),
+        'uid-1');
+
+        expect(result).toEqual([{ rows: [], rowCount: 0 }]);
+    });
 });
 
