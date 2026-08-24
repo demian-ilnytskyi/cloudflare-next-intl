@@ -7,10 +7,17 @@
  * - {@link withPublicDb} — anonymous role, for data any visitor may read.
  * - {@link withUserDb} — the signed-in user, with RLS applied to their id.
  *
- * Need more than one statement to succeed or fail together?
- * - {@link withPublicTransaction} / {@link withUserTransaction} — build
- *   queries with `.toSQL()` instead of executing them; every statement then
- *   runs atomically, whichever transport mode is active.
+ * Need more than one statement to succeed or fail together? Call
+ * `db.transaction(...)` on the handle either wrapper hands your callback —
+ * same method name in both transport modes. In connection-string mode it is
+ * a real Drizzle transaction: `db.transaction(async (tx) => { await
+ * tx.insert(...); await tx.update(...); })`, and a later statement may use an
+ * earlier one's result. In Supabase mode there is no session to run that
+ * over, so the callback instead *builds* queries and returns them —
+ * `db.transaction((tx) => [tx.insert(...).values(...).toSQL(), tx.update(...).toSQL()])`
+ * — call `.toSQL()` on each instead of `await`ing it; every statement then
+ * runs atomically as one `cfni_exec_batch` call, but a later statement cannot
+ * read an earlier one's result there.
  *
  * Two transports reach Postgres behind that same Drizzle query API, chosen by
  * `resolveDbMode` from which `db` config fields are set: `connectionString`
@@ -23,12 +30,11 @@
  * statement is first translated into `@supabase/supabase-js` `.from()` calls;
  * anything PostgREST cannot express falls back to `cfni_exec`, and if
  * `db.supabase.rawSql` is `false` the call throws naming the construct that
- * needs raw SQL. `withPublicDb`/`withUserDb`'s `.transaction()` is never
- * available in Supabase mode — reach for `withPublicTransaction`/
- * `withUserTransaction` there instead.
+ * needs raw SQL — including `.transaction()`, which needs `cfni_exec_batch`
+ * from the same file.
  *
  * Generic Drizzle SQL helpers (`excluded`, `onConflictSet`, `ago`, …) live in
  * the separate `cloudflare-next-intl/dbHelpers` entry point.
  */
-export { withPublicDb, withUserDb, withPublicTransaction, withUserTransaction } from './context';
+export { withPublicDb, withUserDb } from './context';
 export { default as connectToPostgres, disconnectPostgres, resetConnectionState } from './connection';
