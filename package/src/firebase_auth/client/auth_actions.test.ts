@@ -22,11 +22,17 @@ vi.mock('../error_messages/firebase_auth_error_helper', () => ({
 const signInWithEmailAndPassword = vi.fn();
 const createUserWithEmailAndPassword = vi.fn();
 const sendPasswordResetEmail = vi.fn();
+const sendSignInLinkToEmail = vi.fn();
+const isSignInWithEmailLink = vi.fn();
+const signInWithEmailLink = vi.fn();
 
 vi.mock('firebase/auth', () => ({
     signInWithEmailAndPassword: (...args: unknown[]) => signInWithEmailAndPassword(...args),
     createUserWithEmailAndPassword: (...args: unknown[]) => createUserWithEmailAndPassword(...args),
     sendPasswordResetEmail: (...args: unknown[]) => sendPasswordResetEmail(...args),
+    sendSignInLinkToEmail: (...args: unknown[]) => sendSignInLinkToEmail(...args),
+    isSignInWithEmailLink: (...args: unknown[]) => isSignInWithEmailLink(...args),
+    signInWithEmailLink: (...args: unknown[]) => signInWithEmailLink(...args),
 }));
 
 function makeFormData(fields: Record<string, string>): FormData {
@@ -162,6 +168,71 @@ describe('createForgotPasswordAction', () => {
         const action = createForgotPasswordAction('en', settings);
         await action({}, makeFormData({ email: 'a@b.com' }));
         expect(sendPasswordResetEmail).toHaveBeenCalledWith({}, 'a@b.com', settings);
+    });
+});
+
+describe('createSendSignInLinkAction', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    const settings = { url: 'https://example.com/complete-sign-in', handleCodeInApp: true };
+
+    it('sends a sign-in link and returns success with the trimmed email', async () => {
+        sendSignInLinkToEmail.mockResolvedValue(undefined);
+        const { createSendSignInLinkAction } = await import('./auth_actions');
+        const action = createSendSignInLinkAction('en', settings);
+        const result = await action({}, makeFormData({ email: ' a@b.com ' }));
+        expect(sendSignInLinkToEmail).toHaveBeenCalledWith({}, 'a@b.com', settings);
+        expect(result).toEqual({ success: true, email: 'a@b.com' });
+    });
+
+    it('returns a translated error message when sending fails', async () => {
+        sendSignInLinkToEmail.mockRejectedValue({ code: 'auth/invalid-email' });
+        const { createSendSignInLinkAction } = await import('./auth_actions');
+        const action = createSendSignInLinkAction('en', settings);
+        const result = await action({}, makeFormData({ email: 'bad' }));
+        expect(result).toEqual({ error: 'translated error' });
+    });
+
+    it('treats a missing email field as an empty string', async () => {
+        sendSignInLinkToEmail.mockResolvedValue(undefined);
+        const { createSendSignInLinkAction } = await import('./auth_actions');
+        const action = createSendSignInLinkAction('en', settings);
+        await action({}, new FormData());
+        expect(sendSignInLinkToEmail).toHaveBeenCalledWith({}, '', settings);
+    });
+});
+
+describe('completeSignInWithLink', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('signs in when the URL is a valid email sign-in link', async () => {
+        isSignInWithEmailLink.mockReturnValue(true);
+        signInWithEmailLink.mockResolvedValue(undefined);
+        const { completeSignInWithLink } = await import('./auth_actions');
+        const result = await completeSignInWithLink('en', 'https://x/complete?apiKey=1', 'a@b.com');
+        expect(isSignInWithEmailLink).toHaveBeenCalledWith({}, 'https://x/complete?apiKey=1');
+        expect(signInWithEmailLink).toHaveBeenCalledWith({}, 'a@b.com', 'https://x/complete?apiKey=1');
+        expect(result).toEqual({ success: true });
+    });
+
+    it('returns a translated error without calling signInWithEmailLink when the URL is not a valid link', async () => {
+        isSignInWithEmailLink.mockReturnValue(false);
+        const { completeSignInWithLink } = await import('./auth_actions');
+        const result = await completeSignInWithLink('en', 'https://x/complete', 'a@b.com');
+        expect(signInWithEmailLink).not.toHaveBeenCalled();
+        expect(result).toEqual({ error: 'translated error' });
+    });
+
+    it('returns a translated error when sign-in fails', async () => {
+        isSignInWithEmailLink.mockReturnValue(true);
+        signInWithEmailLink.mockRejectedValue({ code: 'auth/invalid-action-code' });
+        const { completeSignInWithLink } = await import('./auth_actions');
+        const result = await completeSignInWithLink('en', 'https://x/complete', 'a@b.com');
+        expect(result).toEqual({ error: 'translated error' });
     });
 });
 
