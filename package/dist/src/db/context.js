@@ -1,6 +1,6 @@
 import config from '../config/intl_config';
 import requireDbConfig from './require_config';
-import { withDbClient } from './connection'; // ✨ REPLACED connection hooks
+import { withDbClient } from './connection';
 import resolveDbMode from './resolve_mode';
 import resolveSupabaseEndpoint from './supabase_config';
 import createSupabaseTransport from './supabase_transport';
@@ -73,9 +73,8 @@ async function postgresDb(drizzleHandle, rawClient) {
  * via an inline-parameterised `query()` call, wrapped in a real
  * `BEGIN`/`COMMIT` for atomicity, and returns `ExecResult[]`.
  *
- * ✨ Note: In the Edge context, atomicity natively holds fast!
- * Every parallel query has isolated clients supplied from `withDbClient`.
- * You don't have to lock this transaction block as overlapping sessions are eliminated entirely.
+ * The client is scoped to one `withDbClient` call, so no other caller can
+ * interleave statements into this transaction.
  */
 async function runPostgresTransaction(rawClient, build) {
     const queries = await build(buildOnlyDb());
@@ -91,7 +90,7 @@ async function runPostgresTransaction(rawClient, build) {
         return results;
     }
     catch (error) {
-        await rawClient.query('rollback').catch(() => { });
+        await rawClient.query('rollback').catch(() => undefined);
         throw error;
     }
 }
@@ -128,26 +127,19 @@ export async function withPublicDb(fn) {
         const { anonKey } = await resolveSupabaseEndpoint(resolved.supabase);
         return fn(await supabaseDb(resolved.supabase, anonKey));
     }
-    // ✨ Uses isolated clients. Clean setup internally handles 
-    // tear-down (`disconnectPostgres`) magically behind the scenes right on completion
     return await withDbClient(config, async (client) => {
         const { drizzle } = await import('drizzle-orm/node-postgres');
         const drizzleHandle = drizzle(client);
-        // Execute Drizzle proxy payload natively
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return await fn(await postgresDb(drizzleHandle, client));
     });
 }
 /**
- * Runs a query as the **signed-in user**.
+ * Runs a query as the **signed-in user**, with `request.jwt.claims` and the
+ * authenticated role set on the session so RLS policies apply to their id.
  *
- * ✨ Uses Isolated Hyperdrive Networking Strategy: Overlapping connection problems
- * across Next.js isolate contexts previously occurred due to locking constraints on the identical
- * PostgreSQL singleton reference inside Serverless architecture.
- *
- * Moving directly to edge single-usage wrappers inherently closes all leakage scenarios because
- * `.connect() -> setup Roles & Session variables -> process logic -> .end()` exists per connection completely
- * unshared across external requests globally.
+ * The session lives on a client scoped to this call and closed when it ends,
+ * so the role and claims can never be observed by another caller.
  *
  * @param fn Receives the Drizzle handle
  * @param uid Overrides the user ID for authenticated calls
@@ -162,23 +154,13 @@ export async function withUserDb(fn, uid) {
     }
     const userId = await resolveUserId(uid);
     const role = db.authenticatedRole ?? DEFAULT_ROLE;
-    // ✨ Completely isolated setup per-render utilizing `.withDbClient()` Native block 
-    // Eliminates requiring our application `withSessionLock` since NextJS workers do not leak! 
     return await withDbClient(config, async (client) => {
         const rawClient = client;
         await rawClient.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: userId })]);
         await rawClient.query(`set role "${role}"`);
         const { drizzle } = await import('drizzle-orm/node-postgres');
         const drizzleHandle = drizzle(client);
-        try {
-            return await fn(await postgresDb(drizzleHandle, rawClient));
-        }
-        finally {
-            // Because Hyperdrive is going to actively obliterate (`.end()`) 
-            // the connection upon scope exiting returning connection priorities automatically back up to cloudflare.
-            // Resetting is theoretically optional in stateless Cloudflare execution - but is provided as good habit/health standard here.
-            await rawClient.query('reset role').catch(() => { });
-        }
+        return await fn(await postgresDb(drizzleHandle, rawClient));
     });
 }
 /**

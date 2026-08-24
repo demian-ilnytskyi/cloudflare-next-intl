@@ -1,4 +1,5 @@
-import { Client } from 'pg';
+import type * as Pg from 'pg';
+import type { Client } from 'pg';
 import type { DbRoutingConfig, LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
 import reportError from '../error_handling/report_error';
 import requireDbConfig from './require_config';
@@ -6,8 +7,17 @@ import resolveConfigValue from './resolve_config_value';
 
 export type DbConfig = RoutingConfig<Locales, LocalePrefixMode>;
 
-// Removed Global Singletons (no `client`, `connectionString`, `activeUsers`, `connectionPromise`)
-// Removed Custom Locks (no `serializeQueries`, no `sessionLock`)
+let pgModule: Promise<typeof Pg> | undefined;
+
+/**
+ * Loads `pg` lazily, so an app that never touches the Postgres transport never
+ * bundles it, and caches the module promise so concurrent callers share one
+ * resolution instead of racing separate `import()` calls.
+ */
+function loadPg(): Promise<typeof Pg> {
+    pgModule ??= import('pg');
+    return pgModule;
+}
 
 async function resolveConnectionString(db: DbRoutingConfig): Promise<string> {
     const configured = await resolveConfigValue(db.connectionString);
@@ -20,9 +30,11 @@ async function resolveConnectionString(db: DbRoutingConfig): Promise<string> {
 }
 
 /**
- * ✅ ONE CLIENT PER QUERY & GUARANTEED DISCONNECT:
- * This single wrapper correctly leverages Cloudflare Hyperdrive by connecting securely, 
- * running your logic safely in total isolation, and immediately releasing the socket. 
+ * Runs `queryFn` on a Postgres client scoped to this single call: one
+ * `connect()`, your callback, then a guaranteed `end()`. Each call gets its own
+ * client, so concurrent renders in the same isolate can never share session
+ * state (role, `request.jwt.claims`, an open transaction) with each other.
+ * Hyperdrive pools the server-side connection behind this.
  */
 export async function withDbClient<T>(
     config: DbConfig,
@@ -33,43 +45,43 @@ export async function withDbClient<T>(
 
     const connectionString = await resolveConnectionString(db);
 
-    // Creates an independent, stateless Client so concurrent Next.js renders don't lock each other up.
-    const client = new Client({ connectionString });
+    const { Client: PgClient } = await loadPg();
+    const client = new PgClient({ connectionString });
     let result: T;
+    let connected = false;
 
     try {
-        await client.connect();
-
-        // Pass this client independently straight into your callback to be executed
-        result = await queryFn(client);
-    } catch (error: any) {
-        // Silently swallow Hyperdrive pool termination warnings that are passive/natural
-        const message = error?.message || '';
-        if (!/(connection terminated|connection closed|socket closed|unexpected eof)/i.test(message)) {
-            void reportError(
-                { errorHandling: config.errorHandling, generate: config.generate },
-                { error, classOrMethodName: 'db.withDbClient.clientError' }
-            );
+        try {
+            await client.connect();
+            connected = true;
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error ?? '');
+            if (!/(connection terminated|connection closed|socket closed|unexpected eof)/i.test(message)) {
+                void reportError(
+                    { errorHandling: config.errorHandling, generate: config.generate },
+                    { error, classOrMethodName: 'db.withDbClient.connectError' }
+                );
+            }
+            throw error;
         }
-        throw error;
+
+        result = await queryFn(client);
     } finally {
-        // GUARANTEED TEAR-DOWN
-        // Triggers `.end()` right when your data has finished being processed.
-        const endPromise = client.end();
+        const endPromise = connected ? client.end() : Promise.resolve();
 
         const getContext = config.generate?.getCloudflareContext;
         if (!getContext || db.disconnectAfterRequest === false) {
-             await endPromise.catch(() => {});
+             await endPromise.catch(() => undefined);
         } else {
             try {
                 const context = await getContext({ async: true });
                 if (typeof context?.ctx?.waitUntil === 'function') {
-                    context.ctx.waitUntil(endPromise.catch(() => {}));
+                    context.ctx.waitUntil(endPromise.catch(() => undefined));
                 } else {
-                    await endPromise.catch(() => {});
+                    await endPromise.catch(() => undefined);
                 }
             } catch {
-                await endPromise.catch(() => {});
+                await endPromise.catch(() => undefined);
             }
         }
     }
@@ -77,25 +89,54 @@ export async function withDbClient<T>(
     return result;
 }
 
-// -------------------------------------------------------------
-// ⚠️ STUBS TO CATCH OUTDATED USAGES ACROSS YOUR REPOSITORY ⚠️
-// I've kept these named exports intact so your IDE will flag 
-// where they exist so you know exactly what code to update next.
-// -------------------------------------------------------------
-
+/**
+ * No-op kept for backward compatibility. There is no cached connection state
+ * to reset now that every {@link withDbClient} call owns its client.
+ *
+ * @deprecated Connection state is per-call; this does nothing.
+ */
 export function resetConnectionState(): void {
-    // Obsolete - ignored
+    // no cached state to reset
 }
 
+/**
+ * Runs `fn` directly. Kept for backward compatibility: session state can no
+ * longer leak between callers, so there is nothing left to serialize.
+ *
+ * @deprecated Clients are per-call now; no lock is needed.
+ */
 export async function withSessionLock<T>(fn: () => Promise<T>): Promise<T> {
-    // Locks are no longer needed as clients are entirely isolated
     return await fn();
 }
 
+/**
+ * Opens a Postgres client the caller owns and must close with
+ * {@link disconnectPostgres}. Prefer {@link withDbClient}, which closes the
+ * client for you even when the callback throws.
+ *
+ * @deprecated Use {@link withDbClient} instead.
+ */
 export async function connectToPostgres(config: DbConfig): Promise<Client> {
-    throw new Error('CRITICAL REFACTOR: Replace `connectToPostgres` with `withDbClient(config, async (client) => { ... })` for Cloudflare Hyperdrive.');
+    const db = config.db;
+    requireDbConfig(db);
+    const connectionString = await resolveConnectionString(db);
+    const { Client: PgClient } = await loadPg();
+    const client = new PgClient({ connectionString });
+    client.on('error', (error) => {
+        void reportError(
+            { errorHandling: config.errorHandling, generate: config.generate },
+            { error, classOrMethodName: 'db.connectToPostgres.clientError' }
+        );
+    });
+    await client.connect();
+    return client;
 }
 
-export function disconnectPostgres(config: DbConfig): void {
-    // Obsolete - disconnected natively in withDbClient now.
+/**
+ * Closes a client from {@link connectToPostgres}.
+ *
+ * @deprecated Use {@link withDbClient} instead.
+ */
+export async function disconnectPostgres(client?: Client): Promise<void> {
+    await client?.end().catch(() => undefined);
 }

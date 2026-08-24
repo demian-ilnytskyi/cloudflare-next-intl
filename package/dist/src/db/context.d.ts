@@ -15,15 +15,11 @@ export type DrizzleDb = NodePgDatabase<Record<string, never>>;
  */
 export declare function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promise<T>;
 /**
- * Runs a query as the **signed-in user**.
+ * Runs a query as the **signed-in user**, with `request.jwt.claims` and the
+ * authenticated role set on the session so RLS policies apply to their id.
  *
- * ✨ Uses Isolated Hyperdrive Networking Strategy: Overlapping connection problems
- * across Next.js isolate contexts previously occurred due to locking constraints on the identical
- * PostgreSQL singleton reference inside Serverless architecture.
- *
- * Moving directly to edge single-usage wrappers inherently closes all leakage scenarios because
- * `.connect() -> setup Roles & Session variables -> process logic -> .end()` exists per connection completely
- * unshared across external requests globally.
+ * The session lives on a client scoped to this call and closed when it ends,
+ * so the role and claims can never be observed by another caller.
  *
  * @param fn Receives the Drizzle handle
  * @param uid Overrides the user ID for authenticated calls

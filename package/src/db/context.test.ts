@@ -74,14 +74,13 @@ describe('withPublicDb', () => {
 });
 
 describe('withUserDb', () => {
-    it('sets jwt claims and role securely wrapped completely independently', async () => {
+    it('sets jwt claims and role on the call-scoped session', async () => {
         await withUserDb(async () => 'ok', 'uid-1');
         expect(tx._clientQuery).toHaveBeenCalledWith(
             `select set_config('request.jwt.claims', $1, false)`,
             [JSON.stringify({ sub: 'uid-1' })],
         );
         expect(tx._clientQuery).toHaveBeenCalledWith('set role "authenticated"');
-        expect(tx._clientQuery).toHaveBeenCalledWith('reset role');
     });
 
     it('falls back to the firebase auth user when no uid is given', async () => {
@@ -259,7 +258,6 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
             'select id from t where id = 1',
             "insert into t (val) values ('x')",
             'commit',
-            'reset role',
         ]);
     });
 
@@ -301,7 +299,7 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
         'uid-1');
 
         const calls = tx._clientQuery.mock.calls.map((c) => c[0] as string);
-        expect(calls).toHaveLength(7);
+        expect(calls).toHaveLength(6);
         expect(calls[3]).toContain('42');
         expect(calls[4]).toContain("'hello'");
     });
@@ -343,7 +341,7 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
             .mockResolvedValueOnce(makeQueryResult([]))
             .mockResolvedValueOnce(makeQueryResult([]))
             .mockResolvedValueOnce(makeQueryResult([]))
-            .mockResolvedValueOnce({ rows: undefined as any, rowCount: 0 });
+            .mockResolvedValueOnce({ rows: undefined as unknown as unknown[], rowCount: 0 });
 
         const result = await withUserDb((db) =>
             (db as unknown as BatchDb).transaction(() => [

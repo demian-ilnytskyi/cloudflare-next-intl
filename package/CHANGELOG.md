@@ -3,6 +3,53 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.24] - 2026-08-24
+
+### Fixed
+
+- **`pg` is loaded through a dynamic `import()` again.** 0.8.23 imported it statically, which pulled `pg` into the bundle for every app importing `cloudflare-next-intl/db` — including Supabase-mode apps that never open a Postgres connection and may not have `pg` installed at all. The documented guarantee that an app which never calls a `db` export never bundles `pg` holds once more. The resolved module is cached, so concurrent callers share one load.
+- **Errors thrown by your own `withPublicDb`/`withUserDb` callback are no longer reported to `errorHandling.onError` as database client errors.** 0.8.23 wrapped the callback in the same `catch` used for connection failures, so an ordinary application `throw` (a missing row, a validation failure) was reported as `db.withDbClient.clientError`. Only a failure of `client.connect()` is reported now, as `db.withDbClient.connectError`; your errors propagate to you untouched.
+- **`connectToPostgres` works again instead of throwing.** 0.8.23 replaced it with a stub that threw on every call — a breaking change to a documented export, shipped in a patch release. It now returns a connected client you own. See *Deprecated* below.
+- `withDbClient` no longer calls `client.end()` when `connect()` never succeeded.
+
+### Added
+
+- **`withDbClient(config, fn)`** is now exported from `cloudflare-next-intl/db`. 0.8.23 introduced it as the replacement for `connectToPostgres` but never exported it, leaving no supported way to get a raw client.
+
+### Deprecated
+
+- **`connectToPostgres` / `disconnectPostgres`.** Both work: `connectToPostgres` returns a connected client you own, `disconnectPostgres(client)` closes it. They no longer share or cache a client, so you must close what you open — prefer `withDbClient`, which closes it for you even when the callback throws. Note `disconnectPostgres` now takes the client rather than the config.
+- **`resetConnectionState`** — a no-op; no cached connection state remains.
+- **`withSessionLock`** — runs its callback directly; per-call clients cannot leak session state, so there is nothing to serialize.
+- **`db.disconnectAfterRequest`** — ignored. No connection survives a call to be kept open; the only remaining effect of `false` is that teardown is awaited rather than deferred to `ctx.waitUntil`.
+- **`db.disconnectTimeoutMs`** — ignored. Teardown is awaited or deferred to `ctx.waitUntil` without a timeout.
+
+### Changed
+
+- `withUserDb` no longer issues a trailing `reset role`. The session is closed immediately afterwards, so it was a wasted round-trip on every call.
+
+## [0.8.23] - 2026-08-24
+
+### Fixed
+
+- **Cross-request role/RLS identity leakage in Postgres/Hyperdrive mode, and the `"there is already a transaction in progress"` errors that came with it.** Every `withPublicDb`/`withUserDb` call in a Worker isolate shared one module-scoped `pg.Client`. Because a Postgres session carries its own state — `request.jwt.claims`, the current role, any open transaction — two concurrent calls in the same isolate were writing to *the same session*: one caller's `set role`/`set_config` could still be in effect when another caller's queries ran, so a user could be served rows selected under someone else's RLS identity. 0.8.18's `withSessionLock` and 0.8.19's transaction removal narrowed this by serializing access, but a lock cannot fix state that is shared by construction, and it serialized every DB call in the isolate to do it. Each `withPublicDb`/`withUserDb` call now opens its own client, runs on it, and closes it — sessions are never shared, so the leak is structurally impossible rather than merely guarded against. Hyperdrive pools the server-side connection underneath, which is what it is designed for. Concurrent calls no longer block one another.
+- **An unhandled `'error'` event on the shared client no longer crashes an unrelated request.** With no long-lived shared client left to emit it, the failure mode fixed defensively in 0.8.20 cannot occur in `withPublicDb`/`withUserDb`.
+- **The client is closed even when your callback throws**, via `finally`. The previous refcount (`activeUsers`) could desync on any unpaired connect/disconnect and leave a Hyperdrive slot held.
+
+### Changed
+
+- **Postgres connections are no longer reused across calls within a request.** Each `withPublicDb`/`withUserDb` costs its own connect and close. This is the price of the isolation above; Hyperdrive pools the server-side connection, so what is added is the client-side handshake, not a new Postgres backend. If a single render issues many separate DB calls, prefer grouping them into one `withPublicDb`/`withUserDb` callback.
+
+### Known issues
+
+Fixed in 0.8.24 — upgrade past this release: `pg` was imported statically (bundled even for Supabase-only apps), `connectToPostgres` threw on every call, `withDbClient` was not exported, and errors thrown by your own callback were reported as database client errors.
+
+## [0.8.22] - 2026-08-24
+
+### Fixed
+
+- **`"Connection closed"` client errors no longer reach `errorHandling.onError`.** 0.8.20 added an `'error'` listener on the shared Postgres client that suppressed the expected `"connection terminated"` shape, but Hyperdrive also closes idle sockets with a `"Connection closed"` message, which still reported as an application error. Both shapes are now treated as expected socket teardown.
+
 ## [0.8.21] - 2026-08-24
 
 ### Added
