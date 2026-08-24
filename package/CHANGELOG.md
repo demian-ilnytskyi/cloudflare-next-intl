@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.19] - 2026-08-24
+
+### Fixed
+
+- **`withUserDb` no longer opens a `BEGIN`/`COMMIT` transaction on the shared Postgres/Hyperdrive client.** 0.8.18's `withSessionLock` closed the race between two concurrent callers *starting* their transactions on the shared client, but Postgres logs still showed `"there is already a transaction in progress"` / `"there is no transaction in progress"` afterward — the lock serializes access to the client, but a live transaction is itself session state, and this package's own transaction handling was reasoning about it as if it were call-scoped. `withUserDb` now sets `request.jwt.claims`/role directly on the session (`set_config(..., false)`, `set role`, `reset role` once `fn` settles) with no transaction wrapper — none of that needs one to apply. Callers that need atomicity across statements still get it from `db.transaction(...)` on the handle `withUserDb`/`withPublicDb` pass in, which now opens its own real `BEGIN`/`COMMIT` — safe there specifically because it only ever runs from inside the `withSessionLock`-guarded body, so it can never overlap another caller's.
+
 ## [0.8.18] - 2026-08-24
 
 ### Fixed

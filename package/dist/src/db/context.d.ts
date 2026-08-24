@@ -31,22 +31,28 @@ export declare function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Prom
 /**
  * Runs a query as the **signed-in user**.
  *
- * In connection-string mode this runs inside a transaction where Postgres
- * sees the resolved user id as `auth.jwt()->>'sub'` under
- * `db.authenticatedRole`, so RLS policies behave exactly as they do for a
- * PostgREST-issued call. In Supabase mode identity instead rides on the JWT
- * sent as `Authorization: Bearer` — PostgREST resolves the `authenticated`
- * role and populates `request.jwt.claims` itself, and each statement is its
- * own round-trip with no cross-statement transaction unless you call
- * `.transaction(...)` on the handle (the Postgres proxy Drizzle uses in this
- * mode cannot open a real session, so that runs as one atomic
+ * In connection-string mode this sets the resolved user id as
+ * `auth.jwt()->>'sub'` and switches to `db.authenticatedRole` on the
+ * request's shared session (via `set_config(..., false)`/`set role`, reset
+ * once `fn` settles), so RLS policies behave exactly as they do for a
+ * PostgREST-issued call — but it does NOT open a `BEGIN`/`COMMIT`
+ * transaction: that client is shared across every concurrent caller in the
+ * isolate (see `connection.ts`), and a live transaction is itself
+ * session-scoped state that a second overlapping caller's transaction would
+ * collide with. Call `fn`'s own `.transaction(...)` (below) for atomicity
+ * across statements instead. In Supabase mode identity instead rides on the
+ * JWT sent as `Authorization: Bearer` — PostgREST resolves the
+ * `authenticated` role and populates `request.jwt.claims` itself, and each
+ * statement is its own round-trip with no cross-statement transaction unless
+ * you call `.transaction(...)` on the handle (the Postgres proxy Drizzle
+ * uses in this mode cannot open a real session, so that runs as one atomic
  * `cfni_exec_batch` call instead — see the module doc). Either way this is
  * the wrapper to use for anything user-owned.
  *
- * @param fn Receives the Drizzle handle. In connection-string mode it is
- * also bound to a transaction; in Supabase mode it is not, but its own
- * `.transaction(...)` still provides atomicity across statements there
- * (build-and-return shape, not a live session — see the module doc).
+ * @param fn Receives the Drizzle handle, scoped to the caller's identity/role
+ * but not wrapped in a transaction — call its own `.transaction(...)` for
+ * atomicity across statements (build-and-return shape in both modes, not a
+ * live session — see the module doc).
  * @param uid Connection-string mode only: overrides the user id. Omit it, or
  * pass `null`, in normal use — either way the id then comes from
  * `db.getUserId()` when set, otherwise from the signed-in Firebase user when

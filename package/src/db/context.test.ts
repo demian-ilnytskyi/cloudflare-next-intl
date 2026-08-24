@@ -1,17 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb, runTransactionBatch } = vi.hoisted(() => {
-    const clientQuery = vi.fn();
-    // The raw pg client — shared between tx.session.client (inside a Drizzle
-    // transaction) and the top-level connectToPostgres return value, so both
-    // withUserDb and withPublicDb route through the same tracked query mock.
+const { tx, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb, runTransactionBatch } = vi.hoisted(() => {
+    const clientQuery = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
+    // The raw pg client `connectToPostgres` hands back — `withUserDb`/
+    // `withPublicDb` call `.query(...)` on it directly now (no Drizzle
+    // transaction handle in between), so this is the one mock every assertion
+    // routes through.
     const pgClient = { query: clientQuery };
     const tx = {
-        execute: vi.fn(async () => undefined),
-        session: { client: pgClient },
         _clientQuery: clientQuery, // exposed for test assertions
     };
-    const transaction = vi.fn(async (fn: (t: unknown) => Promise<unknown>) => fn(tx));
     const connectToPostgres = vi.fn().mockResolvedValue(pgClient);
     const disconnectPostgres = vi.fn();
     const getAuthUser = vi.fn().mockResolvedValue({ user: { uid: 'firebase-uid', getIdToken: vi.fn().mockResolvedValue('firebase-jwt') }, loading: false });
@@ -19,11 +17,11 @@ const { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, con
     const proxyDb = { select: vi.fn(), execute: vi.fn() };
     const proxyDrizzle = vi.fn(() => proxyDb);
     const runTransactionBatch = vi.fn();
-    return { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb, runTransactionBatch };
+    return { tx, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb, runTransactionBatch };
 });
 
 
-vi.mock('drizzle-orm/node-postgres', () => ({ drizzle: vi.fn(() => ({ transaction, select: vi.fn() })) }));
+vi.mock('drizzle-orm/node-postgres', () => ({ drizzle: vi.fn(() => ({ select: vi.fn() })) }));
 vi.mock('drizzle-orm/pg-proxy', () => ({ drizzle: proxyDrizzle }));
 vi.mock('./connection', () => ({ default: connectToPostgres, disconnectPostgres, resetConnectionState: vi.fn(), withSessionLock: vi.fn(async (fn: () => Promise<unknown>) => fn()) }));
 vi.mock('../firebase_auth/server/use_auth_user_server', () => ({ getAuthUser }));
@@ -33,12 +31,11 @@ vi.mock('./transaction_batch', () => ({ default: runTransactionBatch }));
 import { withPublicDb, withUserDb } from './context';
 
 beforeEach(() => {
-    tx.execute.mockClear();
     tx._clientQuery.mockClear();
+    tx._clientQuery.mockResolvedValue({ rows: [], rowCount: 0 });
     disconnectPostgres.mockClear();
     connectToPostgres.mockClear();
     proxyDrizzle.mockClear();
-    transaction.mockClear();
     runTransactionBatch.mockReset();
     config.db = { connectionString: 'postgresql://x' };
     config.firebaseAuth = undefined;
@@ -63,9 +60,14 @@ describe('withPublicDb', () => {
 });
 
 describe('withUserDb', () => {
-    it('sets jwt claims and role inside a transaction for an explicit uid', async () => {
+    it('sets jwt claims and role on the shared client for an explicit uid', async () => {
         await withUserDb(async () => 'ok', 'uid-1');
-        expect(tx.execute).toHaveBeenCalledTimes(2);
+        expect(tx._clientQuery).toHaveBeenCalledWith(
+            `select set_config('request.jwt.claims', $1, false)`,
+            [JSON.stringify({ sub: 'uid-1' })],
+        );
+        expect(tx._clientQuery).toHaveBeenCalledWith('set role "authenticated"');
+        expect(tx._clientQuery).toHaveBeenCalledWith('reset role');
     });
 
     it('falls back to the firebase auth user when no uid is given', async () => {
@@ -84,7 +86,7 @@ describe('withUserDb', () => {
     it('sets custom authenticated role if configured', async () => {
         config.db = { connectionString: 'postgresql://x', authenticatedRole: 'custom_role' };
         await withUserDb(async () => 'ok', 'uid-1');
-        expect(tx.execute).toHaveBeenCalledTimes(2);
+        expect(tx._clientQuery).toHaveBeenCalledWith('set role "custom_role"');
     });
 
     it('throws when firebase auth user is missing', async () => {
@@ -131,12 +133,12 @@ describe('supabase mode', () => {
         );
     });
 
-    it('withUserDb runs without a drizzle transaction', async () => {
+    it('withUserDb runs without touching the postgres-mode client', async () => {
         config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' }, getAccessToken: () => 'user-jwt' };
         const result = await withUserDb(async (db) => { expect(db).toBe(proxyDb); return 'ok'; });
         expect(result).toBe('ok');
-        expect(transaction).not.toHaveBeenCalled();
-        expect(tx.execute).not.toHaveBeenCalled();
+        expect(connectToPostgres).not.toHaveBeenCalled();
+        expect(tx._clientQuery).not.toHaveBeenCalled();
     });
 
     it('withUserDb surfaces a missing access token', async () => {
@@ -221,10 +223,16 @@ describe('db.transaction() in Postgres/Hyperdrive mode — regression', () => {
         config.db = { connectionString: 'postgresql://x' };
     });
 
-    it('withUserDb: db.transaction() executes each query via session.client.query and returns ExecResult[]', async () => {
+    it('withUserDb: db.transaction() executes each query via the shared client, wrapped in begin/commit, and returns ExecResult[]', async () => {
+        tx._clientQuery.mockResolvedValue(makeQueryResult([]));
         tx._clientQuery
-            .mockResolvedValueOnce(makeQueryResult([{ id: 1 }]))
-            .mockResolvedValueOnce(makeQueryResult([], 1));
+            // set_config, set role, then the two statements, then reset role happens after commit
+            .mockResolvedValueOnce(makeQueryResult([])) // set_config
+            .mockResolvedValueOnce(makeQueryResult([])) // set role
+            .mockResolvedValueOnce(makeQueryResult([])) // begin
+            .mockResolvedValueOnce(makeQueryResult([{ id: 1 }])) // statement 1
+            .mockResolvedValueOnce(makeQueryResult([], 1)) // statement 2
+            .mockResolvedValueOnce(makeQueryResult([])); // commit
 
         const result = await withUserDb((db) =>
             (db as unknown as BatchDb).transaction(() => [
@@ -233,17 +241,28 @@ describe('db.transaction() in Postgres/Hyperdrive mode — regression', () => {
             ]),
         'uid-1');
 
-        // Fix: session.client.query was called for each of the two queries.
-        expect(tx._clientQuery).toHaveBeenCalledTimes(2);
         // Fix: caller gets ExecResult[] not raw toSQL objects.
         expect(result).toEqual([
             { rows: [{ id: 1 }], rowCount: 1 },
             { rows: [], rowCount: 1 },
         ]);
+        const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
+        expect(calls).toEqual([
+            `select set_config('request.jwt.claims', $1, false)`,
+            'set role "authenticated"',
+            'begin',
+            'select id from t where id = 1',
+            "insert into t (val) values ('x')",
+            'commit',
+            'reset role',
+        ]);
     });
 
-    it('withPublicDb: db.transaction() executes each query via session.client.query and returns ExecResult[]', async () => {
-        tx._clientQuery.mockResolvedValueOnce(makeQueryResult([['row1'], ['row2']]));
+    it('withPublicDb: db.transaction() executes each query via the shared client, wrapped in begin/commit, and returns ExecResult[]', async () => {
+        tx._clientQuery
+            .mockResolvedValueOnce(makeQueryResult([])) // begin
+            .mockResolvedValueOnce(makeQueryResult([['row1'], ['row2']])) // statement
+            .mockResolvedValueOnce(makeQueryResult([])); // commit
 
         const result = await withPublicDb((db) =>
             (db as unknown as BatchDb).transaction(() => [
@@ -251,8 +270,9 @@ describe('db.transaction() in Postgres/Hyperdrive mode — regression', () => {
             ]),
         );
 
-        expect(tx._clientQuery).toHaveBeenCalledTimes(1);
         expect(result).toEqual([{ rows: [['row1'], ['row2']], rowCount: 2 }]);
+        const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
+        expect(calls).toEqual(['begin', 'select id from t', 'commit']);
     });
 
     it('the build callback in postgres mode also receives a build-only handle that throws on execute', async () => {
@@ -276,15 +296,20 @@ describe('db.transaction() in Postgres/Hyperdrive mode — regression', () => {
             ]),
         'uid-1');
 
-        const calls = tx._clientQuery.mock.calls as [string][];
-        expect(calls).toHaveLength(2);
+        // set_config, set role, begin, statement, statement, commit, reset role
+        const calls = tx._clientQuery.mock.calls.map((c) => c[0] as string);
+        expect(calls).toHaveLength(7);
         // inlineParams replaces $1 with literal value
-        expect(calls[0][0]).toContain('42');
-        expect(calls[1][0]).toContain("'hello'");
+        expect(calls[3]).toContain('42');
+        expect(calls[4]).toContain("'hello'");
     });
 
-    it('propagates a pg client error and the caller sees the failure', async () => {
-        tx._clientQuery.mockRejectedValue(new Error('duplicate key value'));
+    it('propagates a pg client error and the caller sees the failure, rolling back', async () => {
+        tx._clientQuery.mockImplementation((sql: string) => (
+            sql.startsWith('insert into t')
+                ? Promise.reject(new Error('duplicate key value'))
+                : Promise.resolve(makeQueryResult([]))
+        ));
         await expect(
             withUserDb((db) =>
                 (db as unknown as BatchDb).transaction(() => [
@@ -292,10 +317,15 @@ describe('db.transaction() in Postgres/Hyperdrive mode — regression', () => {
                 ]),
             'uid-1'),
         ).rejects.toThrow(/duplicate key value/);
+        expect(tx._clientQuery.mock.calls.map((c) => c[0])).toContain('rollback');
     });
 
     it('still returns results correctly when rowCount is null (pg quirk)', async () => {
-        tx._clientQuery.mockResolvedValueOnce({ rows: [], rowCount: null });
+        tx._clientQuery.mockResolvedValue(makeQueryResult([])); // set_config, set role, begin
+        tx._clientQuery.mockResolvedValueOnce(makeQueryResult([])); // set_config
+        tx._clientQuery.mockResolvedValueOnce(makeQueryResult([])); // set role
+        tx._clientQuery.mockResolvedValueOnce(makeQueryResult([])); // begin
+        tx._clientQuery.mockResolvedValueOnce({ rows: [], rowCount: null }); // statement
         const result = await withUserDb((db) =>
             (db as unknown as BatchDb).transaction(() => [
                 { sql: 'update t set x = $1 where false', params: ['y'] },
@@ -304,29 +334,14 @@ describe('db.transaction() in Postgres/Hyperdrive mode — regression', () => {
         expect(result).toEqual([{ rows: [], rowCount: null }]);
     });
 
-    it('falls back to the top-level client when session.client is undefined on transaction handle', async () => {
-        // Temporarily delete session.client to trigger the fallback
-        const originalSession = tx.session;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (tx as any).session = undefined;
-
-        tx._clientQuery.mockResolvedValueOnce(makeQueryResult([{ id: 99 }]));
-
-        const result = await withUserDb((db) =>
-            (db as unknown as BatchDb).transaction(() => [
-                { sql: 'select id from t', params: [] },
-            ]),
-        'uid-1');
-
-        // Restore mock session
-        tx.session = originalSession;
-
-        expect(tx._clientQuery).toHaveBeenCalledTimes(1);
-        expect(result).toEqual([{ rows: [{ id: 99 }], rowCount: 1 }]);
-    });
 
     it('falls back to empty array if query results rows is undefined', async () => {
-        tx._clientQuery.mockResolvedValueOnce({ rows: undefined as any, rowCount: 0 });
+        tx._clientQuery.mockResolvedValue(makeQueryResult([])); // set_config, set role, begin, commit, reset role
+        tx._clientQuery
+            .mockResolvedValueOnce(makeQueryResult([])) // set_config
+            .mockResolvedValueOnce(makeQueryResult([])) // set role
+            .mockResolvedValueOnce(makeQueryResult([])) // begin
+            .mockResolvedValueOnce({ rows: undefined as any, rowCount: 0 }); // statement
 
         const result = await withUserDb((db) =>
             (db as unknown as BatchDb).transaction(() => [

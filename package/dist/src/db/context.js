@@ -70,17 +70,32 @@ async function postgresDb(drizzleHandle, rawClient) {
 /**
  * Postgres-mode equivalent of `runTransaction`: calls `build` with a
  * build-only handle, then executes each returned query on the raw pg client
- * via an inline-parameterised `query()` call and returns `ExecResult[]`.
+ * via an inline-parameterised `query()` call, wrapped in a real
+ * `BEGIN`/`COMMIT` for atomicity, and returns `ExecResult[]`.
+ *
+ * Safe to open a transaction here — unlike `withUserDb`'s own body, this
+ * only ever runs from inside `fn`, which `withUserDb`/`withPublicDb` already
+ * call from within `withSessionLock` (`connection.ts`). That lock is what
+ * keeps this `BEGIN`...`COMMIT` from overlapping with another caller's on the
+ * same shared client, so nothing here needs to reason about interleaving.
  */
 async function runPostgresTransaction(rawClient, build) {
     const queries = await build(buildOnlyDb());
-    const results = [];
-    for (const q of queries) {
-        const statement = inlineParams(q.sql, q.params);
-        const res = await rawClient.query(statement);
-        results.push({ rows: res.rows ?? [], rowCount: res.rowCount ?? null });
+    await rawClient.query('begin');
+    try {
+        const results = [];
+        for (const q of queries) {
+            const statement = inlineParams(q.sql, q.params);
+            const res = await rawClient.query(statement);
+            results.push({ rows: res.rows ?? [], rowCount: res.rowCount ?? null });
+        }
+        await rawClient.query('commit');
+        return results;
     }
-    return results;
+    catch (error) {
+        await rawClient.query('rollback');
+        throw error;
+    }
 }
 /**
  * Builds a Drizzle handle with no working transport, for Supabase-mode
@@ -145,22 +160,28 @@ export async function withPublicDb(fn) {
 /**
  * Runs a query as the **signed-in user**.
  *
- * In connection-string mode this runs inside a transaction where Postgres
- * sees the resolved user id as `auth.jwt()->>'sub'` under
- * `db.authenticatedRole`, so RLS policies behave exactly as they do for a
- * PostgREST-issued call. In Supabase mode identity instead rides on the JWT
- * sent as `Authorization: Bearer` — PostgREST resolves the `authenticated`
- * role and populates `request.jwt.claims` itself, and each statement is its
- * own round-trip with no cross-statement transaction unless you call
- * `.transaction(...)` on the handle (the Postgres proxy Drizzle uses in this
- * mode cannot open a real session, so that runs as one atomic
+ * In connection-string mode this sets the resolved user id as
+ * `auth.jwt()->>'sub'` and switches to `db.authenticatedRole` on the
+ * request's shared session (via `set_config(..., false)`/`set role`, reset
+ * once `fn` settles), so RLS policies behave exactly as they do for a
+ * PostgREST-issued call — but it does NOT open a `BEGIN`/`COMMIT`
+ * transaction: that client is shared across every concurrent caller in the
+ * isolate (see `connection.ts`), and a live transaction is itself
+ * session-scoped state that a second overlapping caller's transaction would
+ * collide with. Call `fn`'s own `.transaction(...)` (below) for atomicity
+ * across statements instead. In Supabase mode identity instead rides on the
+ * JWT sent as `Authorization: Bearer` — PostgREST resolves the
+ * `authenticated` role and populates `request.jwt.claims` itself, and each
+ * statement is its own round-trip with no cross-statement transaction unless
+ * you call `.transaction(...)` on the handle (the Postgres proxy Drizzle
+ * uses in this mode cannot open a real session, so that runs as one atomic
  * `cfni_exec_batch` call instead — see the module doc). Either way this is
  * the wrapper to use for anything user-owned.
  *
- * @param fn Receives the Drizzle handle. In connection-string mode it is
- * also bound to a transaction; in Supabase mode it is not, but its own
- * `.transaction(...)` still provides atomicity across statements there
- * (build-and-return shape, not a live session — see the module doc).
+ * @param fn Receives the Drizzle handle, scoped to the caller's identity/role
+ * but not wrapped in a transaction — call its own `.transaction(...)` for
+ * atomicity across statements (build-and-return shape in both modes, not a
+ * live session — see the module doc).
  * @param uid Connection-string mode only: overrides the user id. Omit it, or
  * pass `null`, in normal use — either way the id then comes from
  * `db.getUserId()` when set, otherwise from the signed-in Firebase user when
@@ -189,16 +210,34 @@ export async function withUserDb(fn, uid) {
     const role = db.authenticatedRole ?? DEFAULT_ROLE;
     try {
         return await withSessionLock(async () => {
+            // No `db.transaction()`/BEGIN here on purpose: this client is shared
+            // across every concurrent caller in the isolate (see connection.ts),
+            // and a live Postgres transaction is session state — `BEGIN`,
+            // `SET LOCAL ROLE`, and `COMMIT`/`ROLLBACK` all apply to whichever
+            // statement runs next on the socket, not to `fn`'s call site. Two
+            // overlapping `withUserDb` calls each opening their own transaction
+            // interleaved their BEGIN/SET LOCAL/COMMIT on one socket — Postgres
+            // then rejected the interleaved statements ("already a transaction
+            // in progress", "no transaction in progress"), which is exactly the
+            // bug `withSessionLock` alone could not fully close. Session-scoped
+            // `set_config(..., true)` (`true` = for the rest of the session, not
+            // just a transaction) and a plain `set role` need no transaction to
+            // apply, and `withSessionLock` already keeps this whole block
+            // exclusive against every other caller, so atomicity is unaffected.
+            const rawClient = client;
+            await rawClient.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: userId })]);
+            await rawClient.query(`set role "${role}"`);
             const { drizzle } = await import('drizzle-orm/node-postgres');
-            const { sql } = await import('drizzle-orm');
-            return await drizzle(client).transaction(async (transaction) => {
-                await transaction.execute(sql `select set_config('request.jwt.claims', ${JSON.stringify({ sub: userId })}, true)`);
-                await transaction.execute(sql `set local role ${sql.raw(role)}`);
-                // The transaction handle's session.client is the live pg socket — use it directly.
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const txClient = transaction.session?.client ?? client;
-                return fn(await postgresDb(transaction, txClient));
-            });
+            const drizzleHandle = drizzle(client);
+            try {
+                return await fn(await postgresDb(drizzleHandle, rawClient));
+            }
+            finally {
+                // Always hand the shared socket back to the default role —
+                // otherwise the next caller (public or a different user) could
+                // inherit this request's elevated/authenticated role.
+                await rawClient.query('reset role');
+            }
         });
     }
     finally {

@@ -20,12 +20,17 @@ let sessionLock: Promise<unknown> = Promise.resolve();
  * `withSessionLock` caller's queries can interleave with `fn`'s until it
  * settles. `serializeQueries` alone only orders individual `.query()` calls —
  * it does nothing to stop a *different* concurrent request's queries from
- * landing between, say, a transaction's `BEGIN`/`SET LOCAL ROLE` and its
- * `COMMIT` on the one `pg.Client` every request in the isolate shares. That
- * gap let one request's role/RLS identity leak into another's queries
- * whenever two requests overlapped in the same Worker isolate. Every caller
- * that opens a transaction, or otherwise depends on session-scoped state
- * (`SET LOCAL`, `set_config(..., true)`), MUST run inside this lock.
+ * landing between, say, `set role`/`set_config(...)` and the query that
+ * depends on it, on the one `pg.Client` every request in the isolate shares.
+ * That gap let one request's role/RLS identity leak into another's queries
+ * whenever two requests overlapped in the same Worker isolate — and, when
+ * `withUserDb` used to wrap its call in a real `BEGIN`/`COMMIT` transaction,
+ * interleaved transaction boundaries from two overlapping callers made
+ * Postgres itself reject statements ("already a transaction in progress").
+ * `withUserDb` no longer opens a transaction on this shared client for
+ * exactly that reason (session-scoped `set role`/`set_config(..., false)`
+ * need no transaction to apply) — but every caller that still depends on
+ * session-scoped state on the shared client MUST run inside this lock.
  */
 export async function withSessionLock<T>(fn: () => Promise<T>): Promise<T> {
     const previous = sessionLock;

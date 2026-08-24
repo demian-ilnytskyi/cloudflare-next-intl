@@ -467,8 +467,10 @@ export default setIntlConfig({
   Hyperdrive immediately). Set `false` to keep the connection open for the
   lifetime of the isolate — faster for a long-lived server, but it holds a
   Hyperdrive connection slot between requests.
-- `authenticatedRole` — Postgres role assumed inside `withUserDb`'s
-  transaction. Defaults to `'authenticated'` (the Supabase RLS convention).
+- `authenticatedRole` — Postgres role `withUserDb` switches the shared
+  session to for the duration of your callback (`set role`, reset once it
+  settles — no transaction involved). Defaults to `'authenticated'` (the
+  Supabase RLS convention).
 - `getUserId` — resolves the user id injected as
   `request.jwt.claims->>'sub'` inside `withUserDb`. Omit when
   `firebaseAuth` is configured — the uid then comes from this package's own
@@ -600,9 +602,9 @@ const [invitationResult, grantResult] = await withUserDb((db) =>
 );
 ```
 
-Every query in the array is executed sequentially in a single transaction blocks/batch:
+Every query in the array is executed sequentially in a single transaction block/batch:
 - In **Supabase mode**, they are sent in one round-trip to `cfni_exec_batch` which runs them inside a single `plpgsql` block.
-- In **connection-string mode**, they are run sequentially over the Postgres client inside a standard Drizzle transaction.
+- In **connection-string mode**, they are run sequentially over the Postgres client inside a real `BEGIN`/`COMMIT` transaction. Note this is separate from — and does not run inside — the `SET`/role switch `withUserDb` itself applies to the shared session; see [Choosing a transport](#choosing-a-transport) above.
 
 Either way, a failure on any statement rolls back every statement that ran before it in the transaction.
 
