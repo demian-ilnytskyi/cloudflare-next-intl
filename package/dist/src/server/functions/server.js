@@ -4,6 +4,7 @@ import { localeCookieName } from "../../config/cookie_key";
 import { getLocaleCache, getMessageCache, getTranslationCache, setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables";
 import { cache } from "react";
 import { localesSet } from "../../config/middleware";
+import reportError from "../../error_handling/report_error";
 const isDev = process.env.NODE_ENV === 'development';
 let nextHeadersModule;
 /**
@@ -116,7 +117,10 @@ async function iGetLocale() {
         return localeValue;
     }
     catch (error) {
-        console.error(`Error accessing cookies in getLocale, falling back to default: ${error}`);
+        void reportError({ errorHandling: config.errorHandling, generate: config.generate }, {
+            error,
+            classOrMethodName: 'getLocale',
+        });
         setLocaleCache(config.defaultLocale); // Cache fallback language on error
         return config.defaultLocale;
     }

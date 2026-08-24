@@ -1,4 +1,5 @@
 "use client";
+import reportError from "../../error_handling/report_error";
 /**
  * Client-only: reads a `document.cookie` value by name. Pairs with
  * {@link setCookie} for your OWN client-side cookies — this package's
@@ -28,7 +29,12 @@ export default function getCookie(name) {
         return decodeURIComponent(value);
     }
     catch (e) {
-        console.error(`Get cookie on client side error: ${e}`);
+        void reportError(undefined, {
+            error: e,
+            classOrMethodName: 'getCookie',
+            isClient: true,
+            params: { name },
+        });
         return null;
     }
 }

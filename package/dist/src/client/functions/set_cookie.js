@@ -1,4 +1,5 @@
 "use client";
+import reportError from "../../error_handling/report_error";
 /**
  * Client-only: sets a `document.cookie` value directly. Not used by this
  * package's own locale handling (that goes through `intlMiddleware` server-side)
@@ -21,7 +22,12 @@ export default function setCookie({ name, value, maxAge }) {
         document.cookie = cookieString;
     }
     catch (e) {
-        console.error(`Set cookie on client side error: ${e}`);
+        void reportError(undefined, {
+            error: e,
+            classOrMethodName: 'setCookie',
+            isClient: true,
+            params: { name },
+        });
     }
 }
 ;

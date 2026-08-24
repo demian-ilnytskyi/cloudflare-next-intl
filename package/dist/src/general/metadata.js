@@ -1,5 +1,6 @@
 import { cache } from "react";
 import config from "../config/intl_config";
+import reportError from "../error_handling/report_error";
 /**
  * Builds the `alternates` field for Next's `generateMetadata` — a canonical
  * URL plus per-locale `hreflang` links, exported memoized as `alternatesLinks`
@@ -34,7 +35,11 @@ export function iAlternatesLinks({ locale, url, canonical, linkPart }) {
         };
     }
     catch (e) {
-        console.error(`[cloudflare-next-intl] alternatesLinks failed for url="${url}" linkPart="${linkPart}" — returning undefined, so "alternates" will be omitted from your metadata. Underlying error:`, e);
+        void reportError({ errorHandling: config.errorHandling, generate: config.generate }, {
+            error: e,
+            classOrMethodName: 'alternatesLinks',
+            params: { url, linkPart },
+        });
         return undefined;
     }
 }

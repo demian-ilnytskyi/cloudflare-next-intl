@@ -21,7 +21,7 @@ describe('setCookie', () => {
         });
         try {
             expect(() => setCookie({ name: 'theme', value: 'dark' })).not.toThrow();
-            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Set cookie on client side error'));
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[setCookie] Error:'));
         } finally {
             delete (document as unknown as { cookie?: unknown }).cookie;
         }
