@@ -884,10 +884,12 @@ export interface DbRoutingConfig {
     /**
      * Whether the pooled client is closed once the last in-flight
      * `withPublicDb`/`withUserDb` call of the request finishes.
-     * Defaults to `true` (one connection per request, released to Hyperdrive
-     * immediately). Set `false` to keep the connection open for the lifetime
-     * of the isolate — faster for a long-lived server, but it holds a
-     * Hyperdrive connection slot between requests.
+     *
+     * @deprecated Ignored since 0.8.23. Every `withPublicDb`/`withUserDb` call
+     * now opens and closes its own client, so no connection survives a call to
+     * be kept open. `true` and `false` behave identically; the only difference
+     * is that `false` awaits the close instead of deferring it to
+     * `ctx.waitUntil`. Hyperdrive pools the server-side connection.
      */
     disconnectAfterRequest?: boolean;
     /**
@@ -902,7 +904,12 @@ export interface DbRoutingConfig {
      * to use a different auth source (or when `firebaseAuth` is absent).
      */
     getUserId?: () => Promise<string | null> | string | null;
-    /** Milliseconds `disconnectPostgres` waits for `client.end()` before giving up. Defaults to `2000`. */
+    /**
+     * Milliseconds `disconnectPostgres` waits for `client.end()` before giving up.
+     *
+     * @deprecated Ignored since 0.8.23. Client teardown is awaited or deferred
+     * to `ctx.waitUntil` without a timeout.
+     */
     disconnectTimeoutMs?: number;
     /**
      * Reaches Postgres through the Supabase Data API instead of a direct

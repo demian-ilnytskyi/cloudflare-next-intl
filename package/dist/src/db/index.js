@@ -37,4 +37,4 @@
  * the separate `cloudflare-next-intl/dbHelpers` entry point.
  */
 export { withPublicDb, withUserDb } from './context';
-export { default as connectToPostgres, disconnectPostgres, resetConnectionState } from './connection';
+export { withDbClient, connectToPostgres, disconnectPostgres, resetConnectionState } from './connection';

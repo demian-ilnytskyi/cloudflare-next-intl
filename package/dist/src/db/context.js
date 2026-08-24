@@ -1,6 +1,6 @@
 import config from '../config/intl_config';
 import requireDbConfig from './require_config';
-import connectToPostgres, { disconnectPostgres, withSessionLock } from './connection';
+import { withDbClient } from './connection';
 import resolveDbMode from './resolve_mode';
 import resolveSupabaseEndpoint from './supabase_config';
 import createSupabaseTransport from './supabase_transport';
@@ -73,11 +73,8 @@ async function postgresDb(drizzleHandle, rawClient) {
  * via an inline-parameterised `query()` call, wrapped in a real
  * `BEGIN`/`COMMIT` for atomicity, and returns `ExecResult[]`.
  *
- * Safe to open a transaction here — unlike `withUserDb`'s own body, this
- * only ever runs from inside `fn`, which `withUserDb`/`withPublicDb` already
- * call from within `withSessionLock` (`connection.ts`). That lock is what
- * keeps this `BEGIN`...`COMMIT` from overlapping with another caller's on the
- * same shared client, so nothing here needs to reason about interleaving.
+ * The client is scoped to one `withDbClient` call, so no other caller can
+ * interleave statements into this transaction.
  */
 async function runPostgresTransaction(rawClient, build) {
     const queries = await build(buildOnlyDb());
@@ -93,7 +90,7 @@ async function runPostgresTransaction(rawClient, build) {
         return results;
     }
     catch (error) {
-        await rawClient.query('rollback');
+        await rawClient.query('rollback').catch(() => undefined);
         throw error;
     }
 }
@@ -118,23 +115,9 @@ function buildOnlyDb() {
  * Runs a query as the **anonymous** role: no transaction, no role switch, no
  * user identity attached. Use this for data any visitor may read.
  *
- * Because no user id is set, RLS policies that test `auth.jwt()->>'sub'` see
- * no user and will deny access — reach for {@link withUserDb} whenever the
- * rows depend on who is asking.
- *
- * In connection-string mode the connection is taken from the request's
- * shared client and released when `fn` settles, even if it throws. In
- * Supabase mode there is no connection to release — each call is one
- * PostgREST round-trip authenticated as the anon key. Either way, call
- * `.transaction(...)` on the handle `fn` receives for atomicity across more
- * than one statement — see the module doc for the shape that takes in each mode.
- *
  * @param fn Receives the Drizzle handle; return whatever the caller needs.
  * @returns Whatever `fn` resolves to.
  * @throws If `db` is not set on your `RoutingConfig`, or the connection fails.
- *
- * @example
- * const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
  */
 export async function withPublicDb(fn) {
     const db = config.db;
@@ -144,58 +127,22 @@ export async function withPublicDb(fn) {
         const { anonKey } = await resolveSupabaseEndpoint(resolved.supabase);
         return fn(await supabaseDb(resolved.supabase, anonKey));
     }
-    const client = await connectToPostgres(config, resolved.connectionString);
-    try {
-        return await withSessionLock(async () => {
-            const { drizzle } = await import('drizzle-orm/node-postgres');
-            const drizzleHandle = drizzle(client);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return await fn(await postgresDb(drizzleHandle, client));
-        });
-    }
-    finally {
-        disconnectPostgres(config);
-    }
+    return await withDbClient(config, async (client) => {
+        const { drizzle } = await import('drizzle-orm/node-postgres');
+        const drizzleHandle = drizzle(client);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return await fn(await postgresDb(drizzleHandle, client));
+    });
 }
 /**
- * Runs a query as the **signed-in user**.
+ * Runs a query as the **signed-in user**, with `request.jwt.claims` and the
+ * authenticated role set on the session so RLS policies apply to their id.
  *
- * In connection-string mode this sets the resolved user id as
- * `auth.jwt()->>'sub'` and switches to `db.authenticatedRole` on the
- * request's shared session (via `set_config(..., false)`/`set role`, reset
- * once `fn` settles), so RLS policies behave exactly as they do for a
- * PostgREST-issued call — but it does NOT open a `BEGIN`/`COMMIT`
- * transaction: that client is shared across every concurrent caller in the
- * isolate (see `connection.ts`), and a live transaction is itself
- * session-scoped state that a second overlapping caller's transaction would
- * collide with. Call `fn`'s own `.transaction(...)` (below) for atomicity
- * across statements instead. In Supabase mode identity instead rides on the
- * JWT sent as `Authorization: Bearer` — PostgREST resolves the
- * `authenticated` role and populates `request.jwt.claims` itself, and each
- * statement is its own round-trip with no cross-statement transaction unless
- * you call `.transaction(...)` on the handle (the Postgres proxy Drizzle
- * uses in this mode cannot open a real session, so that runs as one atomic
- * `cfni_exec_batch` call instead — see the module doc). Either way this is
- * the wrapper to use for anything user-owned.
+ * The session lives on a client scoped to this call and closed when it ends,
+ * so the role and claims can never be observed by another caller.
  *
- * @param fn Receives the Drizzle handle, scoped to the caller's identity/role
- * but not wrapped in a transaction — call its own `.transaction(...)` for
- * atomicity across statements (build-and-return shape in both modes, not a
- * live session — see the module doc).
- * @param uid Connection-string mode only: overrides the user id. Omit it, or
- * pass `null`, in normal use — either way the id then comes from
- * `db.getUserId()` when set, otherwise from the signed-in Firebase user when
- * `firebaseAuth` is configured. `null` is accepted alongside `undefined` so a
- * caller's own lookup (which may itself come back empty) can be passed
- * straight through without an extra check. Ignored in Supabase mode, which
- * resolves identity via `db.getAccessToken`/Firebase instead — see
- * {@link resolveAccessToken}.
- * @returns Whatever `fn` resolves to.
- * @throws If `db` is not set on your `RoutingConfig`, if no user id/access
- * token can be resolved, or the connection fails.
- *
- * @example
- * const mine = await withUserDb((db) => db.select().from(orders));
+ * @param fn Receives the Drizzle handle
+ * @param uid Overrides the user ID for authenticated calls
  */
 export async function withUserDb(fn, uid) {
     const db = config.db;
@@ -206,59 +153,19 @@ export async function withUserDb(fn, uid) {
         return fn(await supabaseDb(resolved.supabase, token));
     }
     const userId = await resolveUserId(uid);
-    const client = await connectToPostgres(config, resolved.connectionString);
     const role = db.authenticatedRole ?? DEFAULT_ROLE;
-    try {
-        return await withSessionLock(async () => {
-            // No `db.transaction()`/BEGIN here on purpose: this client is shared
-            // across every concurrent caller in the isolate (see connection.ts),
-            // and a live Postgres transaction is session state — `BEGIN`,
-            // `SET LOCAL ROLE`, and `COMMIT`/`ROLLBACK` all apply to whichever
-            // statement runs next on the socket, not to `fn`'s call site. Two
-            // overlapping `withUserDb` calls each opening their own transaction
-            // interleaved their BEGIN/SET LOCAL/COMMIT on one socket — Postgres
-            // then rejected the interleaved statements ("already a transaction
-            // in progress", "no transaction in progress"), which is exactly the
-            // bug `withSessionLock` alone could not fully close. Session-scoped
-            // `set_config(..., true)` (`true` = for the rest of the session, not
-            // just a transaction) and a plain `set role` need no transaction to
-            // apply, and `withSessionLock` already keeps this whole block
-            // exclusive against every other caller, so atomicity is unaffected.
-            const rawClient = client;
-            await rawClient.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: userId })]);
-            await rawClient.query(`set role "${role}"`);
-            const { drizzle } = await import('drizzle-orm/node-postgres');
-            const drizzleHandle = drizzle(client);
-            try {
-                return await fn(await postgresDb(drizzleHandle, rawClient));
-            }
-            finally {
-                // Always hand the shared socket back to the default role —
-                // otherwise the next caller (public or a different user) could
-                // inherit this request's elevated/authenticated role.
-                await rawClient.query('reset role');
-            }
-        });
-    }
-    finally {
-        disconnectPostgres(config);
-    }
+    return await withDbClient(config, async (client) => {
+        const rawClient = client;
+        await rawClient.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: userId })]);
+        await rawClient.query(`set role "${role}"`);
+        const { drizzle } = await import('drizzle-orm/node-postgres');
+        const drizzleHandle = drizzle(client);
+        return await fn(await postgresDb(drizzleHandle, rawClient));
+    });
 }
 /**
  * Runs several statements atomically over `cfni_exec_batch`, backing
- * Supabase-mode `db.transaction()`. `build` does not execute its queries —
- * it **builds** them and returns the array; call `.toSQL()` on each Drizzle
- * query instead of `await`ing it (`await`ing throws immediately; see
- * {@link buildOnlyDb}). Every query is inlined and sent as one round trip:
- * the Postgres function runs them in order inside a single plpgsql call,
- * which is itself an implicit transaction, so a failure on any statement
- * rolls back every statement before it.
- *
- * @param supabase The `db.supabase` config block.
- * @param bearerToken The anon key or user JWT.
- * @param build Returns the queries to run, via `.toSQL()` — never executes them directly.
- * @returns One result per query, in the same order as `build`'s array.
- * @throws If `db.supabase.rawSql` is `false` — `cfni_exec_batch` needs `cfni_exec`, which is disabled too.
+ * Supabase-mode `db.transaction()`.
  */
 async function runTransaction(supabase, bearerToken, build) {
     if (supabase.rawSql === false) {

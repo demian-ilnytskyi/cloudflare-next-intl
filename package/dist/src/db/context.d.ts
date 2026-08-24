@@ -9,64 +9,20 @@ export type DrizzleDb = NodePgDatabase<Record<string, never>>;
  * Runs a query as the **anonymous** role: no transaction, no role switch, no
  * user identity attached. Use this for data any visitor may read.
  *
- * Because no user id is set, RLS policies that test `auth.jwt()->>'sub'` see
- * no user and will deny access — reach for {@link withUserDb} whenever the
- * rows depend on who is asking.
- *
- * In connection-string mode the connection is taken from the request's
- * shared client and released when `fn` settles, even if it throws. In
- * Supabase mode there is no connection to release — each call is one
- * PostgREST round-trip authenticated as the anon key. Either way, call
- * `.transaction(...)` on the handle `fn` receives for atomicity across more
- * than one statement — see the module doc for the shape that takes in each mode.
- *
  * @param fn Receives the Drizzle handle; return whatever the caller needs.
  * @returns Whatever `fn` resolves to.
  * @throws If `db` is not set on your `RoutingConfig`, or the connection fails.
- *
- * @example
- * const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
  */
 export declare function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promise<T>;
 /**
- * Runs a query as the **signed-in user**.
+ * Runs a query as the **signed-in user**, with `request.jwt.claims` and the
+ * authenticated role set on the session so RLS policies apply to their id.
  *
- * In connection-string mode this sets the resolved user id as
- * `auth.jwt()->>'sub'` and switches to `db.authenticatedRole` on the
- * request's shared session (via `set_config(..., false)`/`set role`, reset
- * once `fn` settles), so RLS policies behave exactly as they do for a
- * PostgREST-issued call — but it does NOT open a `BEGIN`/`COMMIT`
- * transaction: that client is shared across every concurrent caller in the
- * isolate (see `connection.ts`), and a live transaction is itself
- * session-scoped state that a second overlapping caller's transaction would
- * collide with. Call `fn`'s own `.transaction(...)` (below) for atomicity
- * across statements instead. In Supabase mode identity instead rides on the
- * JWT sent as `Authorization: Bearer` — PostgREST resolves the
- * `authenticated` role and populates `request.jwt.claims` itself, and each
- * statement is its own round-trip with no cross-statement transaction unless
- * you call `.transaction(...)` on the handle (the Postgres proxy Drizzle
- * uses in this mode cannot open a real session, so that runs as one atomic
- * `cfni_exec_batch` call instead — see the module doc). Either way this is
- * the wrapper to use for anything user-owned.
+ * The session lives on a client scoped to this call and closed when it ends,
+ * so the role and claims can never be observed by another caller.
  *
- * @param fn Receives the Drizzle handle, scoped to the caller's identity/role
- * but not wrapped in a transaction — call its own `.transaction(...)` for
- * atomicity across statements (build-and-return shape in both modes, not a
- * live session — see the module doc).
- * @param uid Connection-string mode only: overrides the user id. Omit it, or
- * pass `null`, in normal use — either way the id then comes from
- * `db.getUserId()` when set, otherwise from the signed-in Firebase user when
- * `firebaseAuth` is configured. `null` is accepted alongside `undefined` so a
- * caller's own lookup (which may itself come back empty) can be passed
- * straight through without an extra check. Ignored in Supabase mode, which
- * resolves identity via `db.getAccessToken`/Firebase instead — see
- * {@link resolveAccessToken}.
- * @returns Whatever `fn` resolves to.
- * @throws If `db` is not set on your `RoutingConfig`, if no user id/access
- * token can be resolved, or the connection fails.
- *
- * @example
- * const mine = await withUserDb((db) => db.select().from(orders));
+ * @param fn Receives the Drizzle handle
+ * @param uid Overrides the user ID for authenticated calls
  */
 export declare function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: string | null): Promise<T>;
 /** One statement's `{rows, rowCount}` result from a Supabase-mode `db.transaction()` batch. */

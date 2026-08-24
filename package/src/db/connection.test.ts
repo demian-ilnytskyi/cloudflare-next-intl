@@ -9,332 +9,223 @@ const { connect, end, query, on, ClientMock, reportErrorMock } = vi.hoisted(() =
     const reportErrorMock = vi.fn().mockResolvedValue(undefined);
     return { connect, end, query, on, ClientMock, reportErrorMock };
 });
+
 vi.mock('pg', () => ({ Client: ClientMock }));
 vi.mock('../error_handling/report_error', () => ({ default: reportErrorMock }));
 
-import connectToPostgres, { disconnectPostgres, resetConnectionState, withSessionLock } from './connection';
+import {
+    withDbClient,
+    resetConnectionState,
+    withSessionLock,
+    connectToPostgres,
+    disconnectPostgres,
+} from './connection';
 
 const baseConfig = { locales: ['en'] as const, defaultLocale: 'en' };
+const pgConfig = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
 
 beforeEach(() => {
-    resetConnectionState();
     ClientMock.mockClear();
+    connect.mockClear();
     end.mockClear();
+    query.mockClear();
     on.mockClear();
     reportErrorMock.mockClear();
 });
 
-/** Grabs the `'error'` listener `connectToPostgres` registered on the shared client. */
-function getErrorListener(): (error: Error) => void {
-    const call = on.mock.calls.find(([event]) => event === 'error');
-    if (!call) throw new Error('no error listener was registered');
-    return call[1] as (error: Error) => void;
-}
-
-describe('connectToPostgres', () => {
+describe('withDbClient config resolution', () => {
     it('throws when db config is missing', async () => {
-        await expect(connectToPostgres({ ...baseConfig } as never)).rejects.toThrow(/`db` is not set/);
+        await expect(withDbClient({ ...baseConfig } as never, vi.fn())).rejects.toThrow(/`db` is not set/);
     });
 
     it('throws when no connectionString resolves', async () => {
-        const config = { ...baseConfig, db: {} } as never;
-        await expect(connectToPostgres(config)).rejects.toThrow(/connection string/i);
+        await expect(withDbClient({ ...baseConfig, db: {} } as never, vi.fn())).rejects.toThrow(/connection string/i);
     });
 
-    it('reuses one client across concurrent callers', async () => {
-        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
-        const [a, b] = await Promise.all([connectToPostgres(config), connectToPostgres(config)]);
-        expect(a).toBe(b);
-        expect(ClientMock).toHaveBeenCalledTimes(1);
+    it('resolves connectionString given as an async function', async () => {
+        const config = { ...baseConfig, db: { connectionString: vi.fn().mockResolvedValue('postgresql://dynamo') } } as never;
+        await withDbClient(config, vi.fn());
+        expect(ClientMock).toHaveBeenCalledWith({ connectionString: 'postgresql://dynamo' });
     });
 
-    it('resolves a connectionString given as an async function', async () => {
-        const connectionString = vi.fn().mockResolvedValue('postgresql://hyperdrive');
-        const config = { ...baseConfig, db: { connectionString } } as never;
-        await connectToPostgres(config);
-        expect(ClientMock).toHaveBeenCalledWith({ connectionString: 'postgresql://hyperdrive' });
-    });
-
-    it('resolves a connectionString given as a sync function', async () => {
+    it('resolves connectionString given as a sync function', async () => {
         const config = { ...baseConfig, db: { connectionString: () => 'postgresql://sync' } } as never;
-        await connectToPostgres(config);
+        await withDbClient(config, vi.fn());
         expect(ClientMock).toHaveBeenCalledWith({ connectionString: 'postgresql://sync' });
     });
 
     it('throws pointing at connectionString when a resolver returns nothing', async () => {
         const config = { ...baseConfig, db: { connectionString: () => undefined } } as never;
-        await expect(connectToPostgres(config)).rejects.toThrow(/`db.connectionString`/);
+        await expect(withDbClient(config, vi.fn())).rejects.toThrow(/`db.connectionString`/);
     });
 
-    it('uses an already-resolved connection string instead of resolving db.connectionString itself', async () => {
-        const connectionString = vi.fn().mockResolvedValue('postgresql://should-not-be-called');
-        const config = { ...baseConfig, db: { connectionString } } as never;
-        await connectToPostgres(config, 'postgresql://pre-resolved');
-        expect(ClientMock).toHaveBeenCalledWith({ connectionString: 'postgresql://pre-resolved' });
-        expect(connectionString).not.toHaveBeenCalled();
-    });
+    it('gives each concurrent call its own client and closes both', async () => {
+        const fn = vi.fn().mockResolvedValue('success');
+        const [a, b] = await Promise.all([withDbClient(pgConfig, fn), withDbClient(pgConfig, fn)]);
 
-    it('falls back to resolving db.connectionString when the pre-resolved value is undefined', async () => {
-        const config = { ...baseConfig, db: { connectionString: 'postgresql://fallback' } } as never;
-        await connectToPostgres(config, undefined);
-        expect(ClientMock).toHaveBeenCalledWith({ connectionString: 'postgresql://fallback' });
-    });
-
-    it('retries instead of caching a failed connect forever', async () => {
-        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
-        connect.mockRejectedValueOnce(new Error('connect refused'));
-        await expect(connectToPostgres(config)).rejects.toThrow('connect refused');
-
-        connect.mockResolvedValueOnce(undefined);
-        const client = await connectToPostgres(config);
-        expect(client).toBeTruthy();
+        expect([a, b]).toEqual(['success', 'success']);
         expect(ClientMock).toHaveBeenCalledTimes(2);
+        expect(connect).toHaveBeenCalledTimes(2);
+        expect(end).toHaveBeenCalledTimes(2);
     });
 
-    it('serializes concurrent queries through the client so they run one at a time', async () => {
-        const order: string[] = [];
-        query.mockImplementation(async (arg: string) => {
-            order.push(`start:${arg}`);
-            await Promise.resolve();
-            order.push(`end:${arg}`);
-            return { rows: [] };
-        });
-        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
-        const c = await connectToPostgres(config);
-        await Promise.all([c.query('a' as never), c.query('b' as never)]);
-        expect(order).toEqual(['start:a', 'end:a', 'start:b', 'end:b']);
-        query.mockResolvedValue({ rows: [] });
-    });
-
-    it('serializes queries even when one rejects', async () => {
-        query.mockRejectedValueOnce(new Error('boom'));
-        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
-        const c = await connectToPostgres(config);
-        await expect(c.query('a' as never)).rejects.toThrow('boom');
-        await expect(c.query('b' as never)).resolves.toEqual({ rows: [] });
-        query.mockResolvedValue({ rows: [] });
-    });
-
-    it('leaves the client as-is when it has no query function to wrap', async () => {
-        ClientMock.mockImplementationOnce(() => ({ connect, end, on: vi.fn() }) as never);
-        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
-        const c = await connectToPostgres(config);
-        expect((c as unknown as { query?: unknown }).query).toBeUndefined();
-    });
-
-    describe('client error listener', () => {
-        // Regression guard: an earlier version of this listener matched
-        // `/connection closed/i`, a string `pg` never actually emits (that
-        // text only exists in React's own RSC client, as the error it shows
-        // once a streamed response gets cut off mid-flight — which an
-        // unhandled crash here would itself cause). That mismatch meant every
-        // real idle-close event still reached `reportError`, defeating the
-        // "swallow it" contract this listener exists for — hence asserting
-        // against pg's actual message text below, not a guessed one.
-        it.each([
-            ['Connection terminated unexpectedly', 'the idle-close message pg actually emits'],
-            ['Connection terminated', "pg's message when the client itself was ending"],
-        ])('swallows a %j client error ( %s ) without reporting it', async (message) => {
-            const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
-            await connectToPostgres(config);
-            getErrorListener()(new Error(message));
-            expect(reportErrorMock).not.toHaveBeenCalled();
-        });
-
-        it('resets the cached client on error so the next call reconnects', async () => {
-            const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
-            await connectToPostgres(config);
-            getErrorListener()(new Error('Connection terminated unexpectedly'));
-
-            const client2 = await connectToPostgres(config);
-            expect(client2).toBeDefined();
-            expect(ClientMock).toHaveBeenCalledTimes(2);
-        });
-
-        it('reports a client error that is not the expected "Connection terminated" shape', async () => {
-            const errorHandling = { onError: vi.fn() };
-            const config = { ...baseConfig, db: { connectionString: 'postgresql://x' }, errorHandling } as never;
-            await connectToPostgres(config);
-            const unexpected = new Error('ECONNRESET');
-            getErrorListener()(unexpected);
-            expect(reportErrorMock).toHaveBeenCalledWith(
-                { errorHandling, generate: undefined },
-                { error: unexpected, classOrMethodName: 'db.connectToPostgres.clientError' },
-            );
-        });
-
-        it('does not reset a newer client when a stale error fires after reconnecting', async () => {
-            const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
-            await connectToPostgres(config);
-            const staleListener = getErrorListener();
-
-            getErrorListener()(new Error('Connection terminated unexpectedly'));
-            await connectToPostgres(config);
-            expect(ClientMock).toHaveBeenCalledTimes(2);
-
-            staleListener(new Error('Connection terminated unexpectedly'));
-            const client3 = await connectToPostgres(config);
-            expect(client3).toBeDefined();
-            expect(ClientMock).toHaveBeenCalledTimes(2);
-        });
+    it('passes the connected client to the callback', async () => {
+        const fn = vi.fn().mockResolvedValue(undefined);
+        await withDbClient(pgConfig, fn);
+        expect(fn).toHaveBeenCalledWith(expect.objectContaining({ query }));
     });
 });
 
-describe('disconnectPostgres', () => {
-    it('closes the client when the last caller finishes', async () => {
-        const waitUntil = vi.fn((promise: Promise<unknown>) => promise);
-        const getCloudflareContext = vi.fn().mockResolvedValue({ env: {}, ctx: { waitUntil } });
-        const config = {
-            ...baseConfig,
-            db: { connectionString: 'postgresql://x' },
-            generate: { getCloudflareContext },
-        } as never;
-        await connectToPostgres(config);
-        disconnectPostgres(config);
-        await vi.waitFor(() => expect(end).toHaveBeenCalledTimes(1));
+describe('withDbClient error handling', () => {
+    it('reports and rethrows when connect() fails', async () => {
+        connect.mockRejectedValueOnce(new Error('FATAL Connection Refused.'));
+
+        await expect(withDbClient(pgConfig, vi.fn())).rejects.toThrow('FATAL Connection Refused.');
+
+        expect(reportErrorMock).toHaveBeenCalledTimes(1);
+        expect(reportErrorMock.mock.calls[0][1]).toMatchObject({ classOrMethodName: 'db.withDbClient.connectError' });
     });
 
-    it('keeps the client open while another caller is still active', async () => {
-        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
-        await connectToPostgres(config);
-        await connectToPostgres(config);
-        disconnectPostgres(config);
+    it('does not call end() when connect() never succeeded', async () => {
+        connect.mockRejectedValueOnce(new Error('FATAL Connection Refused.'));
+        await expect(withDbClient(pgConfig, vi.fn())).rejects.toThrow();
         expect(end).not.toHaveBeenCalled();
     });
 
-    it('does nothing when disconnectAfterRequest is false', async () => {
+    it.each([
+        ['Connection closed'],
+        ['socket closed'],
+        ['connection terminated unexpectedly'],
+        ['unexpected eof on client connection'],
+    ])('does not report expected socket teardown from connect(): "%s"', async (message) => {
+        connect.mockRejectedValueOnce(new Error(message));
+        await expect(withDbClient(pgConfig, vi.fn())).rejects.toThrow();
+        expect(reportErrorMock).not.toHaveBeenCalled();
+    });
+
+    it('reports a non-Error connect() rejection without throwing on `.message`', async () => {
+        connect.mockRejectedValueOnce({ something: 'odd' });
+        await expect(withDbClient(pgConfig, vi.fn())).rejects.toEqual({ something: 'odd' });
+        expect(reportErrorMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports a null connect() rejection', async () => {
+        connect.mockRejectedValueOnce(null);
+        await expect(withDbClient(pgConfig, vi.fn())).rejects.toBeNull();
+        expect(reportErrorMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('rethrows callback errors without reporting them as client errors', async () => {
+        const appError = new Error('row not found');
+        await expect(withDbClient(pgConfig, vi.fn().mockRejectedValue(appError))).rejects.toThrow('row not found');
+
+        expect(reportErrorMock).not.toHaveBeenCalled();
+        expect(end).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('withDbClient teardown', () => {
+    it('awaits end() when there is no Cloudflare context', async () => {
+        end.mockRejectedValueOnce(new Error('teardown failed'));
+        await expect(withDbClient(pgConfig, vi.fn())).resolves.toBeUndefined();
+        expect(end).toHaveBeenCalledTimes(1);
+    });
+
+    it('awaits end() without consulting the context when disconnectAfterRequest is false', async () => {
+        const getCloudflareContext = vi.fn().mockResolvedValue(null);
         const config = {
             ...baseConfig,
             db: { connectionString: 'postgresql://x', disconnectAfterRequest: false },
-        } as never;
-        await connectToPostgres(config);
-        disconnectPostgres(config);
-        expect(end).not.toHaveBeenCalled();
-    });
-
-    it('does nothing when db config is missing', () => {
-        expect(() => disconnectPostgres({ ...baseConfig } as never)).not.toThrow();
-        expect(end).not.toHaveBeenCalled();
-    });
-
-    it('closes the client without a Cloudflare context (no waitUntil available)', async () => {
-        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
-        await connectToPostgres(config);
-        disconnectPostgres(config);
-        await vi.waitFor(() => expect(end).toHaveBeenCalledTimes(1));
-    });
-
-    it('awaits settle directly when getCloudflareContext resolves without a waitUntil function', async () => {
-        const getCloudflareContext = vi.fn().mockResolvedValue({ env: {}, ctx: {} });
-        const config = {
-            ...baseConfig,
-            db: { connectionString: 'postgresql://x' },
             generate: { getCloudflareContext },
         } as never;
-        await connectToPostgres(config);
-        disconnectPostgres(config);
-        await vi.waitFor(() => expect(end).toHaveBeenCalledTimes(1));
+
+        end.mockRejectedValueOnce(new Error('teardown failed'));
+        await withDbClient(config, vi.fn());
+
+        expect(getCloudflareContext).not.toHaveBeenCalled();
+        expect(end).toHaveBeenCalledTimes(1);
     });
 
-    it('reports the error via reportError when closing the client fails', async () => {
-        const closeError = new Error('close failed');
-        end.mockRejectedValueOnce(closeError);
-        const errorHandling = { onError: vi.fn() };
-        const config = {
-            ...baseConfig,
-            db: { connectionString: 'postgresql://x', disconnectTimeoutMs: 50 },
-            errorHandling,
-        } as never;
-        await connectToPostgres(config);
-        disconnectPostgres(config);
-        await vi.waitFor(() => expect(reportErrorMock).toHaveBeenCalledWith(
-            { errorHandling, generate: undefined },
-            { error: closeError, classOrMethodName: 'db.disconnectPostgres' },
-        ));
-        end.mockResolvedValue(undefined);
+    it('defers end() to ctx.waitUntil when available', async () => {
+        let deferred: Promise<unknown> | null = null;
+        const waitUntil = vi.fn((promise: Promise<unknown>) => { deferred = promise; });
+        const getCloudflareContext = vi.fn().mockResolvedValue({ ctx: { waitUntil } });
+        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' }, generate: { getCloudflareContext } } as never;
+
+        end.mockRejectedValueOnce(new Error('teardown failed'));
+        await withDbClient(config, vi.fn());
+
+        expect(waitUntil).toHaveBeenCalledTimes(1);
+        await expect(deferred).resolves.toBeUndefined();
     });
 
-    it('reports the timeout error via reportError when client.end() never settles in time', async () => {
-        end.mockImplementationOnce(() => new Promise(() => undefined));
-        const config = {
-            ...baseConfig,
-            db: { connectionString: 'postgresql://x', disconnectTimeoutMs: 10 },
-        } as never;
-        await connectToPostgres(config);
-        disconnectPostgres(config);
-        await vi.waitFor(() => expect(reportErrorMock).toHaveBeenCalledWith(
-            { errorHandling: undefined, generate: undefined },
-            { error: expect.any(Error), classOrMethodName: 'db.disconnectPostgres' },
-        ));
-        end.mockResolvedValue(undefined);
+    it('falls back to awaiting end() when the context has no ctx', async () => {
+        const getCloudflareContext = vi.fn().mockResolvedValue({});
+        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' }, generate: { getCloudflareContext } } as never;
+
+        end.mockRejectedValueOnce(new Error('teardown failed'));
+        await withDbClient(config, vi.fn());
+        expect(end).toHaveBeenCalledTimes(1);
     });
 
-    it('still settles the disconnect (clearing disconnectionPromise) when getCloudflareContext rejects', async () => {
-        const contextError = new Error('context boom');
-        const getCloudflareContext = vi.fn().mockRejectedValue(contextError);
-        const config = {
-            ...baseConfig,
-            db: { connectionString: 'postgresql://x' },
-            generate: { getCloudflareContext },
-        } as never;
-        await connectToPostgres(config);
-        disconnectPostgres(config);
+    it('falls back to awaiting end() when waitUntil is not a function', async () => {
+        const getCloudflareContext = vi.fn().mockResolvedValue({ ctx: { waitUntil: 'nope' } });
+        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' }, generate: { getCloudflareContext } } as never;
 
-        // settle() must still run (closing the client) despite getCloudflareContext
-        // rejecting, and disconnectionPromise must clear so a subsequent
-        // connectToPostgres call isn't left hanging on it forever.
-        await vi.waitFor(() => expect(end).toHaveBeenCalledTimes(1));
-        await expect(connectToPostgres(config)).resolves.toBeDefined();
-        expect(ClientMock).toHaveBeenCalledTimes(2);
+        end.mockRejectedValueOnce(new Error('teardown failed'));
+        await withDbClient(config, vi.fn());
+        expect(end).toHaveBeenCalledTimes(1);
     });
 
-    it('allows a new connection to be created after the previous one finished closing', async () => {
-        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;
-        await connectToPostgres(config);
-        disconnectPostgres(config);
-        await vi.waitFor(() => expect(end).toHaveBeenCalledTimes(1));
-        const client2 = await connectToPostgres(config);
-        expect(client2).toBeDefined();
-        expect(ClientMock).toHaveBeenCalledTimes(2);
+    it('falls back to awaiting end() when getCloudflareContext rejects', async () => {
+        const getCloudflareContext = vi.fn().mockRejectedValue(new Error('no context'));
+        const config = { ...baseConfig, db: { connectionString: 'postgresql://x' }, generate: { getCloudflareContext } } as never;
+
+        end.mockRejectedValueOnce(new Error('teardown failed'));
+        await withDbClient(config, vi.fn());
+
+        expect(getCloudflareContext).toHaveBeenCalledTimes(1);
+        expect(end).toHaveBeenCalledTimes(1);
+    });
+
+    it('closes the client even when the callback throws', async () => {
+        await expect(withDbClient(pgConfig, vi.fn().mockRejectedValue(new Error('boom')))).rejects.toThrow('boom');
+        expect(end).toHaveBeenCalledTimes(1);
     });
 });
 
-describe('withSessionLock', () => {
-    it('returns what fn resolves to', async () => {
-        await expect(withSessionLock(async () => 'ok')).resolves.toBe('ok');
+describe('deprecated compatibility exports', () => {
+    it('withSessionLock runs the callback directly', async () => {
+        await expect(withSessionLock(async () => 505)).resolves.toBe(505);
     });
 
-    it('serializes overlapping callers so one finishes before the next starts', async () => {
-        const order: string[] = [];
-        const first = withSessionLock(async () => {
-            order.push('first-start');
-            await new Promise((resolve) => setTimeout(resolve, 10));
-            order.push('first-end');
-        });
-        const second = withSessionLock(async () => {
-            order.push('second-start');
-            order.push('second-end');
-        });
-        await Promise.all([first, second]);
-        expect(order).toEqual(['first-start', 'first-end', 'second-start', 'second-end']);
+    it('resetConnectionState is a no-op', () => {
+        expect(() => resetConnectionState()).not.toThrow();
     });
 
-    it('releases the lock even when fn throws, so the next caller still runs', async () => {
-        const order: string[] = [];
-        const failing = withSessionLock(async () => {
-            order.push('failing');
-            throw new Error('boom');
-        }).catch(() => undefined);
-        const next = withSessionLock(async () => {
-            order.push('next');
-        });
-        await Promise.all([failing, next]);
-        expect(order).toEqual(['failing', 'next']);
+    it('connectToPostgres returns a connected client', async () => {
+        const client = await connectToPostgres(pgConfig);
+        expect(connect).toHaveBeenCalledTimes(1);
+        expect(client).toMatchObject({ query });
     });
 
-    it('propagates fn\'s rejection to its own caller', async () => {
-        await expect(withSessionLock(async () => {
-            throw new Error('boom');
-        })).rejects.toThrow('boom');
+    it('connectToPostgres reports client error events', async () => {
+        await connectToPostgres(pgConfig);
+        const handler = on.mock.calls.find(([event]) => event === 'error')?.[1] as (e: Error) => void;
+
+        handler(new Error('socket died'));
+        expect(reportErrorMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('disconnectPostgres closes the client and swallows end() failures', async () => {
+        const client = await connectToPostgres(pgConfig);
+        end.mockRejectedValueOnce(new Error('teardown failed'));
+
+        await expect(disconnectPostgres(client)).resolves.toBeUndefined();
+        expect(end).toHaveBeenCalledTimes(1);
+    });
+
+    it('disconnectPostgres tolerates being called with nothing', async () => {
+        await expect(disconnectPostgres()).resolves.toBeUndefined();
     });
 });

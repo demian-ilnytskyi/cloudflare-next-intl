@@ -7,6 +7,7 @@ describe('db entry point', () => {
             'connectToPostgres',
             'disconnectPostgres',
             'resetConnectionState',
+            'withDbClient',
             'withPublicDb',
             'withUserDb',
         ]);

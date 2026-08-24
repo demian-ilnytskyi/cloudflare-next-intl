@@ -461,23 +461,21 @@ export default setIntlConfig({
   returning one (resolved on each connect). The function form is how you reach
   a value that isn't available at module scope — a Cloudflare Hyperdrive
   binding, or a secret store — as in the example above.
-- `disconnectAfterRequest` — whether the pooled client is closed once the
-  last in-flight `withPublicDb`/`withUserDb` call of the request
-  finishes. Defaults to `true` (one connection per request, released to
-  Hyperdrive immediately). Set `false` to keep the connection open for the
-  lifetime of the isolate — faster for a long-lived server, but it holds a
-  Hyperdrive connection slot between requests.
-- `authenticatedRole` — Postgres role `withUserDb` switches the shared
-  session to for the duration of your callback (`set role`, reset once it
-  settles — no transaction involved). Defaults to `'authenticated'` (the
-  Supabase RLS convention).
+- `disconnectAfterRequest` — **deprecated, ignored since 0.8.23.** Every
+  `withPublicDb`/`withUserDb` call now opens and closes its own client, so
+  there is no surviving connection to keep open. Hyperdrive pools the
+  server-side connection.
+- `authenticatedRole` — Postgres role `withUserDb` switches its
+  call-scoped session to for the duration of your callback (`set role`, no
+  transaction involved; the session is closed when the call ends). Defaults
+  to `'authenticated'` (the Supabase RLS convention).
 - `getUserId` — resolves the user id injected as
   `request.jwt.claims->>'sub'` inside `withUserDb`. Omit when
   `firebaseAuth` is configured — the uid then comes from this package's own
   `getAuthUser()` automatically. Provide it to use a different auth source
   (or when `firebaseAuth` is absent).
-- `disconnectTimeoutMs` — milliseconds `disconnectPostgres` waits for
-  `client.end()` before giving up. Defaults to `2000`.
+- `disconnectTimeoutMs` — **deprecated, ignored since 0.8.23.** Client
+  teardown is awaited or deferred to `ctx.waitUntil` without a timeout.
 
 #### Choosing a transport
 
