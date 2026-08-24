@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.15] - 2026-08-24
+
+### Added
+
+- `db` helpers: `now()` (`sql\`now()\``) and `fromNow(amount, unit)` (`now() + (N unit)::interval`), alongside the existing `ago(amount, unit)` (`now() - (N unit)::interval`) — for building a future timestamp expression the same way `ago` already builds a past one.
+
 ## [0.8.14] - 2026-08-24
 
 ### Added

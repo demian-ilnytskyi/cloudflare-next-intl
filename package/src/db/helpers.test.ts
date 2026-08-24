@@ -3,7 +3,9 @@ import { pgTable, real, timestamp, varchar } from 'drizzle-orm/pg-core';
 import {
 	excluded,
 	onConflictSet,
+	now,
 	ago,
+	fromNow,
 	currentDate,
 	windowCount,
 	unnestLateral,
@@ -86,7 +88,9 @@ describe('onConflictSet()', () => {
 
 describe('sql expression helpers', () => {
 	it('build without throwing', () => {
+		expect(now()).toBeDefined();
 		expect(ago(10, 'days')).toBeDefined();
+		expect(fromNow(10, 'days')).toBeDefined();
 		expect(currentDate()).toBeDefined();
 		expect(windowCount()).toBeDefined();
 		expect(unnestLateral(sample.price, 'cd')).toBeDefined();

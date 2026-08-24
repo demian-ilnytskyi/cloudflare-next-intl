@@ -111,9 +111,19 @@ export function onConflictSet<T extends Table, K extends keyof T["_"]["columns"]
 
 export type TimeUnit = "days" | "hours" | "minutes" | "months" | "years" | "weeks";
 
+/** General SQL helper returning `now()`. */
+export function now(): SQL {
+    return sql`now()`;
+}
+
 /** General SQL helper generating a timestamp expression relative to now (`now() - (N unit)::interval`). */
 export function ago(amount: number, unit: TimeUnit): SQL {
     return sql`now() - (${amount} || ' ' || ${unit})::interval`;
+}
+
+/** General SQL helper generating a timestamp expression ahead of now (`now() + (N unit)::interval`). */
+export function fromNow(amount: number, unit: TimeUnit): SQL {
+    return sql`now() + (${amount} || ' ' || ${unit})::interval`;
 }
 
 /** General SQL helper returning `current_date`. */

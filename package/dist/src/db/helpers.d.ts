@@ -37,8 +37,12 @@ export declare function excluded<T extends Table>(table: T): {
  */
 export declare function onConflictSet<T extends Table, K extends keyof T["_"]["columns"]>(table: T, fields: K[]): Record<string, SQL>;
 export type TimeUnit = "days" | "hours" | "minutes" | "months" | "years" | "weeks";
+/** General SQL helper returning `now()`. */
+export declare function now(): SQL;
 /** General SQL helper generating a timestamp expression relative to now (`now() - (N unit)::interval`). */
 export declare function ago(amount: number, unit: TimeUnit): SQL;
+/** General SQL helper generating a timestamp expression ahead of now (`now() + (N unit)::interval`). */
+export declare function fromNow(amount: number, unit: TimeUnit): SQL;
 /** General SQL helper returning `current_date`. */
 export declare function currentDate(): SQL;
 /** General SQL helper for window function `count(*) over ()`. */

@@ -66,9 +66,17 @@ export function onConflictSet(table, fields) {
     }
     return setObj;
 }
+/** General SQL helper returning `now()`. */
+export function now() {
+    return sql `now()`;
+}
 /** General SQL helper generating a timestamp expression relative to now (`now() - (N unit)::interval`). */
 export function ago(amount, unit) {
     return sql `now() - (${amount} || ' ' || ${unit})::interval`;
+}
+/** General SQL helper generating a timestamp expression ahead of now (`now() + (N unit)::interval`). */
+export function fromNow(amount, unit) {
+    return sql `now() + (${amount} || ' ' || ${unit})::interval`;
 }
 /** General SQL helper returning `current_date`. */
 export function currentDate() {
