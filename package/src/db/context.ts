@@ -10,6 +10,7 @@ import createSupabaseTransport from './supabase_transport';
 import resolveAccessToken from './access_token';
 import runTransactionBatch, { type BatchQuery } from './transaction_batch';
 import type { ExecResult } from './supabase_transport';
+import inlineParams from './inline_params';
 
 /**
  * The Drizzle handle passed to `withPublicDb`/`withUserDb` callbacks. Use it
@@ -66,6 +67,42 @@ async function supabaseDb(supabase: SupabaseDbConfig, bearerToken: string): Prom
 }
 
 /**
+ * Wraps a live Drizzle postgres transaction handle with a `.transaction()`
+ * override that mirrors the Supabase-mode batch API: `build` receives a
+ * build-only proxy, must return an array of `.toSQL()` objects (same shape),
+ * and this function executes each one sequentially on the real pg session,
+ * collecting `ExecResult[]`. Both modes therefore share the identical
+ * callback shape — callers never need to detect the transport themselves.
+ */
+async function postgresDb(drizzleHandle: NodePgDatabase<Record<string, never>>, rawClient: { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> }): Promise<DrizzleDb> {
+    return Object.assign(drizzleHandle as unknown as DrizzleDb, {
+        async transaction(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): Promise<ExecResult[]> {
+            return runPostgresTransaction(rawClient, build);
+        },
+    });
+}
+
+/**
+ * Postgres-mode equivalent of `runTransaction`: calls `build` with a
+ * build-only handle, then executes each returned query on the raw pg client
+ * via an inline-parameterised `query()` call and returns `ExecResult[]`.
+ */
+async function runPostgresTransaction(
+    rawClient: { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> },
+    build: (db: DrizzleDb) => Promise<Query[]> | Query[],
+): Promise<ExecResult[]> {
+    const queries = await build(buildOnlyDb());
+    const results: ExecResult[] = [];
+    for (const q of queries) {
+        const statement = inlineParams(q.sql, q.params as unknown[]);
+        const res = await rawClient.query(statement);
+        results.push({ rows: res.rows ?? [], rowCount: res.rowCount ?? null });
+    }
+    return results;
+}
+
+
+/**
  * Builds a Drizzle handle with no working transport, for Supabase-mode
  * `db.transaction(...)` callbacks. Query builders' `.toSQL()` never touches
  * the session, so this is safe to hand out purely for building statements —
@@ -118,7 +155,9 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promis
     const client = await connectToPostgres(config, resolved.connectionString);
     try {
         const { drizzle } = await import('drizzle-orm/node-postgres');
-        return await fn(drizzle(client) as unknown as DrizzleDb);
+        const drizzleHandle = drizzle(client) as unknown as NodePgDatabase<Record<string, never>>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return await fn(await postgresDb(drizzleHandle, (client as any)));
     } finally {
         disconnectPostgres(config);
     }
@@ -175,7 +214,10 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
         return await drizzle(client).transaction(async (transaction) => {
             await transaction.execute(sql`select set_config('request.jwt.claims', ${JSON.stringify({ sub: userId })}, true)`);
             await transaction.execute(sql`set local role ${sql.raw(role)}`);
-            return fn(transaction as unknown as DrizzleDb);
+            // The transaction handle's session.client is the live pg socket — use it directly.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const txClient = (transaction as any).session?.client ?? client;
+            return fn(await postgresDb(transaction as unknown as NodePgDatabase<Record<string, never>>, txClient));
         });
     } finally {
         disconnectPostgres(config);

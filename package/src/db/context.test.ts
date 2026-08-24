@@ -1,9 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb, runTransactionBatch } = vi.hoisted(() => {
-    const tx = { execute: vi.fn(async () => undefined) };
+    const clientQuery = vi.fn();
+    // The raw pg client — shared between tx.session.client (inside a Drizzle
+    // transaction) and the top-level connectToPostgres return value, so both
+    // withUserDb and withPublicDb route through the same tracked query mock.
+    const pgClient = { query: clientQuery };
+    const tx = {
+        execute: vi.fn(async () => undefined),
+        session: { client: pgClient },
+        _clientQuery: clientQuery, // exposed for test assertions
+    };
     const transaction = vi.fn(async (fn: (t: unknown) => Promise<unknown>) => fn(tx));
-    const connectToPostgres = vi.fn().mockResolvedValue({});
+    const connectToPostgres = vi.fn().mockResolvedValue(pgClient);
     const disconnectPostgres = vi.fn();
     const getAuthUser = vi.fn().mockResolvedValue({ user: { uid: 'firebase-uid', getIdToken: vi.fn().mockResolvedValue('firebase-jwt') }, loading: false });
     const config: Record<string, unknown> = { locales: ['en'], defaultLocale: 'en', db: { connectionString: 'postgresql://x' } };
@@ -12,6 +21,7 @@ const { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, con
     const runTransactionBatch = vi.fn();
     return { tx, transaction, connectToPostgres, disconnectPostgres, getAuthUser, config, proxyDrizzle, proxyDb, runTransactionBatch };
 });
+
 
 vi.mock('drizzle-orm/node-postgres', () => ({ drizzle: vi.fn(() => ({ transaction, select: vi.fn() })) }));
 vi.mock('drizzle-orm/pg-proxy', () => ({ drizzle: proxyDrizzle }));
@@ -24,6 +34,7 @@ import { withPublicDb, withUserDb } from './context';
 
 beforeEach(() => {
     tx.execute.mockClear();
+    tx._clientQuery.mockClear();
     disconnectPostgres.mockClear();
     connectToPostgres.mockClear();
     proxyDrizzle.mockClear();
@@ -189,3 +200,108 @@ describe('db.transaction() in Supabase mode', () => {
         ).rejects.toThrow(/constraint violated/);
     });
 });
+
+/**
+ * REGRESSION: before the fix, `db.transaction(build)` in postgres/Hyperdrive
+ * mode fell through to Drizzle's native savepoint which returned the array of
+ * `.toSQL()` objects unexecuted instead of the actual row results.
+ *
+ * These tests first reproduce the failure shape (the bug) and then confirm
+ * the fix: `session.client.query` is called for each query and `ExecResult[]`
+ * is returned to the caller.
+ */
+describe('db.transaction() in Postgres/Hyperdrive mode — regression', () => {
+    interface BatchDb { transaction: (build: (db: unknown) => unknown) => Promise<unknown> }
+
+    // Stub session.client.query to return realistic pg result objects.
+    const makeQueryResult = (rows: unknown[], rowCount = rows.length) => ({ rows, rowCount });
+
+    beforeEach(() => {
+        tx._clientQuery.mockReset();
+        config.db = { connectionString: 'postgresql://x' };
+    });
+
+    it('withUserDb: db.transaction() executes each query via session.client.query and returns ExecResult[]', async () => {
+        tx._clientQuery
+            .mockResolvedValueOnce(makeQueryResult([{ id: 1 }]))
+            .mockResolvedValueOnce(makeQueryResult([], 1));
+
+        const result = await withUserDb((db) =>
+            (db as unknown as BatchDb).transaction(() => [
+                { sql: 'select id from t where id = $1', params: [1] },
+                { sql: 'insert into t (val) values ($1)', params: ['x'] },
+            ]),
+        'uid-1');
+
+        // Fix: session.client.query was called for each of the two queries.
+        expect(tx._clientQuery).toHaveBeenCalledTimes(2);
+        // Fix: caller gets ExecResult[] not raw toSQL objects.
+        expect(result).toEqual([
+            { rows: [{ id: 1 }], rowCount: 1 },
+            { rows: [], rowCount: 1 },
+        ]);
+    });
+
+    it('withPublicDb: db.transaction() executes each query via session.client.query and returns ExecResult[]', async () => {
+        tx._clientQuery.mockResolvedValueOnce(makeQueryResult([['row1'], ['row2']]));
+
+        const result = await withPublicDb((db) =>
+            (db as unknown as BatchDb).transaction(() => [
+                { sql: 'select id from t', params: [] },
+            ]),
+        );
+
+        expect(tx._clientQuery).toHaveBeenCalledTimes(1);
+        expect(result).toEqual([{ rows: [['row1'], ['row2']], rowCount: 2 }]);
+    });
+
+    it('the build callback in postgres mode also receives a build-only handle that throws on execute', async () => {
+        tx._clientQuery.mockResolvedValue(makeQueryResult([]));
+        await withUserDb((db) =>
+            (db as unknown as BatchDb).transaction((buildDb) => {
+                // buildOnlyDb proxy should throw on any property access that leads to execution.
+                expect(() => (buildDb as unknown as { select: () => void }).select()).toThrow(/for building statements only/);
+                return [];
+            }),
+        'uid-1');
+    });
+
+    it('executes queries in order and forwards correct sql/params after inlining', async () => {
+        tx._clientQuery.mockResolvedValue(makeQueryResult([]));
+
+        await withUserDb((db) =>
+            (db as unknown as BatchDb).transaction(() => [
+                { sql: 'insert into a (x) values ($1)', params: [42] },
+                { sql: 'insert into b (y) values ($1)', params: ['hello'] },
+            ]),
+        'uid-1');
+
+        const calls = tx._clientQuery.mock.calls as [string][];
+        expect(calls).toHaveLength(2);
+        // inlineParams replaces $1 with literal value
+        expect(calls[0][0]).toContain('42');
+        expect(calls[1][0]).toContain("'hello'");
+    });
+
+    it('propagates a pg client error and the caller sees the failure', async () => {
+        tx._clientQuery.mockRejectedValue(new Error('duplicate key value'));
+        await expect(
+            withUserDb((db) =>
+                (db as unknown as BatchDb).transaction(() => [
+                    { sql: 'insert into t (id) values ($1)', params: [1] },
+                ]),
+            'uid-1'),
+        ).rejects.toThrow(/duplicate key value/);
+    });
+
+    it('still returns results correctly when rowCount is null (pg quirk)', async () => {
+        tx._clientQuery.mockResolvedValueOnce({ rows: [], rowCount: null });
+        const result = await withUserDb((db) =>
+            (db as unknown as BatchDb).transaction(() => [
+                { sql: 'update t set x = $1 where false', params: ['y'] },
+            ]),
+        'uid-1');
+        expect(result).toEqual([{ rows: [], rowCount: null }]);
+    });
+});
+

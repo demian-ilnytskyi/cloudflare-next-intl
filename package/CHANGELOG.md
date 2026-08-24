@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.17] - 2026-08-24
+
+### Fixed
+
+- **Postgres/Hyperdrive Mode Transactions:** `.transaction(...)` callbacks inside `withPublicDb`/`withUserDb` under Postgres/Hyperdrive mode now correctly execute all returned queries and return `TransactionResult[]` (the actual rows/rowCount array), instead of erroneously falling back to Drizzle's native savepoint and returning the unexecuted `.toSQL()` query objects. Both Supabase and connection-string mode now share the exact same query-building and execution behavior.
+
 ## [0.8.16] - 2026-08-24
 
 ### Changed

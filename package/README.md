@@ -584,17 +584,9 @@ below for the `.transaction()` API that does.
 
 Call `.transaction(...)` on the handle `withUserDb`/`withPublicDb` hand your
 callback whenever a write needs more than one statement to succeed or fail
-together — same method name in both transport modes.
+together — same method name and same signature in both transport modes.
 
-In connection-string mode this is a real Drizzle transaction: `await
-db.transaction(async (tx) => { await tx.insert(...); await tx.update(...); })`,
-and a later statement may use an earlier one's result, exactly like plain
-Drizzle usage.
-
-In Supabase mode there is no shared session for `.transaction()` to open, so
-its callback instead **builds** queries rather than executing them — call
-`.toSQL()` on each Drizzle query and return the array, rather than `await`ing
-the query directly:
+To achieve mode-transparency between Postgres/connection-string mode and Supabase/REST mode, the callback **builds** queries rather than executing them directly: call `.toSQL()` on each Drizzle query and return the array, rather than `await`ing the query directly.
 
 ```typescript
 import { withUserDb } from "cloudflare-next-intl/db";
@@ -608,26 +600,13 @@ const [invitationResult, grantResult] = await withUserDb((db) =>
 );
 ```
 
-Every query in the array is rendered and sent to Postgres as **one**
-`cfni_exec_batch` call: the function runs each statement in order inside a
-single plpgsql call, which is itself an implicit transaction, so a failure on
-any statement rolls back every statement that ran before it in the same
-batch. `cfni_exec_batch` ships alongside `cfni_exec` in the same
-`supabase/cfni_exec.sql` file (installed the same way — see
-[Schema codegen](#schema-codegen-cfni-db-codegen) below) and is available
-whenever `cfni_exec` is: there is no separate config flag, and
-`db.supabase.rawSql: false` turns off both.
+Every query in the array is executed sequentially in a single transaction blocks/batch:
+- In **Supabase mode**, they are sent in one round-trip to `cfni_exec_batch` which runs them inside a single `plpgsql` block.
+- In **connection-string mode**, they are run sequentially over the Postgres client inside a standard Drizzle transaction.
 
-Each result is the same `{ rows, rowCount }` shape a single `cfni_exec` call
-returns — decode rows the same way you would from `db.execute(sql\`...\`)`.
+Either way, a failure on any statement rolls back every statement that ran before it in the transaction.
 
-`await`ing a query directly inside the Supabase-mode `.transaction()`
-callback (instead of calling `.toSQL()`) throws immediately, naming the
-mistake, rather than hanging or silently running that one statement outside
-the batch with no atomicity. This also means, unlike connection-string mode,
-a later statement in a Supabase-mode `.transaction()` callback cannot read an
-earlier one's result — build every statement from arguments/closures you
-already have.
+Each result is the `{ rows, rowCount }` shape. Because the callback only builds queries, a later statement in a `.transaction()` callback cannot read an earlier one's result — build every statement from arguments/closures you already have. `await`ing a query directly inside `.transaction()` throws immediately to prevent running queries outside the transaction boundary.
 
 #### Supabase mode and REST translation
 

@@ -6,6 +6,7 @@ import resolveSupabaseEndpoint from './supabase_config';
 import createSupabaseTransport from './supabase_transport';
 import resolveAccessToken from './access_token';
 import runTransactionBatch from './transaction_batch';
+import inlineParams from './inline_params';
 const DEFAULT_ROLE = 'authenticated';
 /**
  * Resolves the user id for `withUserDb`, trying, in order: the explicit `uid`
@@ -50,6 +51,36 @@ async function supabaseDb(supabase, bearerToken) {
             return runTransaction(supabase, bearerToken, build);
         },
     });
+}
+/**
+ * Wraps a live Drizzle postgres transaction handle with a `.transaction()`
+ * override that mirrors the Supabase-mode batch API: `build` receives a
+ * build-only proxy, must return an array of `.toSQL()` objects (same shape),
+ * and this function executes each one sequentially on the real pg session,
+ * collecting `ExecResult[]`. Both modes therefore share the identical
+ * callback shape — callers never need to detect the transport themselves.
+ */
+async function postgresDb(drizzleHandle, rawClient) {
+    return Object.assign(drizzleHandle, {
+        async transaction(build) {
+            return runPostgresTransaction(rawClient, build);
+        },
+    });
+}
+/**
+ * Postgres-mode equivalent of `runTransaction`: calls `build` with a
+ * build-only handle, then executes each returned query on the raw pg client
+ * via an inline-parameterised `query()` call and returns `ExecResult[]`.
+ */
+async function runPostgresTransaction(rawClient, build) {
+    const queries = await build(buildOnlyDb());
+    const results = [];
+    for (const q of queries) {
+        const statement = inlineParams(q.sql, q.params);
+        const res = await rawClient.query(statement);
+        results.push({ rows: res.rows ?? [], rowCount: res.rowCount ?? null });
+    }
+    return results;
 }
 /**
  * Builds a Drizzle handle with no working transport, for Supabase-mode
@@ -101,7 +132,9 @@ export async function withPublicDb(fn) {
     const client = await connectToPostgres(config, resolved.connectionString);
     try {
         const { drizzle } = await import('drizzle-orm/node-postgres');
-        return await fn(drizzle(client));
+        const drizzleHandle = drizzle(client);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return await fn(await postgresDb(drizzleHandle, client));
     }
     finally {
         disconnectPostgres(config);
@@ -158,7 +191,10 @@ export async function withUserDb(fn, uid) {
         return await drizzle(client).transaction(async (transaction) => {
             await transaction.execute(sql `select set_config('request.jwt.claims', ${JSON.stringify({ sub: userId })}, true)`);
             await transaction.execute(sql `set local role ${sql.raw(role)}`);
-            return fn(transaction);
+            // The transaction handle's session.client is the live pg socket — use it directly.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const txClient = transaction.session?.client ?? client;
+            return fn(await postgresDb(transaction, txClient));
         });
     }
     finally {
