@@ -122,4 +122,48 @@ export function createForgotPasswordAction(
     };
 }
 
+/**
+ * Builds a "send sign-in link" server action for React's `useActionState`
+ * form hook, for passwordless email-link sign-in. Same shape as
+ * {@link createLoginAction}.
+ *
+ * `formData` must contain an `email` field.
+ *
+ * @param locale Used to localize the returned error message.
+ * @param actionCodeSettings Required. `actionCodeSettings.url` is the page
+ *   the emailed link points to (must handle completion via a future
+ *   `completeSignInWithLink` action); `handleCodeInApp` should be `true`.
+ * @returns A form action: `{ success: true, email }` on success (the
+ *   trimmed email, for the caller to persist as `emailForSignIn` before
+ *   the user leaves this device/tab), `{ error }` on failure.
+ * @example
+ * const [state, action] = useActionState(
+ *     createSendSignInLinkAction(locale, { url: completeUrl, handleCodeInApp: true }),
+ *     {},
+ * );
+ * <form action={action}>...</form>
+ */
+export function createSendSignInLinkAction(
+    locale: string,
+    actionCodeSettings: AuthActionCodeSettings,
+) {
+    return async function sendSignInLinkAction(
+        _prevState: AuthFormState,
+        formData: FormData,
+    ): Promise<AuthFormState> {
+        requireFirebaseAuthConfig(config.firebaseAuth);
+        const { auth } = await getFirebaseAuthClient();
+        const { sendSignInLinkToEmail } = await getFirebaseAuthModule();
+
+        const email = (formData.get('email')?.toString() ?? '').trim();
+
+        try {
+            await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+            return { success: true, email };
+        } catch (e) {
+            return { error: firebaseAuthErrorMessage(locale, e) };
+        }
+    };
+}
+
 
