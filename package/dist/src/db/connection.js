@@ -23,13 +23,14 @@ export async function withDbClient(config, queryFn) {
     const connectionString = await resolveConnectionString(db);
     // Creates an independent, stateless Client so concurrent Next.js renders don't lock each other up.
     const client = new Client({ connectionString });
+    let result;
     try {
         await client.connect();
         // Pass this client independently straight into your callback to be executed
-        return await queryFn(client);
+        result = await queryFn(client);
     }
     catch (error) {
-        // Silently swallow Hyperdrive pool termination warnings that are passive/natural 
+        // Silently swallow Hyperdrive pool termination warnings that are passive/natural
         const message = error?.message || '';
         if (!/(connection terminated|connection closed|socket closed|unexpected eof)/i.test(message)) {
             void reportError({ errorHandling: config.errorHandling, generate: config.generate }, { error, classOrMethodName: 'db.withDbClient.clientError' });
@@ -59,6 +60,7 @@ export async function withDbClient(config, queryFn) {
             }
         }
     }
+    return result;
 }
 // -------------------------------------------------------------
 // ⚠️ STUBS TO CATCH OUTDATED USAGES ACROSS YOUR REPOSITORY ⚠️

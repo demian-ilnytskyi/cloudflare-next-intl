@@ -35,15 +35,15 @@ export async function withDbClient<T>(
 
     // Creates an independent, stateless Client so concurrent Next.js renders don't lock each other up.
     const client = new Client({ connectionString });
+    let result: T;
 
     try {
         await client.connect();
 
         // Pass this client independently straight into your callback to be executed
-        return await queryFn(client); 
-        
+        result = await queryFn(client);
     } catch (error: any) {
-        // Silently swallow Hyperdrive pool termination warnings that are passive/natural 
+        // Silently swallow Hyperdrive pool termination warnings that are passive/natural
         const message = error?.message || '';
         if (!/(connection terminated|connection closed|socket closed|unexpected eof)/i.test(message)) {
             void reportError(
@@ -56,7 +56,7 @@ export async function withDbClient<T>(
         // GUARANTEED TEAR-DOWN
         // Triggers `.end()` right when your data has finished being processed.
         const endPromise = client.end();
-        
+
         const getContext = config.generate?.getCloudflareContext;
         if (!getContext || db.disconnectAfterRequest === false) {
              await endPromise.catch(() => {});
@@ -73,6 +73,8 @@ export async function withDbClient<T>(
             }
         }
     }
+
+    return result;
 }
 
 // -------------------------------------------------------------
