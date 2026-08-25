@@ -560,13 +560,23 @@ export interface FirebaseAuthRoutingConfig {
      */
     actionLinkPath?: string;
     /**
+     * Whether a same-origin emailed-action-link forward strips Firebase's own
+     * `mode`/`apiKey`/`lang`/`continueUrl` params, landing the user on a clean
+     * `?oobCode=` URL. Defaults to `true`. Set `false` to keep the full query
+     * when the destination page reads those params itself. Cross-origin
+     * redirects always keep the full query.
+     */
+    stripActionLinkQuery?: boolean;
+    /**
      * Whether the middleware's own redirects (`redirectAuthPath`, `homePath`,
      * `verifyEmailPath`) carry over the original request's query string —
      * e.g. `/login?ref=abc` stays `/login?ref=abc` after redirecting to
      * `homePath` for a signed-in user, instead of dropping to `/`. Defaults
      * to `true`. The emailed-action-link forward (see
-     * {@link resetPasswordPath}) always preserves its query string
-     * regardless of this setting, since `oobCode` must survive that hop.
+     * {@link resetPasswordPath}) always preserves `oobCode` regardless of
+     * this setting, since it must survive that hop; when the forward stays on
+     * this origin it drops Firebase's own `mode`/`apiKey`/`lang`/`continueUrl`
+     * params, which the destination page no longer needs.
      */
     preserveRedirectQuery?: boolean;
     /** Returns true if the given (locale-stripped) path is an auth page (login/signup/etc). */

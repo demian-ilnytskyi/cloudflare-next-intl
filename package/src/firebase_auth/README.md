@@ -118,7 +118,11 @@ call, same as the page-load/network traces above it.
   to `redirectAuthPath` and lose their `oobCode` — and forwards to `resetPasswordPath` / `verifyEmailPath` / `recoverEmailPath` /
   `actionModePaths` for the matching mode (or a specific path in `continueUrl`
   when present, falling back to `actionLinkPath` (if set) or the mode target if `continueUrl` points to `/`),
-  preserving the full query string.
+  preserving the query string — minus Firebase's own `mode`/`apiKey`/`lang`/
+  `continueUrl` params when the forward stays on this origin (a cross-origin
+  `continueUrl` still gets the full query). A request already sitting on the
+  mode's own target never follows `continueUrl` away from it, which would
+  ping-pong between the action URL and that page.
   `actionLinkPath`, if set, restricts this to one exact static path (a
   Console action URL pinned to a path, e.g. `/auth/action`, instead of the
   bare domain root); `actionLinkRedirectEnabled: false` turns it off.

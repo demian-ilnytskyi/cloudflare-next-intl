@@ -72,7 +72,7 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
                     measurementId: fa.measurementId,
                 };
                 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-                if (fa.appCheck) {
+                if (fa.appCheck && typeof window !== 'undefined') {
                     cachedAppCheck = await initializeFirebaseAppCheck(app, fa.appCheck);
                 }
                 if (perfModule) {

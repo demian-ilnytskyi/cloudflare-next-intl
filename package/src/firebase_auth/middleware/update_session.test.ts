@@ -969,7 +969,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             const req = makeRequest('https://example.com/en/auth/action?mode=resetPassword&oobCode=a');
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/reset-password?mode=resetPassword&oobCode=a',
+                'https://example.com/reset-password?oobCode=a',
             );
         });
 
@@ -979,7 +979,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.status).toBe(307);
             expect(res.headers.get('location')).toBe(
-                'https://example.com/reset-password?mode=resetPassword&oobCode=abc123',
+                'https://example.com/reset-password?oobCode=abc123',
             );
         });
 
@@ -989,7 +989,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             const req = makeRequest('https://example.com/en/?mode=verifyEmail&oobCode=xyz');
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/verify-email?mode=verifyEmail&oobCode=xyz',
+                'https://example.com/verify-email?oobCode=xyz',
             );
         });
 
@@ -999,7 +999,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             const req = makeRequest('https://example.com/en/?mode=signIn&oobCode=xyz');
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/complete-sign-in?mode=signIn&oobCode=xyz',
+                'https://example.com/complete-sign-in?oobCode=xyz',
             );
         });
 
@@ -1021,8 +1021,30 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://localhost:3000/complete-sign-in?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3000%2Fauth%2Faction',
+                'https://localhost:3000/complete-sign-in?oobCode=xyz',
             );
+        });
+
+        it('keeps the full query on a same-origin forward when stripActionLinkQuery is false', async () => {
+            currentConfig.firebaseAuth!.stripActionLinkQuery = false;
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/?mode=resetPassword&oobCode=a&lang=en');
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/reset-password?mode=resetPassword&oobCode=a&lang=en',
+            );
+        });
+
+        it('does not follow continueUrl away from the mode target once the request is already on it', async () => {
+            currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+            currentConfig.firebaseAuth!.whiteListPaths = ['/verify-email'];
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://example.com/en/verify-email?mode=verifyEmail&oobCode=xyz&continueUrl=https%3A%2F%2Fexample.com%2Fauth%2Faction',
+            );
+            const base = NextResponse.next();
+            const res = await updateSession(req, base, 'en');
+            expect(res.headers.get('location')).toBeNull();
         });
 
         it('still follows a genuinely different same-origin continueUrl path over the mode target — e.g. localhost:3000/code -> localhost:3000/custom-path', async () => {
@@ -1034,7 +1056,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://localhost:3000/custom-path?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3000%2Fcustom-path',
+                'https://localhost:3000/custom-path?oobCode=xyz',
             );
         });
 
@@ -1113,7 +1135,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             const req = makeRequest('https://example.com/de/?mode=resetPassword&oobCode=a');
             const res = await updateSession(req, NextResponse.next(), 'de');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/de/reset-password?mode=resetPassword&oobCode=a',
+                'https://example.com/de/reset-password?oobCode=a',
             );
         });
 
@@ -1124,7 +1146,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/custom-reset?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fcustom-reset',
+                'https://example.com/custom-reset?oobCode=a',
             );
         });
 
@@ -1135,7 +1157,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
             const res = await updateSession(req, NextResponse.next(), 'de');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/de/custom-reset?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fde%2Fcustom-reset',
+                'https://example.com/de/custom-reset?oobCode=a',
             );
         });
 
@@ -1146,7 +1168,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
             const res = await updateSession(req, NextResponse.next(), 'de');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/de/reset-password?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fde',
+                'https://example.com/de/reset-password?oobCode=a',
             );
         });
 
@@ -1157,7 +1179,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/reset-password?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2F%3A%3Anot-a-valid-url',
+                'https://example.com/reset-password?oobCode=a',
             );
         });
 
@@ -1191,7 +1213,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/custom-reset?mode=resetPassword&oobCode=a&continueUrl=%2Fcustom-reset',
+                'https://example.com/custom-reset?oobCode=a',
             );
         });
 
@@ -1202,7 +1224,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/reset-password?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com',
+                'https://example.com/reset-password?oobCode=a',
             );
         });
 
@@ -1260,7 +1282,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/reset-password?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fcustom-reset',
+                'https://example.com/reset-password?oobCode=a',
             );
         });
     });

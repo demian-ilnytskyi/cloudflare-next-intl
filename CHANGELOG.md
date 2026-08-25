@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.32
+
+### Fixed
+
+- `update_session` middleware no longer follows `continueUrl` away from an emailed action link's mode target once the request is already on that page, which previously caused a `/verify-email` ↔ `/auth/action` redirect loop.
+
+### Added
+
+- Same-origin emailed-action-link forwards now strip Firebase's own `mode`/`apiKey`/`lang`/`continueUrl` query params, landing on a clean `?oobCode=` URL. New `stripActionLinkQuery` option (default `true`) restores the full query when set to `false`. Cross-origin redirects always keep the full query.
+
 ## 0.7.7
 
 ### Fixed

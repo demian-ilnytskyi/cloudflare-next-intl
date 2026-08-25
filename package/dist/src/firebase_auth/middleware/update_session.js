@@ -243,7 +243,11 @@ export default async function updateSession(request, baseResponse, locale, rebui
         const mode = request.nextUrl.searchParams.get('mode');
         if (mode) {
             let target = resolveActionModePaths(fa)[mode];
-            if (fa.followSameOriginContinueUrl !== false) {
+            // Already on the page this mode routes to: the link has arrived.
+            // Following `continueUrl` from here would send it back to the
+            // action URL, which forwards to this same target again — an
+            // endless 307 ping-pong.
+            if (fa.followSameOriginContinueUrl !== false && target !== path) {
                 const continueUrl = request.nextUrl.searchParams.get('continueUrl');
                 if (continueUrl) {
                     try {
@@ -291,6 +295,15 @@ export default async function updateSession(request, baseResponse, locale, rebui
             if (target && target !== path) {
                 const url = localeUrl(target);
                 url.search = request.nextUrl.search;
+                // Staying on this origin: only `oobCode` (plus anything the app
+                // put there itself) is still needed. Dropping Firebase's own
+                // routing params keeps the landed URL clean and makes a second
+                // forwarding pass impossible.
+                if (fa.stripActionLinkQuery !== false) {
+                    for (const key of ['mode', 'apiKey', 'lang', 'continueUrl']) {
+                        url.searchParams.delete(key);
+                    }
+                }
                 return buildRedirect(baseResponse, url);
             }
         }
