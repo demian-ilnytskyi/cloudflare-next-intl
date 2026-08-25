@@ -98,14 +98,17 @@ call, same as the page-load/network traces above it.
   set by `AuthUserProvider` on every auth-state change) lets the middleware
   detect when the claim is likely stale and force one refresh before
   trusting it, without paying a refresh on every request for a genuinely
-  unverified user. If that forced refresh still comes back with a stale
-  claim, the hint wins rather than the claim — a `true` hint reflects a live
-  account-info read the client already confirmed, and token-claim
-  propagation on Google's backend can lag behind it; trusting the stale
-  claim there redirected to `verifyEmailPath`, which independently resolves
-  the user as verified via `getAuthUser()` and redirects home, producing an
-  infinite redirect loop. Called automatically by `../config/middleware.ts`'s
-  default handler, not meant to be invoked directly by consumers.
+  unverified user. That confirmation refresh deliberately skips the
+  refresh-token cache and only trusts an `email_verified: false` claim when
+  the mint actually produced a NEW token — a cached refresh hands back the
+  same token whose claim is in question and confirms nothing. Redirecting to
+  `verifyEmailPath` on such an unconfirmed claim caused an infinite loop:
+  that page resolves the same user as verified via `getAuthUser()`
+  (`initializeServerApp` reads live Auth-service state, not the frozen JWT
+  claim) and redirects straight back home. A hint that already observed
+  verification live likewise wins over the claim. Called automatically by
+  `../config/middleware.ts`'s default handler, not meant to be invoked
+  directly by consumers.
 
   Also forwards emailed Firebase action links: Firebase Console exposes only
   ONE project-wide action URL, so every template (reset/verify/recover)

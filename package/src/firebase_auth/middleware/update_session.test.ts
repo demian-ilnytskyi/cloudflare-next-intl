@@ -376,7 +376,10 @@ describe('updateSession', () => {
 
     it('force-refreshes when there is no hint cookie at all (no positive signal the stale claim still holds)', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const freshToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        // A genuinely NEWLY-minted token (distinct `iat`) that re-states
+        // `email_verified: false` — this really does confirm the user is
+        // still unverified, unlike a refresh echoing back the same token.
+        const freshToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false, iat: Math.floor(Date.now() / 1000) });
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => ({ id_token: freshToken, refresh_token: 'new-refresh-token' }),
@@ -394,6 +397,29 @@ describe('updateSession', () => {
         expect(fetchMock).toHaveBeenCalled();
         expect(res.status).toBe(307);
         expect(res.headers.get('location')).toBe('https://example.com/verify-email');
+    });
+
+    it('does NOT redirect to verifyEmailPath when the confirmation refresh hands back the very same token (no re-confirmation -> would loop against the page\'s own live-state redirect)', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        // Google returns the SAME id_token — the refresh re-confirms nothing.
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: staleToken, refresh_token: 'old-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/', {
+            cookies: { __fa_session__: staleToken, __fa_refresh_token__: 'old-refresh-token' },
+        });
+        const res = await updateSession(req, NextResponse.next(), 'en');
+
+        expect(fetchMock).toHaveBeenCalled();
+        // Must pass through: redirecting here sends the user to /verify-email,
+        // which resolves them as verified via getAuthUser() and redirects back
+        // to / — the infinite / <-> /verify-email loop.
+        expect(res.status).toBe(200);
     });
 
     it('trusts the claim without refreshing when the hint cookie agrees (also unverified)', async () => {

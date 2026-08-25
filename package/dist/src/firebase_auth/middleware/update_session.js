@@ -374,19 +374,28 @@ export default async function updateSession(request, baseResponse, locale, rebui
         if (!hintConfirms && !refreshedToken) {
             const refreshToken = request.cookies.get(refreshTokenCookieName)?.value;
             if (refreshToken) {
-                const result = await refreshIdToken(fa.apiKey, refreshToken);
+                // `skipCache`: the cached entry is what produced the very
+                // token whose claim is in question, so a normal refresh can
+                // hand back that same token and "confirm" nothing. Only a
+                // genuinely newly-minted token carries information here.
+                const previousToken = token;
+                const result = await refreshIdToken(fa.apiKey, refreshToken, { skipCache: true });
                 if (result.status === 'refreshed') {
                     refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken };
                     token = refreshedToken.idToken;
-                    // The hint can say `true` (client already confirmed
-                    // verification live) while this refreshed claim still
-                    // says `false` — token-claim propagation on Google's
-                    // backend can lag behind the account-info read `reload()`
-                    // used to set the hint. Trusting the stale claim here
-                    // would redirect to verifyEmailPath, which independently
-                    // resolves the user as verified via `getAuthUser()` and
-                    // redirects home — an infinite loop. Hint `true` wins.
-                    unverifiedEmail = hint !== 'true' && decodeJwtPayload(token)?.email_verified === false;
+                    // Redirecting to verifyEmailPath on a claim this refresh
+                    // did not actually re-confirm is what caused an infinite
+                    // loop: the destination page resolves the same user as
+                    // VERIFIED via `getAuthUser()` (`initializeServerApp`
+                    // reads live Auth-service state, not this frozen claim)
+                    // and redirects straight back home. So only trust the
+                    // claim when this mint genuinely re-stated it — the token
+                    // changed — and never against a hint that already
+                    // observed verification live.
+                    const reconfirmed = result.idToken !== previousToken;
+                    unverifiedEmail = hint !== 'true'
+                        && reconfirmed
+                        && decodeJwtPayload(token)?.email_verified === false;
                 }
                 else if (result.status === 'invalid') {
                     clearInvalidSession = true;

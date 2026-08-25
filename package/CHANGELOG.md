@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.28] - 2026-08-25
+
+### Fixed
+
+- **Actually fixes the infinite `/` ↔ `verifyEmailPath` redirect loop that 0.8.27 only partly addressed.** The middleware's confirmation refresh went through the refresh-token cache — and that cache entry is what produced the very token whose `email_verified` claim was in question, so the "forced refresh" routinely handed back the *same* token and confirmed nothing. The middleware then redirected to `verifyEmailPath` on that unconfirmed stale claim, where `getAuthUser()`/`initializeServerApp` resolves the same user as verified from live Auth-service state and redirects home — bouncing forever. 0.8.27 only covered the case where the client-written hint cookie was already `'true'`, so the loop persisted whenever that cookie was absent or stale (a hard `window.location` navigation right after verifying can outrun the cookie write). The confirmation refresh now skips the cache and only trusts a `false` claim when the mint genuinely produced a new token.
+
 ## [0.8.27] - 2026-08-25
 
 ### Fixed
