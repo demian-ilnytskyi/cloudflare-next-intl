@@ -157,8 +157,12 @@ export function createSendSignInLinkAction(
 
         const email = (formData.get('email')?.toString() ?? '').trim();
 
+        const url = new URL(actionCodeSettings.url);
+        url.searchParams.set('email', email);
+        const settingsWithEmail = { ...actionCodeSettings, url: url.toString() };
+
         try {
-            await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+            await sendSignInLinkToEmail(auth, email, settingsWithEmail);
             return { success: true, email };
         } catch (e) {
             return { error: firebaseAuthErrorMessage(locale, e) };

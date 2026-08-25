@@ -183,7 +183,10 @@ describe('createSendSignInLinkAction', () => {
         const { createSendSignInLinkAction } = await import('./auth_actions');
         const action = createSendSignInLinkAction('en', settings);
         const result = await action({}, makeFormData({ email: ' a@b.com ' }));
-        expect(sendSignInLinkToEmail).toHaveBeenCalledWith({}, 'a@b.com', settings);
+        expect(sendSignInLinkToEmail).toHaveBeenCalledWith({}, 'a@b.com', {
+            ...settings,
+            url: 'https://example.com/complete-sign-in?email=a%40b.com',
+        });
         expect(result).toEqual({ success: true, email: 'a@b.com' });
     });
 
@@ -200,7 +203,10 @@ describe('createSendSignInLinkAction', () => {
         const { createSendSignInLinkAction } = await import('./auth_actions');
         const action = createSendSignInLinkAction('en', settings);
         await action({}, new FormData());
-        expect(sendSignInLinkToEmail).toHaveBeenCalledWith({}, '', settings);
+        expect(sendSignInLinkToEmail).toHaveBeenCalledWith({}, '', {
+            ...settings,
+            url: 'https://example.com/complete-sign-in?email=',
+        });
     });
 });
 

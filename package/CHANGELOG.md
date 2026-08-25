@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.30] - 2026-08-25
+
+### Changed
+
+- **Passwordless sign-in email parameter forwarding.** `createSendSignInLinkAction` now automatically appends the user's email as an `email` search parameter to the `actionCodeSettings.url` redirect URL. This enables the landing page to retrieve the email directly from the query parameters as a fallback.
+
 ## [0.8.29] - 2026-08-25
 
 ### Fixed
