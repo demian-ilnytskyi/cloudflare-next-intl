@@ -369,33 +369,36 @@ export default async function updateSession(request, baseResponse, locale, rebui
     }
     let unverifiedEmail = false;
     if (fa.verifyEmailPath && !isVerifyEmailPage && hasSession && decodeJwtPayload(token)?.email_verified === false) {
+        // Sending a user to `verifyEmailPath` is only safe when this claim
+        // reflects the LIVE account state, because that page resolves the
+        // same user through `getAuthUser()`/`initializeServerApp` — which
+        // reads the Auth service directly, not this frozen claim — and
+        // redirects home the moment it sees a verified user. Any disagreement
+        // between the two is therefore not a stale-data annoyance but an
+        // infinite redirect loop.
+        //
+        // The hint cookie cannot settle that: it is a client-written mirror,
+        // and after the user verifies in another tab (or the client simply
+        // never re-runs) it keeps asserting a `false` that is now wrong,
+        // while the Auth service already reports verified. Trusting a
+        // `'false'` hint as confirmation is exactly what pinned verified
+        // users in the loop. So the hint is only ever allowed to SKIP work
+        // when it agrees the user is verified — never to prove they aren't.
         const hint = request.cookies.get(emailVerifiedHintCookieName)?.value;
-        const hintConfirms = hint === 'false';
-        if (!hintConfirms && !refreshedToken) {
+        if (!refreshedToken) {
             const refreshToken = request.cookies.get(refreshTokenCookieName)?.value;
             if (refreshToken) {
                 // `skipCache`: the cached entry is what produced the very
-                // token whose claim is in question, so a normal refresh can
-                // hand back that same token and "confirm" nothing. Only a
-                // genuinely newly-minted token carries information here.
-                const previousToken = token;
+                // token whose claim is in question, so a cached refresh can
+                // hand back that same token and confirm nothing.
                 const result = await refreshIdToken(fa.apiKey, refreshToken, { skipCache: true });
                 if (result.status === 'refreshed') {
                     refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken };
                     token = refreshedToken.idToken;
-                    // Redirecting to verifyEmailPath on a claim this refresh
-                    // did not actually re-confirm is what caused an infinite
-                    // loop: the destination page resolves the same user as
-                    // VERIFIED via `getAuthUser()` (`initializeServerApp`
-                    // reads live Auth-service state, not this frozen claim)
-                    // and redirects straight back home. So only trust the
-                    // claim when this mint genuinely re-stated it — the token
-                    // changed — and never against a hint that already
-                    // observed verification live.
-                    const reconfirmed = result.idToken !== previousToken;
-                    unverifiedEmail = hint !== 'true'
-                        && reconfirmed
-                        && decodeJwtPayload(token)?.email_verified === false;
+                    // A `true` hint means the client already observed
+                    // verification live; never redirect against it, even if
+                    // this mint's claim hasn't caught up.
+                    unverifiedEmail = hint !== 'true' && decodeJwtPayload(token)?.email_verified === false;
                 }
                 else if (result.status === 'invalid') {
                     clearInvalidSession = true;
@@ -413,8 +416,7 @@ export default async function updateSession(request, baseResponse, locale, rebui
             }
         }
         else {
-            // Hint confirms unverified — no reason to refresh, trust the claim.
-            unverifiedEmail = true;
+            unverifiedEmail = hint !== 'true' && decodeJwtPayload(token)?.email_verified === false;
         }
     }
     if (refreshWasTransientFailure) {

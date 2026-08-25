@@ -97,18 +97,19 @@ call, same as the page-load/network traces above it.
   `emailVerifiedHintCookieName` cookie (default `__fa_email_verified_hint__`,
   set by `AuthUserProvider` on every auth-state change) lets the middleware
   detect when the claim is likely stale and force one refresh before
-  trusting it, without paying a refresh on every request for a genuinely
-  unverified user. That confirmation refresh deliberately skips the
-  refresh-token cache and only trusts an `email_verified: false` claim when
-  the mint actually produced a NEW token — a cached refresh hands back the
-  same token whose claim is in question and confirms nothing. Redirecting to
-  `verifyEmailPath` on such an unconfirmed claim caused an infinite loop:
-  that page resolves the same user as verified via `getAuthUser()`
-  (`initializeServerApp` reads live Auth-service state, not the frozen JWT
-  claim) and redirects straight back home. A hint that already observed
-  verification live likewise wins over the claim. Called automatically by
-  `../config/middleware.ts`'s default handler, not meant to be invoked
-  directly by consumers.
+  trusting it. The hint is a CLIENT-written mirror, so it is only ever
+  allowed to skip work when it says the user is **verified** — it can never
+  serve as proof that they are not. A browser holding a session minted
+  before the user verified keeps sending both a stale `email_verified:
+  false` claim and a stale `'false'` hint; treating that pair as
+  confirmation redirected verified users to `verifyEmailPath`, which
+  resolves the same user through `getAuthUser()` (`initializeServerApp`
+  reads live Auth-service state, not the frozen JWT claim), sees them as
+  verified, and redirects straight back home — an infinite loop. So a
+  `false` claim is confirmed against a live mint (cache skipped, since the
+  cached entry is what produced the token in question) before any redirect.
+  Called automatically by `../config/middleware.ts`'s default handler, not
+  meant to be invoked directly by consumers.
 
   Also forwards emailed Firebase action links: Firebase Console exposes only
   ONE project-wide action URL, so every template (reset/verify/recover)

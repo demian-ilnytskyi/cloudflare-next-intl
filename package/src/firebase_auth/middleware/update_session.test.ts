@@ -399,32 +399,47 @@ describe('updateSession', () => {
         expect(res.headers.get('location')).toBe('https://example.com/verify-email');
     });
 
-    it('does NOT redirect to verifyEmailPath when the confirmation refresh hands back the very same token (no re-confirmation -> would loop against the page\'s own live-state redirect)', async () => {
+    it('REGRESSION: a stale hint of "false" must not pin a genuinely-verified user into the / <-> verifyEmailPath loop', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
-        // Google returns the SAME id_token — the refresh re-confirms nothing.
+        // Real-world state: user verified their email in another tab, so the
+        // Auth service reports verified and a fresh mint carries
+        // `email_verified: true` — but this browser's session cookie was
+        // minted before that, and its client-written hint cookie still says
+        // 'false' and never got updated.
+        const verifiedToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true, iat: Math.floor(Date.now() / 1000) });
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
-            json: async () => ({ id_token: staleToken, refresh_token: 'old-refresh-token' }),
+            json: async () => ({ id_token: verifiedToken, refresh_token: 'new-refresh-token' }),
         });
         vi.stubGlobal('fetch', fetchMock);
 
         const { default: updateSession } = await import('./update_session');
+        const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/', {
-            cookies: { __fa_session__: staleToken, __fa_refresh_token__: 'old-refresh-token' },
+            cookies: {
+                __fa_session__: staleToken,
+                __fa_refresh_token__: 'old-refresh-token',
+                __fa_email_verified_hint__: 'false',
+            },
         });
         const res = await updateSession(req, NextResponse.next(), 'en');
 
-        expect(fetchMock).toHaveBeenCalled();
-        // Must pass through: redirecting here sends the user to /verify-email,
-        // which resolves them as verified via getAuthUser() and redirects back
-        // to / — the infinite / <-> /verify-email loop.
+        // Must NOT redirect to /verify-email: that page resolves this same
+        // user as verified via getAuthUser() (live Auth-service state) and
+        // redirects back to / — the infinite loop seen in production.
         expect(res.status).toBe(200);
     });
 
-    it('trusts the claim without refreshing when the hint cookie agrees (also unverified)', async () => {
+    it('still confirms with a live mint even when the hint cookie agrees the user is unverified, then redirects', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const fetchMock = vi.fn();
+        // A `false` hint is only a client-written mirror and can be stale
+        // (the user may have verified in another tab), so it must never be
+        // taken as proof on its own — the mint is what decides.
+        const stillUnverified = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false, iat: Math.floor(Date.now() / 1000) });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: stillUnverified, refresh_token: 'new-refresh-token' }),
+        });
         vi.stubGlobal('fetch', fetchMock);
 
         const { default: updateSession } = await import('./update_session');
@@ -439,7 +454,7 @@ describe('updateSession', () => {
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
 
-        expect(fetchMock).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalled();
         expect(res.status).toBe(307);
         expect(res.headers.get('location')).toBe('https://example.com/verify-email');
     });

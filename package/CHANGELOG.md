@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.29] - 2026-08-25
+
+### Fixed
+
+- **Fixed the real cause of the infinite `/` ↔ `verifyEmailPath` redirect loop** (0.8.27 and 0.8.28 both misdiagnosed it). A `'false'` value in the client-written `emailVerifiedHintCookieName` cookie was treated as proof the user is unverified, short-circuiting the confirmation refresh entirely. But that cookie is only a client-side mirror: once a user verifies their email, a browser holding a session minted before that keeps sending `email_verified: false` **and** a `'false'` hint that no longer matches reality. The middleware then redirected to `verifyEmailPath` without ever asking the Auth service — while the destination page resolves the same user through `getAuthUser()`/`initializeServerApp`, sees the live (verified) state, and redirects straight back. Diagnosed from a captured production session: the session JWT claimed `email_verified: false`, the hint cookie said `'false'`, yet a live mint from that session's refresh token returned `email_verified: true`. The hint may now only skip work when it agrees the user is **verified**; it can never stand in as proof that they are not.
+
 ## [0.8.28] - 2026-08-25
 
 ### Fixed
