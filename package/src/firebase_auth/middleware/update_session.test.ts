@@ -349,7 +349,7 @@ describe('updateSession', () => {
         expect(res.cookies.get('__fa_refresh_token__')?.value).toBe('new-refresh-token');
     });
 
-    it('redirects to verifyEmailPath when the hint disagrees but a forced refresh confirms the claim is still unverified', async () => {
+    it('passes through when the hint says verified but a forced refresh still returns a stale claim (token-claim propagation lag, not a real disagreement)', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         const freshToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const fetchMock = vi.fn().mockResolvedValue({
@@ -371,8 +371,7 @@ describe('updateSession', () => {
         const res = await updateSession(req, base, 'en');
 
         expect(fetchMock).toHaveBeenCalled();
-        expect(res.status).toBe(307);
-        expect(res.headers.get('location')).toBe('https://example.com/verify-email');
+        expect(res.status).toBe(200);
     });
 
     it('force-refreshes when there is no hint cookie at all (no positive signal the stale claim still holds)', async () => {

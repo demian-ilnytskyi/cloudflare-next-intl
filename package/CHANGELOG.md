@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.27] - 2026-08-25
+
+### Fixed
+
+- **Fixed an infinite redirect loop between `verifyEmailPath` and `homePath` right after email verification.** The middleware's forced-refresh check (used when the client-written verified-hint cookie says `true` but the session JWT's `email_verified` claim still says `false`) trusted that refreshed claim even when it came back still `false` — but token-claim propagation on Firebase's backend can lag behind the live account-info read `reload()` uses to set the hint, so the refresh doesn't always confirm anything new. Redirecting to `verifyEmailPath` on that stale claim collided with `getAuthUser()`/`resolveAuthUserAndRedirect()` independently resolving the same user as verified and redirecting home, bouncing the user between the two forever. A `true` hint now wins over a forced-refresh that still returns a stale claim.
+
 ## [0.8.26] - 2026-08-25
 
 ### Added

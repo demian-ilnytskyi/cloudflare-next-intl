@@ -415,7 +415,15 @@ export default async function updateSession(
                 if (result.status === 'refreshed') {
                     refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken };
                     token = refreshedToken.idToken;
-                    unverifiedEmail = decodeJwtPayload(token)?.email_verified === false;
+                    // The hint can say `true` (client already confirmed
+                    // verification live) while this refreshed claim still
+                    // says `false` — token-claim propagation on Google's
+                    // backend can lag behind the account-info read `reload()`
+                    // used to set the hint. Trusting the stale claim here
+                    // would redirect to verifyEmailPath, which independently
+                    // resolves the user as verified via `getAuthUser()` and
+                    // redirects home — an infinite loop. Hint `true` wins.
+                    unverifiedEmail = hint !== 'true' && decodeJwtPayload(token)?.email_verified === false;
                 } else if (result.status === 'invalid') {
                     clearInvalidSession = true;
                 } else {
