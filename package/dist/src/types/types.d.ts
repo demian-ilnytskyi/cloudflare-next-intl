@@ -509,6 +509,13 @@ export interface FirebaseAuthRoutingConfig {
      */
     recoverEmailPath?: string;
     /**
+     * Path handling an emailed passwordless `signIn` action link. Omit to
+     * leave that mode unhandled — the request then falls through to normal
+     * routing instead of being forwarded. Must start with "/" —
+     * `setIntlConfig` auto-corrects a missing leading slash with a warning.
+     */
+    signInPath?: string;
+    /**
      * Extra/overriding `?mode=` → path entries for the emailed-action-link
      * forward described on {@link resetPasswordPath}. Merged over the
      * defaults derived from `resetPasswordPath`/`verifyEmailPath`/

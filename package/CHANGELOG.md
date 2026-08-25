@@ -3,6 +3,16 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.26] - 2026-08-25
+
+### Added
+
+- **`signInPath` config field, forwarding `?mode=signIn` action links.** Passwordless email-sign-in links use Firebase's single project-wide action URL the same way password-reset/email-verify links do, but the middleware previously had no mapping for `signIn` — the request fell through to `redirectAuthPath` and the `oobCode` was lost. Set `firebaseAuth.signInPath` (e.g. `'/complete-sign-in'`) to have `?mode=signIn` forwarded there, query string intact, same as `verifyEmailPath`/`recoverEmailPath`.
+
+### Fixed
+
+- **A same-path `continueUrl` no longer clobbers the mode-derived forward target.** When `actionCodeSettings.url` for `sendSignInLinkToEmail`/similar calls is set to the app's own `actionLinkPath` (the single project-wide action URL), Firebase echoes that same URL back as `continueUrl` — which the middleware's continueUrl-following logic then treated as a genuine same-origin redirect target, overwriting the correctly-resolved mode path with a no-op (the request's own path), causing the forward to never fire. The middleware now ignores a `continueUrl` whose (locale-stripped) path equals the current request's path, keeping the mode-derived target instead. A `continueUrl` pointing anywhere else is unaffected.
+
 ## [0.8.25] - 2026-08-25
 
 ### Fixed

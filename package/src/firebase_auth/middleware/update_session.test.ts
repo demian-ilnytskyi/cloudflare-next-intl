@@ -907,6 +907,64 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
         });
 
+        it('forwards ?mode=signIn to signInPath', async () => {
+            currentConfig.firebaseAuth!.signInPath = '/complete-sign-in';
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/?mode=signIn&oobCode=xyz');
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://example.com/complete-sign-in?mode=signIn&oobCode=xyz',
+            );
+        });
+
+        it('does not forward ?mode=signIn when signInPath is not configured', async () => {
+            const { default: updateSession } = await import('./update_session');
+            currentConfig.firebaseAuth!.whiteListPaths = ['/pricing'];
+            const req = makeRequest('https://example.com/en/pricing?mode=signIn&oobCode=xyz');
+            const base = NextResponse.next();
+            const res = await updateSession(req, base, 'en');
+            expect(res).toBe(base);
+        });
+
+        it('ignores a self-referential continueUrl (same origin, same path) and uses the mode target instead — actionCodeSettings.url === actionLinkPath, e.g. localhost:3000/auth/action?mode=signIn&oobCode=... -> localhost:3000/complete-sign-in', async () => {
+            currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
+            currentConfig.firebaseAuth!.signInPath = '/complete-sign-in';
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://localhost:3000/en/auth/action?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3000%2Fauth%2Faction',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://localhost:3000/complete-sign-in?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3000%2Fauth%2Faction',
+            );
+        });
+
+        it('still follows a genuinely different same-origin continueUrl path over the mode target — e.g. localhost:3000/code -> localhost:3000/custom-path', async () => {
+            currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
+            currentConfig.firebaseAuth!.signInPath = '/complete-sign-in';
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://localhost:3000/en/auth/action?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3000%2Fcustom-path',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://localhost:3000/custom-path?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3000%2Fcustom-path',
+            );
+        });
+
+        it('follows a different-origin continueUrl through to the target origin, then applies the mode path there — e.g. localhost:3000/code -> localhost:3001/code -> localhost:3001/complete-sign-in', async () => {
+            currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
+            currentConfig.firebaseAuth!.signInPath = '/complete-sign-in';
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest(
+                'https://localhost:3000/en/auth/action?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3001%2Fauth%2Faction',
+            );
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            expect(res.headers.get('location')).toBe(
+                'https://localhost:3001/auth/action?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3001%2Fauth%2Faction',
+            );
+        });
+
         it('forwards before the guest redirect, so a signed-out user keeps their oobCode', async () => {
             const { default: updateSession } = await import('./update_session');
             const req = makeRequest('https://example.com/en/dashboard?mode=resetPassword&oobCode=abc');

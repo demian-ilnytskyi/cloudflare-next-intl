@@ -35,6 +35,8 @@ function resolveActionModePaths(fa) {
         paths.verifyEmail = fa.verifyEmailPath;
     if (fa.recoverEmailPath)
         paths.recoverEmail = fa.recoverEmailPath;
+    if (fa.signInPath)
+        paths.signIn = fa.signInPath;
     return { ...paths, ...fa.actionModePaths };
 }
 export const DEFAULT_SESSION_MAX_AGE = 60 * 60 * 24 * 5;
@@ -256,7 +258,13 @@ export default async function updateSession(request, baseResponse, locale, rebui
                                     continuePath = '/';
                                 }
                             }
-                            if (continuePath !== '/') {
+                            // A continueUrl pointing back at the request's own
+                            // path (e.g. the single project-wide action URL
+                            // echoing itself as `actionCodeSettings.url`)
+                            // carries no routing information — keep the
+                            // mode-derived target instead of overwriting it
+                            // with a no-op.
+                            if (continuePath !== '/' && continuePath !== path) {
                                 target = continuePath;
                             }
                         }
