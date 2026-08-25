@@ -34,11 +34,19 @@ export default function encodeParam(value) {
     // Plain objects (jsonb columns) — pg sends these JSON-stringified.
     return quoteLiteral(JSON.stringify(value));
 }
+const HEX_TABLE = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
 function quoteLiteral(text) {
+    if (text.indexOf("'") === -1)
+        return `'${text}'`;
     return `'${text.replace(/'/g, "''")}'`;
 }
 function bytesToHex(bytes) {
-    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    let hex = '';
+    const len = bytes.length;
+    for (let i = 0; i < len; i++) {
+        hex += HEX_TABLE[bytes[i]];
+    }
+    return hex;
 }
 /** Encodes a JS array as a Postgres array literal body, e.g. `{1,2,"a,b"}`. */
 function encodeArray(value) {
@@ -56,5 +64,7 @@ function encodeArray(value) {
     return `{${items.join(',')}}`;
 }
 function quoteArrayElement(text) {
+    if (text.indexOf('\\') === -1 && text.indexOf('"') === -1)
+        return `"${text}"`;
     return `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }

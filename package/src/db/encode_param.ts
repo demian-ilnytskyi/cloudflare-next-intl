@@ -25,12 +25,20 @@ export default function encodeParam(value: unknown): string {
     return quoteLiteral(JSON.stringify(value));
 }
 
+const HEX_TABLE = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
+
 function quoteLiteral(text: string): string {
+    if (text.indexOf("'") === -1) return `'${text}'`;
     return `'${text.replace(/'/g, "''")}'`;
 }
 
 function bytesToHex(bytes: Uint8Array): string {
-    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    let hex = '';
+    const len = bytes.length;
+    for (let i = 0; i < len; i++) {
+        hex += HEX_TABLE[bytes[i]!];
+    }
+    return hex;
 }
 
 /** Encodes a JS array as a Postgres array literal body, e.g. `{1,2,"a,b"}`. */
@@ -46,5 +54,6 @@ function encodeArray(value: unknown[]): string {
 }
 
 function quoteArrayElement(text: string): string {
+    if (text.indexOf('\\') === -1 && text.indexOf('"') === -1) return `"${text}"`;
     return `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }

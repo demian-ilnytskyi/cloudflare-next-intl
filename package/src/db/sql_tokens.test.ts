@@ -92,4 +92,29 @@ describe('tokenizeSql', () => {
             { kind: 'punct', value: ';' },
         ]);
     });
+
+    it('handles unterminated string with escaped quotes, params and token cache eviction', () => {
+        expect(tokenizeSql("'it''s")).toEqual([{ kind: 'string', value: "it's" }]);
+        expect(tokenizeSql('$123 $1')).toEqual([
+            { kind: 'param', index: 123 },
+            { kind: 'param', index: 1 },
+        ]);
+        for (let i = 0; i <= 505; i++) {
+            tokenizeSql(`select ${i}`);
+        }
+    });
+});
+
+
+describe('tokenizer cache and whitespace', () => {
+    it('skips form feed and vertical tab whitespace', () => {
+        expect(tokenizeSql('select\f1')).toEqual(tokenizeSql('select 1'));
+        expect(tokenizeSql('select\v1')).toEqual(tokenizeSql('select 1'));
+    });
+
+    it('returns a fresh array per call so callers cannot corrupt the cache', () => {
+        const first = tokenizeSql('select "x" from "t"');
+        first.push({ kind: 'punct', value: 'X' });
+        expect(tokenizeSql('select "x" from "t"').at(-1)).not.toEqual({ kind: 'punct', value: 'X' });
+    });
 });

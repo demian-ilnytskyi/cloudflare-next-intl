@@ -60,17 +60,4 @@ export interface ParsedDelete {
 }
 /** Any statement the REST executor knows how to run. */
 export type ParsedStatement = ParsedSelect | ParsedInsert | ParsedUpdate | ParsedDelete;
-/**
- * Parses a generated statement into the smallest description the REST
- * executor needs, rejecting anything PostgREST's single-table API cannot do.
- *
- * The parser is deliberately strict: a statement it does not fully understand
- * must raise rather than translate approximately, because the transport reads
- * a raise as "send this to `cfni_exec` instead" and a wrong translation would
- * silently return wrong rows.
- *
- * @param sql The generated statement text, `$n` placeholders included.
- * @returns The parsed statement.
- * @throws {UnsupportedSqlError} If the statement is outside the supported subset.
- */
 export default function parseStatement(sql: string): ParsedStatement;

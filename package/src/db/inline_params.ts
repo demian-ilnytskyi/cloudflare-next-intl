@@ -20,65 +20,69 @@ import encodeParam from './encode_param';
 export default function inlineParams(statement: string, params: unknown[]): string {
     let result = '';
     let i = 0;
+    let lastIndex = 0;
     const len = statement.length;
 
     while (i < len) {
-        const ch = statement[i];
+        const code = statement.charCodeAt(i);
 
-        if (ch === '-' && statement[i + 1] === '-') {
+        if (code === 45 && statement.charCodeAt(i + 1) === 45) { // --
             const end = statement.indexOf('\n', i);
             const stop = end === -1 ? len : end + 1;
-            result += statement.slice(i, stop);
             i = stop;
             continue;
         }
 
-        if (ch === '/' && statement[i + 1] === '*') {
+        if (code === 47 && statement.charCodeAt(i + 1) === 42) { // /*
             const end = statement.indexOf('*/', i + 2);
             const stop = end === -1 ? len : end + 2;
-            result += statement.slice(i, stop);
             i = stop;
             continue;
         }
 
-        if (ch === "'" || (ch === 'E' && statement[i + 1] === "'")) {
-            const start = ch === 'E' ? i + 1 : i;
+        if (code === 39 || (code === 69 && statement.charCodeAt(i + 1) === 39)) { // ' or E'
+            const start = code === 69 ? i + 1 : i;
             const end = findStringEnd(statement, start + 1);
-            result += statement.slice(i, end);
             i = end;
             continue;
         }
 
-        if (ch === '"') {
+        if (code === 34) { // "
             const end = findQuotedIdentifierEnd(statement, i + 1);
-            result += statement.slice(i, end);
             i = end;
             continue;
         }
 
-        if (ch === '$' && /[0-9]/.test(statement[i + 1] ?? '')) {
-            let j = i + 1;
-            while (j < len && /[0-9]/.test(statement[j])) j++;
-            const index = Number(statement.slice(i + 1, j));
-            if (index < 1 || index > params.length) {
-                throw new Error(`db: statement references $${index} but only ${params.length} param(s) were provided.`);
+        if (code === 36) { // $
+            const nextCode = statement.charCodeAt(i + 1);
+            if (nextCode >= 48 && nextCode <= 57) {
+                let j = i + 2;
+                while (j < len) {
+                    const c = statement.charCodeAt(j);
+                    if (c >= 48 && c <= 57) j++;
+                    else break;
+                }
+                const index = Number(statement.slice(i + 1, j));
+                if (index < 1 || index > params.length) {
+                    throw new Error(`db: statement references $${index} but only ${params.length} param(s) were provided.`);
+                }
+                if (i > lastIndex) result += statement.slice(lastIndex, i);
+                result += encodeParam(params[index - 1]);
+                i = j;
+                lastIndex = j;
+                continue;
             }
-            result += encodeParam(params[index - 1]);
-            i = j;
-            continue;
-        }
 
-        if (ch === '$') {
             const tagEnd = findDollarQuoteEnd(statement, i);
-            result += statement.slice(i, tagEnd);
             i = tagEnd;
             continue;
         }
 
-        result += ch;
         i++;
     }
 
+    if (lastIndex === 0) return statement;
+    if (lastIndex < len) result += statement.slice(lastIndex);
     return result;
 }
 

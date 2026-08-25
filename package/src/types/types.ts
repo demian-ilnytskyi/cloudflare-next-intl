@@ -926,10 +926,21 @@ export interface DbRoutingConfig {
      */
     disconnectAfterRequest?: boolean;
     /**
-     * Postgres role assumed inside `withUserDb`'s transaction. Defaults
-     * to `'authenticated'` (the Supabase RLS convention).
+     * Postgres role assumed inside `withUserDb`'s transaction, used when
+     * {@link authenticatedRoleClaim} doesn't resolve one (e.g. `firebaseAuth`
+     * isn't configured, or the claim is absent). May be a string or a
+     * sync/async function resolved on each call. Defaults to `'authenticated'`
+     * (the Supabase RLS convention).
      */
-    authenticatedRole?: string;
+    authenticatedRole?: string | (() => string | Promise<string>);
+    /**
+     * Name of the Firebase custom-claims field read for the Postgres role
+     * inside `withUserDb`, taking priority over {@link authenticatedRole}
+     * when present on the signed-in user's ID token. Defaults to `'role'`.
+     * Only consulted when `firebaseAuth` is configured; set `false` to skip
+     * reading claims entirely and always use `authenticatedRole`.
+     */
+    authenticatedRoleClaim?: string | false;
     /**
      * Resolves the user id injected as `request.jwt.claims->>'sub'` inside
      * `withUserDb`. Omit when `firebaseAuth` is configured — the uid then

@@ -14,20 +14,31 @@ import UnsupportedSqlError from './unsupported_sql';
  * @returns The parsed statement.
  * @throws {UnsupportedSqlError} If the statement is outside the supported subset.
  */
+const STATEMENT_CACHE = new Map();
+const MAX_STATEMENT_CACHE = 500;
 export default function parseStatement(sql) {
+    const cached = STATEMENT_CACHE.get(sql);
+    if (cached)
+        return cached;
     const tokens = tokenizeSql(sql);
     const first = tokens[0];
     if (!first || first.kind !== 'word')
         throw new UnsupportedSqlError('empty statement');
+    let parsed;
     if (first.value === 'select')
-        return parseSelect(tokens);
-    if (first.value === 'insert')
-        return parseInsert(tokens);
-    if (first.value === 'update')
-        return parseUpdate(tokens);
-    if (first.value === 'delete')
-        return parseDelete(tokens);
-    throw new UnsupportedSqlError(`statement type "${first.value}"`);
+        parsed = parseSelect(tokens);
+    else if (first.value === 'insert')
+        parsed = parseInsert(tokens);
+    else if (first.value === 'update')
+        parsed = parseUpdate(tokens);
+    else if (first.value === 'delete')
+        parsed = parseDelete(tokens);
+    else
+        throw new UnsupportedSqlError(`statement type "${first.value}"`);
+    if (STATEMENT_CACHE.size >= MAX_STATEMENT_CACHE)
+        STATEMENT_CACHE.clear();
+    STATEMENT_CACHE.set(sql, parsed);
+    return parsed;
 }
 function parseSelect(tokens) {
     let index = 1;

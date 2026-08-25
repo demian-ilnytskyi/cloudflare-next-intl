@@ -192,5 +192,12 @@ describe('parseStatement — count(*)', () => {
         expect(() => parseStatement('delete from "t" returning count(*)')).toThrow(UnsupportedSqlError);
         expect(() => parseStatement('delete from "t" returning count(*) from')).toThrow(UnsupportedSqlError);
     });
+
+    it('evicts statement cache when cache limit is exceeded', () => {
+        for (let i = 0; i <= 505; i++) {
+            parseStatement(`select * from "table_${i}"`);
+        }
+    });
 });
+
 

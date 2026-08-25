@@ -1,6 +1,6 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Query } from 'drizzle-orm';
-import type { SupabaseDbConfig } from '../types/types';
+import type { DbRoutingConfig, SupabaseDbConfig } from '../types/types';
 import config from '../config/intl_config';
 import requireDbConfig from './require_config';
 import { withDbClient } from './connection';
@@ -42,6 +42,30 @@ async function resolveUserId(uid?: string | null): Promise<string> {
         'db: withUserDb could not resolve a user id. Pass one explicitly, set ' +
         '`db.getUserId`, or configure `firebaseAuth` so the signed-in Firebase uid is used.',
     );
+}
+
+/**
+ * Resolves the Postgres role for `withUserDb`'s session. When `firebaseAuth`
+ * is configured and `db.authenticatedRoleClaim` isn't `false`, the signed-in
+ * user's Firebase ID token claim (default field `'role'`) wins when present;
+ * otherwise falls back to `db.authenticatedRole` (string or sync/async
+ * function), then `DEFAULT_ROLE`.
+ */
+async function resolveAuthenticatedRole(db: DbRoutingConfig): Promise<string> {
+    const claimField = db.authenticatedRoleClaim;
+    if (config.firebaseAuth && claimField !== false) {
+        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server');
+        const { user } = await getAuthUser();
+        if (user && typeof user.getIdTokenResult === 'function') {
+            const { claims } = await user.getIdTokenResult();
+            const claimValue = claims[claimField ?? 'role'];
+            if (typeof claimValue === 'string' && claimValue) return claimValue;
+        }
+    }
+    if (db.authenticatedRole) {
+        return typeof db.authenticatedRole === 'function' ? await db.authenticatedRole() : db.authenticatedRole;
+    }
+    return DEFAULT_ROLE;
 }
 
 /**
@@ -160,6 +184,22 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promis
     });
 }
 
+function injectUidComment(sql: unknown, userId: string): unknown {
+    if (typeof sql === 'string') {
+        if (/^(select|with)\b/i.test(sql.trimStart())) {
+            return `/* uid:${userId} */ ${sql}`;
+        }
+        return sql;
+    }
+    if (sql && typeof sql === 'object' && typeof (sql as { text?: unknown }).text === 'string') {
+        const obj = sql as { text: string };
+        if (/^(select|with)\b/i.test(obj.text.trimStart())) {
+            return { ...obj, text: `/* uid:${userId} */ ${obj.text}` };
+        }
+    }
+    return sql;
+}
+
 /**
  * Runs a query as the **signed-in user**, with `request.jwt.claims` and the
  * authenticated role set on the session so RLS policies apply to their id.
@@ -182,18 +222,106 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
     }
     
     const userId = await resolveUserId(uid);
-    const role = db.authenticatedRole ?? DEFAULT_ROLE;
+    const role = await resolveAuthenticatedRole(db);
     
     return await withDbClient(config, async (client) => {
         const rawClient = client as unknown as { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }> };
-        
-        await rawClient.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: userId })]);
-        await rawClient.query(`set role "${role}"`);
-        
+
+        const setSessionState = async () => {
+            await rawClient.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: userId })]);
+            await rawClient.query(`set role "${role.replace(/"/g, '""')}"`);
+        };
+
+        const isSelectOnly = (sql: unknown): boolean => {
+            const text = typeof sql === 'string' ? sql : (sql as { text?: unknown })?.text;
+            return typeof text === 'string' && /^(select|with)\b/i.test(text.trimStart());
+        };
+
+        let inTransaction = false;
+        let sessionStateSet = false;
+        let gate: Promise<unknown> = Promise.resolve();
+        const serialize = <R>(op: () => Promise<R>): Promise<R> => {
+            const run = gate.then(op, op);
+            gate = run.catch(() => undefined);
+            return run;
+        };
+
+        const interceptingClient = new Proxy(client, {
+            get(target, prop) {
+                if (prop === 'query') {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    return async (sql: any, ...args: any[]) => {
+                        const text = typeof sql === 'string' ? sql : (typeof (sql as any)?.text === 'string' ? (sql as any).text : '');
+                        const isBegin = /^begin\b/i.test(text.trimStart());
+                        const isCommitOrRollback = /^(commit|rollback)\b/i.test(text.trimStart());
+
+                        if (isBegin) {
+                            return await serialize(async () => {
+                                if (!sessionStateSet) {
+                                    await rawClient.query('begin');
+                                    inTransaction = true;
+                                    await setSessionState();
+                                    sessionStateSet = true;
+                                } else if (!inTransaction) {
+                                    await rawClient.query('begin');
+                                    inTransaction = true;
+                                }
+                                return { rows: [], rowCount: 0 };
+                            });
+                        }
+
+                        if (isCommitOrRollback) {
+                            return await serialize(async () => {
+                                if (inTransaction) {
+                                    const res = await rawClient.query(text);
+                                    inTransaction = false;
+                                    return res;
+                                }
+                                return { rows: [], rowCount: 0 };
+                            });
+                        }
+
+                        await serialize(async () => {
+                            if (!sessionStateSet) {
+                                if (isSelectOnly(sql)) {
+                                    await rawClient.query('begin');
+                                    inTransaction = true;
+                                    await setSessionState();
+                                    await rawClient.query('commit');
+                                    inTransaction = false;
+                                } else {
+                                    await rawClient.query('begin');
+                                    inTransaction = true;
+                                    await setSessionState();
+                                }
+                                sessionStateSet = true;
+                            } else if (!inTransaction && !isSelectOnly(sql)) {
+                                await rawClient.query('begin');
+                                inTransaction = true;
+                            }
+                        });
+
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        return (target as any).query(injectUidComment(sql, userId), ...args);
+                    };
+                }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const value = (target as any)[prop];
+                return typeof value === 'function' ? value.bind(target) : value;
+            }
+        });
+
         const { drizzle } = await import('drizzle-orm/node-postgres');
-        const drizzleHandle = drizzle(client) as unknown as NodePgDatabase<Record<string, never>>;
-        
-        return await fn(await postgresDb(drizzleHandle, rawClient));
+        const drizzleHandle = drizzle(interceptingClient) as unknown as NodePgDatabase<Record<string, never>>;
+
+        try {
+            const result = await fn(await postgresDb(drizzleHandle, interceptingClient as unknown as { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> }));
+            if (inTransaction) await rawClient.query('commit');
+            return result;
+        } catch (err) {
+            if (inTransaction) await rawClient.query('rollback').catch(() => undefined);
+            throw err;
+        }
     });
 }
 

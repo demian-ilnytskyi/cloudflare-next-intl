@@ -23,7 +23,7 @@ export function excluded(table) {
     const cols = getTableColumns(table);
     const tableName = getTableName(table);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return new Proxy({}, {
+    return new Proxy(cols, {
         get(_, prop) {
             const col = cols[prop];
             if (!col) {

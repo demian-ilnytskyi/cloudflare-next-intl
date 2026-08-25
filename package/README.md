@@ -467,8 +467,11 @@ export default setIntlConfig({
   server-side connection.
 - `authenticatedRole` — Postgres role `withUserDb` switches its
   call-scoped session to for the duration of your callback (`set role`, no
-  transaction involved; the session is closed when the call ends). Defaults
-  to `'authenticated'` (the Supabase RLS convention).
+  transaction involved; the session is closed when the call ends). May be a string or
+  a sync/async function returning a string. Defaults to `'authenticated'` (the Supabase RLS convention).
+- `authenticatedRoleClaim` — Firebase custom claims field (default `'role'`) read
+  to determine the Postgres role inside `withUserDb` when `firebaseAuth` is enabled.
+  Set `false` to disable custom claim inspection and rely on `authenticatedRole`.
 - `getUserId` — resolves the user id injected as
   `request.jwt.claims->>'sub'` inside `withUserDb`. Omit when
   `firebaseAuth` is configured — the uid then comes from this package's own

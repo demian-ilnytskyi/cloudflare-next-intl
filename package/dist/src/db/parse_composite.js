@@ -24,33 +24,51 @@ export default function parseComposite(literal) {
     if (len === i)
         return fields;
     while (true) {
-        if (literal[i] === '"') {
-            let value = '';
+        if (literal.charCodeAt(i) === 34) { // '"'
             i++;
+            const start = i;
+            let hasEscaped = false;
             while (i < len) {
-                if (literal[i] === '"') {
-                    if (literal[i + 1] === '"') {
-                        value += '"';
-                        i += 2;
-                        continue;
+                if (literal.charCodeAt(i) === 34) {
+                    if (literal.charCodeAt(i + 1) === 34) {
+                        hasEscaped = true;
+                        break;
                     }
                     break;
                 }
-                value += literal[i];
                 i++;
             }
-            i++; // closing quote
-            fields.push(value);
+            if (!hasEscaped) {
+                fields.push(literal.slice(start, i));
+                i++; // skip closing quote
+            }
+            else {
+                let value = literal.slice(start, i);
+                while (i < len) {
+                    if (literal.charCodeAt(i) === 34) {
+                        if (literal.charCodeAt(i + 1) === 34) {
+                            value += '"';
+                            i += 2;
+                            continue;
+                        }
+                        break;
+                    }
+                    value += literal[i];
+                    i++;
+                }
+                i++; // skip closing quote
+                fields.push(value);
+            }
         }
         else {
-            let value = '';
-            while (i < len && literal[i] !== ',') {
-                value += literal[i];
+            const start = i;
+            while (i < len && literal.charCodeAt(i) !== 44) {
                 i++;
             }
+            const value = literal.slice(start, i);
             fields.push(value === '' ? null : value);
         }
-        if (literal[i] === ',') {
+        if (literal.charCodeAt(i) === 44) { // ','
             i++;
             continue;
         }

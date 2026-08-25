@@ -1,24 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Extract withDbClient up into our mock environment. Removed deprecated locks & globals.
 const { tx, withDbClient, getAuthUser, config, proxyDrizzle, proxyDb, runTransactionBatch } = vi.hoisted(() => {
     const clientQuery = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
-    
-    // The raw pg client we mock passing through the Edge Wrapper.
-    // The interior database callbacks query this directly without singleton memory bleed.
-    const pgClient = { query: clientQuery };
+    const otherMethod = vi.fn();
+
+    const pgClient = { query: clientQuery, otherMethod };
     const tx = {
         _clientQuery: clientQuery, // exposed for test assertions
     };
-    
-    // 🔥 OUR MOCKED CLOUDFLARE/HYPERDRIVE HANDLER 🔥 
-    // Magically drops the client socket directly into the executing query safely in-line 
-    // representing identical isolated behaviour to Production execution environments.
+
     const withDbClient = vi.fn().mockImplementation(async (config: unknown, queryFn: (c: typeof pgClient) => Promise<unknown>) => {
         return queryFn(pgClient);
     });
 
-    const getAuthUser = vi.fn().mockResolvedValue({ user: { uid: 'firebase-uid', getIdToken: vi.fn().mockResolvedValue('firebase-jwt') }, loading: false });
+    const getAuthUser = vi.fn().mockResolvedValue({ user: { uid: 'firebase-uid', getIdToken: vi.fn().mockResolvedValue('firebase-jwt'), getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }) }, loading: false });
     const config: Record<string, unknown> = { locales: ['en'], defaultLocale: 'en', db: { connectionString: 'postgresql://x' } };
     const proxyDb = { select: vi.fn(), execute: vi.fn() };
     const proxyDrizzle = vi.fn(() => proxyDb);
@@ -26,15 +21,13 @@ const { tx, withDbClient, getAuthUser, config, proxyDrizzle, proxyDb, runTransac
     return { tx, withDbClient, getAuthUser, config, proxyDrizzle, proxyDb, runTransactionBatch };
 });
 
-vi.mock('drizzle-orm/node-postgres', () => ({ drizzle: vi.fn(() => ({ select: vi.fn() })) }));
+vi.mock('drizzle-orm/node-postgres', () => ({ drizzle: vi.fn((client) => ({ client, select: vi.fn() })) }));
 vi.mock('drizzle-orm/pg-proxy', () => ({ drizzle: proxyDrizzle }));
-vi.mock('./connection', () => ({ 
-    withDbClient, // We export our intercepted Edge Wrapper native call block here natively
-    
-    // Muted out Legacy Hooks (for avoiding cross-dependency typescript issues until codebase refactor completes entirely)
-    resetConnectionState: vi.fn(), 
+vi.mock('./connection', () => ({
+    withDbClient,
+    resetConnectionState: vi.fn(),
     withSessionLock: vi.fn(async (fn: () => Promise<unknown>) => fn()),
-    default: vi.fn().mockRejectedValue(new Error('CRITICAL REFACTOR: Struck down explicitly natively.')), 
+    default: vi.fn().mockRejectedValue(new Error('default export should not be used')),
     disconnectPostgres: vi.fn(),
 }));
 vi.mock('../firebase_auth/server/use_auth_user_server', () => ({ getAuthUser }));
@@ -46,23 +39,23 @@ import { withPublicDb, withUserDb } from './context';
 beforeEach(() => {
     tx._clientQuery.mockClear();
     tx._clientQuery.mockResolvedValue({ rows: [], rowCount: 0 });
-    withDbClient.mockClear(); // Reset mock Edge isolation block tracker
+    withDbClient.mockClear();
     proxyDrizzle.mockClear();
     runTransactionBatch.mockReset();
+    getAuthUser.mockReset();
+    getAuthUser.mockResolvedValue({ user: { uid: 'firebase-uid', getIdToken: vi.fn().mockResolvedValue('firebase-jwt'), getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }) }, loading: false });
     config.db = { connectionString: 'postgresql://x' };
     config.firebaseAuth = undefined;
 });
 
 describe('withPublicDb', () => {
-    it('runs the callback with a drizzle db securely handled entirely inside Cloudflares Edge isolate wrapper', async () => {
+    it('runs the callback with a drizzle db', async () => {
         const result = await withPublicDb(async (db) => { expect(db).toBeDefined(); return 42; });
         expect(result).toBe(42);
-        
-        // No disconnect checks - native uncoupling is strictly asserted through execution
-        expect(withDbClient).toHaveBeenCalledTimes(1); 
+        expect(withDbClient).toHaveBeenCalledTimes(1);
     });
 
-    it('safely rejects gracefully natively without edge leaking even when the callback throws', async () => {
+    it('rejects when the callback throws', async () => {
         await expect(withPublicDb(async () => { throw new Error('boom'); })).rejects.toThrow('boom');
         expect(withDbClient).toHaveBeenCalledTimes(1);
     });
@@ -75,12 +68,100 @@ describe('withPublicDb', () => {
 
 describe('withUserDb', () => {
     it('sets jwt claims and role on the call-scoped session', async () => {
-        await withUserDb(async () => 'ok', 'uid-1');
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select 1');
+            return 'ok';
+        }, 'uid-1');
         expect(tx._clientQuery).toHaveBeenCalledWith(
             `select set_config('request.jwt.claims', $1, false)`,
             [JSON.stringify({ sub: 'uid-1' })],
         );
         expect(tx._clientQuery).toHaveBeenCalledWith('set role "authenticated"');
+    });
+
+    it('runs a lone select-only query in its own short-lived begin/commit, then commits the outer call cleanly', async () => {
+        tx._clientQuery.mockResolvedValue({ rows: [], rowCount: 0 });
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select * from users');
+            return 'ok';
+        }, 'uid-1');
+        const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
+        expect(calls).toEqual([
+            'begin',
+            `select set_config('request.jwt.claims', $1, false)`,
+            'set role "authenticated"',
+            'commit',
+            '/* uid:uid-1 */ select * from users',
+        ]);
+    });
+
+    it('opens a real transaction (no early commit) when the first query is a write', async () => {
+        tx._clientQuery.mockResolvedValue({ rows: [], rowCount: 0 });
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) {
+                await client.query('insert into users (id) values (1)');
+                await client.query('select * from users');
+            }
+            return 'ok';
+        }, 'uid-1');
+        const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
+        expect(calls).toEqual([
+            'begin',
+            `select set_config('request.jwt.claims', $1, false)`,
+            'set role "authenticated"',
+            'insert into users (id) values (1)',
+            '/* uid:uid-1 */ select * from users',
+            'commit',
+        ]);
+    });
+
+    it('rolls back the session transaction when the callback throws after a write', async () => {
+        tx._clientQuery.mockResolvedValue({ rows: [], rowCount: 0 });
+        await expect(withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('insert into users (id) values (1)');
+            throw new Error('callback failed');
+        }, 'uid-1')).rejects.toThrow('callback failed');
+        const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
+        expect(calls).toContain('rollback');
+        expect(calls).not.toContain('commit');
+    });
+
+    it('prepends SQL comment with user id to SELECT queries for Hyperdrive caching', async () => {
+        tx._clientQuery.mockResolvedValue({ rows: [], rowCount: 0 });
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown>; release?: () => string; prop?: string } }).client;
+            if (client) {
+                await client.query('select * from users');
+                await client.query({ text: 'select * from items', values: [1] });
+                await client.query('with cte as (select 1) select * from cte');
+                await client.query({ text: 'with cte as (select 1) select * from cte' });
+                await client.query('delete from users');
+                await client.query({ text: 'delete from items', values: [1] });
+                await client.query({ values: [1] });
+                await client.query(null);
+                await client.query(123);
+                await client.query(true);
+                await client.query(undefined);
+                await client.query({ text: 123 });
+                if (typeof client.release === 'function') client.release();
+                void client.prop;
+            }
+        }, 'uid-123');
+        expect(tx._clientQuery).toHaveBeenCalledWith('/* uid:uid-123 */ select * from users');
+        expect(tx._clientQuery).toHaveBeenCalledWith({ text: '/* uid:uid-123 */ select * from items', values: [1] });
+        expect(tx._clientQuery).toHaveBeenCalledWith('/* uid:uid-123 */ with cte as (select 1) select * from cte');
+        expect(tx._clientQuery).toHaveBeenCalledWith({ text: '/* uid:uid-123 */ with cte as (select 1) select * from cte' });
+        expect(tx._clientQuery).toHaveBeenCalledWith('delete from users');
+        expect(tx._clientQuery).toHaveBeenCalledWith({ text: 'delete from items', values: [1] });
+        expect(tx._clientQuery).toHaveBeenCalledWith({ values: [1] });
+        expect(tx._clientQuery).toHaveBeenCalledWith(null);
+        expect(tx._clientQuery).toHaveBeenCalledWith(123);
+        expect(tx._clientQuery).toHaveBeenCalledWith(true);
+        expect(tx._clientQuery).toHaveBeenCalledWith(undefined);
     });
 
     it('falls back to the firebase auth user when no uid is given', async () => {
@@ -96,10 +177,119 @@ describe('withUserDb', () => {
         expect(getUserId).toHaveBeenCalled();
     });
 
+    it('falls back to firebase user when db.getUserId returns null', async () => {
+        config.firebaseAuth = { apiKey: 'k' };
+        const getUserId = vi.fn().mockResolvedValue(null);
+        config.db = { connectionString: 'postgresql://x', getUserId };
+        await withUserDb(async () => 'ok');
+        expect(getAuthUser).toHaveBeenCalled();
+    });
+
     it('sets custom authenticated role if configured', async () => {
         config.db = { connectionString: 'postgresql://x', authenticatedRole: 'custom_role' };
-        await withUserDb(async () => 'ok', 'uid-1');
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select 1');
+            return 'ok';
+        }, 'uid-1');
         expect(tx._clientQuery).toHaveBeenCalledWith('set role "custom_role"');
+    });
+
+    it('uses the firebase id token role claim over authenticatedRole when both are present', async () => {
+        config.firebaseAuth = { apiKey: 'k' };
+        config.db = { connectionString: 'postgresql://x', authenticatedRole: 'fallback_role' };
+        getAuthUser.mockResolvedValue({
+            user: { uid: 'firebase-uid', getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'claim_role' } }) },
+            loading: false,
+        });
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select 1');
+            return 'ok';
+        }, 'firebase-uid');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set role "claim_role"');
+    });
+
+    it('reads the role from a custom authenticatedRoleClaim field name', async () => {
+        config.firebaseAuth = { apiKey: 'k' };
+        config.db = { connectionString: 'postgresql://x', authenticatedRoleClaim: 'pg_role' };
+        getAuthUser.mockResolvedValue({
+            user: { uid: 'firebase-uid', getIdTokenResult: vi.fn().mockResolvedValue({ claims: { pg_role: 'custom_claim_role' } }) },
+            loading: false,
+        });
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select 1');
+            return 'ok';
+        }, 'firebase-uid');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set role "custom_claim_role"');
+    });
+
+    it('falls back to authenticatedRole when authenticatedRoleClaim is false, even with firebaseAuth configured', async () => {
+        config.firebaseAuth = { apiKey: 'k' };
+        config.db = { connectionString: 'postgresql://x', authenticatedRoleClaim: false, authenticatedRole: 'fallback_role' };
+        getAuthUser.mockResolvedValue({
+            user: { uid: 'firebase-uid', getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'claim_role' } }) },
+            loading: false,
+        });
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select 1');
+            return 'ok';
+        }, 'firebase-uid');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set role "fallback_role"');
+        expect(getAuthUser).not.toHaveBeenCalled();
+    });
+
+    it('falls back to authenticatedRole when the claim value is an empty string', async () => {
+        config.firebaseAuth = { apiKey: 'k' };
+        config.db = { connectionString: 'postgresql://x', authenticatedRole: 'fallback_role' };
+        getAuthUser.mockResolvedValue({
+            user: { uid: 'firebase-uid', getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: '' } }) },
+            loading: false,
+        });
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select 1');
+            return 'ok';
+        }, 'firebase-uid');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set role "fallback_role"');
+    });
+
+    it('falls back to authenticatedRole when the claim value is not a string', async () => {
+        config.firebaseAuth = { apiKey: 'k' };
+        config.db = { connectionString: 'postgresql://x', authenticatedRole: 'fallback_role' };
+        getAuthUser.mockResolvedValue({
+            user: { uid: 'firebase-uid', getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 42 } }) },
+            loading: false,
+        });
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select 1');
+            return 'ok';
+        }, 'firebase-uid');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set role "fallback_role"');
+    });
+
+    it('supports an async function for authenticatedRole', async () => {
+        const authenticatedRole = vi.fn().mockResolvedValue('async_role');
+        config.db = { connectionString: 'postgresql://x', authenticatedRole };
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select 1');
+            return 'ok';
+        }, 'uid-1');
+        expect(authenticatedRole).toHaveBeenCalled();
+        expect(tx._clientQuery).toHaveBeenCalledWith('set role "async_role"');
+    });
+
+    it('defaults to the "authenticated" role when nothing is configured', async () => {
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select 1');
+            return 'ok';
+        }, 'uid-1');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set role "authenticated"');
     });
 
     it('throws when firebase auth user is missing', async () => {
@@ -123,7 +313,7 @@ describe('supabase mode', () => {
         config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' } };
     });
 
-    it('withPublicDb natively completely drops out from invoking the hyperdrive intercept proxy', async () => {
+    it('withPublicDb bypasses the hyperdrive intercept proxy', async () => {
         const result = await withPublicDb(async (db) => { expect(db).toBe(proxyDb); return 7; });
         expect(result).toBe(7);
         expect(withDbClient).not.toHaveBeenCalled(); 
@@ -145,7 +335,7 @@ describe('supabase mode', () => {
         );
     });
 
-    it('withUserDb runs without touching the hyperdrive wrappers entirely natively safely bypassed', async () => {
+    it('withUserDb runs without touching the hyperdrive wrappers', async () => {
         config.db = { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' }, getAccessToken: () => 'user-jwt' };
         const result = await withUserDb(async (db) => { expect(db).toBe(proxyDb); return 'ok'; });
         expect(result).toBe('ok');
@@ -158,7 +348,7 @@ describe('supabase mode', () => {
         await expect(withUserDb(async () => 'ok')).rejects.toThrow(/access token/i);
     });
 
-    it('still routes to the robust Hyperdrive intercept when a connection string natively set instead overriding supabase properties natively fallback gracefully bypassing external requests proxy endpoints entirely manually configured environments manually checked endpoints securely safely routing through connection edge nodes proxy gracefully efficiently properly.', async () => {
+    it('routes to the Hyperdrive intercept when a connection string is set, overriding supabase config', async () => {
         config.db = { connectionString: 'postgresql://x', supabase: {} };
         await withPublicDb(async () => 1);
         expect(withDbClient).toHaveBeenCalledTimes(1);
@@ -215,10 +405,6 @@ describe('db.transaction() in Supabase mode', () => {
     });
 });
 
-/**
- * REGRESSION TESTS & CONFIRMATIONS FOR RUN-POSTGRES ARCHITECTURE 
- * With transactions operating over Hyperdrive pools organically through Edge `withDbClient` block boundaries flawlessly routing seamlessly perfectly gracefully explicitly optimally transparently safely accurately effectively executing consistently!
- */
 describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapper', () => {
     interface BatchDb { transaction: (build: (db: unknown) => unknown) => Promise<unknown> }
 
@@ -229,7 +415,7 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
         config.db = { connectionString: 'postgresql://x' };
     });
 
-    it('withUserDb: db.transaction() natively securely evaluates array builds sequentially over our safe active wrapped natively pooled Edge instance reliably wrapping securely securely correctly dynamically natively accurately accurately safely successfully gracefully routing flawlessly beautifully.', async () => {
+    it('withUserDb: db.transaction() executes queries sequentially inside begin/commit with uid comment and jwt claims set', async () => {
         tx._clientQuery.mockResolvedValue(makeQueryResult([]));
         tx._clientQuery
             .mockResolvedValueOnce(makeQueryResult([])) 
@@ -252,10 +438,10 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
         ]);
         const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
         expect(calls).toEqual([
+            'begin',
             `select set_config('request.jwt.claims', $1, false)`,
             'set role "authenticated"',
-            'begin',
-            'select id from t where id = 1',
+            '/* uid:uid-1 */ select id from t where id = 1',
             "insert into t (val) values ('x')",
             'commit',
         ]);
@@ -288,7 +474,7 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
         'uid-1');
     });
 
-    it('executes queries in order and forwards correct sql/params after inlining natively dynamically organically effectively optimally optimally practically natively optimally successfully beautifully elegantly explicitly implicitly flawlessly manually syntactically strictly flawlessly safely organically flawlessly manually gracefully flawlessly gracefully syntactically explicitly correctly effectively syntactically securely practically automatically organically gracefully correctly functionally correctly accurately correctly flawlessly smoothly perfectly seamlessly effectively reliably seamlessly correctly cleanly natively perfectly syntactically manually fluently transparently elegantly correctly reliably effortlessly easily natively flawlessly consistently dynamically predictably dependably flawlessly correctly perfectly!', async () => {
+    it('executes queries in order and forwards correct sql/params after inlining', async () => {
         tx._clientQuery.mockResolvedValue(makeQueryResult([]));
 
         await withUserDb((db) =>
@@ -304,7 +490,7 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
         expect(calls[4]).toContain("'hello'");
     });
 
-    it('propagates a pg client error rolling backward perfectly securely protecting the instance dynamically accurately fluently safely successfully perfectly strictly reliably seamlessly organically beautifully reliably syntactically flawlessly effectively smoothly predictably dependably cleanly fluently dynamically transparently optimally explicitly securely organically consistently dependably functionally smoothly perfectly successfully practically natively functionally manually fluently explicitly gracefully flawlessly implicitly explicitly explicitly perfectly reliably gracefully automatically automatically manually implicitly efficiently elegantly reliably correctly effortlessly gracefully natively successfully implicitly successfully smoothly natively transparently dynamically seamlessly accurately functionally safely natively functionally seamlessly organically seamlessly functionally safely strictly explicitly fluently transparently implicitly successfully accurately effectively flawlessly!', async () => {
+    it('propagates a pg client error and rolls back the transaction', async () => {
         tx._clientQuery.mockImplementation((sql: string) => (
             sql.startsWith('insert into t')
                 ? Promise.reject(new Error('duplicate key value'))
@@ -321,12 +507,27 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
         expect(tx._clientQuery.mock.calls.map((c) => c[0])).toContain('rollback');
     });
 
-    it('still returns results correctly when rowCount is null (pg quirk)', async () => {
+    it('handles rollback failure gracefully during postgres transaction error', async () => {
+        tx._clientQuery.mockImplementation((sql: string) => {
+            if (sql.startsWith('insert into t')) return Promise.reject(new Error('db error'));
+            if (sql === 'rollback') return Promise.reject(new Error('rollback error'));
+            return Promise.resolve(makeQueryResult([]));
+        });
+        await expect(
+            withUserDb((db) =>
+                (db as unknown as BatchDb).transaction(() => [
+                    { sql: 'insert into t (id) values ($1)', params: [1] },
+                ]),
+            'uid-1'),
+        ).rejects.toThrow('db error');
+    });
+
+    it('still returns results correctly when rowCount is null or undefined (pg quirk)', async () => {
         tx._clientQuery.mockResolvedValue(makeQueryResult([])); 
         tx._clientQuery.mockResolvedValueOnce(makeQueryResult([]));
         tx._clientQuery.mockResolvedValueOnce(makeQueryResult([])); 
         tx._clientQuery.mockResolvedValueOnce(makeQueryResult([]));
-        tx._clientQuery.mockResolvedValueOnce({ rows: [], rowCount: null });
+        tx._clientQuery.mockResolvedValueOnce({ rows: [] } as unknown as { rows: unknown[]; rowCount: number });
         const result = await withUserDb((db) =>
             (db as unknown as BatchDb).transaction(() => [
                 { sql: 'update t set x = $1 where false', params: ['y'] },
@@ -341,14 +542,137 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
             .mockResolvedValueOnce(makeQueryResult([]))
             .mockResolvedValueOnce(makeQueryResult([]))
             .mockResolvedValueOnce(makeQueryResult([]))
-            .mockResolvedValueOnce({ rows: undefined as unknown as unknown[], rowCount: 0 });
-
+            .mockResolvedValueOnce({ rows: undefined } as unknown as { rows: unknown[]; rowCount: number });
         const result = await withUserDb((db) =>
             (db as unknown as BatchDb).transaction(() => [
-                { sql: 'select id from t', params: [] },
+                { sql: 'update t set x = $1 where false', params: ['y'] },
             ]),
         'uid-1');
+        expect(result).toEqual([{ rows: [], rowCount: null }]);
+    });
 
-        expect(result).toEqual([{ rows: [], rowCount: 0 }]);
+    it('lazily wraps non-select queries in a transaction if executed first without explicit batch', async () => {
+        tx._clientQuery.mockResolvedValue(makeQueryResult([]));
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('insert into items (id) values (1)');
+        }, 'uid-1');
+        const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
+        expect(calls).toEqual([
+            'begin',
+            `select set_config('request.jwt.claims', $1, false)`,
+            'set role "authenticated"',
+            'insert into items (id) values (1)',
+            'commit',
+        ]);
+    });
+
+    it('ignores explicit commit/rollback if not in a transaction', async () => {
+        tx._clientQuery.mockResolvedValue(makeQueryResult([]));
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) {
+                await client.query('commit');
+                await client.query('rollback');
+            }
+        }, 'uid-1');
+        const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
+        expect(calls).toEqual([]);
+    });
+
+    it('intercepts explicit begin if session already initialized', async () => {
+        tx._clientQuery.mockResolvedValue(makeQueryResult([]));
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) {
+                await client.query('select 1');
+                await client.query('begin');
+                await client.query('begin');
+            }
+        }, 'uid-1');
+        const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
+        expect(calls).toEqual([
+            'begin',
+            `select set_config('request.jwt.claims', $1, false)`,
+            'set role "authenticated"',
+            'commit',
+            '/* uid:uid-1 */ select 1',
+            'begin',
+            'commit',
+        ]);
+    });
+
+    it('handles function and non-function property access on client proxy', async () => {
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { foo: string; otherMethod: () => void } }).client;
+            expect(client.foo).toBeUndefined();
+            expect(typeof client.otherMethod).toBe('function');
+            client.otherMethod();
+        }, 'uid-1');
+    });
+});
+
+
+
+describe('withUserDb session-state race', () => {
+    it('does not run a query before session state finished applying', async () => {
+        const order: string[] = [];
+        tx._clientQuery.mockImplementation(async (sql: string) => {
+            order.push(sql);
+            await new Promise((r) => setTimeout(r, 5));
+            return { rows: [], rowCount: 0 };
+        });
+
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            await Promise.all([client.query('select 1'), client.query('select 2')]);
+            return 'ok';
+        }, 'uid-race');
+
+        const setRoleAt = order.findIndex((s) => s.startsWith('set role'));
+        const select2At = order.findIndex((s) => s.includes('select 2'));
+        expect(select2At).toBeGreaterThan(setRoleAt);
+    });
+
+    it('retries session state when the first attempt fails', async () => {
+        let failed = false;
+        tx._clientQuery.mockImplementation(async (sql: string) => {
+            if (sql.startsWith('select set_config') && !failed) {
+                failed = true;
+                throw new Error('transient');
+            }
+            return { rows: [], rowCount: 0 };
+        });
+
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            await client.query('select 1').catch(() => undefined);
+            await client.query('select 2');
+            return 'ok';
+        }, 'uid-fail');
+
+        const calls = tx._clientQuery.mock.calls.map((c: unknown[]) => c[0]);
+        expect(calls.filter((s: string) => s.startsWith('set role')).length).toBeGreaterThan(0);
+    });
+});
+
+describe('withUserDb role safety', () => {
+    it('escapes a role claim containing a double quote instead of injecting SQL', async () => {
+        config.firebaseAuth = {};
+        config.db = { connectionString: 'postgresql://x' };
+        getAuthUser.mockResolvedValue({
+            user: { uid: 'u', getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'x" ; set role "postgres' } }) },
+            loading: false,
+        });
+
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            await client.query('select 1');
+            return 'ok';
+        }, 'uid-inj');
+
+        const calls = tx._clientQuery.mock.calls.map((c: unknown[]) => c[0]);
+        const setRole = calls.find((s: string) => typeof s === 'string' && s.startsWith('set role'));
+        expect(setRole).toBe('set role "x\"\" ; set role \"\"postgres"');
     });
 });

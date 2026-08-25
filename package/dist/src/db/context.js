@@ -32,6 +32,30 @@ async function resolveUserId(uid) {
         '`db.getUserId`, or configure `firebaseAuth` so the signed-in Firebase uid is used.');
 }
 /**
+ * Resolves the Postgres role for `withUserDb`'s session. When `firebaseAuth`
+ * is configured and `db.authenticatedRoleClaim` isn't `false`, the signed-in
+ * user's Firebase ID token claim (default field `'role'`) wins when present;
+ * otherwise falls back to `db.authenticatedRole` (string or sync/async
+ * function), then `DEFAULT_ROLE`.
+ */
+async function resolveAuthenticatedRole(db) {
+    const claimField = db.authenticatedRoleClaim;
+    if (config.firebaseAuth && claimField !== false) {
+        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server');
+        const { user } = await getAuthUser();
+        if (user && typeof user.getIdTokenResult === 'function') {
+            const { claims } = await user.getIdTokenResult();
+            const claimValue = claims[claimField ?? 'role'];
+            if (typeof claimValue === 'string' && claimValue)
+                return claimValue;
+        }
+    }
+    if (db.authenticatedRole) {
+        return typeof db.authenticatedRole === 'function' ? await db.authenticatedRole() : db.authenticatedRole;
+    }
+    return DEFAULT_ROLE;
+}
+/**
  * Builds a Drizzle handle backed by PostgREST. `bearerToken` decides the role
  * Postgres sees: the anon key for public access, a user JWT for `withUserDb`.
  *
@@ -134,6 +158,21 @@ export async function withPublicDb(fn) {
         return await fn(await postgresDb(drizzleHandle, client));
     });
 }
+function injectUidComment(sql, userId) {
+    if (typeof sql === 'string') {
+        if (/^(select|with)\b/i.test(sql.trimStart())) {
+            return `/* uid:${userId} */ ${sql}`;
+        }
+        return sql;
+    }
+    if (sql && typeof sql === 'object' && typeof sql.text === 'string') {
+        const obj = sql;
+        if (/^(select|with)\b/i.test(obj.text.trimStart())) {
+            return { ...obj, text: `/* uid:${userId} */ ${obj.text}` };
+        }
+    }
+    return sql;
+}
 /**
  * Runs a query as the **signed-in user**, with `request.jwt.claims` and the
  * authenticated role set on the session so RLS policies apply to their id.
@@ -153,14 +192,101 @@ export async function withUserDb(fn, uid) {
         return fn(await supabaseDb(resolved.supabase, token));
     }
     const userId = await resolveUserId(uid);
-    const role = db.authenticatedRole ?? DEFAULT_ROLE;
+    const role = await resolveAuthenticatedRole(db);
     return await withDbClient(config, async (client) => {
         const rawClient = client;
-        await rawClient.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: userId })]);
-        await rawClient.query(`set role "${role}"`);
+        const setSessionState = async () => {
+            await rawClient.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: userId })]);
+            await rawClient.query(`set role "${role.replace(/"/g, '""')}"`);
+        };
+        const isSelectOnly = (sql) => {
+            const text = typeof sql === 'string' ? sql : sql?.text;
+            return typeof text === 'string' && /^(select|with)\b/i.test(text.trimStart());
+        };
+        let inTransaction = false;
+        let sessionStateSet = false;
+        let gate = Promise.resolve();
+        const serialize = (op) => {
+            const run = gate.then(op, op);
+            gate = run.catch(() => undefined);
+            return run;
+        };
+        const interceptingClient = new Proxy(client, {
+            get(target, prop) {
+                if (prop === 'query') {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    return async (sql, ...args) => {
+                        const text = typeof sql === 'string' ? sql : (typeof sql?.text === 'string' ? sql.text : '');
+                        const isBegin = /^begin\b/i.test(text.trimStart());
+                        const isCommitOrRollback = /^(commit|rollback)\b/i.test(text.trimStart());
+                        if (isBegin) {
+                            return await serialize(async () => {
+                                if (!sessionStateSet) {
+                                    await rawClient.query('begin');
+                                    inTransaction = true;
+                                    await setSessionState();
+                                    sessionStateSet = true;
+                                }
+                                else if (!inTransaction) {
+                                    await rawClient.query('begin');
+                                    inTransaction = true;
+                                }
+                                return { rows: [], rowCount: 0 };
+                            });
+                        }
+                        if (isCommitOrRollback) {
+                            return await serialize(async () => {
+                                if (inTransaction) {
+                                    const res = await rawClient.query(text);
+                                    inTransaction = false;
+                                    return res;
+                                }
+                                return { rows: [], rowCount: 0 };
+                            });
+                        }
+                        await serialize(async () => {
+                            if (!sessionStateSet) {
+                                if (isSelectOnly(sql)) {
+                                    await rawClient.query('begin');
+                                    inTransaction = true;
+                                    await setSessionState();
+                                    await rawClient.query('commit');
+                                    inTransaction = false;
+                                }
+                                else {
+                                    await rawClient.query('begin');
+                                    inTransaction = true;
+                                    await setSessionState();
+                                }
+                                sessionStateSet = true;
+                            }
+                            else if (!inTransaction && !isSelectOnly(sql)) {
+                                await rawClient.query('begin');
+                                inTransaction = true;
+                            }
+                        });
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        return target.query(injectUidComment(sql, userId), ...args);
+                    };
+                }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const value = target[prop];
+                return typeof value === 'function' ? value.bind(target) : value;
+            }
+        });
         const { drizzle } = await import('drizzle-orm/node-postgres');
-        const drizzleHandle = drizzle(client);
-        return await fn(await postgresDb(drizzleHandle, rawClient));
+        const drizzleHandle = drizzle(interceptingClient);
+        try {
+            const result = await fn(await postgresDb(drizzleHandle, interceptingClient));
+            if (inTransaction)
+                await rawClient.query('commit');
+            return result;
+        }
+        catch (err) {
+            if (inTransaction)
+                await rawClient.query('rollback').catch(() => undefined);
+            throw err;
+        }
     });
 }
 /**

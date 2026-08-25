@@ -3,6 +3,20 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.31] - 2026-08-25
+
+### Added
+
+- **Dynamic Postgres role resolution and Firebase Custom Claims integration in `withUserDb`.** Added `authenticatedRoleClaim` (`string | false`, defaults to `'role'`) to `DbRoutingConfig`. When `firebaseAuth` is enabled, `withUserDb` reads the custom claim field on the signed-in user's Firebase ID token to select the Postgres role for RLS. `authenticatedRole` can now also be a sync or async function (`() => string | Promise<string>`) resolved on each invocation.
+
+### Fixed
+
+- **Query client serialization & session-state transaction handling in `withUserDb`.** Query client now serializes query executions to prevent session state setup races across concurrent queries. Automatically wraps `SELECT` queries in short-lived `BEGIN`/`COMMIT` blocks to safely set `request.jwt.claims` and `set role`, while handling multi-statement `BEGIN`/`COMMIT` transactions smoothly without state leaks. Automatically appends query comments `/* uid:<userId> */` to `SELECT`/`WITH` statements for trace debugging.
+
+### Performance
+
+- **Optimized statement parsing and tokenization.** Added statement and token LRU caches (up to 500 entries) in `parseStatement` and `tokenizeSql`. Refactored `tokenizeSql`, `parseComposite`, and `encodeParam` to use `charCodeAt()` character inspection and string slice paths for high-throughput SQL parsing.
+
 ## [0.8.30] - 2026-08-25
 
 ### Changed
