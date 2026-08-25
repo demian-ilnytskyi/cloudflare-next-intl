@@ -399,6 +399,52 @@ describe('updateSession', () => {
         expect(res.headers.get('location')).toBe('https://example.com/verify-email');
     });
 
+    it('reuses the token minted for an EXPIRED session instead of refreshing twice, and redirects when it is still unverified', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const refreshed = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false, iat: Math.floor(Date.now() / 1000) });
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: refreshed, refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session');
+        // Already expired, so the session refresh above runs first and leaves
+        // `refreshedToken` set — the email check must then reuse that token
+        // rather than mint a second one.
+        const expiredToken = makeJwt(Math.floor(Date.now() / 1000) - 100, { email_verified: false });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: expiredToken, __fa_refresh_token__: 'old-refresh-token' },
+        });
+        const res = await updateSession(req, NextResponse.next(), 'en');
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/verify-email');
+    });
+
+    it('does not redirect on an expired-session mint when the hint already observed verification', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const refreshed = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false, iat: Math.floor(Date.now() / 1000) });
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: refreshed, refresh_token: 'new-refresh-token' }),
+        }));
+
+        const { default: updateSession } = await import('./update_session');
+        const expiredToken = makeJwt(Math.floor(Date.now() / 1000) - 100, { email_verified: false });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: {
+                __fa_session__: expiredToken,
+                __fa_refresh_token__: 'old-refresh-token',
+                __fa_email_verified_hint__: 'true',
+            },
+        });
+        const res = await updateSession(req, NextResponse.next(), 'en');
+
+        expect(res.status).toBe(200);
+    });
+
     it('REGRESSION: a stale hint of "false" must not pin a genuinely-verified user into the / <-> verifyEmailPath loop', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         // Real-world state: user verified their email in another tab, so the
