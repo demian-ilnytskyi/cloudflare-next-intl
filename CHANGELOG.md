@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.33
+
+### Fixed
+
+- `refreshIdToken` in the `update_session` middleware now requests with `cache: 'no-store'`, preventing OpenNext/Cloudflare from caching a stale token-refresh response.
+- Auth redirect responses built by `buildRedirect` now set `Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate`, preventing OpenNext/Cloudflare from caching these redirects.
+
 ## 0.8.32
 
 ### Fixed

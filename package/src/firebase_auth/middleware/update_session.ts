@@ -179,6 +179,7 @@ export async function refreshIdToken(
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`,
+            cache: 'no-store',
         });
 
         if (!res.ok) {
@@ -534,5 +535,7 @@ function buildRedirect(baseResponse: NextResponse, url: URL): NextResponse {
     const redirectResponse = NextResponse.redirect(url);
     baseResponse.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
     baseResponse.headers.forEach((value, key) => redirectResponse.headers.set(key, value));
+    // Explicitly prevent OpenNext/Cloudflare from caching these auth redirects.
+    redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
     return redirectResponse;
 }
