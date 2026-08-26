@@ -1,4 +1,3 @@
-import config from '../../config/intl_config';
 import type { GenerateRoutingConfig, RequestOrHeaders } from '../../types/types';
 
 function extractHeader(h: Headers | Record<string, string | null | undefined>, name: string): string | undefined {
@@ -17,10 +16,10 @@ function extractHeader(h: Headers | Record<string, string | null | undefined>, n
  * Checks in order:
  * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
  * 2. Next.js request headers via `headers()` (`x-cf-country`, `cf-ipcountry`)
- * 3. `config.generate.getCloudflareContext` or `cf.country` if configured
+ * 3. `generate.getCloudflareContext` or `cf.country` if passed
  * 4. `undefined` if outside request scope or unavailable
  */
-export async function getCountry(input?: RequestOrHeaders): Promise<string | undefined> {
+export async function getCountry(input?: RequestOrHeaders, generate?: GenerateRoutingConfig): Promise<string | undefined> {
     if (input) {
         if ('headers' in input && input.headers) {
             const country = extractHeader(input.headers, 'x-cf-country') ?? extractHeader(input.headers, 'cf-ipcountry');
@@ -44,9 +43,9 @@ export async function getCountry(input?: RequestOrHeaders): Promise<string | und
         // Outside request scope / build time
     }
 
-    if (config?.generate?.getCloudflareContext) {
+    if (generate?.getCloudflareContext) {
         try {
-            const ctx = await config.generate.getCloudflareContext({ async: true });
+            const ctx = await generate.getCloudflareContext({ async: true });
             if (ctx?.cf?.country && typeof ctx.cf.country === 'string' && ctx.cf.country.length > 0) {
                 return ctx.cf.country;
             }
@@ -64,10 +63,10 @@ export async function getCountry(input?: RequestOrHeaders): Promise<string | und
  * Checks in order:
  * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
  * 2. Next.js request headers via `headers()` (`x-cf-timezone`, `cf-timezone`)
- * 3. `config.generate.getCloudflareContext` or `cf.timezone` if configured
+ * 3. `generate.getCloudflareContext` or `cf.timezone` if passed
  * 4. `fallback` (or `undefined`) if outside request scope or unavailable
  */
-export async function getTimezone(input?: RequestOrHeaders, fallback?: string): Promise<string | undefined> {
+export async function getTimezone(input?: RequestOrHeaders, fallback?: string, generate?: GenerateRoutingConfig): Promise<string | undefined> {
     if (input) {
         if ('headers' in input && input.headers) {
             const tz = extractHeader(input.headers, 'x-cf-timezone') ?? extractHeader(input.headers, 'cf-timezone');
@@ -91,9 +90,9 @@ export async function getTimezone(input?: RequestOrHeaders, fallback?: string): 
         // Outside request scope
     }
 
-    if (config?.generate?.getCloudflareContext) {
+    if (generate?.getCloudflareContext) {
         try {
-            const ctx = await config.generate.getCloudflareContext({ async: true });
+            const ctx = await generate.getCloudflareContext({ async: true });
             if (ctx?.cf?.timezone && typeof ctx.cf.timezone === 'string' && ctx.cf.timezone.length > 0) {
                 return ctx.cf.timezone;
             }
@@ -109,14 +108,14 @@ export async function getTimezone(input?: RequestOrHeaders, fallback?: string): 
  * Resolves the Cloudflare environment bindings object from `generate.env` or `generate.getCloudflareContext`.
  */
 export async function resolveEnv(generate?: GenerateRoutingConfig): Promise<Record<string, unknown> | undefined> {
-    const gen = generate ?? config?.generate;
-    if (!gen) return undefined;
-    if (gen.env) {
-        return typeof gen.env === 'function' ? await gen.env() : gen.env;
+    if (!generate) return undefined;
+    if (generate.env) {
+        const resolved = typeof generate.env === 'function' ? await generate.env() : generate.env;
+        return resolved as Record<string, unknown>;
     }
-    if (gen.getCloudflareContext) {
+    if (generate.getCloudflareContext) {
         try {
-            const ctx = await gen.getCloudflareContext({ async: true });
+            const ctx = await generate.getCloudflareContext({ async: true });
             return (ctx as { env?: Record<string, unknown> })?.env;
         } catch {
             return undefined;

@@ -1,4 +1,3 @@
-import config from '../../config/intl_config';
 function extractHeader(h, name) {
     if (typeof h.get === 'function') {
         const val = h.get(name);
@@ -14,10 +13,10 @@ function extractHeader(h, name) {
  * Checks in order:
  * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
  * 2. Next.js request headers via `headers()` (`x-cf-country`, `cf-ipcountry`)
- * 3. `config.generate.getCloudflareContext` or `cf.country` if configured
+ * 3. `generate.getCloudflareContext` or `cf.country` if passed
  * 4. `undefined` if outside request scope or unavailable
  */
-export async function getCountry(input) {
+export async function getCountry(input, generate) {
     if (input) {
         if ('headers' in input && input.headers) {
             const country = extractHeader(input.headers, 'x-cf-country') ?? extractHeader(input.headers, 'cf-ipcountry');
@@ -44,9 +43,9 @@ export async function getCountry(input) {
     catch {
         // Outside request scope / build time
     }
-    if (config?.generate?.getCloudflareContext) {
+    if (generate?.getCloudflareContext) {
         try {
-            const ctx = await config.generate.getCloudflareContext({ async: true });
+            const ctx = await generate.getCloudflareContext({ async: true });
             if (ctx?.cf?.country && typeof ctx.cf.country === 'string' && ctx.cf.country.length > 0) {
                 return ctx.cf.country;
             }
@@ -63,10 +62,10 @@ export async function getCountry(input) {
  * Checks in order:
  * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
  * 2. Next.js request headers via `headers()` (`x-cf-timezone`, `cf-timezone`)
- * 3. `config.generate.getCloudflareContext` or `cf.timezone` if configured
+ * 3. `generate.getCloudflareContext` or `cf.timezone` if passed
  * 4. `fallback` (or `undefined`) if outside request scope or unavailable
  */
-export async function getTimezone(input, fallback) {
+export async function getTimezone(input, fallback, generate) {
     if (input) {
         if ('headers' in input && input.headers) {
             const tz = extractHeader(input.headers, 'x-cf-timezone') ?? extractHeader(input.headers, 'cf-timezone');
@@ -93,9 +92,9 @@ export async function getTimezone(input, fallback) {
     catch {
         // Outside request scope
     }
-    if (config?.generate?.getCloudflareContext) {
+    if (generate?.getCloudflareContext) {
         try {
-            const ctx = await config.generate.getCloudflareContext({ async: true });
+            const ctx = await generate.getCloudflareContext({ async: true });
             if (ctx?.cf?.timezone && typeof ctx.cf.timezone === 'string' && ctx.cf.timezone.length > 0) {
                 return ctx.cf.timezone;
             }
@@ -110,15 +109,15 @@ export async function getTimezone(input, fallback) {
  * Resolves the Cloudflare environment bindings object from `generate.env` or `generate.getCloudflareContext`.
  */
 export async function resolveEnv(generate) {
-    const gen = generate ?? config?.generate;
-    if (!gen)
+    if (!generate)
         return undefined;
-    if (gen.env) {
-        return typeof gen.env === 'function' ? await gen.env() : gen.env;
+    if (generate.env) {
+        const resolved = typeof generate.env === 'function' ? await generate.env() : generate.env;
+        return resolved;
     }
-    if (gen.getCloudflareContext) {
+    if (generate.getCloudflareContext) {
         try {
-            const ctx = await gen.getCloudflareContext({ async: true });
+            const ctx = await generate.getCloudflareContext({ async: true });
             return ctx?.env;
         }
         catch {

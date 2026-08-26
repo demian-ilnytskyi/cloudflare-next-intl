@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.40] - 2026-08-27
+
+### Changed
+
+- **Decoupled geo helpers from global config singleton.** `getCountry(input?, generate?)` and `getTimezone(input?, fallback?, generate?)` now accept explicit `generate` config parameter directly.
+- **Flexible typing for `generate.env`.** Widened `GenerateRoutingConfig.env` type definition to accept `object | Record<string, unknown> | (() => ...)` for broader runtime compatibility.
+
 ## [0.8.39] - 2026-08-27
 
 ### Added

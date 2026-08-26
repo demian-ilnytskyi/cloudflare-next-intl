@@ -126,7 +126,7 @@ export interface GenerateRoutingConfig {
      * Cloudflare environment bindings (or getter returning bindings).
      * Supported in Vinext, Cloudflare Workers, and OpenNext.
      */
-    env?: Record<string, unknown> | (() => Record<string, unknown> | Promise<Record<string, unknown>>);
+    env?: object | Record<string, unknown> | (() => object | Record<string, unknown> | Promise<object | Record<string, unknown>>);
     /**
      * Request execution context (providing `waitUntil`), or a getter returning it.
      * In Vinext, `getRequestExecutionContext()` from `vinext/shims/request-context` can be passed.
