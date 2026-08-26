@@ -128,6 +128,15 @@ call, same as the page-load/network traces above it.
   `actionLinkPath`, if set, restricts this to one exact static path (a
   Console action URL pinned to a path, e.g. `/auth/action`, instead of the
   bare domain root); `actionLinkRedirectEnabled: false` turns it off.
+
+  Router prefetch requests (`next-router-prefetch: 1`, `purpose: prefetch`, or
+  `x-purpose: prefetch`) that would otherwise trigger a redirect (e.g. guest
+  accessing a protected route, signed-in user on an auth page, unverified email)
+  are answered with an empty `204 No Content` and anti-cache headers instead of a
+  `307/308` redirect. This prevents Next.js's segment cache from storing redirected
+  responses under the prefetch route URL and hammering the origin in an infinite
+  prefetch loop. Real navigation requests are not prefetches and still execute full
+  auth redirect logic.
 - `is_whitelisted.ts` — path-segment prefix matching helper for `whiteListPaths` (e.g. `/bonds` covers `/bonds/some-slug`).
 - `error_messages/` — `firebase_auth_error_helper.ts` maps Firebase error
   codes to user-facing strings; `default_messages.en.ts` is the default set,

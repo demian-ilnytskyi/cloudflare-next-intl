@@ -97,6 +97,139 @@ describe('updateSession', () => {
         expect(res.headers.get('location')).toBe('https://example.com/login');
     });
 
+    it('answers a prefetch request with an empty 204 instead of a guest redirect', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            headers: { rsc: '1', 'next-router-prefetch': '1' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(204);
+        expect(res.headers.get('location')).toBeNull();
+        expect(res.headers.get('cache-control')).toBe('private, no-cache, no-store, max-age=0, must-revalidate');
+    });
+
+    it('answers purpose: prefetch request with 204 and anti-cache headers', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            headers: { purpose: 'prefetch' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(204);
+        expect(res.headers.get('location')).toBeNull();
+        expect(res.headers.get('cache-control')).toBe('private, no-cache, no-store, max-age=0, must-revalidate');
+    });
+
+    it('answers x-purpose: prefetch request with 204 and anti-cache headers', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            headers: { 'x-purpose': 'prefetch' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(204);
+        expect(res.headers.get('location')).toBeNull();
+        expect(res.headers.get('cache-control')).toBe('private, no-cache, no-store, max-age=0, must-revalidate');
+    });
+
+    it('answers a prefetch request with an empty 204 instead of an auth-page redirect', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
+        const req = makeRequest('https://example.com/en/login', {
+            cookies: { __fa_session__: token },
+            headers: { rsc: '1', 'next-router-prefetch': '1' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(204);
+        expect(res.headers.get('location')).toBeNull();
+    });
+
+    it('answers a prefetch request with 204 instead of redirecting unverified email user', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: token },
+            headers: { 'next-router-prefetch': '1' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(204);
+        expect(res.headers.get('location')).toBeNull();
+    });
+
+    it('answers a prefetch request with 204 instead of redirecting verified user away from verify-email page', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const { default: updateSession } = await import('./update_session');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
+        const req = makeRequest('https://example.com/en/verify-email', {
+            cookies: { __fa_session__: token },
+            headers: { 'next-router-prefetch': '1' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(204);
+        expect(res.headers.get('location')).toBeNull();
+    });
+
+    it('answers a prefetch request with 204 instead of redirecting action link mode target', async () => {
+        currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
+        currentConfig.firebaseAuth!.resetPasswordPath = '/reset-password';
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/auth/action?mode=resetPassword&oobCode=123', {
+            headers: { 'next-router-prefetch': '1' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(204);
+        expect(res.headers.get('location')).toBeNull();
+    });
+
+    it('answers a prefetch request with 204 instead of redirecting action link continueUrl', async () => {
+        currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/auth/action?mode=verifyEmail&oobCode=123&continueUrl=https://example.com/en/custom', {
+            headers: { 'next-router-prefetch': '1' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(204);
+        expect(res.headers.get('location')).toBeNull();
+    });
+
+    it('returns baseResponse (not 204) for prefetch requests on permitted routes', async () => {
+        const { default: updateSession } = await import('./update_session');
+        // 1. Guest prefetching auth page
+        const guestReq = makeRequest('https://example.com/en/login', {
+            headers: { 'next-router-prefetch': '1' },
+        });
+        const baseGuest = NextResponse.next();
+        const guestRes = await updateSession(guestReq, baseGuest, 'en');
+        expect(guestRes).toBe(baseGuest);
+
+        // 2. Signed-in user prefetching protected page
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
+        const userReq = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: token },
+            headers: { 'next-router-prefetch': '1' },
+        });
+        const baseUser = NextResponse.next();
+        const userRes = await updateSession(userReq, baseUser, 'en');
+        expect(userRes).toBe(baseUser);
+    });
+
+    it('still redirects a non-prefetch RSC navigation request', async () => {
+        const { default: updateSession } = await import('./update_session');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            headers: { rsc: '1' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(307);
+    });
+
     it('applies default-locale prefix rules when redirecting for the default locale', async () => {
         const { default: updateSession } = await import('./update_session');
         const req = makeRequest('https://example.com/dashboard');

@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.38] - 2026-08-26
+
+### Fixed
+
+- **Prevent router prefetch redirect loops in `firebaseAuthMiddleware` (`update_session`).** Prefetch requests (`next-router-prefetch: 1`, `purpose: prefetch`, or `x-purpose: prefetch`) on routes that would redirect (guest on protected route, signed-in user on auth page, unverified email) now return an empty `204 No Content` with `Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate` instead of a 307/308 redirect, preventing Next.js segment cache from filing redirected responses under requested URLs and hammering the origin. Real navigation requests are unaffected and execute full redirect logic.
+
 ## [0.8.34] - 2026-08-26
 
 ### Fixed

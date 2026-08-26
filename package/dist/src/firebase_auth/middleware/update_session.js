@@ -225,6 +225,7 @@ export default async function updateSession(request, baseResponse, locale, rebui
     if (rawPath.startsWith('/_next') || /\.[a-zA-Z0-9]+$/.test(lastSegment)) {
         return baseResponse;
     }
+    const isPrefetch = isPrefetchRequest(request);
     const localePrefix = locale === config.defaultLocale ? '' : requestPrefix;
     const localeUrl = (target) => new URL(withRedirectQuery(`${localePrefix}${target === '/' ? '' : target}` || '/', request.nextUrl.search), request.url);
     // Emailed Firebase action links all arrive on the single project-wide
@@ -283,7 +284,7 @@ export default async function updateSession(request, baseResponse, locale, rebui
                                 }
                             }
                             parsed.search = request.nextUrl.search;
-                            return buildRedirect(baseResponse, parsed);
+                            return buildRedirect(baseResponse, parsed, isPrefetch);
                         }
                     }
                     catch {
@@ -308,7 +309,7 @@ export default async function updateSession(request, baseResponse, locale, rebui
                         url.searchParams.delete(key);
                     }
                 }
-                return buildRedirect(baseResponse, url);
+                return buildRedirect(baseResponse, url, isPrefetch);
             }
         }
     }
@@ -444,14 +445,14 @@ export default async function updateSession(request, baseResponse, locale, rebui
         response = baseResponse;
     }
     else if (!hasSession || clearInvalidSession) {
-        response = isAuthPage ? baseResponse : buildRedirect(baseResponse, localeUrl(fa.redirectAuthPath));
+        response = isAuthPage ? baseResponse : buildRedirect(baseResponse, localeUrl(fa.redirectAuthPath), isPrefetch);
     }
     else if (unverifiedEmail) {
         // Checked before the auth-page redirect: an unverified signed-in
         // user must land on verifyEmailPath even if they navigated to an
         // auth page like /login — homePath is not a state they're allowed
         // to reach yet either.
-        response = buildRedirect(baseResponse, localeUrl(fa.verifyEmailPath));
+        response = buildRedirect(baseResponse, localeUrl(fa.verifyEmailPath), isPrefetch);
     }
     else if (isAuthPage || (isVerifyEmailPage && decodeJwtPayload(token)?.email_verified === true)) {
         // A verified user has no reason to be on verifyEmailPath either —
@@ -468,7 +469,7 @@ export default async function updateSession(request, baseResponse, locale, rebui
         // boolean `user.emailVerified`. The two disagreeing caused an
         // infinite client<->server redirect loop on this exact page when a
         // token's claim was merely absent rather than `false`.
-        response = buildRedirect(baseResponse, localeUrl(fa.homePath));
+        response = buildRedirect(baseResponse, localeUrl(fa.homePath), isPrefetch);
     }
     else {
         response = baseResponse;
@@ -499,7 +500,27 @@ export default async function updateSession(request, baseResponse, locale, rebui
     return response;
 }
 /** A redirect response can't carry forward `baseResponse`'s rewrite/next decision, so this copies its cookies/headers across instead of dropping them. */
-function buildRedirect(baseResponse, url) {
+// A router prefetch must never be answered with a redirect. Next's segment
+// cache stores the entry under the REQUESTED url while `fetch` transparently
+// follows the 3xx, so the entry it caches describes a different route than the
+// key it is filed under; the router then keeps re-requesting it, which
+// re-redirects, an unbounded prefetch loop that hammers the origin (every
+// signed-out page carrying a `<Link>` to a guarded route reproduced it).
+// An empty 204 is treated as an un-cacheable prefetch miss instead: the router
+// backs off, and the guard still runs in full on the real navigation, which
+// is never a prefetch.
+function isPrefetchRequest(request) {
+    return request.headers.get('next-router-prefetch') === '1'
+        || request.headers.get('purpose') === 'prefetch'
+        || request.headers.get('x-purpose') === 'prefetch';
+}
+function buildRedirect(baseResponse, url, isPrefetch = false) {
+    if (isPrefetch) {
+        return new NextResponse(null, {
+            status: 204,
+            headers: { 'Cache-Control': 'private, no-cache, no-store, max-age=0, must-revalidate' },
+        });
+    }
     const redirectResponse = NextResponse.redirect(url);
     baseResponse.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
     baseResponse.headers.forEach((value, key) => redirectResponse.headers.set(key, value));

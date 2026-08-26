@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.38
+
+### Fixed
+
+- Prevent router prefetch redirect loops in `firebaseAuthMiddleware` (`update_session`). Prefetch requests (`next-router-prefetch: 1`, `purpose: prefetch`, or `x-purpose: prefetch`) on routes that would redirect (e.g. unauthenticated guest on protected route, signed-in user on auth page, unverified email) now return an empty `204 No Content` with `Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate` instead of a 307/308 redirect, preventing Next.js segment cache from filing redirected responses under requested URLs and hammering the origin. Real navigation requests are unaffected and execute full redirect logic.
+
 ## 0.8.37
 
 ### Fixed
