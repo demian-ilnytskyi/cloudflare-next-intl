@@ -3,6 +3,8 @@ import { isDarkCookieKey, localeCookieName } from "../../config/cookie_key";
 import config from "../../config/intl_config";
 import ClientHelperScript from "../../client/components/client_helper_script";
 const isDev = process.env.NODE_ENV === 'development';
+const appCheck = config.firebaseAuth?.appCheck;
+const shouldLoadExplicitRecaptchaScript = !!appCheck?.recaptchaV3SiteKey && appCheck.useExplicitRecaptchaScript !== false;
 const secureCookieAttribute = isDev ? '+ " Secure;"' : '';
 /**
  * Server component exported as `IntlHelperScript` from
@@ -12,6 +14,10 @@ const secureCookieAttribute = isDev ? '+ " Secure;"' : '';
  * - redirects to the locale-prefixed URL if the locale cookie disagrees
  *   with the current path (covers client-side navigation edge cases)
  * - (prod only) checks `BUILD_ID` and force-reloads on stale deploys
+ * - loads `recaptcha/api.js?render=explicit` when `firebaseAuth.appCheck`
+ *   has a `recaptchaV3SiteKey` and `useExplicitRecaptchaScript` isn't
+ *   `false`, so `window.grecaptcha` is ready before App Check's
+ *   `CustomProvider` needs it (see `firebase_client.ts`)
  *
  * Place it once in your root layout's `<head>`, alongside `IntlProvider`.
  * No props.
@@ -24,7 +30,8 @@ const secureCookieAttribute = isDev ? '+ " Secure;"' : '';
  * ```
  */
 export default function HelperScript() {
-    return _jsxs(_Fragment, { children: [!isDev &&
+    return _jsxs(_Fragment, { children: [shouldLoadExplicitRecaptchaScript &&
+                _jsx("script", { src: "https://www.google.com/recaptcha/api.js?render=explicit", async: true, defer: true }), !isDev &&
                 _jsx("script", { id: "build-id-script", children: `(async function() {
                 try {
                     const resp = await fetch('/BUILD_ID', { method: 'HEAD', cache: 'no-store' });

@@ -633,6 +633,25 @@ export interface FirebaseAppCheckConfig {
     /** reCAPTCHA Enterprise site key. Mutually exclusive with `recaptchaV3SiteKey`. */
     recaptchaEnterpriseSiteKey?: string;
     /**
+     * When `recaptchaV3SiteKey` is set, App Check defaults (`true`, or
+     * omitted) to a `CustomProvider` that renders an invisible reCAPTCHA
+     * widget and calls `window.grecaptcha.execute` directly, instead of
+     * Firebase's `ReCaptchaV3Provider`. `ReCaptchaV3Provider` injects its
+     * own `<script>` internally, which spawns a background worker
+     * (`api2/webworker.js`) that independently re-fetches
+     * `recaptcha__en.js` — in browsers with no persistent HTTP cache (e.g.
+     * Firefox private windows), that second fetch can hit a different CDN
+     * edge than the main-thread script tag, tripping a `sha384` integrity
+     * mismatch and an infinite retry loop that freezes the tab. The
+     * `CustomProvider` path requires the consumer to load
+     * `https://www.google.com/recaptcha/api.js?render=explicit` themselves
+     * (e.g. via `next/script`) before App Check initializes; it replicates
+     * `ReCaptchaV3Provider`'s widget-render and token-exchange flow against
+     * the same public `exchangeRecaptchaV3Token` endpoint. Set to `false`
+     * to use Firebase's own `ReCaptchaV3Provider` instead.
+     */
+    useExplicitRecaptchaScript?: boolean;
+    /**
      * Enables App Check's debug token on this client. Pass `true` to have
      * the Firebase SDK generate a new random token each run (logged to the
      * console — register it in the Firebase console every time it changes).

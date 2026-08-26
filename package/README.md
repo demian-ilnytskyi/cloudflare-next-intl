@@ -304,6 +304,7 @@ Features include:
 - `createForgotPasswordAction(locale, actionCodeSettings?)`: Accepts optional Firebase `AuthActionCodeSettings` (e.g. `url` redirect link).
 - `sendVerificationEmail(actionCodeSettings?)` on `useAuthUser()`: Custom action email settings when resending email verification.
 - `followSameOriginContinueUrl`: Automatically forwards emailed action links with `continueUrl` to the specified path (or external URL) directly from `intlMiddleware` (default `true`; set `false` on `firebaseAuth` config to disable). If `continueUrl` points to home root (`/`), it resolves to `actionLinkPath` (if set) or the mode target path (e.g. `/reset-password`).
+- `appCheck`: Firebase App Check integration supporting reCAPTCHA Enterprise (`recaptchaEnterpriseSiteKey`) and reCAPTCHA v3 (`recaptchaV3SiteKey`). For reCAPTCHA v3, defaults to a `CustomProvider` using `IntlHelperScript`'s explicit script tag to avoid iframe/webworker CDN integrity issues in private windows (`useExplicitRecaptchaScript: false` to opt out). Supports server-side token minting via service accounts.
 
 ```tsx
 import ThemeSwitcher from "cloudflare-next-intl/ThemeSwitcher";

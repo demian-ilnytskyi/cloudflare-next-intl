@@ -26,4 +26,44 @@ describe('HelperScript', () => {
         expect(root.querySelector('#intl-app-state-checker')).not.toBeNull();
         vi.unstubAllEnvs();
     });
+
+    // React 19 hoists `<script src>` out of the component tree into <head>.
+    const recaptchaScript = (): Element | null =>
+        document.head.querySelector('script[src="https://www.google.com/recaptcha/api.js?render=explicit"]');
+
+    it('omits the reCAPTCHA script when App Check is not configured', () => {
+        render(<HelperScript />);
+        expect(recaptchaScript()).toBeNull();
+    });
+
+    it('loads the explicit reCAPTCHA script when a v3 site key is configured', async () => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                defaultLocale: 'en',
+                firebaseAuth: { appCheck: { recaptchaV3SiteKey: 'site-key' } },
+            },
+        }));
+        const { default: AppCheckHelperScript } = await import('./helper_script');
+        render(<AppCheckHelperScript />);
+        expect(recaptchaScript()).not.toBeNull();
+        recaptchaScript()?.remove();
+        vi.doUnmock('../../config/intl_config');
+    });
+
+    it('omits the reCAPTCHA script when useExplicitRecaptchaScript is false', async () => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                defaultLocale: 'en',
+                firebaseAuth: {
+                    appCheck: { recaptchaV3SiteKey: 'site-key', useExplicitRecaptchaScript: false },
+                },
+            },
+        }));
+        const { default: LegacyHelperScript } = await import('./helper_script');
+        render(<LegacyHelperScript />);
+        expect(recaptchaScript()).toBeNull();
+        vi.doUnmock('../../config/intl_config');
+    });
 });

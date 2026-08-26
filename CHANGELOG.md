@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.36
+
+### Added
+
+- `useExplicitRecaptchaScript` option on `FirebaseAppCheckConfig` (defaults to `true` when `recaptchaV3SiteKey` is set). When active, App Check uses a custom reCAPTCHA provider with explicit widget rendering and token exchange against `exchangeRecaptchaV3Token` to prevent private-window/cross-CDN integrity freezes.
+- `IntlHelperScript` automatically injects the explicit reCAPTCHA script tag (`https://www.google.com/recaptcha/api.js?render=explicit`) when `recaptchaV3SiteKey` is configured and `useExplicitRecaptchaScript !== false`.
+- `getAppCheckToken()` now enforces a 10s timeout and catches errors cleanly, continuing without App Check token on failure.
+- `getFirebaseAuthClient()` wraps App Check initialization in a try/catch block to avoid crashing client initialization if App Check fails.
+
 ## 0.8.35
 
 ### Fixed
