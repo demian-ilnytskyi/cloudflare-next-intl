@@ -153,6 +153,18 @@ export default async function intlMiddleware(
         response.headers.set('x-pathname', pathWithoutLocale);
         response.headers.set('x-search', search);
 
+        const country = (request as unknown as { cf?: { country?: string } }).cf?.country ?? request.headers.get('cf-ipcountry') ?? request.headers.get('x-cf-country');
+        if (country) {
+            request.headers.set('x-cf-country', country);
+            response.headers.set('x-cf-country', country);
+        }
+
+        const timezone = (request as unknown as { cf?: { timezone?: string } }).cf?.timezone ?? request.headers.get('cf-timezone') ?? request.headers.get('x-cf-timezone');
+        if (timezone) {
+            request.headers.set('x-cf-timezone', timezone);
+            response.headers.set('x-cf-timezone', timezone);
+        }
+
         // Auto-wires the firebase_auth submodule's redirect/session-refresh
         // logic when `firebaseAuth` is configured — dynamic import so this
         // file never pulls in firebase_auth/** (and transitively firebase/*)

@@ -22,7 +22,9 @@ Most Next.js i18n libraries assume a Node.js runtime and pull in a large depende
 
 - **Single middleware** — locale-cookie detection, `Accept-Language` parsing, bot detection, and default-locale rewrite/redirect handled in one `intlMiddleware`, with an optional `middlewareHandler` extension point for your own logic.
 - **Server & client APIs** — `getTranslations`/`getLocale` for Server Components, hooks for Client Components, all sharing the same translation resolution logic.
-- **Tree-shakeable subpath exports** — import only what you use (`/client`, `/server`, `/middleware`, `/LocaleLink`, `/ThemeSwitcher`, etc.) instead of one large barrel.
+- **Tree-shakeable subpath exports** — import only what you use (`/client`, `/server`, `/geo`, `/middleware`, `/LocaleLink`, `/ThemeSwitcher`, etc.) instead of one large barrel.
+- **Built-in Geo & Timezone resolution** — `getCountry()` and `getTimezone()` helpers with automatic header propagation in `intlMiddleware`.
+- **First-class Vinext & OpenNext support** — direct binding support (`generate.env`, `generate.ctx`) for Cloudflare Workers.
 - **Theme switcher included** — an optional, isolated `ThemeSwitcher` component that doesn't affect bundle size if unused.
 - **Cloudflare-first** — no Node-only APIs, works with the Edge/Workers runtime.
 - **100% test coverage** on the package source (`package/src/**`), enforced in CI.

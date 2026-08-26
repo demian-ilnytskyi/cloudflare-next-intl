@@ -140,6 +140,38 @@ describe('reportError', () => {
         expect(onError).toHaveBeenCalled();
     });
 
+    it('backgrounds report via generate.ctx when provided as object', async () => {
+        const waitUntil = vi.fn();
+        const onError = vi.fn();
+        await reportError(
+            { errorHandling: { onError }, generate: { ctx: { waitUntil } } },
+            { error: new Error('boom'), classOrMethodName: 'foo' },
+        );
+        expect(waitUntil).toHaveBeenCalledTimes(1);
+    });
+
+    it('backgrounds report via generate.ctx when provided as function', async () => {
+        const waitUntil = vi.fn();
+        const onError = vi.fn();
+        await reportError(
+            { errorHandling: { onError }, generate: { ctx: () => ({ waitUntil }) } },
+            { error: new Error('boom'), classOrMethodName: 'foo' },
+        );
+        expect(waitUntil).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to awaiting onError when getCloudflareContext throws', async () => {
+        const onError = vi.fn();
+        const getCloudflareContext = vi.fn(() => {
+            throw new Error('context failure');
+        });
+        await reportError(
+            { errorHandling: { onError }, generate: { getCloudflareContext: getCloudflareContext as never } },
+            { error: new Error('boom'), classOrMethodName: 'foo' },
+        );
+        expect(onError).toHaveBeenCalledTimes(1);
+    });
+
     it('dedups a repeated identical error within the throttle window by default', async () => {
         const onError = vi.fn();
         const params = { error: new Error('dedup-boom'), classOrMethodName: 'dedupTest1' };

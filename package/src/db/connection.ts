@@ -1,9 +1,10 @@
 import type * as Pg from 'pg';
 import type { Client } from 'pg';
-import type { DbRoutingConfig, LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
+import type { DbRoutingConfig, GenerateRoutingConfig, LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
 import reportError from '../error_handling/report_error';
 import requireDbConfig from './require_config';
 import resolveConfigValue from './resolve_config_value';
+import { resolveEnv } from '../server/functions/geo';
 
 export type DbConfig = RoutingConfig<Locales, LocalePrefixMode>;
 
@@ -19,13 +20,20 @@ function loadPg(): Promise<typeof Pg> {
     return pgModule;
 }
 
-async function resolveConnectionString(db: DbRoutingConfig): Promise<string> {
+async function resolveConnectionString(db: DbRoutingConfig, generate?: GenerateRoutingConfig): Promise<string> {
     const configured = await resolveConfigValue(db.connectionString);
     if (configured) return configured;
+
+    const env = await resolveEnv(generate);
+    const hyperdriveConn = (env?.HYPERDRIVE as { connectionString?: string } | undefined)?.connectionString;
+    if (hyperdriveConn && hyperdriveConn !== 'postgresql://user:pass@localhost:5432/db') {
+        return hyperdriveConn;
+    }
+
     throw new Error(
         'db: could not resolve a Postgres connection string. Set `db.connectionString` ' +
         'to a connection string, or to a function returning one (e.g. reading a ' +
-        'Hyperdrive binding off `getCloudflareContext().env`).',
+        'Hyperdrive binding off `env` or `getCloudflareContext().env`).',
     );
 }
 
@@ -43,7 +51,7 @@ export async function withDbClient<T>(
     const db = config.db;
     requireDbConfig(db);
 
-    const connectionString = await resolveConnectionString(db);
+    const connectionString = await resolveConnectionString(db, config.generate);
 
     const { Client: PgClient } = await loadPg();
     const client = new PgClient({ connectionString });
@@ -69,20 +77,24 @@ export async function withDbClient<T>(
     } finally {
         const endPromise = connected ? client.end() : Promise.resolve();
 
-        const getContext = config.generate?.getCloudflareContext;
-        if (!getContext || db.disconnectAfterRequest === false) {
-             await endPromise.catch(() => undefined);
-        } else {
-            try {
-                const context = await getContext({ async: true });
-                if (typeof context?.ctx?.waitUntil === 'function') {
-                    context.ctx.waitUntil(endPromise.catch(() => undefined));
-                } else {
-                    await endPromise.catch(() => undefined);
+        let ctx: { waitUntil?: (p: Promise<unknown>) => void } | undefined;
+        if (db.disconnectAfterRequest !== false) {
+            if (config.generate?.ctx) {
+                ctx = typeof config.generate.ctx === 'function' ? config.generate.ctx() : config.generate.ctx;
+            } else if (config.generate?.getCloudflareContext) {
+                try {
+                    const context = await config.generate.getCloudflareContext({ async: true });
+                    ctx = context?.ctx;
+                } catch {
+                    // Ignore context resolution errors
                 }
-            } catch {
-                await endPromise.catch(() => undefined);
             }
+        }
+
+        if (ctx && typeof ctx.waitUntil === 'function') {
+            ctx.waitUntil(endPromise.catch(() => undefined));
+        } else {
+            await endPromise.catch(() => undefined);
         }
     }
 
@@ -119,7 +131,7 @@ export async function withSessionLock<T>(fn: () => Promise<T>): Promise<T> {
 export async function connectToPostgres(config: DbConfig): Promise<Client> {
     const db = config.db;
     requireDbConfig(db);
-    const connectionString = await resolveConnectionString(db);
+    const connectionString = await resolveConnectionString(db, config.generate);
     const { Client: PgClient } = await loadPg();
     const client = new PgClient({ connectionString });
     client.on('error', (error) => {

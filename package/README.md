@@ -188,6 +188,55 @@ import { getLocale } from "cloudflare-next-intl/server";
 const locale = await getLocale();
 ```
 
+### Geo & Timezone Resolution (Vinext & Cloudflare)
+
+`cloudflare-next-intl` provides built-in country and timezone resolution methods that work seamlessly in Server Components, Server Actions, Route Handlers, and Middleware under Vinext and OpenNext:
+
+```tsx
+import { getCountry, getTimezone } from "cloudflare-next-intl/server";
+// Or: import { getCountry, getTimezone } from "cloudflare-next-intl/geo";
+
+export default async function Page() {
+    const country = await getCountry(); // e.g. "US", "DE", "UA"
+    const timezone = await getTimezone(undefined, "UTC"); // e.g. "America/New_York", "Europe/Kyiv"
+
+    return <p>Visitor Country: {country}, Timezone: {timezone}</p>;
+}
+```
+
+In middleware or custom handlers, you can pass the `request` or `headers` directly:
+
+```typescript
+import { getCountry, getTimezone } from "cloudflare-next-intl/server";
+
+export function customHandler(request: NextRequest) {
+    const country = getCountry(request);
+    const timezone = getTimezone(request, "UTC");
+}
+```
+
+`intlMiddleware` automatically forwards `x-cf-country` and `x-cf-timezone` headers from `request.cf` so they are immediately available downstream via `next/headers`.
+
+### Vinext Runtime Configuration
+
+When deploying under [Vinext](https://github.com/cloudflare/vinext) with `cloudflare:workers`, you can pass your `env` and execution context (`ctx`) directly in `setIntlConfig`:
+
+```typescript
+// src/i18n/intl_config.ts
+import { setIntlConfig } from "cloudflare-next-intl/setIntlConfig";
+import { env } from "cloudflare:workers";
+import { getRequestExecutionContext } from "vinext/shims/request-context";
+
+export default setIntlConfig({
+    locales: ["en", "de"],
+    defaultLocale: "en",
+    generate: {
+        env,
+        ctx: () => getRequestExecutionContext() ?? undefined,
+    },
+});
+```
+
 ```tsx
 // Client Components ("use client")
 import { useLocale } from "cloudflare-next-intl/use";

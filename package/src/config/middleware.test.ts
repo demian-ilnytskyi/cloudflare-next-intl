@@ -286,4 +286,45 @@ describe('intlMiddleware with firebaseAuth configured', () => {
         const rebuilt = capturedRebuild!(req);
         expect(rebuilt).toBeInstanceOf(NextResponse);
     });
+
+    it('forwards cf.country and cf.timezone to request and response headers', async () => {
+        const req = makeRequest('https://example.com/en/about') as unknown as {
+            cf: { country: string; timezone: string };
+            headers: Headers;
+            nextUrl: URL;
+            url: string;
+            cookies: { get: (name: string) => { value: string } | undefined };
+        };
+        req.cf = { country: 'UA', timezone: 'Europe/Kyiv' };
+
+        const res = await intlMiddleware(req as never);
+        expect(res.headers.get('x-cf-country')).toBe('UA');
+        expect(res.headers.get('x-cf-timezone')).toBe('Europe/Kyiv');
+    });
+
+    it('forwards cf-ipcountry and cf-timezone headers when cf object is missing', async () => {
+        const req = makeRequest('https://example.com/en/about', {
+            headers: {
+                'cf-ipcountry': 'DE',
+                'cf-timezone': 'Europe/Berlin',
+            },
+        });
+
+        const res = await intlMiddleware(req);
+        expect(res.headers.get('x-cf-country')).toBe('DE');
+        expect(res.headers.get('x-cf-timezone')).toBe('Europe/Berlin');
+    });
+
+    it('preserves existing x-cf-country and x-cf-timezone headers', async () => {
+        const req = makeRequest('https://example.com/en/about', {
+            headers: {
+                'x-cf-country': 'FR',
+                'x-cf-timezone': 'Europe/Paris',
+            },
+        });
+
+        const res = await intlMiddleware(req);
+        expect(res.headers.get('x-cf-country')).toBe('FR');
+        expect(res.headers.get('x-cf-timezone')).toBe('Europe/Paris');
+    });
 });

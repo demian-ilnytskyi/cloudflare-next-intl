@@ -123,6 +123,16 @@ export interface RoutingConfig<AppLocales extends Locales, AppLocalePrefixMode e
 
 export interface GenerateRoutingConfig {
     /**
+     * Cloudflare environment bindings (or getter returning bindings).
+     * Supported in Vinext, Cloudflare Workers, and OpenNext.
+     */
+    env?: Record<string, unknown> | (() => Record<string, unknown> | Promise<Record<string, unknown>>);
+    /**
+     * Request execution context (providing `waitUntil`), or a getter returning it.
+     * In Vinext, `getRequestExecutionContext()` from `vinext/shims/request-context` can be passed.
+     */
+    ctx?: { waitUntil?: (promise: Promise<unknown>) => void } | (() => { waitUntil?: (promise: Promise<unknown>) => void } | undefined);
+    /**
      * Pass `getCloudflareContext` from `@opennextjs/cloudflare` directly
      * (not a dependency of this package, so bring your own import) — its
      * exact overloaded signature is accepted as-is; called internally with
@@ -139,6 +149,16 @@ export interface GenerateRoutingConfig {
      */
     getCloudflareContext?: CookieConsentGetCloudflareContext;
 }
+
+/**
+ * Flexible input accepted by `getCountry()` and `getTimezone()`:
+ * A `Request`, `NextRequest`, `Headers` instance, or an object containing `headers` and/or `cf`.
+ */
+export type RequestOrHeaders =
+    | Request
+    | Headers
+    | { headers?: Headers | Record<string, string | null | undefined>; cf?: { country?: string; timezone?: string; [key: string]: unknown } }
+    | undefined;
 
 export interface ErrorHandlingParams {
     /** The caught error, in whatever shape it was thrown/rejected with. */

@@ -1,0 +1,343 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { getCountry, getTimezone, resolveEnv } from './geo';
+import config from '../../config/intl_config';
+
+vi.mock('next/headers', () => ({
+    headers: vi.fn(),
+}));
+
+describe('geo functions', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    afterEach(() => {
+        delete config.generate;
+    });
+
+    describe('getCountry', () => {
+        it('resolves country from input with Headers object (x-cf-country)', async () => {
+            const h = new Headers();
+            h.set('x-cf-country', 'UA');
+            const result = await getCountry({ headers: h });
+            expect(result).toBe('UA');
+        });
+
+        it('resolves country from input with Headers object (cf-ipcountry)', async () => {
+            const h = new Headers();
+            h.set('cf-ipcountry', 'DE');
+            const result = await getCountry({ headers: h });
+            expect(result).toBe('DE');
+        });
+
+        it('resolves country from direct Headers input', async () => {
+            const h = new Headers();
+            h.set('cf-ipcountry', 'FR');
+            const result = await getCountry(h);
+            expect(result).toBe('FR');
+        });
+
+        it('resolves country from direct Headers input with x-cf-country', async () => {
+            const h = new Headers();
+            h.set('x-cf-country', 'IT');
+            const result = await getCountry(h);
+            expect(result).toBe('IT');
+        });
+
+        it('falls through when direct Headers has no country', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+            const h = new Headers();
+            const result = await getCountry(h);
+            expect(result).toBeUndefined();
+        });
+
+        it('resolves country from input with plain record headers', async () => {
+            const result = await getCountry({ headers: { 'x-cf-country': 'ES' } });
+            expect(result).toBe('ES');
+        });
+
+        it('resolves country from input with lowercase record headers fallback', async () => {
+            const result = await getCountry({ headers: { 'cf-ipcountry': 'PL' } });
+            expect(result).toBe('PL');
+        });
+
+        it('falls through when record headers have empty strings or missing keys', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+            const result = await getCountry({ headers: { 'x-cf-country': '' }, cf: { country: '' } });
+            expect(result).toBeUndefined();
+        });
+
+        it('resolves country from input cf object', async () => {
+            const result = await getCountry({ cf: { country: 'GB' } });
+            expect(result).toBe('GB');
+        });
+
+        it('resolves country from next/headers when input not provided', async () => {
+            const { headers } = await import('next/headers');
+            const mockHeaders = new Headers();
+            mockHeaders.set('x-cf-country', 'US');
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+
+            const result = await getCountry();
+            expect(result).toBe('US');
+        });
+
+        it('resolves country from next/headers cf-ipcountry fallback', async () => {
+            const { headers } = await import('next/headers');
+            const mockHeaders = new Headers();
+            mockHeaders.set('cf-ipcountry', 'CA');
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+
+            const result = await getCountry();
+            expect(result).toBe('CA');
+        });
+
+        it('falls back to config.generate.getCloudflareContext when next/headers throws', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            config.generate = {
+                getCloudflareContext: vi.fn().mockResolvedValue({
+                    cf: { country: 'JP' },
+                }),
+            };
+
+            const result = await getCountry();
+            expect(result).toBe('JP');
+        });
+
+        it('handles config.generate.getCloudflareContext resolving empty or null country', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            config.generate = {
+                getCloudflareContext: vi.fn().mockResolvedValue({
+                    cf: { country: '' },
+                }),
+            };
+
+            const result = await getCountry();
+            expect(result).toBeUndefined();
+        });
+
+        it('returns undefined when getCloudflareContext throws', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            config.generate = {
+                getCloudflareContext: vi.fn().mockRejectedValue(new Error('Context error')),
+            };
+
+            const result = await getCountry();
+            expect(result).toBeUndefined();
+        });
+
+        it('falls through when next/headers returns headers without any cf headers', async () => {
+            const { headers } = await import('next/headers');
+            const mockHeaders = new Headers();
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+
+            const result = await getCountry();
+            expect(result).toBeUndefined();
+        });
+
+        it('returns undefined when no country is found anywhere', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getCountry();
+            expect(result).toBeUndefined();
+        });
+    });
+
+    describe('getTimezone', () => {
+        it('resolves timezone from input with Headers object (x-cf-timezone)', async () => {
+            const h = new Headers();
+            h.set('x-cf-timezone', 'Europe/Kyiv');
+            const result = await getTimezone({ headers: h });
+            expect(result).toBe('Europe/Kyiv');
+        });
+
+        it('resolves timezone from input with Headers object (cf-timezone)', async () => {
+            const h = new Headers();
+            h.set('cf-timezone', 'Europe/Berlin');
+            const result = await getTimezone({ headers: h });
+            expect(result).toBe('Europe/Berlin');
+        });
+
+        it('resolves timezone from direct Headers input', async () => {
+            const h = new Headers();
+            h.set('cf-timezone', 'Europe/Paris');
+            const result = await getTimezone(h);
+            expect(result).toBe('Europe/Paris');
+        });
+
+        it('resolves timezone from direct Headers input with x-cf-timezone', async () => {
+            const h = new Headers();
+            h.set('x-cf-timezone', 'Europe/Rome');
+            const result = await getTimezone(h);
+            expect(result).toBe('Europe/Rome');
+        });
+
+        it('falls through when direct Headers has no timezone', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+            const h = new Headers();
+            const result = await getTimezone(h, 'UTC');
+            expect(result).toBe('UTC');
+        });
+
+        it('resolves timezone from input with plain record headers', async () => {
+            const result = await getTimezone({ headers: { 'x-cf-timezone': 'Europe/Madrid' } });
+            expect(result).toBe('Europe/Madrid');
+        });
+
+        it('resolves timezone from input with lowercase record headers fallback', async () => {
+            const result = await getTimezone({ headers: { 'cf-timezone': 'Europe/Warsaw' } });
+            expect(result).toBe('Europe/Warsaw');
+        });
+
+        it('falls through when record headers have empty strings or missing keys', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+            const result = await getTimezone({ headers: { 'x-cf-timezone': '' }, cf: { timezone: '' } }, 'UTC');
+            expect(result).toBe('UTC');
+        });
+
+        it('resolves timezone from input cf object', async () => {
+            const result = await getTimezone({ cf: { timezone: 'Europe/London' } });
+            expect(result).toBe('Europe/London');
+        });
+
+        it('resolves timezone from next/headers when input not provided', async () => {
+            const { headers } = await import('next/headers');
+            const mockHeaders = new Headers();
+            mockHeaders.set('x-cf-timezone', 'America/New_York');
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+
+            const result = await getTimezone();
+            expect(result).toBe('America/New_York');
+        });
+
+        it('resolves timezone from next/headers cf-timezone fallback', async () => {
+            const { headers } = await import('next/headers');
+            const mockHeaders = new Headers();
+            mockHeaders.set('cf-timezone', 'America/Chicago');
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+
+            const result = await getTimezone();
+            expect(result).toBe('America/Chicago');
+        });
+
+        it('falls through when next/headers returns headers without any cf headers', async () => {
+            const { headers } = await import('next/headers');
+            const mockHeaders = new Headers();
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+
+            const result = await getTimezone(undefined, 'UTC');
+            expect(result).toBe('UTC');
+        });
+
+        it('falls back to config.generate.getCloudflareContext when next/headers throws', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            config.generate = {
+                getCloudflareContext: vi.fn().mockResolvedValue({
+                    cf: { timezone: 'Asia/Tokyo' },
+                }),
+            };
+
+            const result = await getTimezone();
+            expect(result).toBe('Asia/Tokyo');
+        });
+
+        it('handles config.generate.getCloudflareContext resolving empty or null timezone', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            config.generate = {
+                getCloudflareContext: vi.fn().mockResolvedValue({
+                    cf: { timezone: '' },
+                }),
+            };
+
+            const result = await getTimezone(undefined, 'UTC');
+            expect(result).toBe('UTC');
+        });
+
+        it('returns fallback parameter when getCloudflareContext throws', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            config.generate = {
+                getCloudflareContext: vi.fn().mockRejectedValue(new Error('Context error')),
+            };
+
+            const result = await getTimezone(undefined, 'UTC');
+            expect(result).toBe('UTC');
+        });
+
+        it('returns fallback when no timezone is found anywhere', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getTimezone(undefined, 'UTC');
+            expect(result).toBe('UTC');
+        });
+    });
+
+    describe('resolveEnv', () => {
+        it('returns undefined when no generate config is present', async () => {
+            const result = await resolveEnv();
+            expect(result).toBeUndefined();
+        });
+
+        it('returns undefined when generate object has neither env nor getCloudflareContext', async () => {
+            const result = await resolveEnv({});
+            expect(result).toBeUndefined();
+        });
+
+        it('reads from global config.generate when generate param is omitted', async () => {
+            const mockEnv = { APP: {} };
+            config.generate = { env: mockEnv };
+            const result = await resolveEnv();
+            expect(result).toBe(mockEnv);
+        });
+
+        it('returns static env object from generate', async () => {
+            const mockEnv = { DB: {} };
+            const result = await resolveEnv({ env: mockEnv });
+            expect(result).toBe(mockEnv);
+        });
+
+        it('resolves functional env from generate (sync)', async () => {
+            const mockEnv = { SYNC_ENV: {} };
+            const result = await resolveEnv({ env: () => mockEnv });
+            expect(result).toBe(mockEnv);
+        });
+
+        it('resolves functional env from generate (async)', async () => {
+            const mockEnv = { KV: {} };
+            const result = await resolveEnv({ env: () => Promise.resolve(mockEnv) });
+            expect(result).toBe(mockEnv);
+        });
+
+        it('resolves env from getCloudflareContext', async () => {
+            const mockEnv = { HYPERDRIVE: {} };
+            const result = await resolveEnv({
+                getCloudflareContext: vi.fn().mockResolvedValue({ env: mockEnv }),
+            });
+            expect(result).toBe(mockEnv);
+        });
+
+        it('returns undefined when getCloudflareContext throws', async () => {
+            const result = await resolveEnv({
+                getCloudflareContext: vi.fn().mockRejectedValue(new Error('Context unavailable')),
+            });
+            expect(result).toBeUndefined();
+        });
+    });
+});

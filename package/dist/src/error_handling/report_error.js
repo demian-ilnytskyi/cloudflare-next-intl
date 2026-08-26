@@ -127,11 +127,21 @@ export default async function reportError(config, params) {
         lastDedupKey = dedupKey;
         lastReportedAt = now;
     }
-    // `getCloudflareContext` only exists server-side inside a Cloudflare
-    // Worker (with `initOpenNextCloudflareForDev` set up in dev) — calling
-    // it at all for a client-originated report throws synchronously, before
-    // any "is it available" check can run.
-    const ctx = params.isClient ? undefined : config?.generate?.getCloudflareContext?.({ async: false })?.ctx;
+    let ctx;
+    if (!params.isClient) {
+        const generate = config?.generate;
+        if (generate?.ctx) {
+            ctx = typeof generate.ctx === 'function' ? generate.ctx() : generate.ctx;
+        }
+        else if (generate?.getCloudflareContext) {
+            try {
+                ctx = generate.getCloudflareContext({ async: false })?.ctx;
+            }
+            catch {
+                // Ignore context errors
+            }
+        }
+    }
     if (ctx?.waitUntil) {
         ctx.waitUntil(callOnError(errorHandling, params));
         return;

@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.39] - 2026-08-27
+
+### Added
+
+- **First-class Vinext and Cloudflare Workers runtime support.**
+  - Added `generate.env` and `generate.ctx` to `RoutingConfig.generate` — allowing direct passing of bindings from `cloudflare:workers` and execution context from `vinext/shims/request-context` (`getRequestExecutionContext()`).
+  - Added `getCountry(input?)` and `getTimezone(input?, fallback?)` helpers exported from `cloudflare-next-intl/server`, `cloudflare-next-intl/geo`, and root `cloudflare-next-intl`. Resolves visitor country and timezone from `next/headers` (`x-cf-country`, `cf-ipcountry`), `request.cf`, or `getCloudflareContext`.
+  - Added `resolveEnv(generate?)` helper to extract Cloudflare environment bindings safely.
+  - Automatic `x-cf-country` and `x-cf-timezone` header propagation in `intlMiddleware` to ensure Server Components and Server Actions receive geo metadata under Vinext and OpenNext.
+  - `db` connection resolution and `reportError` now automatically utilize `generate.env` (for Hyperdrive) and `generate.ctx` (for backgrounded `waitUntil`).
+
 ## [0.8.38] - 2026-08-26
 
 ### Fixed

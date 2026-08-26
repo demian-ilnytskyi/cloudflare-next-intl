@@ -10,8 +10,9 @@ other subpath can be used.
 
 - `.` — everything, re-exported (prefer the flat subpaths below for smaller bundles).
 - `./client` — client-side barrel: `LocaleLink`, `usePathname`, `setCookieClient`, `getCookieClient`.
-- `./server` — server-side barrel: `getMessage`, `getTranslations`, `getLocale`, `IntlProvider`, `Link`, `IntlHelperScript`, `getLocaleStaticParams`.
-- `./middleware` — `intlMiddleware` for `middleware.ts`; locale detection/rewrite/redirect.
+- `./server` — server-side barrel: `getMessage`, `getTranslations`, `getLocale`, `getCountry`, `getTimezone`, `resolveEnv`, `IntlProvider`, `Link`, `IntlHelperScript`, `getLocaleStaticParams`.
+- `./geo` / `./getCountry` / `./getTimezone` — country & timezone resolver helpers (`getCountry(input?)`, `getTimezone(input?, fallback?)`, `resolveEnv(generate?)`) for Vinext, OpenNext, and Cloudflare Workers.
+- `./middleware` — `intlMiddleware` for `middleware.ts`; locale detection/rewrite/redirect and automatic CF header forwarding.
 - `./setIntlConfig` — identity function for typed `RoutingConfig` authoring; use in your `@intl-config` file.
 - `./serverProvider` — `IntlProvider` server component (also under `./server`).
 - `./Link` — server-side locale-aware `<Link>` (also under `./server`).

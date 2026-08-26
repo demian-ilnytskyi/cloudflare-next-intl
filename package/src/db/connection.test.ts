@@ -188,6 +188,51 @@ describe('withDbClient teardown', () => {
         expect(end).toHaveBeenCalledTimes(1);
     });
 
+    it('resolves connection string from env.HYPERDRIVE when connectionString is omitted', async () => {
+        const config = {
+            ...baseConfig,
+            db: {},
+            generate: { env: { HYPERDRIVE: { connectionString: 'postgresql://hyperdrive:5432/db' } } },
+        } as never;
+
+        await withDbClient(config, vi.fn());
+        expect(connect).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws when HYPERDRIVE connectionString is default localhost dummy', async () => {
+        const config = {
+            ...baseConfig,
+            db: {},
+            generate: { env: { HYPERDRIVE: { connectionString: 'postgresql://user:pass@localhost:5432/db' } } },
+        } as never;
+
+        await expect(withDbClient(config, vi.fn())).rejects.toThrow('could not resolve a Postgres connection string');
+    });
+
+    it('defers end() to generate.ctx.waitUntil when provided as object', async () => {
+        const waitUntil = vi.fn();
+        const config = {
+            ...baseConfig,
+            db: { connectionString: 'postgresql://x' },
+            generate: { ctx: { waitUntil } },
+        } as never;
+
+        await withDbClient(config, vi.fn());
+        expect(waitUntil).toHaveBeenCalledTimes(1);
+    });
+
+    it('defers end() to generate.ctx.waitUntil when provided as getter function', async () => {
+        const waitUntil = vi.fn();
+        const config = {
+            ...baseConfig,
+            db: { connectionString: 'postgresql://x' },
+            generate: { ctx: () => ({ waitUntil }) },
+        } as never;
+
+        await withDbClient(config, vi.fn());
+        expect(waitUntil).toHaveBeenCalledTimes(1);
+    });
+
     it('closes the client even when the callback throws', async () => {
         await expect(withDbClient(pgConfig, vi.fn().mockRejectedValue(new Error('boom')))).rejects.toThrow('boom');
         expect(end).toHaveBeenCalledTimes(1);
