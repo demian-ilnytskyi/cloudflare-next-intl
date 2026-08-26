@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.37
+
+### Fixed
+
+- Prevent infinite router refresh loop on whitelisted non-auth paths (`whiteListPaths`) for signed-out users in `AuthUserProvider`.
+
 ## 0.8.36
 
 ### Added

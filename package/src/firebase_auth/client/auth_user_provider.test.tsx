@@ -171,6 +171,28 @@ describe('AuthUserProvider', () => {
         expect(routerReplace).not.toHaveBeenCalled();
     });
 
+    it('does not refresh on a whitelisted path when signed out', async () => {
+        currentConfig.firebaseAuth!.whiteListPaths = ['/dashboard'];
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { await idTokenListener?.(null); });
+        await flush();
+        expect(routerRefresh).not.toHaveBeenCalled();
+    });
+
+    it('still refreshes on a whitelisted path when the signed-in state actually flips', async () => {
+        currentConfig.firebaseAuth!.whiteListPaths = ['/dashboard'];
+        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { await idTokenListener?.(null); });
+        await flush();
+        await act(async () => { await idTokenListener?.(makeUser()); });
+        await flush();
+        expect(routerRefresh).toHaveBeenCalled();
+    });
+
     it('redirects to redirectAuthPath once confirmed signed-out (two consecutive nulls)', async () => {
         const { default: AuthUserProvider } = await import('./auth_user_provider');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);

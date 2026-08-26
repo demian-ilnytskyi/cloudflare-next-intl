@@ -283,7 +283,20 @@ export default function AuthUserProvider({ initialUser = null, children }: {
                 }
 
                 const flipped = previous !== undefined && previous !== isSignedIn;
-                const contradictsPage = previous === undefined && isSignedIn === isAuthPage;
+                // `contradictsPage` infers "the server rendered this page for
+                // the opposite auth state, resync it" from the page's own
+                // auth/non-auth role. On a whitelisted path that inference is
+                // meaningless — the page renders identically signed-in or
+                // signed-out and neither guard ever redirects away from it —
+                // so a signed-out visitor on a non-auth whitelisted page
+                // (`isSignedIn === isAuthPage`, both false) matched on the
+                // first observation and refreshed. That refresh re-primes the
+                // router cache, re-firing every in-viewport `<Link>` prefetch,
+                // which lands back here and repeats: an unbounded refresh loop
+                // on exactly the public landing pages whitelisting exists for.
+                // A real `flipped` transition still refreshes, whitelisted or
+                // not — that one observed an actual state change.
+                const contradictsPage = !isWhiteListed && previous === undefined && isSignedIn === isAuthPage;
 
                 if (flipped || contradictsPage) {
                     router.refresh();
@@ -296,7 +309,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             unsubscribe?.();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [router, isAuthPage, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge]);
+    }, [router, isAuthPage, isWhiteListed, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge]);
 
     const reloadUser = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();
