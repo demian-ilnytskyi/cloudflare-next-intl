@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.35
+
+### Fixed
+
+- The emailed-action-link forward no longer strips `mode`/`apiKey` for `mode=signIn`. `signInWithEmailLink` re-parses the landed URL and rejects it without those params, so every sign-in link failed with `auth/invalid-action-code` immediately — surfacing as "link expired/invalid" regardless of the link's actual age. `resetPassword`/`verifyEmail` forwards are unaffected and still strip the full query by default.
+
 ## 0.8.33
 
 ### Fixed

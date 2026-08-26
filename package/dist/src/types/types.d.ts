@@ -551,7 +551,9 @@ export interface FirebaseAuthRoutingConfig {
      * `mode`/`apiKey`/`lang`/`continueUrl` params, landing the user on a clean
      * `?oobCode=` URL. Defaults to `true`. Set `false` to keep the full query
      * when the destination page reads those params itself. Cross-origin
-     * redirects always keep the full query.
+     * redirects always keep the full query, as do `mode=signIn` forwards —
+     * `signInWithEmailLink` re-parses the landed URL and rejects it without
+     * Firebase's own `mode`/`apiKey`.
      */
     stripActionLinkQuery?: boolean;
     /**

@@ -333,7 +333,10 @@ export default async function updateSession(
                 // put there itself) is still needed. Dropping Firebase's own
                 // routing params keeps the landed URL clean and makes a second
                 // forwarding pass impossible.
-                if (fa.stripActionLinkQuery !== false) {
+                // `signIn` is the exception: `signInWithEmailLink` re-parses
+                // the landed URL and needs Firebase's own `mode`/`apiKey`
+                // intact, unlike the bare-`oobCode` reset/verify flows.
+                if (fa.stripActionLinkQuery !== false && mode !== 'signIn') {
                     for (const key of ['mode', 'apiKey', 'lang', 'continueUrl']) {
                         url.searchParams.delete(key);
                     }

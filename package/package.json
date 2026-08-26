@@ -1,285 +1,285 @@
 {
-	"name": "cloudflare-next-intl",
-	"version": "0.8.34",
-	"description": "Optimized Next Intl Package Special for App Router and Cloudflare",
-	"main": "dist/index.js",
-	"types": "dist/index.d.ts",
-	"sideEffects": false,
-	"bin": {
-		"cfni-db-codegen": "bin/db_codegen.mjs",
-		"cfni-db-install-exec": "bin/db_install_exec.mjs"
-	},
-	"files": [
-		"dist",
-		"bin",
-		"supabase",
-		"LICENSE",
-		"README.md",
-		"llms.txt"
-	],
-	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js"
-		},
-		"./client": {
-			"types": "./dist/src/client/index.d.ts",
-			"import": "./dist/src/client/index.js"
-		},
-		"./server": {
-			"types": "./dist/src/server/index.d.ts",
-			"import": "./dist/src/server/index.js"
-		},
-		"./middleware": {
-			"types": "./dist/src/config/middleware.d.ts",
-			"import": "./dist/src/config/middleware.js"
-		},
-		"./setIntlConfig": {
-			"types": "./dist/src/config/init_config.d.ts",
-			"import": "./dist/src/config/init_config.js"
-		},
-		"./serverProvider": {
-			"types": "./dist/src/server/components/server_provider.d.ts",
-			"import": "./dist/src/server/components/server_provider.js"
-		},
-		"./serverProviderStatic": {
-			"types": "./dist/src/server/components/server_provider_static.d.ts",
-			"import": "./dist/src/server/components/server_provider_static.js"
-		},
-		"./Link": {
-			"types": "./dist/src/server/components/link.d.ts",
-			"import": "./dist/src/server/components/link.js"
-		},
-		"./IntlHelperScript": {
-			"types": "./dist/src/server/components/helper_script.d.ts",
-			"import": "./dist/src/server/components/helper_script.js"
-		},
-		"./LocaleLink": {
-			"types": "./dist/src/client/components/locale_link.d.ts",
-			"import": "./dist/src/client/components/locale_link.js"
-		},
-		"./usePathname": {
-			"types": "./dist/src/client/hooks/use_path_name.d.ts",
-			"import": "./dist/src/client/hooks/use_path_name.js"
-		},
-		"./metadata": {
-			"types": "./dist/src/general/metadata.d.ts",
-			"import": "./dist/src/general/metadata.js"
-		},
-		"./setCookieClient": {
-			"types": "./dist/src/client/functions/set_cookie.d.ts",
-			"import": "./dist/src/client/functions/set_cookie.js"
-		},
-		"./getCookieClient": {
-			"types": "./dist/src/client/functions/get_cookie.d.ts",
-			"import": "./dist/src/client/functions/get_cookie.js"
-		},
-		"./localeStaticParams": {
-			"types": "./dist/src/server/functions/locale_static_params.d.ts",
-			"import": "./dist/src/server/functions/locale_static_params.js"
-		},
-		"./use": {
-			"react-server": {
-				"types": "./dist/src/server/functions/use_functions.d.ts",
-				"import": "./dist/src/server/functions/use_functions.js"
-			},
-			"default": {
-				"types": "./dist/src/client/hooks/client_hooks.d.ts",
-				"import": "./dist/src/client/hooks/client_hooks.js"
-			}
-		},
-		"./ThemeSwitcher": {
-			"types": "./dist/src/theme_switcher/components/theme_switcher.d.ts",
-			"import": "./dist/src/theme_switcher/components/theme_switcher.js"
-		},
-		"./firebaseAuthClient": {
-			"types": "./dist/src/firebase_auth/client/firebase_client.d.ts",
-			"import": "./dist/src/firebase_auth/client/firebase_client.js"
-		},
-		"./firebaseAuthClientProvider": {
-			"types": "./dist/src/firebase_auth/client/auth_user_provider.d.ts",
-			"import": "./dist/src/firebase_auth/client/auth_user_provider.js"
-		},
-		"./firebaseAuthServerProvider": {
-			"types": "./dist/src/firebase_auth/server/auth_user_server_provider.d.ts",
-			"import": "./dist/src/firebase_auth/server/auth_user_server_provider.js"
-		},
-		"./useFirebaseAuthUser": {
-			"react-server": {
-				"types": "./dist/src/firebase_auth/server/use_auth_user_server.d.ts",
-				"import": "./dist/src/firebase_auth/server/use_auth_user_server.js"
-			},
-			"default": {
-				"types": "./dist/src/firebase_auth/client/use_auth_user.d.ts",
-				"import": "./dist/src/firebase_auth/client/use_auth_user.js"
-			}
-		},
-		"./getFirebaseAuthUser": {
-			"types": "./dist/src/firebase_auth/server/use_auth_user_server.d.ts",
-			"import": "./dist/src/firebase_auth/server/use_auth_user_server.js"
-		},
-		"./firebaseAuthActions": {
-			"types": "./dist/src/firebase_auth/client/auth_actions.d.ts",
-			"import": "./dist/src/firebase_auth/client/auth_actions.js"
-		},
-		"./firebaseAuthMiddleware": {
-			"types": "./dist/src/firebase_auth/middleware/update_session.d.ts",
-			"import": "./dist/src/firebase_auth/middleware/update_session.js"
-		},
-		"./cookieConsent": {
-			"types": "./dist/src/cookie_consent/index.d.ts",
-			"import": "./dist/src/cookie_consent/index.js"
-		},
-		"./CookieConsentProvider": {
-			"types": "./dist/src/cookie_consent/client/cookie_consent_provider.d.ts",
-			"import": "./dist/src/cookie_consent/client/cookie_consent_provider.js"
-		},
-		"./useCookieConsent": {
-			"types": "./dist/src/cookie_consent/client/use_cookie_consent.d.ts",
-			"import": "./dist/src/cookie_consent/client/use_cookie_consent.js"
-		},
-		"./CookieConsentDialog": {
-			"types": "./dist/src/cookie_consent/client/components/cookie_consent_dialog.d.ts",
-			"import": "./dist/src/cookie_consent/client/components/cookie_consent_dialog.js"
-		},
-		"./PrivacyPolicyUpdateDialog": {
-			"types": "./dist/src/cookie_consent/client/components/privacy_policy_update_dialog.d.ts",
-			"import": "./dist/src/cookie_consent/client/components/privacy_policy_update_dialog.js"
-		},
-		"./cookieConsentAnalytics": {
-			"types": "./dist/src/cookie_consent/client/components/cookie_consent_analytics.d.ts",
-			"import": "./dist/src/cookie_consent/client/components/cookie_consent_analytics.js"
-		},
-		"./errorHandling": {
-			"types": "./dist/src/error_handling/index.d.ts",
-			"import": "./dist/src/error_handling/index.js"
-		},
-		"./installConsoleErrorOverride": {
-			"types": "./dist/src/error_handling/install_console_error_override.d.ts",
-			"import": "./dist/src/error_handling/install_console_error_override.js"
-		},
-		"./installGlobalErrorOverride": {
-			"types": "./dist/src/error_handling/install_global_error_override.d.ts",
-			"import": "./dist/src/error_handling/install_global_error_override.js"
-		},
-		"./stringifyUnknown": {
-			"types": "./dist/src/error_handling/stringify_unknown.d.ts",
-			"import": "./dist/src/error_handling/stringify_unknown.js"
-		},
-		"./formatErrorMessage": {
-			"types": "./dist/src/error_handling/format_error_message.d.ts",
-			"import": "./dist/src/error_handling/format_error_message.js"
-		},
-		"./defaultIgnoredConsoleErrors": {
-			"types": "./dist/src/error_handling/default_ignored_console_errors.d.ts",
-			"import": "./dist/src/error_handling/default_ignored_console_errors.js"
-		},
-		"./createServerErrorAction": {
-			"types": "./dist/src/error_handling/create_server_error_action.d.ts",
-			"import": "./dist/src/error_handling/create_server_error_action.js"
-		},
-		"./db": {
-			"types": "./dist/src/db/index.d.ts",
-			"import": "./dist/src/db/index.js"
-		},
-		"./dbEslint": {
-			"types": "./dist/src/db/eslint_config.d.ts",
-			"import": "./dist/src/db/eslint_config.js"
-		},
-		"./dbHelpers": {
-			"types": "./dist/src/db/helpers.d.ts",
-			"import": "./dist/src/db/helpers.js"
-		},
-		"./dbTesting": {
-			"types": "./dist/src/db/testing.d.ts",
-			"import": "./dist/src/db/testing.js"
-		},
-		"./dbSchema": {
-			"types": "./dist/src/db/schema.d.ts",
-			"import": "./dist/src/db/schema.js"
-		}
-	},
-	"scripts": {
-		"test": "vitest run --coverage",
-		"bench": "vitest bench --run",
-		"build": "tsc"
-	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/demian-ilnytskyi/cloudflare-next-intl.git"
-	},
-	"keywords": [
-		"nextjs",
-		"i18n",
-		"internationalization",
-		"localization",
-		"multilingual",
-		"translation",
-		"language",
-		"optimized",
-		"performance",
-		"bundle-size",
-		"fast",
-		"efficient",
-		"app-router",
-		"server-components",
-		"ssr",
-		"ssg",
-		"tree-shaking",
-		"dynamic-imports",
-		"react",
-		"next-intl",
-		"messages",
-		"formatting",
-		"icu"
-	],
-	"author": "Demian Ilnutskyi",
-	"license": "MIT",
-	"bugs": {
-		"url": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/issues"
-	},
-	"homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl#readme",
-	"dependencies": {
-		"@microsoft/clarity": "^1.0.2",
-		"@supabase/supabase-js": "^2.112.3",
-		"drizzle-kit": "^0.31.10",
-		"drizzle-orm": "^0.45.2",
-		"embedded-postgres": "^18.4.0-beta.17",
-		"firebase": "^12.17.0",
-		"jose": "^6.2.8",
-		"pg": "^8.23.0"
-	},
-	"peerDependencies": {
-		"next": ">=12.0.0",
-		"react": "^16.8.0 || ^17.0.0 || ^18.0.0 || >=19.0.0-rc <19.0.0 || ^19.0.0",
-		"typescript": ">=5.0.0"
-	},
-	"peerDependenciesMeta": {
-		"typescript": {
-			"optional": true
-		}
-	},
-	"devDependencies": {
-		"@eslint/eslintrc": "^3",
-		"@eslint/js": "^9.27.0",
-		"@testing-library/dom": "^10.4.1",
-		"@testing-library/jest-dom": "^7.0.0",
-		"@testing-library/react": "^16.3.2",
-		"@types/node": "^20.14.5",
-		"@types/pg": "^8.23.1",
-		"@types/react": "^19.0.0",
-		"@types/react-dom": "^19.0.0",
-		"@vitest/coverage-v8": "^3.2.7",
-		"eslint": "^9.28.0",
-		"eslint-config-next": "15.3.3",
-		"eslint-config-prettier": "^10.1.2",
-		"jsdom": "^29.1.1",
-		"next": "^15.3.0",
-		"react": "19.2.0",
-		"react-dom": "19.2.0",
-		"tsup": "^8.5.1",
-		"typescript": "^5.5.3",
-		"typescript-eslint": "^8.33.1",
-		"vitest": "^3.0.8"
-	}
+  "name": "cloudflare-next-intl",
+  "version": "0.8.35",
+  "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "bin": {
+    "cfni-db-codegen": "bin/db_codegen.mjs",
+    "cfni-db-install-exec": "bin/db_install_exec.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "supabase",
+    "LICENSE",
+    "README.md",
+    "llms.txt"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/src/client/index.d.ts",
+      "import": "./dist/src/client/index.js"
+    },
+    "./server": {
+      "types": "./dist/src/server/index.d.ts",
+      "import": "./dist/src/server/index.js"
+    },
+    "./middleware": {
+      "types": "./dist/src/config/middleware.d.ts",
+      "import": "./dist/src/config/middleware.js"
+    },
+    "./setIntlConfig": {
+      "types": "./dist/src/config/init_config.d.ts",
+      "import": "./dist/src/config/init_config.js"
+    },
+    "./serverProvider": {
+      "types": "./dist/src/server/components/server_provider.d.ts",
+      "import": "./dist/src/server/components/server_provider.js"
+    },
+    "./serverProviderStatic": {
+      "types": "./dist/src/server/components/server_provider_static.d.ts",
+      "import": "./dist/src/server/components/server_provider_static.js"
+    },
+    "./Link": {
+      "types": "./dist/src/server/components/link.d.ts",
+      "import": "./dist/src/server/components/link.js"
+    },
+    "./IntlHelperScript": {
+      "types": "./dist/src/server/components/helper_script.d.ts",
+      "import": "./dist/src/server/components/helper_script.js"
+    },
+    "./LocaleLink": {
+      "types": "./dist/src/client/components/locale_link.d.ts",
+      "import": "./dist/src/client/components/locale_link.js"
+    },
+    "./usePathname": {
+      "types": "./dist/src/client/hooks/use_path_name.d.ts",
+      "import": "./dist/src/client/hooks/use_path_name.js"
+    },
+    "./metadata": {
+      "types": "./dist/src/general/metadata.d.ts",
+      "import": "./dist/src/general/metadata.js"
+    },
+    "./setCookieClient": {
+      "types": "./dist/src/client/functions/set_cookie.d.ts",
+      "import": "./dist/src/client/functions/set_cookie.js"
+    },
+    "./getCookieClient": {
+      "types": "./dist/src/client/functions/get_cookie.d.ts",
+      "import": "./dist/src/client/functions/get_cookie.js"
+    },
+    "./localeStaticParams": {
+      "types": "./dist/src/server/functions/locale_static_params.d.ts",
+      "import": "./dist/src/server/functions/locale_static_params.js"
+    },
+    "./use": {
+      "react-server": {
+        "types": "./dist/src/server/functions/use_functions.d.ts",
+        "import": "./dist/src/server/functions/use_functions.js"
+      },
+      "default": {
+        "types": "./dist/src/client/hooks/client_hooks.d.ts",
+        "import": "./dist/src/client/hooks/client_hooks.js"
+      }
+    },
+    "./ThemeSwitcher": {
+      "types": "./dist/src/theme_switcher/components/theme_switcher.d.ts",
+      "import": "./dist/src/theme_switcher/components/theme_switcher.js"
+    },
+    "./firebaseAuthClient": {
+      "types": "./dist/src/firebase_auth/client/firebase_client.d.ts",
+      "import": "./dist/src/firebase_auth/client/firebase_client.js"
+    },
+    "./firebaseAuthClientProvider": {
+      "types": "./dist/src/firebase_auth/client/auth_user_provider.d.ts",
+      "import": "./dist/src/firebase_auth/client/auth_user_provider.js"
+    },
+    "./firebaseAuthServerProvider": {
+      "types": "./dist/src/firebase_auth/server/auth_user_server_provider.d.ts",
+      "import": "./dist/src/firebase_auth/server/auth_user_server_provider.js"
+    },
+    "./useFirebaseAuthUser": {
+      "react-server": {
+        "types": "./dist/src/firebase_auth/server/use_auth_user_server.d.ts",
+        "import": "./dist/src/firebase_auth/server/use_auth_user_server.js"
+      },
+      "default": {
+        "types": "./dist/src/firebase_auth/client/use_auth_user.d.ts",
+        "import": "./dist/src/firebase_auth/client/use_auth_user.js"
+      }
+    },
+    "./getFirebaseAuthUser": {
+      "types": "./dist/src/firebase_auth/server/use_auth_user_server.d.ts",
+      "import": "./dist/src/firebase_auth/server/use_auth_user_server.js"
+    },
+    "./firebaseAuthActions": {
+      "types": "./dist/src/firebase_auth/client/auth_actions.d.ts",
+      "import": "./dist/src/firebase_auth/client/auth_actions.js"
+    },
+    "./firebaseAuthMiddleware": {
+      "types": "./dist/src/firebase_auth/middleware/update_session.d.ts",
+      "import": "./dist/src/firebase_auth/middleware/update_session.js"
+    },
+    "./cookieConsent": {
+      "types": "./dist/src/cookie_consent/index.d.ts",
+      "import": "./dist/src/cookie_consent/index.js"
+    },
+    "./CookieConsentProvider": {
+      "types": "./dist/src/cookie_consent/client/cookie_consent_provider.d.ts",
+      "import": "./dist/src/cookie_consent/client/cookie_consent_provider.js"
+    },
+    "./useCookieConsent": {
+      "types": "./dist/src/cookie_consent/client/use_cookie_consent.d.ts",
+      "import": "./dist/src/cookie_consent/client/use_cookie_consent.js"
+    },
+    "./CookieConsentDialog": {
+      "types": "./dist/src/cookie_consent/client/components/cookie_consent_dialog.d.ts",
+      "import": "./dist/src/cookie_consent/client/components/cookie_consent_dialog.js"
+    },
+    "./PrivacyPolicyUpdateDialog": {
+      "types": "./dist/src/cookie_consent/client/components/privacy_policy_update_dialog.d.ts",
+      "import": "./dist/src/cookie_consent/client/components/privacy_policy_update_dialog.js"
+    },
+    "./cookieConsentAnalytics": {
+      "types": "./dist/src/cookie_consent/client/components/cookie_consent_analytics.d.ts",
+      "import": "./dist/src/cookie_consent/client/components/cookie_consent_analytics.js"
+    },
+    "./errorHandling": {
+      "types": "./dist/src/error_handling/index.d.ts",
+      "import": "./dist/src/error_handling/index.js"
+    },
+    "./installConsoleErrorOverride": {
+      "types": "./dist/src/error_handling/install_console_error_override.d.ts",
+      "import": "./dist/src/error_handling/install_console_error_override.js"
+    },
+    "./installGlobalErrorOverride": {
+      "types": "./dist/src/error_handling/install_global_error_override.d.ts",
+      "import": "./dist/src/error_handling/install_global_error_override.js"
+    },
+    "./stringifyUnknown": {
+      "types": "./dist/src/error_handling/stringify_unknown.d.ts",
+      "import": "./dist/src/error_handling/stringify_unknown.js"
+    },
+    "./formatErrorMessage": {
+      "types": "./dist/src/error_handling/format_error_message.d.ts",
+      "import": "./dist/src/error_handling/format_error_message.js"
+    },
+    "./defaultIgnoredConsoleErrors": {
+      "types": "./dist/src/error_handling/default_ignored_console_errors.d.ts",
+      "import": "./dist/src/error_handling/default_ignored_console_errors.js"
+    },
+    "./createServerErrorAction": {
+      "types": "./dist/src/error_handling/create_server_error_action.d.ts",
+      "import": "./dist/src/error_handling/create_server_error_action.js"
+    },
+    "./db": {
+      "types": "./dist/src/db/index.d.ts",
+      "import": "./dist/src/db/index.js"
+    },
+    "./dbEslint": {
+      "types": "./dist/src/db/eslint_config.d.ts",
+      "import": "./dist/src/db/eslint_config.js"
+    },
+    "./dbHelpers": {
+      "types": "./dist/src/db/helpers.d.ts",
+      "import": "./dist/src/db/helpers.js"
+    },
+    "./dbTesting": {
+      "types": "./dist/src/db/testing.d.ts",
+      "import": "./dist/src/db/testing.js"
+    },
+    "./dbSchema": {
+      "types": "./dist/src/db/schema.d.ts",
+      "import": "./dist/src/db/schema.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest run --coverage",
+    "bench": "vitest bench --run",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/demian-ilnytskyi/cloudflare-next-intl.git"
+  },
+  "keywords": [
+    "nextjs",
+    "i18n",
+    "internationalization",
+    "localization",
+    "multilingual",
+    "translation",
+    "language",
+    "optimized",
+    "performance",
+    "bundle-size",
+    "fast",
+    "efficient",
+    "app-router",
+    "server-components",
+    "ssr",
+    "ssg",
+    "tree-shaking",
+    "dynamic-imports",
+    "react",
+    "next-intl",
+    "messages",
+    "formatting",
+    "icu"
+  ],
+  "author": "Demian Ilnutskyi",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/issues"
+  },
+  "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl#readme",
+  "dependencies": {
+    "@microsoft/clarity": "^1.0.2",
+    "@supabase/supabase-js": "^2.112.3",
+    "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "firebase": "^12.17.0",
+    "jose": "^6.2.8",
+    "pg": "^8.23.0"
+  },
+  "peerDependencies": {
+    "next": ">=12.0.0",
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || >=19.0.0-rc <19.0.0 || ^19.0.0",
+    "typescript": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@eslint/js": "^9.27.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^20.14.5",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitest/coverage-v8": "^3.2.7",
+    "eslint": "^9.28.0",
+    "eslint-config-next": "15.3.3",
+    "eslint-config-prettier": "^10.1.2",
+    "jsdom": "^29.1.1",
+    "next": "^15.3.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.33.1",
+    "vitest": "^3.0.8"
+  }
 }

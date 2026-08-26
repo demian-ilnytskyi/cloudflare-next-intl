@@ -999,8 +999,20 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             const req = makeRequest('https://example.com/en/?mode=signIn&oobCode=xyz');
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://example.com/complete-sign-in?oobCode=xyz',
+                'https://example.com/complete-sign-in?mode=signIn&oobCode=xyz',
             );
+        });
+
+        it('keeps mode/apiKey on a ?mode=signIn forward so signInWithEmailLink can validate the link', async () => {
+            currentConfig.firebaseAuth!.signInPath = '/complete-sign-in';
+            const { default: updateSession } = await import('./update_session');
+            const req = makeRequest('https://example.com/en/?mode=signIn&oobCode=xyz&apiKey=KEY&lang=en');
+            const res = await updateSession(req, NextResponse.next(), 'en');
+            const loc = new URL(res.headers.get('location')!);
+            expect(loc.pathname).toBe('/complete-sign-in');
+            expect(loc.searchParams.get('mode')).toBe('signIn');
+            expect(loc.searchParams.get('apiKey')).toBe('KEY');
+            expect(loc.searchParams.get('oobCode')).toBe('xyz');
         });
 
         it('does not forward ?mode=signIn when signInPath is not configured', async () => {
@@ -1021,7 +1033,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://localhost:3000/complete-sign-in?oobCode=xyz',
+                'https://localhost:3000/complete-sign-in?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3000%2Fauth%2Faction',
             );
         });
 
@@ -1056,7 +1068,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             );
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
-                'https://localhost:3000/custom-path?oobCode=xyz',
+                'https://localhost:3000/custom-path?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3000%2Fcustom-path',
             );
         });
 
