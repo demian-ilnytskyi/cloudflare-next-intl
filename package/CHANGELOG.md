@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.34] - 2026-08-26
+
+### Fixed
+
+- **`db.transaction()`'s build-only handle no longer throws on every property access.** The handle passed into a `.transaction()` callback previously threw the moment any method (`.insert`, `.select`, `.delete`, ...) was accessed at all, before a query could even be built — so every real-world callback using the documented `.toSQL()` pattern (e.g. `db.insert(t).values(...).onConflictDoNothing().toSQL()`) failed immediately with "this Drizzle handle is for building statements only," even though it was following that exact guidance. The handle is now a real `drizzle-orm/pg-proxy` builder backed by a driver that only throws when a query is actually executed (awaited without `.toSQL()`), so building and chaining queries works as documented and only genuine execute-in-callback mistakes are rejected.
+
 ## [0.8.31] - 2026-08-25
 
 ### Added

@@ -119,7 +119,7 @@ async function runPostgresTransaction(
     rawClient: { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> },
     build: (db: DrizzleDb) => Promise<Query[]> | Query[],
 ): Promise<ExecResult[]> {
-    const queries = await build(buildOnlyDb());
+    const queries = await callBuild(build);
     await rawClient.query('begin');
     try {
         const results: ExecResult[] = [];
@@ -144,16 +144,32 @@ async function runPostgresTransaction(
  * output) throws immediately here instead of hanging or silently running
  * outside the batch.
  */
-function buildOnlyDb(): DrizzleDb {
-    const throwIfExecuted = () => {
+async function buildOnlyDb(): Promise<DrizzleDb> {
+    const { drizzle } = await import('drizzle-orm/pg-proxy');
+    return drizzle(() => {
         throw new Error(
             'db: this Drizzle handle is for building statements only — call `.toSQL()` on each ' +
             'query and return the array, do not `await`/execute it directly. Awaiting a query ' +
             'inside a Supabase-mode db.transaction() callback runs it outside the batch, with no ' +
             'atomicity, which is exactly what `.transaction()` exists to prevent.',
         );
-    };
-    return new Proxy({}, { get: () => throwIfExecuted }) as unknown as DrizzleDb;
+    }) as unknown as DrizzleDb;
+}
+
+/**
+ * Runs `build` against a fresh build-only handle, unwrapping pg-proxy's
+ * `Failed query: ...` wrapper (with the real message on `.cause`) so a
+ * caller who awaits a query instead of collecting `.toSQL()` sees the
+ * build-only guidance directly, not the wrapper's generic text.
+ */
+async function callBuild(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): Promise<Query[]> {
+    try {
+        return await build(await buildOnlyDb());
+    } catch (error) {
+        const cause = (error as { cause?: unknown })?.cause;
+        if (error instanceof Error && cause instanceof Error) throw cause;
+        throw error;
+    }
 }
 
 /**
@@ -344,7 +360,7 @@ async function runTransaction(
             '`rawSql: false`, or use `db.connectionString` for a direct Postgres connection instead.',
         );
     }
-    const queries = await build(buildOnlyDb());
+    const queries = await callBuild(build);
     const batchQueries: BatchQuery[] = queries.map((query) => ({ sql: query.sql, params: query.params }));
     return runTransactionBatch(supabase, bearerToken, batchQueries);
 }

@@ -385,7 +385,9 @@ describe('db.transaction() in Supabase mode', () => {
         runTransactionBatch.mockResolvedValue([]);
         await withUserDb((db) =>
             (db as unknown as BatchDb).transaction((build) => {
-                expect(() => (build as unknown as { select: () => void }).select()).toThrow(/for building statements only/);
+                void build;
+                const [driver] = proxyDrizzle.mock.calls[proxyDrizzle.mock.calls.length - 1]!;
+                expect(() => (driver as () => unknown)()).toThrow(/for building statements only/);
                 return [];
             }),
         );
@@ -402,6 +404,28 @@ describe('db.transaction() in Supabase mode', () => {
         await expect(
             withUserDb((db) => (db as unknown as BatchDb).transaction(() => [{ sql: 'insert into t (id) values ($1)', params: [1] }])),
         ).rejects.toThrow(/constraint violated/);
+    });
+
+    it('unwraps a build error whose .cause is an Error — the caller sees the cause, not the wrapper', async () => {
+        const wrapper = new Error('Failed query: insert into "profiles" ("id") values ($1)');
+        (wrapper as { cause?: unknown }).cause = new Error('for building statements only');
+        await expect(
+            withUserDb((db) =>
+                (db as unknown as BatchDb).transaction(() => {
+                    throw wrapper;
+                }),
+            ),
+        ).rejects.toThrow(/for building statements only/);
+    });
+
+    it('rethrows a build error as-is when it has no Error .cause', async () => {
+        await expect(
+            withUserDb((db) =>
+                (db as unknown as BatchDb).transaction(() => {
+                    throw new Error('plain build failure');
+                }),
+            ),
+        ).rejects.toThrow(/plain build failure/);
     });
 });
 
@@ -468,10 +492,36 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
         tx._clientQuery.mockResolvedValue(makeQueryResult([]));
         await withUserDb((db) =>
             (db as unknown as BatchDb).transaction((buildDb) => {
-                expect(() => (buildDb as unknown as { select: () => void }).select()).toThrow(/for building statements only/);
+                void buildDb;
+                const [driver] = proxyDrizzle.mock.calls[proxyDrizzle.mock.calls.length - 1]!;
+                expect(() => (driver as () => unknown)()).toThrow(/for building statements only/);
                 return [];
             }),
         'uid-1');
+    });
+
+    it('unwraps a build error whose .cause is an Error in postgres mode too', async () => {
+        tx._clientQuery.mockResolvedValue(makeQueryResult([]));
+        const wrapper = new Error('Failed query: insert into "profiles" ("id") values ($1)');
+        (wrapper as { cause?: unknown }).cause = new Error('for building statements only');
+        await expect(
+            withUserDb((db) =>
+                (db as unknown as BatchDb).transaction(() => {
+                    throw wrapper;
+                }),
+            'uid-1'),
+        ).rejects.toThrow(/for building statements only/);
+    });
+
+    it('rethrows a build error as-is in postgres mode when it has no Error .cause', async () => {
+        tx._clientQuery.mockResolvedValue(makeQueryResult([]));
+        await expect(
+            withUserDb((db) =>
+                (db as unknown as BatchDb).transaction(() => {
+                    throw new Error('plain build failure');
+                }),
+            'uid-1'),
+        ).rejects.toThrow(/plain build failure/);
     });
 
     it('executes queries in order and forwards correct sql/params after inlining', async () => {

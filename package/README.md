@@ -609,7 +609,7 @@ Every query in the array is executed sequentially in a single transaction block/
 
 Either way, a failure on any statement rolls back every statement that ran before it in the transaction.
 
-Each result is the `{ rows, rowCount }` shape. Because the callback only builds queries, a later statement in a `.transaction()` callback cannot read an earlier one's result — build every statement from arguments/closures you already have. `await`ing a query directly inside `.transaction()` throws immediately to prevent running queries outside the transaction boundary.
+Each result is the `{ rows, rowCount }` shape. Because the callback only builds queries, a later statement in a `.transaction()` callback cannot read an earlier one's result — build every statement from arguments/closures you already have. The handle passed into the callback is a fully working Drizzle query builder — chain `.insert()`/`.select()`/`.where()`/etc. freely — but it has no real connection behind it: `await`ing a query directly (instead of calling `.toSQL()` and returning it) throws once execution is actually attempted, not on the property access or chaining itself, to prevent running queries outside the transaction boundary.
 
 #### Supabase mode and REST translation
 
