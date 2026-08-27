@@ -217,6 +217,8 @@ export function customHandler(request: NextRequest) {
 
 `intlMiddleware` automatically forwards `x-cf-country` and `x-cf-timezone` headers from `request.cf` so they are immediately available downstream via `next/headers`.
 
+Header names default to `['x-cf-country', 'cf-ipcountry']` and `['x-cf-timezone', 'cf-timezone']`. You can customize them globally in `setIntlConfig({ generate: { countryHeaderNames: [...], timezoneHeaderNames: [...] } })` or per call via `getCountry(input, generate, headerNames)` / `getTimezone(input, fallback, generate, headerNames)`.
+
 ### Vinext Runtime Configuration
 
 When deploying under [Vinext](https://github.com/cloudflare/vinext) with `cloudflare:workers`, you can pass your `env` and execution context (`ctx`) directly in `setIntlConfig`:
@@ -234,6 +236,22 @@ export default setIntlConfig({
         env,
         ctx: () => getRequestExecutionContext() ?? undefined,
     },
+});
+```
+
+#### Vite Build ID Asset Plugin (`cloudflare-next-intl/vite`)
+
+When building client assets with Vite / Vinext for Cloudflare Workers, use `buildIdAsset` to emit the static `BUILD_ID` asset:
+
+```typescript
+// vite.config.ts
+import { defineConfig } from "vite";
+import { buildIdAsset } from "cloudflare-next-intl/vite";
+
+export default defineConfig({
+    plugins: [
+        buildIdAsset(), // reads __VINEXT_SHARED_BUILD_ID or __VINEXT_BUILD_ID
+    ],
 });
 ```
 

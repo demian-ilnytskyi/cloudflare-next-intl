@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.8.42
+
+### Added
+
+- `buildIdAsset(fileName?)` plugin exported from `cloudflare-next-intl/vite` to emit client `BUILD_ID` assets in Vite / Vinext builds. Added optional `vite` peer dependency (`>=6`).
+
+## 0.8.41
+
+### Added
+
+- Configurable request header names for Geo & Timezone resolution via `generate.countryHeaderNames` and `generate.timezoneHeaderNames` (or per-call `headerNames` argument to `getCountry()` and `getTimezone()`).
+- Configurable country headers via `cookieConsent.countryHeaderNames` and automatic request-header fallback in `resolveRequiresConsent`.
+
+## 0.8.40
+
+### Changed
+
+- Decoupled `getCountry` and `getTimezone` helpers from global config singleton, allowing explicit `generate` parameter.
+- Flexible typing for `GenerateRoutingConfig.env`.
+
+## 0.8.39
+
+### Added
+
+- First-class Vinext and Cloudflare Workers runtime support with `generate.env` and `generate.ctx`.
+- `getCountry(input?)` and `getTimezone(input?, fallback?)` helpers exported from `cloudflare-next-intl/server`, `cloudflare-next-intl/geo`, and root `cloudflare-next-intl`.
+- Automatic `x-cf-country` and `x-cf-timezone` header propagation in `intlMiddleware`.
+
 ## 0.8.38
 
 ### Fixed

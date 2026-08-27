@@ -81,6 +81,9 @@ See [`example/`](example) for a full working Next.js app using the package.
 | `cloudflare-next-intl/localeStaticParams` | `generateStaticParams` helper |
 | `cloudflare-next-intl/use` | Universal translation hook (server/client aware) |
 | `cloudflare-next-intl/ThemeSwitcher` | Optional theme switcher component |
+| `cloudflare-next-intl/geo` | Country & timezone resolution helpers (`getCountry`, `getTimezone`) |
+| `cloudflare-next-intl/vite` | Vite build plugin (`buildIdAsset`) for Vinext client bundles |
+| `cloudflare-next-intl/db*` | Optional Postgres / Supabase Drizzle data layer (`db`, `dbHelpers`, `dbSchema`, `dbEslint`, `dbTesting`) |
 | `cloudflare-next-intl/firebaseAuth*` | Optional Firebase Authentication integration (client/server providers, hooks, actions, middleware) |
 | `cloudflare-next-intl/cookieConsent` | Optional cookie-consent + privacy-policy-update banner, with analytics gating |
 

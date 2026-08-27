@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.42] - 2026-08-27
+
+### Added
+
+- **`buildIdAsset` plugin for Vite/Vinext builds.** Added `buildIdAsset(fileName?)` exported from `cloudflare-next-intl/vite`. Emits the client `BUILD_ID` asset (using `__VINEXT_SHARED_BUILD_ID` or `__VINEXT_BUILD_ID`) during Vite build for Vinext and Cloudflare Workers runtime compatibility. Added optional `vite` peer dependency (`>=6`).
+
 ## [0.8.41] - 2026-08-27
 
 ### Added

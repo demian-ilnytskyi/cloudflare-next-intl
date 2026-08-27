@@ -27,6 +27,7 @@ other subpath can be used.
 - `./db` — `withPublicDb(fn)` / `withUserDb(fn, uid?)` server-side Postgres/Drizzle context helpers (require `db` set on your `RoutingConfig`; direct Postgres or Supabase Data API with automatic PostgREST REST translation and `cfni_exec` fallback, see below).
 - `./dbEslint` — flat-config ESLint fragment banning direct `@supabase/supabase-js`, `pg`, `postgres`, and deep `dist/` imports in application code.
 - `./dbHelpers` — generic Drizzle SQL helper functions (`excluded`, `onConflictSet`, `ago`, `currentDate`, `windowCount`, `unnestLateral`, `ascNullsLast`, `alwaysTrue`, `lateral`, `aliasColumn`, `minOf`, `maxOf`, `roundReal`, `multiply`, `scalarFromCte`) for use with `./db`.
+- `./vite` — `buildIdAsset(fileName?)`: Vite plugin to emit the client `BUILD_ID` asset (from `__VINEXT_SHARED_BUILD_ID` or `__VINEXT_BUILD_ID`) during build in Vinext/Vite environments.
 
 ## `firebaseAuth*` subpaths (require `firebaseAuth` set on your `RoutingConfig`)
 
