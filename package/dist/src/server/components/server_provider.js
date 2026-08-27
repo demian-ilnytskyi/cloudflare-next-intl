@@ -144,7 +144,7 @@ export default async function LocationzationProvider({ language, messages, stati
         // `getCloudflareContext` path in dev; fail-safe to `true`
         // (banner shown) same as an unresolved country would.
         requiresConsent = !isDevEnvironment
-            ? await resolveRequiresConsent(config.cookieConsent.getCountryCode, config.generate?.getCloudflareContext, config.cookieConsent.gdprCountries, config.errorHandling)
+            ? await resolveRequiresConsent(config.cookieConsent.getCountryCode, config.generate?.getCloudflareContext, config.cookieConsent.gdprCountries, config.errorHandling, config.cookieConsent.countryHeaderNames)
             : false;
         const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
         if (config.cookieConsent.autoWireAnalytics !== false && analyticsAllowedInEnv) {

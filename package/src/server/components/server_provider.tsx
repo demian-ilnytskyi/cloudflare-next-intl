@@ -164,6 +164,7 @@ export default async function LocationzationProvider({ language, messages, stati
                 config.generate?.getCloudflareContext,
                 config.cookieConsent.gdprCountries,
                 config.errorHandling,
+                config.cookieConsent.countryHeaderNames,
             )
             : false;
 

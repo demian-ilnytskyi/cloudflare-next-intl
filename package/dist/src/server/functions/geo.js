@@ -1,3 +1,7 @@
+/** Default request headers read to resolve the visitor's country, in order. */
+export const defaultCountryHeaderNames = ['x-cf-country', 'cf-ipcountry'];
+/** Default request headers read to resolve the visitor's timezone, in order. */
+export const defaultTimezoneHeaderNames = ['x-cf-timezone', 'cf-timezone'];
 function extractHeader(h, name) {
     if (typeof h.get === 'function') {
         const val = h.get(name);
@@ -7,24 +11,49 @@ function extractHeader(h, name) {
     const val = rec[name] ?? rec[name.toLowerCase()];
     return (typeof val === 'string' && val.length > 0) ? val : undefined;
 }
+// Read lazily (and tolerantly): `@intl-config` may not be set at all in
+// standalone/unit usage of these helpers, and importing the config eagerly
+// would risk a cycle with a config module that itself imports from here.
+async function configuredHeaderNames(key) {
+    try {
+        const config = (await import('../../config/intl_config')).default;
+        return config?.generate?.[key];
+    }
+    catch {
+        return undefined;
+    }
+}
+function extractFromHeaderNames(h, headerNames) {
+    for (const name of headerNames) {
+        const val = extractHeader(h, name);
+        if (val)
+            return val;
+    }
+    return undefined;
+}
 /**
  * Resolves the client's ISO 3166-1 alpha-2 country code (e.g. "US", "DE", "UA").
  *
  * Checks in order:
  * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
- * 2. Next.js request headers via `headers()` (`x-cf-country`, `cf-ipcountry`)
+ * 2. Next.js request headers via `headers()` (`headerNames`, default
+ *    `x-cf-country`, `cf-ipcountry`)
  * 3. `generate.getCloudflareContext` or `cf.country` if passed
  * 4. `undefined` if outside request scope or unavailable
  */
-export async function getCountry(input, generate) {
+export async function getCountry(input, generate, headerNames) {
+    const names = headerNames
+        ?? generate?.countryHeaderNames
+        ?? await configuredHeaderNames('countryHeaderNames')
+        ?? defaultCountryHeaderNames;
     if (input) {
         if ('headers' in input && input.headers) {
-            const country = extractHeader(input.headers, 'x-cf-country') ?? extractHeader(input.headers, 'cf-ipcountry');
+            const country = extractFromHeaderNames(input.headers, names);
             if (country)
                 return country;
         }
         else if (typeof input.get === 'function') {
-            const country = input.get('x-cf-country') ?? input.get('cf-ipcountry') ?? undefined;
+            const country = extractFromHeaderNames(input, names);
             if (country)
                 return country;
         }
@@ -36,7 +65,7 @@ export async function getCountry(input, generate) {
     try {
         const { headers } = await import('next/headers');
         const h = await headers();
-        const country = h.get('x-cf-country') ?? h.get('cf-ipcountry') ?? undefined;
+        const country = extractFromHeaderNames(h, names);
         if (country)
             return country;
     }
@@ -61,19 +90,24 @@ export async function getCountry(input, generate) {
  *
  * Checks in order:
  * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
- * 2. Next.js request headers via `headers()` (`x-cf-timezone`, `cf-timezone`)
+ * 2. Next.js request headers via `headers()` (`headerNames`, default
+ *    `x-cf-timezone`, `cf-timezone`)
  * 3. `generate.getCloudflareContext` or `cf.timezone` if passed
  * 4. `fallback` (or `undefined`) if outside request scope or unavailable
  */
-export async function getTimezone(input, fallback, generate) {
+export async function getTimezone(input, fallback, generate, headerNames) {
+    const names = headerNames
+        ?? generate?.timezoneHeaderNames
+        ?? await configuredHeaderNames('timezoneHeaderNames')
+        ?? defaultTimezoneHeaderNames;
     if (input) {
         if ('headers' in input && input.headers) {
-            const tz = extractHeader(input.headers, 'x-cf-timezone') ?? extractHeader(input.headers, 'cf-timezone');
+            const tz = extractFromHeaderNames(input.headers, names);
             if (tz)
                 return tz;
         }
         else if (typeof input.get === 'function') {
-            const tz = input.get('x-cf-timezone') ?? input.get('cf-timezone') ?? undefined;
+            const tz = extractFromHeaderNames(input, names);
             if (tz)
                 return tz;
         }
@@ -85,7 +119,7 @@ export async function getTimezone(input, fallback, generate) {
     try {
         const { headers } = await import('next/headers');
         const h = await headers();
-        const tz = h.get('x-cf-timezone') ?? h.get('cf-timezone') ?? undefined;
+        const tz = extractFromHeaderNames(h, names);
         if (tz)
             return tz;
     }

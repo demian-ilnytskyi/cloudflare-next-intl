@@ -144,6 +144,19 @@ export interface GenerateRoutingConfig {
      * Set one of the two getters to scope the banner to GDPR regions only.
      */
     getCloudflareContext?: CookieConsentGetCloudflareContext;
+    /**
+     * Request headers read (in order) by `getCountry()` to resolve the
+     * visitor's country. Defaults to `['x-cf-country', 'cf-ipcountry']` —
+     * override when your edge/proxy forwards it under a different name.
+     * `cookieConsent.countryHeaderNames` takes precedence for the
+     * cookie-consent banner's own resolution.
+     */
+    countryHeaderNames?: readonly string[];
+    /**
+     * Request headers read (in order) by `getTimezone()` to resolve the
+     * visitor's IANA timezone. Defaults to `['x-cf-timezone', 'cf-timezone']`.
+     */
+    timezoneHeaderNames?: readonly string[];
 }
 /**
  * Flexible input accepted by `getCountry()` and `getTimezone()`:
@@ -360,13 +373,18 @@ export interface CookieConsentRoutingConfig {
      */
     getCountryCode?: () => string | undefined | Promise<string | undefined>;
     /**
+     * Request headers read (in order) to resolve the visitor's country when
+     * neither `getCountryCode` nor `generate.getCloudflareContext` produced
+     * one. Defaults to `['x-cf-country', 'cf-ipcountry']` — override when
+     * your edge/proxy forwards the country under a different name.
+     */
+    countryHeaderNames?: readonly string[];
+    /**
      * Country codes (ISO 3166-1 alpha-2) for which the cookie-consent banner
-     * is required. Only consulted when `getCountryCode` or
-     * `generate.getCloudflareContext` is set. Defaults to the EU/EEA + UK +
-     * Switzerland (GDPR/UK-GDPR/nFADP scope). A visitor whose resolved
-     * country isn't in this set is treated as NOT requiring consent; a
-     * country that couldn't be resolved still requires it (fail-safe:
-     * unknown defaults to "ask").
+     * is required. Defaults to the EU/EEA + UK + Switzerland
+     * (GDPR/UK-GDPR/nFADP scope). A visitor whose resolved country isn't in
+     * this set is treated as NOT requiring consent; a country that couldn't
+     * be resolved still requires it (fail-safe: unknown defaults to "ask").
      */
     gdprCountries?: readonly string[];
     /**

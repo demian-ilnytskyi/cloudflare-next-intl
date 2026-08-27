@@ -389,9 +389,10 @@ export default setIntlConfig({
         privacyPolicyDate: "2026-01-01",
         // privacyPolicyPath: "/privacy-policy", // default; used by the
         // dialogs' auto-rendered link. Set false to disable that link.
-        // Optional: gate the banner to GDPR-region visitors only. Omit both
-        // getCountryCode and generate.getCloudflareContext to disable
-        // country-based gating (consent always implicit).
+        // country-based gating is enabled by default (reads Cloudflare geo
+        // headers; override via countryHeaderNames). Visitors outside GDPR
+        // regions skip the banner and get consent immediately.
+        // countryHeaderNames: ["x-cf-country", "cf-ipcountry"],
         // gdprCountries: [...], // defaults to EU/EEA + UK + Switzerland
         // enableAnalyticsInDevMode: true, // analytics stay off in dev otherwise
         // autoWireDialogs: false, // opt out and render the dialogs yourself

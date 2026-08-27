@@ -329,3 +329,55 @@ describe('geo functions', () => {
         });
     });
 });
+
+describe('geo header name overrides', () => {
+    it('getCountry reads a custom header name passed explicitly', async () => {
+        expect(await getCountry(new Headers({ 'x-country': 'UA' }), undefined, ['x-country'])).toBe('UA');
+    });
+
+    it('getCountry reads generate.countryHeaderNames when no explicit names are passed', async () => {
+        expect(await getCountry(new Headers({ 'x-country': 'UA' }), { countryHeaderNames: ['x-country'] })).toBe('UA');
+    });
+
+    it('getTimezone reads a custom header name passed explicitly', async () => {
+        expect(await getTimezone(new Headers({ 'x-tz': 'Europe/Kyiv' }), undefined, undefined, ['x-tz'])).toBe('Europe/Kyiv');
+    });
+
+    it('getTimezone reads generate.timezoneHeaderNames when no explicit names are passed', async () => {
+        expect(await getTimezone(new Headers({ 'x-tz': 'Europe/Kyiv' }), undefined, { timezoneHeaderNames: ['x-tz'] })).toBe('Europe/Kyiv');
+    });
+
+    it('falls back to the defaults when no override is configured', async () => {
+        expect(await getCountry(new Headers({ 'cf-ipcountry': 'DE' }))).toBe('DE');
+        expect(await getTimezone(new Headers({ 'cf-timezone': 'Europe/Berlin' }))).toBe('Europe/Berlin');
+    });
+
+    it('reads configuredHeaderNames from intl_config when configured', async () => {
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                generate: {
+                    countryHeaderNames: ['x-custom-country'],
+                    timezoneHeaderNames: ['x-custom-tz'],
+                },
+            },
+        }));
+        vi.resetModules();
+        const { getCountry: getC, getTimezone: getT } = await import('./geo');
+        expect(await getC(new Headers({ 'x-custom-country': 'IT' }))).toBe('IT');
+        expect(await getT(new Headers({ 'x-custom-tz': 'Europe/Rome' }))).toBe('Europe/Rome');
+        vi.doUnmock('../../config/intl_config');
+        vi.resetModules();
+    });
+
+    it('handles intl_config throwing on import gracefully', async () => {
+        vi.doMock('../../config/intl_config', () => {
+            throw new Error('module load failed');
+        });
+        vi.resetModules();
+        const { getCountry: getC, getTimezone: getT } = await import('./geo');
+        expect(await getC(new Headers({ 'cf-ipcountry': 'PL' }))).toBe('PL');
+        expect(await getT(new Headers({ 'cf-timezone': 'Europe/Warsaw' }))).toBe('Europe/Warsaw');
+        vi.doUnmock('../../config/intl_config');
+        vi.resetModules();
+    });
+});

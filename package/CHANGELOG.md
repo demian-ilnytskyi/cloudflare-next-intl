@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.41] - 2026-08-27
+
+### Added
+
+- **Configurable request header names for Geo & Timezone resolution.** Added `generate.countryHeaderNames` and `generate.timezoneHeaderNames` (or per-call `headerNames` argument to `getCountry()` and `getTimezone()`) to allow custom edge/proxy headers instead of defaults (`x-cf-country`, `cf-ipcountry` / `x-cf-timezone`, `cf-timezone`).
+- **Configurable country headers and automatic request-header fallback in `cookieConsent`.** Added `cookieConsent.countryHeaderNames` to customize country headers read during consent gating. `resolveRequiresConsent` now automatically falls back to request headers (`getCountry`) even when neither `getCountryCode` nor `getCloudflareContext` is provided.
+
 ## [0.8.40] - 2026-08-27
 
 ### Changed

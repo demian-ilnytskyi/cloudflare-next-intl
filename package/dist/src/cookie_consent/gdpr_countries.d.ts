@@ -5,4 +5,4 @@ import type { CookieConsentGetCloudflareContext, ErrorHandlingRoutingConfig } fr
  * (nFADP). ISO 3166-1 alpha-2.
  */
 export declare const defaultGdprCountries: readonly string[];
-export default function resolveRequiresConsent(getCountryCode: (() => string | undefined | Promise<string | undefined>) | undefined, getCloudflareContext: CookieConsentGetCloudflareContext | undefined, gdprCountries: readonly string[] | undefined, errorHandlingConfig?: ErrorHandlingRoutingConfig): Promise<boolean>;
+export default function resolveRequiresConsent(getCountryCode: (() => string | undefined | Promise<string | undefined>) | undefined, getCloudflareContext: CookieConsentGetCloudflareContext | undefined, gdprCountries: readonly string[] | undefined, errorHandlingConfig?: ErrorHandlingRoutingConfig, countryHeaderNames?: readonly string[]): Promise<boolean>;

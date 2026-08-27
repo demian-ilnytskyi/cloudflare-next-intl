@@ -44,22 +44,25 @@ gates Cloudflare Web Analytics / Google Ads / Google Analytics / AdSense /
 Microsoft Clarity behind consent. Any field left out of the resolved analytics config
 just skips that provider's script.
 
-Country-based gating is opt-in and off by default: with neither
-`cookieConsent.getCountryCode` nor `generate.getCloudflareContext` set, the
-banner is never shown and consent is treated as implicitly granted for
-everyone — the simplest setup when you don't need real GDPR-region gating.
-Set one of the two getters to turn it on: `getCountryCode` resolves the
-country directly (simplest, if you already have it from a header/KV/your
-own logic); `generate.getCloudflareContext` (on `RoutingConfig`, shared with
-the `error_handling` submodule) accepts `@opennextjs/cloudflare`'s
+Country-based gating is on by default and needs no configuration: the
+country is resolved from the request's Cloudflare geo headers
+(`x-cf-country`, `cf-ipcountry` — override the list via
+`cookieConsent.countryHeaderNames`, or `generate.countryHeaderNames` for
+`getCountry()` generally). Countries outside `gdprCountries`
+(defaults to EU/EEA + UK + Switzerland) skip the banner and get consent
+seeded to `true` immediately; a country that can't be resolved still
+requires consent (fail-safe).
+
+Two optional getters override that resolution: `getCountryCode` resolves the
+country directly (if you already have it from a header/KV/your own logic);
+`generate.getCloudflareContext` (on `RoutingConfig`, shared with the
+`error_handling` submodule) accepts `@opennextjs/cloudflare`'s
 `getCloudflareContext` function directly — not a dependency of this
 package, so pass your own import — matching its exact overloaded signature
 (`CookieConsentGetCloudflareContext`); called internally with
 `{ async: true }`, and only `cf.country` is read from the resolved context.
-Ignored when `getCountryCode` is also set. Once gating is on, countries outside
-`gdprCountries` (defaults to EU/EEA + UK + Switzerland) skip the banner and
-get consent seeded to `true` immediately; a country that can't be resolved
-still requires consent (fail-safe).
+Ignored when `getCountryCode` is also set. If either getter resolves nothing,
+the header-based resolution above still applies.
 
 Analytics never load in local development (`NODE_ENV === 'development'`)
 unless `cookieConsent.enableAnalyticsInDevMode` is `true` — this is checked

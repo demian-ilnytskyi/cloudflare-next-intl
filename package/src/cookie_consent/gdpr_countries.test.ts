@@ -3,8 +3,41 @@ import resolveRequiresConsent, { defaultGdprCountries } from './gdpr_countries';
 import type { CookieConsentGetCloudflareContext } from '../types/types';
 
 describe('resolveRequiresConsent', () => {
-    it('requires consent when neither getter is provided (fail-safe default)', async () => {
+    it('requires consent when neither getter is provided and no request headers are available (fail-safe default)', async () => {
         expect(await resolveRequiresConsent(undefined, undefined, undefined)).toBe(true);
+    });
+
+    it('falls back to the built-in geo resolution when neither getter is provided', async () => {
+        vi.doMock('next/headers', () => ({
+            headers: async () => new Headers({ 'cf-ipcountry': 'UA' }),
+        }));
+        vi.resetModules();
+        const resolve = (await import('./gdpr_countries')).default;
+        expect(await resolve(undefined, undefined, undefined)).toBe(false);
+        vi.doUnmock('next/headers');
+        vi.resetModules();
+    });
+
+    it('reads a custom country header name in the built-in geo fallback', async () => {
+        vi.doMock('next/headers', () => ({
+            headers: async () => new Headers({ 'x-country': 'UA' }),
+        }));
+        vi.resetModules();
+        const resolve = (await import('./gdpr_countries')).default;
+        expect(await resolve(undefined, undefined, undefined, undefined, ['x-country'])).toBe(false);
+        vi.doUnmock('next/headers');
+        vi.resetModules();
+    });
+
+    it('requires consent when the built-in geo fallback resolves a GDPR country', async () => {
+        vi.doMock('next/headers', () => ({
+            headers: async () => new Headers({ 'cf-ipcountry': 'DE' }),
+        }));
+        vi.resetModules();
+        const resolve = (await import('./gdpr_countries')).default;
+        expect(await resolve(undefined, undefined, undefined)).toBe(true);
+        vi.doUnmock('next/headers');
+        vi.resetModules();
     });
 
     it('requires consent when getCountryCode resolves no country', async () => {
@@ -51,9 +84,10 @@ describe('resolveRequiresConsent', () => {
         expect(await resolveRequiresConsent(() => 'US', () => ({ cf: { country: 'DE' } }), undefined)).toBe(false);
     });
 
-    it('honors a custom gdprCountries list with getCountryCode', async () => {
-        expect(await resolveRequiresConsent(() => 'US', undefined, ['US'])).toBe(true);
-        expect(await resolveRequiresConsent(() => 'DE', undefined, ['US'])).toBe(false);
+    it('honors a custom gdprCountries list with getCountryCode and reuses cache', async () => {
+        const customList = ['US'] as const;
+        expect(await resolveRequiresConsent(() => 'US', undefined, customList)).toBe(true);
+        expect(await resolveRequiresConsent(() => 'DE', undefined, customList)).toBe(false);
     });
 
     it('requires consent and reports when getCloudflareContext throws', async () => {

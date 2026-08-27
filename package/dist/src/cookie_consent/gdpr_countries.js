@@ -1,4 +1,5 @@
 import reportError from '../error_handling/report_error';
+import { getCountry } from '../server/functions/geo';
 /**
  * Default `cookieConsent.gdprCountries` — EU/EEA member states (GDPR),
  * Iceland/Liechtenstein/Norway (EEA), the UK (UK-GDPR), and Switzerland
@@ -31,19 +32,28 @@ function getGdprCountriesSet(gdprCountries) {
     }
     return set;
 }
-export default async function resolveRequiresConsent(getCountryCode, getCloudflareContext, gdprCountries, errorHandlingConfig) {
-    if (!getCountryCode && !getCloudflareContext)
-        return true;
+export default async function resolveRequiresConsent(getCountryCode, getCloudflareContext, gdprCountries, errorHandlingConfig, countryHeaderNames) {
     let countryCode;
     if (getCountryCode) {
         countryCode = await getCountryCode();
     }
-    else {
+    else if (getCloudflareContext) {
         try {
             countryCode = (await getCloudflareContext({ async: true }))?.cf?.country;
         }
         catch (error) {
             await reportError({ errorHandling: errorHandlingConfig, generate: { getCloudflareContext } }, { error, classOrMethodName: 'resolveRequiresConsent' });
+            return true;
+        }
+    }
+    // Neither getter supplied (or one resolved nothing): fall back to the
+    // package's own geo resolution, which reads the Cloudflare country
+    // headers off the current request.
+    if (typeof countryCode !== 'string' || !countryCode) {
+        try {
+            countryCode = await getCountry(undefined, undefined, countryHeaderNames);
+        }
+        catch {
             return true;
         }
     }
