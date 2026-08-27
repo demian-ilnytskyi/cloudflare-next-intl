@@ -30,4 +30,11 @@ describe('usePathname (locale-stripped)', () => {
         const { result } = renderHook(() => usePathname(), { wrapper });
         expect(result.current).toBe('/');
     });
+
+    it('returns "/" safely when nextUsePathname returns null or undefined', async () => {
+        const { usePathname: nextUsePathname } = await import('next/navigation');
+        vi.mocked(nextUsePathname).mockReturnValue(null as unknown as string);
+        const { result } = renderHook(() => usePathname(), { wrapper });
+        expect(result.current).toBe('/');
+    });
 });

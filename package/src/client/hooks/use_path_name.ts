@@ -15,6 +15,10 @@ import { useLocale } from "./client_hooks";
 export default function usePathname(): string {
     const pathname = nextUsePathname();
     const locale = useLocale();
+    if (!pathname) {
+        return '/';
+    }
+
     const path = pathname.replace(`/${locale}`, '');
     if (path) {
         return path;

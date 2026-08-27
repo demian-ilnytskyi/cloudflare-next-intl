@@ -116,7 +116,7 @@ export default function CookieConsentProvider({ requiresConsent = true, children
     // `pathname` still carries the locale prefix (e.g. `/de/privacy-policy`),
     // so match on a trailing segment rather than strict equality.
     useEffect(() => {
-        if (privacyPolicyUpdated && privacyPolicyPath !== false && pathname.endsWith(privacyPolicyPath)) {
+        if (privacyPolicyUpdated && privacyPolicyPath !== false && pathname?.endsWith(privacyPolicyPath)) {
             acknowledgePrivacyPolicyUpdate();
         }
     }, [pathname, privacyPolicyUpdated, privacyPolicyPath, acknowledgePrivacyPolicyUpdate]);

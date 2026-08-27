@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.44] - 2026-08-27
+
+### Fixed
+
+- **Fallback route & SSR null safety in `usePathname` and `CookieConsentProvider`.**
+  - `usePathname()` now safely guards against `null` or `undefined` returns from Next.js router context (e.g. during fallback route rendering or outside router contexts), defaulting cleanly to `'/'` instead of throwing `TypeError: Cannot read properties of null (reading 'replace')`.
+  - Added optional chaining in `CookieConsentProvider` for `pathname?.endsWith(...)` checks to prevent hydration crashes during fallback and dynamic route transitions.
+
 ## [0.8.43] - 2026-08-27
 
 ### Added
