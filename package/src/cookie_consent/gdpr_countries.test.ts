@@ -101,6 +101,19 @@ describe('resolveRequiresConsent', () => {
         expect(onError).toHaveBeenCalledWith({ error: boom, classOrMethodName: 'resolveRequiresConsent', params: undefined, isClient: undefined, consent: undefined, formattedMessage: expect.stringContaining('[resolveRequiresConsent] Error:') });
     });
 
+    it('requires consent and returns true when geo resolution throws', async () => {
+        vi.doMock('../server/functions/geo', () => ({
+            getCountry: async () => {
+                throw new Error('geo error');
+            },
+        }));
+        vi.resetModules();
+        const resolve = (await import('./gdpr_countries')).default;
+        expect(await resolve(undefined, undefined, undefined)).toBe(true);
+        vi.doUnmock('../server/functions/geo');
+        vi.resetModules();
+    });
+
     it('exposes the default GDPR country list', () => {
         expect(defaultGdprCountries).toContain('DE');
         expect(defaultGdprCountries).toContain('GB');
