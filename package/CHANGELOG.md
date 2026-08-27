@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.45] - 2026-08-27
+
+### Added
+
+- **Expanded default patterns for stale deploy recovery and ignored console errors.**
+  - Added `'the above error occurred in a react component'` and `'the connection to the page was unexpectedly closed'` to `defaultStaleDeployPatterns` (`isStaleDeployError`) to catch component render crashes and aborted stream connections from stale deployment transitions.
+  - Added `'The above error occurred in a React component'` and `'The connection to the page was unexpectedly closed'` to `defaultIgnoredConsoleErrors` (`installConsoleErrorOverride` / `reportError`).
+
 ## [0.8.44] - 2026-08-27
 
 ### Fixed

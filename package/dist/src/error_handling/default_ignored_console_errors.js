@@ -34,6 +34,8 @@ export const defaultIgnoredConsoleErrors = [
     "FirebaseServerApp authIdToken is invalid: the token has expired.",
     "failed Error: Database is closing/hidden",
     'Failed to fetch RSC payload',
+    'The above error occurred in a React component',
+    'The connection to the page was unexpectedly closed',
     ...(process.env.NODE_ENV === 'development'
         ? ['A DurableObjectNamespace in the config referenced the class "DOQueueHandler", but no such Durable Object class is exported from the worker. Please make sure the class name matches,']
         : []),

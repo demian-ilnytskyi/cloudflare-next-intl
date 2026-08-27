@@ -18,6 +18,8 @@ describe('isStaleDeployError', () => {
             'connection closed',
             'rsc payload',
             'minified react error #412',
+            'the above error occurred in a react component',
+            'the connection to the page was unexpectedly closed',
         ]);
         expect(getStaleDeployPatterns()).toEqual(defaultStaleDeployPatterns);
     });
@@ -52,6 +54,20 @@ describe('isStaleDeployError', () => {
         expect(isStaleDeployError(new Error('Connection closed by server'))).toBe(true);
         expect(isStaleDeployError(new Error('Failed to parse RSC payload'))).toBe(true);
         expect(isStaleDeployError(new Error('Minified React error #412; visit ...'))).toBe(true);
+        expect(
+            isStaleDeployError(
+                new Error(
+                    'The above error occurred in a React component:\n\nDa@https://staging.contractor.clarivant.management/_next/static/chunks/vinext-B-tL6zBm.js:32:8204',
+                ),
+            ),
+        ).toBe(true);
+        expect(
+            isStaleDeployError(
+                new Error(
+                    'Error: The connection to the page was unexpectedly closed, possibly due to the stop button being clicked, loss of Wi-Fi, or an unstable internet connection.',
+                ),
+            ),
+        ).toBe(true);
     });
 
     it('allows providing custom patterns list and iterating multiple patterns', () => {

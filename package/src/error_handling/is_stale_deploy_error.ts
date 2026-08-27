@@ -5,6 +5,8 @@ export const defaultStaleDeployPatterns: readonly string[] = [
     'connection closed',
     'rsc payload',
     'minified react error #412',
+    'the above error occurred in a react component',
+    'the connection to the page was unexpectedly closed',
 ];
 
 let activePatterns: readonly string[] = defaultStaleDeployPatterns;
