@@ -269,6 +269,13 @@ export interface ErrorHandlingRoutingConfig {
      */
     ignoreConsoleErrors?: readonly string[];
     /**
+     * Error message patterns matched by `isStaleDeployError(error)` to detect
+     * stale deploy / chunk load errors (e.g. `'chunk'`, `'failed to fetch'`,
+     * `'loading css chunk'`, `'connection closed'`, `'rsc payload'`,
+     * `'minified react error #412'`). Defaults to `defaultStaleDeployPatterns`.
+     */
+    staleDeployPatterns?: readonly string[];
+    /**
      * Called with the stringified message of each `console.error(...)` call
      * (only consulted when `overrideConsoleError` is `true`), in addition to
      * `ignoreConsoleErrors` — return `true` to skip reporting it (it's still

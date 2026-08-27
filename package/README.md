@@ -468,6 +468,8 @@ export default setIntlConfig({
             // formattedMessage is a ready-to-print "[classOrMethodName] Error: ..." string
             myErrorTracker.capture(formattedMessage);
         },
+        // staleDeployPatterns: [...], // customize substrings matched by isStaleDeployError;
+        //                              // defaults to defaultStaleDeployPatterns (chunk, failed to fetch, etc)
         // overrideConsoleError: true, // route every console.error(...) call through onError too
         // ignoreConsoleErrors: [...], // defaults to defaultIgnoredConsoleErrors (this package's
         //                             // own Firebase Auth codes for expected user-input failures);
@@ -498,6 +500,37 @@ try {
 server-side resolution) on `ErrorHandlingParams` — reporting is skipped
 whenever `consent` is set and not `true`, since sending error reports to a
 third party without consent can itself be GDPR-relevant.
+
+#### Stale Deploy & Chunk Load Error Recovery
+
+When a new version of your application is deployed to Cloudflare Workers, users on older client sessions may encounter `ChunkLoadError` or failed dynamic imports when requesting outdated chunks. Use `isStaleDeployError` and `clearClientCache` in error boundaries or global error handlers to automatically recover:
+
+```typescript
+import { isStaleDeployError, clearClientCache } from "cloudflare-next-intl/errorHandling";
+
+export default function GlobalError({
+    error,
+    reset,
+}: {
+    error: Error & { digest?: string };
+    reset: () => void;
+}) {
+    useEffect(() => {
+        if (isStaleDeployError(error)) {
+            clearClientCache().then(() => {
+                window.location.reload();
+            });
+        }
+    }, [error]);
+
+    // ... render fallback UI
+}
+```
+
+- `isStaleDeployError(error: Error, patterns?: readonly string[]): boolean`: Returns `true` if the error indicates a missing chunk, failed fetch, CSS chunk failure, closed connection, corrupted RSC payload, or hydration error #412 from a stale deployment. Defaults to `defaultStaleDeployPatterns` (or patterns configured in `intl-config.ts` via `errorHandling.staleDeployPatterns`).
+- `setStaleDeployPatterns(patterns: readonly string[]): void`: Setter to update the active pattern list and pre-compute lowercased substrings for maximum runtime performance.
+- `getStaleDeployPatterns(): readonly string[]`: Returns the currently active pattern list.
+- `clearClientCache(): Promise<void>`: Best-effort cleanup that deletes all CacheStorage caches (`window.caches`), unregisters active Service Workers, and clears `sessionStorage`.
 
 ### Database (`db`)
 

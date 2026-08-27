@@ -1,3 +1,4 @@
+import { setStaleDeployPatterns } from '../error_handling/is_stale_deploy_error';
 // Every path this package compares against `request.nextUrl.pathname`
 // (always `/`-prefixed) must itself start with `/` — a missing leading
 // slash means `path === fa.verifyEmailPath` (and the same check for
@@ -58,5 +59,8 @@ function normalizeFirebaseAuthPaths(config) {
  * ```
  */
 export function setIntlConfig(config) {
+    if (config.errorHandling?.staleDeployPatterns) {
+        setStaleDeployPatterns(config.errorHandling.staleDeployPatterns);
+    }
     return normalizeFirebaseAuthPaths(config);
 }

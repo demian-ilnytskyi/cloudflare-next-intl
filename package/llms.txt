@@ -28,6 +28,10 @@ other subpath can be used.
 - `./dbEslint` — flat-config ESLint fragment banning direct `@supabase/supabase-js`, `pg`, `postgres`, and deep `dist/` imports in application code.
 - `./dbHelpers` — generic Drizzle SQL helper functions (`excluded`, `onConflictSet`, `ago`, `currentDate`, `windowCount`, `unnestLateral`, `ascNullsLast`, `alwaysTrue`, `lateral`, `aliasColumn`, `minOf`, `maxOf`, `roundReal`, `multiply`, `scalarFromCte`) for use with `./db`.
 - `./vite` — `buildIdAsset(fileName?)`: Vite plugin to emit the client `BUILD_ID` asset (from `__VINEXT_SHARED_BUILD_ID` or `__VINEXT_BUILD_ID`) during build in Vinext/Vite environments.
+- `./errorHandling` — error reporting & stale deploy recovery barrel: `reportError`, `withErrorHandling`, `installConsoleErrorOverride`, `installGlobalErrorOverride`, `stringifyUnknown`, `formatErrorMessage`, `defaultIgnoredConsoleErrors`, `createServerErrorAction`, `isStaleDeployError`, `defaultStaleDeployPatterns`, `setStaleDeployPatterns`, `getStaleDeployPatterns`, `clearClientCache`.
+- `./isStaleDeployError` — `isStaleDeployError(error, patterns?)`, `setStaleDeployPatterns(patterns)`, `getStaleDeployPatterns()`: detector returning `true` for version skew / chunk load / hydration errors (ChunkLoadError, failed to fetch, loading CSS chunk, connection closed, RSC payload failure, minified error #412) with fast pre-lowercased pattern cache and intl-config integration (`errorHandling.staleDeployPatterns`).
+- `./clearClientCache` — `clearClientCache()`: async helper wiping `window.caches`, unregistering service workers, and clearing `sessionStorage` for recovering from stale deployments.
+- `./createServerErrorAction` — `createServerErrorAction(action, config)`: wrapper for server actions with standardized error reporting.
 
 ## `firebaseAuth*` subpaths (require `firebaseAuth` set on your `RoutingConfig`)
 

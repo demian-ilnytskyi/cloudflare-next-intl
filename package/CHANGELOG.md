@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.43] - 2026-08-27
+
+### Added
+
+- **Stale deploy detection & client cache cleanup utilities.**
+  - Added `isStaleDeployError(error: Error, patterns?: readonly string[]): boolean` to detect chunk load failures, CSS chunk errors, connection drops, RSC payload corruption, and React #412 errors from stale deployments.
+  - Added `setStaleDeployPatterns(patterns: readonly string[])` and `getStaleDeployPatterns()` with pre-computed lowercased substring caching for fast checks.
+  - Added `errorHandling.staleDeployPatterns` configuration support in `setIntlConfig`.
+  - Added `defaultStaleDeployPatterns` exported from `cloudflare-next-intl/errorHandling` and `cloudflare-next-intl/isStaleDeployError`.
+  - Added `clearClientCache(): Promise<void>` to clean up `window.caches`, unregister service workers, and clear `sessionStorage` for recovering from stale deployments. Exported from `cloudflare-next-intl/errorHandling` and `cloudflare-next-intl/clearClientCache`.
+
 ## [0.8.42] - 2026-08-27
 
 ### Added

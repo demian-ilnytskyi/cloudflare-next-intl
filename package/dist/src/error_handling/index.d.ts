@@ -7,4 +7,6 @@ export { default as installGlobalErrorOverride } from './install_global_error_ov
 export { default as stringifyUnknown } from './stringify_unknown';
 export { default as formatErrorMessage } from './format_error_message';
 export { defaultIgnoredConsoleErrors } from './default_ignored_console_errors';
+export { default as isStaleDeployError, defaultStaleDeployPatterns, setStaleDeployPatterns, getStaleDeployPatterns, } from './is_stale_deploy_error';
+export { default as clearClientCache } from './clear_client_cache';
 export type { ErrorHandlingParams, ErrorHandlingRoutingConfig } from '../types/types';

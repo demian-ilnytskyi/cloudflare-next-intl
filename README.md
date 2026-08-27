@@ -27,6 +27,8 @@ Most Next.js i18n libraries assume a Node.js runtime and pull in a large depende
 - **First-class Vinext & OpenNext support** — direct binding support (`generate.env`, `generate.ctx`) for Cloudflare Workers.
 - **Theme switcher included** — an optional, isolated `ThemeSwitcher` component that doesn't affect bundle size if unused.
 - **Cloudflare-first** — no Node-only APIs, works with the Edge/Workers runtime.
+- **Error handling & Stale Deploy recovery** — opt-in error reporting (`reportError`, `withErrorHandling`), `isStaleDeployError()` for detecting stale chunk/RSC load errors after new deployments, and `clearClientCache()` for resetting client caches and service workers.
+- **Database**: optional Postgres/Drizzle data-access layer, reachable either directly (e.g. via Cloudflare Hyperdrive) or through the Supabase Data API.
 - **100% test coverage** on the package source (`package/src/**`), enforced in CI.
 
 ---
@@ -83,6 +85,9 @@ See [`example/`](example) for a full working Next.js app using the package.
 | `cloudflare-next-intl/ThemeSwitcher` | Optional theme switcher component |
 | `cloudflare-next-intl/geo` | Country & timezone resolution helpers (`getCountry`, `getTimezone`) |
 | `cloudflare-next-intl/vite` | Vite build plugin (`buildIdAsset`) for Vinext client bundles |
+| `cloudflare-next-intl/errorHandling` | Error reporting and stale deploy helpers (`reportError`, `withErrorHandling`, `isStaleDeployError`, `clearClientCache`) |
+| `cloudflare-next-intl/isStaleDeployError` | Stale deploy / chunk load error detector (`isStaleDeployError`) |
+| `cloudflare-next-intl/clearClientCache` | Client cache and service worker cleanup utility (`clearClientCache`) |
 | `cloudflare-next-intl/db*` | Optional Postgres / Supabase Drizzle data layer (`db`, `dbHelpers`, `dbSchema`, `dbEslint`, `dbTesting`) |
 | `cloudflare-next-intl/firebaseAuth*` | Optional Firebase Authentication integration (client/server providers, hooks, actions, middleware) |
 | `cloudflare-next-intl/cookieConsent` | Optional cookie-consent + privacy-policy-update banner, with analytics gating |

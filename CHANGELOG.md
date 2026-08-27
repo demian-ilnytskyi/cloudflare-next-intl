@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.43
+
+### Added
+
+- `isStaleDeployError(error, patterns?)`, `setStaleDeployPatterns(patterns)`, `getStaleDeployPatterns()`, `defaultStaleDeployPatterns`, and `clearClientCache()` exported from `cloudflare-next-intl/errorHandling`, `cloudflare-next-intl/isStaleDeployError`, and `cloudflare-next-intl/clearClientCache` for stale deploy / chunk load error detection and client cache recovery.
+- Added `errorHandling.staleDeployPatterns` configuration option in `setIntlConfig`.
+
 ## 0.8.42
 
 ### Added
