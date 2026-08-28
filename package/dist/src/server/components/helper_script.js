@@ -45,7 +45,22 @@ export default function HelperScript() {
                         if (prevBuild !== BUILD_ID) {
                             localStorage.setItem('buildId', BUILD_ID);
                             if(prevBuild){
-                                window.location.reload(true);
+                                // Reloading while the document/RSC stream is
+                                // still downloading is the same as pressing
+                                // Stop: Firefox aborts the in-flight read and
+                                // surfaces "The connection to the page was
+                                // unexpectedly closed", which reaches React as
+                                // a caught error and renders the app's error
+                                // screen. Wait for the load to settle first.
+                                if (document.readyState === 'complete') {
+                                    window.location.reload();
+                                } else {
+                                    window.addEventListener(
+                                        'load',
+                                        function () { window.location.reload(); },
+                                        { once: true },
+                                    );
+                                }
                             }
                         }
                     }

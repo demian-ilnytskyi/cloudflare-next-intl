@@ -3,6 +3,20 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.47] - 2026-08-28
+
+### Fixed
+
+- **`IntlHelperScript` no longer reloads mid-load on a stale build.** The
+  `BUILD_ID` check ran from an async IIFE that resolved while the document /
+  RSC payload was still streaming, so its `window.location.reload(true)` acted
+  like pressing Stop. Firefox aborts the in-flight stream read and reports
+  "The connection to the page was unexpectedly closed…", which reaches React as
+  a caught error and renders the app's error screen instead of quietly
+  reloading — visible only after a redeploy, on the next visit. The reload now
+  waits for `document.readyState === 'complete'` (via a one-shot `load`
+  listener) and drops the non-standard `reload(true)` argument.
+
 ## [0.8.46] - 2026-08-28
 
 ### Added

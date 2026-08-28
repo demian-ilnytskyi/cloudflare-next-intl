@@ -27,6 +27,16 @@ describe('HelperScript', () => {
         vi.unstubAllEnvs();
     });
 
+    it('defers the stale-build reload until the document has finished loading', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#build-id-script')?.textContent ?? '';
+        expect(source).toContain("document.readyState === 'complete'");
+        expect(source).toContain("window.addEventListener(");
+        expect(source).not.toContain('reload(true)');
+        vi.unstubAllEnvs();
+    });
+
     // React 19 hoists `<script src>` out of the component tree into <head>.
     const recaptchaScript = (): Element | null =>
         document.head.querySelector('script[src="https://www.google.com/recaptcha/api.js?render=explicit"]');
