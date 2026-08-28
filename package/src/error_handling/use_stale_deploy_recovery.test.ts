@@ -50,12 +50,18 @@ describe('isRecentBuild', () => {
         expect(isRecentBuild(1_000, 1_000 + 59_000)).toBe(true);
     });
 
-    it('is not recent at or after the window', () => {
+    it('is not recent at or after the default 60_000ms window', () => {
         expect(isRecentBuild(1_000, 1_000 + 60_000)).toBe(false);
+        expect(isRecentBuild(1_000, 1_000 + 60_001)).toBe(false);
     });
 
-    it('is not recent when never set', () => {
+    it('is not recent when never set (setAt is null)', () => {
         expect(isRecentBuild(null, Date.now())).toBe(false);
+    });
+
+    it('supports custom windowMs parameter', () => {
+        expect(isRecentBuild(1_000, 1_000 + 2_000, 5_000)).toBe(true);
+        expect(isRecentBuild(1_000, 1_000 + 6_000, 5_000)).toBe(false);
     });
 });
 
@@ -66,6 +72,10 @@ describe('shouldRecoverFromStaleDeploy with recentBuild', () => {
 
     it('does not recover for a non-stale error even if the build is recent', () => {
         expect(shouldRecoverFromStaleDeploy(genericError, 'build-a', 'build-a', true)).toBe(false);
+    });
+
+    it('defaults recentBuild parameter to false when omitted', () => {
+        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a')).toBe(false);
     });
 });
 
@@ -133,8 +143,9 @@ describe('useStaleDeployRecovery', () => {
         expect(reloadMock).not.toHaveBeenCalled();
     });
 
-    it('returns false when current build has already spent its reload marker in sessionStorage', async () => {
+    it('returns false when current build has already spent its reload marker in sessionStorage and build is not recent', async () => {
         window.localStorage.setItem('buildId', 'v1.0.0');
+        window.localStorage.setItem('buildIdSetAt', String(Date.now() - 120_000)); // 2 minutes ago (past 60s window)
         window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
 
         const onRecover = vi.fn().mockResolvedValue(undefined);
@@ -149,6 +160,35 @@ describe('useStaleDeployRecovery', () => {
         expect(onRecover).not.toHaveBeenCalled();
         expect(clearClientCacheSpy).not.toHaveBeenCalled();
         expect(reloadMock).not.toHaveBeenCalled();
+    });
+
+    it('returns true and recovers when current build already has marker in sessionStorage BUT build was set recently (<60s)', async () => {
+        window.localStorage.setItem('buildId', 'v1.0.0');
+        window.localStorage.setItem('buildIdSetAt', String(Date.now() - 5_000)); // 5 seconds ago (within 60s window)
+        window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
+
+        const onRecover = vi.fn().mockResolvedValue(undefined);
+        const { result } = renderHook(() => useStaleDeployRecovery(staleError, onRecover, 1000));
+
+        expect(result.current).toBe(true);
+
+        await act(async () => {
+            vi.advanceTimersByTime(1000);
+        });
+
+        expect(onRecover).toHaveBeenCalledTimes(1);
+        expect(clearClientCacheSpy).toHaveBeenCalledTimes(1);
+        expect(reloadMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns false when buildIdSetAt is an empty string in localStorage and marker matches', async () => {
+        window.localStorage.setItem('buildId', 'v1.0.0');
+        window.localStorage.setItem('buildIdSetAt', '');
+        window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
+
+        const { result } = renderHook(() => useStaleDeployRecovery(staleError, undefined, 1000));
+
+        expect(result.current).toBe(false);
     });
 
     it('returns true and triggers recovery with default 5000ms delay', async () => {
