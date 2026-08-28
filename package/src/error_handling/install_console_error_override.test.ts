@@ -31,6 +31,18 @@ describe('installConsoleErrorOverride', () => {
         expect(onError).toHaveBeenCalledWith({ error: 'oops', classOrMethodName: 'Global Console Error Handler', params: [{ extra: 1 }], formattedMessage: expect.stringContaining('[Global Console Error Handler] Error:') });
     });
 
+    it('logs a descriptive message instead of a bare undefined, but reports the raw value', async () => {
+        vi.resetModules();
+        const { default: install, EMPTY_CONSOLE_ERROR_MESSAGE } = await import('./install_console_error_override');
+        const onError = vi.fn();
+        const original = vi.fn();
+        console.error = original;
+        install({ errorHandling: { overrideConsoleError: true, onError } });
+        console.error();
+        expect(original).toHaveBeenCalledWith(expect.stringContaining(EMPTY_CONSOLE_ERROR_MESSAGE));
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ error: undefined, params: [] }));
+    });
+
     it('only installs once', async () => {
         vi.resetModules();
         const { default: install } = await import('./install_console_error_override');

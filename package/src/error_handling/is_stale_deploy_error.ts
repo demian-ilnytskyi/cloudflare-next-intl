@@ -1,5 +1,6 @@
 export const defaultStaleDeployPatterns: readonly string[] = [
     'chunk',
+    'dynamically imported module',
     'failed to fetch',
     'loading css chunk',
     'connection closed',

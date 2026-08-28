@@ -527,7 +527,7 @@ export default function GlobalError({
 }
 ```
 
-- `isStaleDeployError(error: Error, patterns?: readonly string[]): boolean`: Returns `true` if the error indicates a missing chunk, failed fetch, CSS chunk failure, closed connection, corrupted RSC payload, or hydration error #412 from a stale deployment. Defaults to `defaultStaleDeployPatterns` (or patterns configured in `intl-config.ts` via `errorHandling.staleDeployPatterns`).
+- `isStaleDeployError(error: unknown, patterns?: readonly string[]): boolean`: Returns `true` if the error indicates a missing chunk, failed fetch, dynamically imported module failure, CSS chunk failure, closed connection, corrupted RSC payload, hydration error #412 from a stale deployment, or an aborted stream missing an error value (`undefined`). Defaults to `defaultStaleDeployPatterns` (or patterns configured in `intl-config.ts` via `errorHandling.staleDeployPatterns`).
 - `setStaleDeployPatterns(patterns: readonly string[]): void`: Setter to update the active pattern list and pre-compute lowercased substrings for maximum runtime performance.
 - `getStaleDeployPatterns(): readonly string[]`: Returns the currently active pattern list.
 - `clearClientCache(): Promise<void>`: Best-effort cleanup that deletes all CacheStorage caches (`window.caches`), unregisters active Service Workers, and clears `sessionStorage`.
@@ -557,8 +557,8 @@ export default function GlobalError({
 }
 ```
 
-- `useStaleDeployRecovery(error: Error, onRecover?: () => Promise<unknown>, delayMs = 5000): boolean`: Detects a stale-deploy error via `isStaleDeployError` and, **once per build id**, waits `delayMs`, runs `onRecover` (if provided) and `clearClientCache` in parallel, then reloads the page. The build id is read from `localStorage['buildId']` (set by `IntlHelperScript`'s `BUILD_ID` check) and a `sessionStorage` marker records which build id already spent its reload, so a repeat failure on the same build falls through to `false` (render your normal error UI) instead of reloading forever. A redeploy changes the build id and re-arms exactly one more attempt. **Exception:** if the build id was written within the last 60 seconds (`localStorage['buildIdSetAt']`, also set by `IntlHelperScript`), the hook recovers anyway — a stale-deploy error moments after adopting a new build is the deploy still settling, not a real failure, so the one-reload cap is bypassed for that window.
-- `shouldRecoverFromStaleDeploy(error: Error, buildId: string, marker: string | null, recentBuild = false): boolean`: The pure predicate behind the hook, exported for testing.
+- `useStaleDeployRecovery(error: unknown, onRecover?: () => Promise<unknown>, delayMs = 5000): boolean`: Detects a stale-deploy error via `isStaleDeployError` and, **once per build id**, waits `delayMs`, runs `onRecover` (if provided) and `clearClientCache` in parallel, then reloads the page. The build id is read from `localStorage['buildId']` (set by `IntlHelperScript`'s `BUILD_ID` check) and a `sessionStorage` marker records which build id already spent its reload, so a repeat failure on the same build falls through to `false` (render your normal error UI) instead of reloading forever. A redeploy changes the build id and re-arms exactly one more attempt. **Exception:** if the build id was written within the last 60 seconds (`localStorage['buildIdSetAt']`, also set by `IntlHelperScript`), the hook recovers anyway — a stale-deploy error moments after adopting a new build is the deploy still settling, not a real failure, so the one-reload cap is bypassed for that window.
+- `shouldRecoverFromStaleDeploy(error: unknown, buildId: string, marker: string | null, recentBuild = false): boolean`: The pure predicate behind the hook, exported for testing.
 - `isRecentBuild(setAt: number | null, now: number, windowMs = 60000): boolean`: Whether `setAt` (typically `buildIdSetAt`) falls within `windowMs` of `now`.
 
 ### Database (`db`)

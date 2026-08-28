@@ -13,6 +13,7 @@ describe('isStaleDeployError', () => {
     it('exports defaultStaleDeployPatterns with expected defaults', () => {
         expect(defaultStaleDeployPatterns).toEqual([
             'chunk',
+            'dynamically imported module',
             'failed to fetch',
             'loading css chunk',
             'connection closed',
@@ -107,5 +108,10 @@ describe('isStaleDeployError', () => {
     it('returns false for unrelated errors', () => {
         expect(isStaleDeployError(new Error('Database query failed'))).toBe(false);
         expect(isStaleDeployError(new Error('User not found'))).toBe(false);
+    });
+
+    it('treats a failed dynamic import as a stale deploy', () => {
+        expect(isStaleDeployError(new TypeError('error loading dynamically imported module: https://x/_next/static/cookie_consent_provider-NTMOCb_X.js'))).toBe(true);
+        expect(isStaleDeployError(new TypeError('Failed to fetch dynamically imported module: https://x/a.js'))).toBe(true);
     });
 });

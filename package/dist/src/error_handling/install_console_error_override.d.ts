@@ -45,4 +45,14 @@ import { type ReportErrorConfig } from './report_error';
  *   `getCloudflareContext`/`ctx.waitUntil` available in the browser, so
  *   client-side reports always await `onError` directly.
  */
+/**
+ * Logged in place of a bare `undefined` when something calls
+ * `console.error()` with no arguments (or a single `undefined`) — an
+ * aborted RSC stream on a stale deploy does exactly this, leaving an
+ * unactionable `undefined` line in devtools. The raw value is still passed
+ * to `reportError` unchanged: `isStaleDeployError` treats exactly
+ * `undefined` as a stale deploy, so substituting a string here would break
+ * the recovery reload.
+ */
+export declare const EMPTY_CONSOLE_ERROR_MESSAGE = "console.error called with no message";
 export default function installConsoleErrorOverride(config: ReportErrorConfig | undefined, isClient?: boolean): void;

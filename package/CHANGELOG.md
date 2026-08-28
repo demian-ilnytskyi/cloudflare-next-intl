@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.50] - 2026-08-28
+
+### Added
+
+- **`isStaleDeployError` added `'dynamically imported module'` to `defaultStaleDeployPatterns`**:
+  Matches browser dynamic import failure variants (e.g. `Failed to fetch dynamically imported module`,
+  `error loading dynamically imported module`) directly.
+- **`useStaleDeployRecovery` and `shouldRecoverFromStaleDeploy` accept `error: unknown`**:
+  Widens parameter type from `Error` to `unknown` so error boundary caught values (which can be `unknown` or `undefined`)
+  can be passed directly without casting.
+
 ## [0.8.49] - 2026-08-28
 
 ### Fixed

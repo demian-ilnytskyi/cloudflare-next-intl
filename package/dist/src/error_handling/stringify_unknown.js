@@ -30,6 +30,10 @@ function resolveFunctionError(value) {
  *   so a single unserializable nested value can't crash the whole report.
  */
 export default function stringifyUnknown(value, isClient, isNested = false) {
+    if (value === undefined)
+        return 'undefined';
+    if (value === null)
+        return 'null';
     if (typeof value === 'string')
         return stripAnsiCodes(value);
     if (value instanceof Error)

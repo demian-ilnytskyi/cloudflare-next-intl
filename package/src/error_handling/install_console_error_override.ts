@@ -46,6 +46,30 @@ import reportError, { type ReportErrorConfig, consoleOverrideState } from './rep
  *   `getCloudflareContext`/`ctx.waitUntil` available in the browser, so
  *   client-side reports always await `onError` directly.
  */
+/**
+ * Logged in place of a bare `undefined` when something calls
+ * `console.error()` with no arguments (or a single `undefined`) — an
+ * aborted RSC stream on a stale deploy does exactly this, leaving an
+ * unactionable `undefined` line in devtools. The raw value is still passed
+ * to `reportError` unchanged: `isStaleDeployError` treats exactly
+ * `undefined` as a stale deploy, so substituting a string here would break
+ * the recovery reload.
+ */
+export const EMPTY_CONSOLE_ERROR_MESSAGE = 'console.error called with no message';
+
+/**
+ * The frames BELOW this override — i.e. whoever actually called
+ * `console.error`. Devtools blames this module for every forwarded call
+ * (the real `console.error` runs from here), so an argument-less call left
+ * nothing but a bare `undefined` line pointing at this file. Captured
+ * lazily, only for that case.
+ */
+function callerStack(): string {
+    const stack = new Error().stack;
+    if (!stack) return '';
+    return `\n${stack.split('\n').slice(3).join('\n')}`;
+}
+
 export default function installConsoleErrorOverride(
     config: ReportErrorConfig | undefined,
     isClient?: boolean,
@@ -60,7 +84,11 @@ export default function installConsoleErrorOverride(
 
     const override = (message?: unknown, ...optionalParams: unknown[]) => {
         if (!suppressOnClient) {
-            originalConsoleError(message, ...optionalParams);
+            if (message === undefined && optionalParams.length === 0) {
+                originalConsoleError(`${EMPTY_CONSOLE_ERROR_MESSAGE}${callerStack()}`);
+            } else {
+                originalConsoleError(message, ...optionalParams);
+            }
         }
 
         void reportError(
