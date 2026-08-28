@@ -31,6 +31,18 @@ describe('shouldRecoverFromStaleDeploy', () => {
         expect(shouldRecoverFromStaleDeploy(genericError, 'build-b', 'build-a')).toBe(false);
     });
 
+    it('recovers when error is undefined (aborted RSC stream with missing error)', () => {
+        expect(shouldRecoverFromStaleDeploy(undefined, 'build-a', null)).toBe(true);
+        expect(shouldRecoverFromStaleDeploy(undefined, 'build-a', 'build-a')).toBe(false);
+        expect(shouldRecoverFromStaleDeploy(undefined, 'build-a', 'build-a', true)).toBe(true);
+    });
+
+    it('does not recover when error is null or non-Error value', () => {
+        expect(shouldRecoverFromStaleDeploy(null, 'build-a', null)).toBe(false);
+        expect(shouldRecoverFromStaleDeploy('a string error', 'build-a', null)).toBe(false);
+        expect(shouldRecoverFromStaleDeploy({ message: 'object' }, 'build-a', null)).toBe(false);
+    });
+
     it('recovers for all recognized stale deploy error patterns', () => {
         expect(shouldRecoverFromStaleDeploy(chunkError, 'build-a', null)).toBe(true);
         expect(shouldRecoverFromStaleDeploy(dynamicImportError, 'build-a', null)).toBe(true);
@@ -126,6 +138,36 @@ describe('useStaleDeployRecovery', () => {
             writable: true,
             configurable: true,
         });
+    });
+
+    it('returns false immediately for null or non-stale deploy errors and does not schedule recovery', async () => {
+        const onRecover = vi.fn().mockResolvedValue(undefined);
+        const { result } = renderHook(() => useStaleDeployRecovery(null, onRecover, 1000));
+
+        expect(result.current).toBe(false);
+
+        await act(async () => {
+            vi.advanceTimersByTime(2000);
+        });
+
+        expect(onRecover).not.toHaveBeenCalled();
+        expect(clearClientCacheSpy).not.toHaveBeenCalled();
+        expect(reloadMock).not.toHaveBeenCalled();
+    });
+
+    it('returns true and schedules recovery when error is undefined', async () => {
+        const onRecover = vi.fn().mockResolvedValue(undefined);
+        const { result } = renderHook(() => useStaleDeployRecovery(undefined, onRecover, 1000));
+
+        expect(result.current).toBe(true);
+
+        await act(async () => {
+            vi.advanceTimersByTime(1000);
+        });
+
+        expect(onRecover).toHaveBeenCalledTimes(1);
+        expect(clearClientCacheSpy).toHaveBeenCalledTimes(1);
+        expect(reloadMock).toHaveBeenCalledTimes(1);
     });
 
     it('returns false immediately for non-stale deploy errors and does not schedule recovery', async () => {

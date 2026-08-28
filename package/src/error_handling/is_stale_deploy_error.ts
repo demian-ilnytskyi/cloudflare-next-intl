@@ -22,10 +22,18 @@ export function getStaleDeployPatterns(): readonly string[] {
 }
 
 export default function isStaleDeployError(
-    error: Error,
+    error: unknown,
     patterns?: readonly string[],
 ): boolean {
+    // A stale build can leave the caught value itself missing — e.g. an
+    // aborted RSC stream reaching a client component as `undefined` rather
+    // than a real Error (seen as "Global Error undefined ... The above error
+    // occurred in a React component" in the console, with no message to
+    // pattern-match on). Treat exactly `undefined` as stale-deploy; a normal
+    // thrown error is never `undefined`.
+    if (error === undefined) return true;
     if (!error) return false;
+    if (!(error instanceof Error)) return false;
 
     if (error.name === 'ChunkLoadError') return true;
 

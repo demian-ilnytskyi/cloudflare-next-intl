@@ -3,6 +3,19 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.49] - 2026-08-28
+
+### Fixed
+
+- **`isStaleDeployError` (and `useStaleDeployRecovery`) now treats a caught
+  value of exactly `undefined` as a stale-deploy error.** A stale build can
+  abort an in-flight RSC stream in a way that reaches the nearest client
+  component's error boundary as `undefined` rather than a real `Error`
+  (logged as `Global Error undefined ... The above error occurred in a React
+  component`), leaving no message to pattern-match on. Both functions'
+  parameter type widened from `Error` to `unknown` to accept it. `null` and
+  other non-`Error` values still return `false`, unchanged.
+
 ## [0.8.48] - 2026-08-28
 
 ### Changed

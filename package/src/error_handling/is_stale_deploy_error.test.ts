@@ -35,9 +35,17 @@ describe('isStaleDeployError', () => {
         expect(isStaleDeployError(oldDefaultError)).toBe(false);
     });
 
-    it('returns false for falsy error values', () => {
-        expect(isStaleDeployError(null as unknown as Error)).toBe(false);
-        expect(isStaleDeployError(undefined as unknown as Error)).toBe(false);
+    it('treats exactly undefined as stale-deploy', () => {
+        // A stale build can leave the caught value itself missing (an aborted
+        // RSC stream reaching a client component as `undefined` rather than a
+        // real Error), so there's no message to pattern-match on.
+        expect(isStaleDeployError(undefined)).toBe(true);
+    });
+
+    it('returns false for null and other non-Error caught values', () => {
+        expect(isStaleDeployError(null)).toBe(false);
+        expect(isStaleDeployError('some string')).toBe(false);
+        expect(isStaleDeployError({ message: 'not a real error' })).toBe(false);
     });
 
     it('returns true when error name is ChunkLoadError regardless of message or patterns', () => {

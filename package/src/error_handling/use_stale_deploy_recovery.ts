@@ -44,7 +44,7 @@ export function isRecentBuild(setAt: number | null, now: number, windowMs = RECE
 // failure well after the deploy settled falls through to the caller's error
 // UI instead of spinning forever.
 export function shouldRecoverFromStaleDeploy(
-    error: Error,
+    error: unknown,
     buildId: string,
     marker: string | null,
     recentBuild = false,
@@ -52,7 +52,7 @@ export function shouldRecoverFromStaleDeploy(
     return isStaleDeployError(error) && (marker !== buildId || recentBuild);
 }
 
-function canRecover(error: Error): boolean {
+function canRecover(error: unknown): boolean {
     if (typeof window === 'undefined') return false;
     try {
         return shouldRecoverFromStaleDeploy(
@@ -75,7 +75,7 @@ function canRecover(error: Error): boolean {
  * best-effort.
  */
 export default function useStaleDeployRecovery(
-    error: Error,
+    error: unknown,
     onRecover?: () => Promise<unknown>,
     delayMs = 5000,
 ): boolean {

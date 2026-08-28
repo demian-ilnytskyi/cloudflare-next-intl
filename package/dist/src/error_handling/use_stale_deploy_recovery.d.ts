@@ -7,7 +7,7 @@
  * marker already covers.
  */
 export declare function isRecentBuild(setAt: number | null, now: number, windowMs?: number): boolean;
-export declare function shouldRecoverFromStaleDeploy(error: Error, buildId: string, marker: string | null, recentBuild?: boolean): boolean;
+export declare function shouldRecoverFromStaleDeploy(error: unknown, buildId: string, marker: string | null, recentBuild?: boolean): boolean;
 /**
  * Detects a stale-deploy error and, once per build id, silently clears client
  * caches and reloads after `delayMs`. Returns whether a reload is pending so
@@ -16,4 +16,4 @@ export declare function shouldRecoverFromStaleDeploy(error: Error, buildId: stri
  * a server action) and its rejection is ignored — cache clearing is
  * best-effort.
  */
-export default function useStaleDeployRecovery(error: Error, onRecover?: () => Promise<unknown>, delayMs?: number): boolean;
+export default function useStaleDeployRecovery(error: unknown, onRecover?: () => Promise<unknown>, delayMs?: number): boolean;
