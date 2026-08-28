@@ -6,6 +6,14 @@ describe('stringifyUnknown', () => {
         vi.restoreAllMocks();
     });
 
+    it('returns "undefined" for undefined input', () => {
+        expect(stringifyUnknown(undefined)).toBe('undefined');
+    });
+
+    it('returns "null" for null input', () => {
+        expect(stringifyUnknown(null)).toBe('null');
+    });
+
     it('returns strings as-is', () => {
         expect(stringifyUnknown('boom')).toBe('boom');
     });

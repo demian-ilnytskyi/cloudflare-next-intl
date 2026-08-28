@@ -43,6 +43,28 @@ describe('installConsoleErrorOverride', () => {
         expect(onError).toHaveBeenCalledWith(expect.objectContaining({ error: undefined, params: [] }));
     });
 
+    it('handles environments where Error stack is empty when logging argument-less console.error', async () => {
+        vi.resetModules();
+        const { default: install, EMPTY_CONSOLE_ERROR_MESSAGE } = await import('./install_console_error_override');
+        const original = vi.fn();
+        console.error = original;
+        const originalError = global.Error;
+        // @ts-expect-error mock Error constructor to produce instance without stack
+        global.Error = class MockError extends originalError {
+            constructor(message?: string) {
+                super(message);
+                Object.defineProperty(this, 'stack', { value: undefined, writable: true, configurable: true });
+            }
+        };
+        try {
+            install({ errorHandling: { overrideConsoleError: true } });
+            console.error(undefined);
+            expect(original).toHaveBeenCalledWith(EMPTY_CONSOLE_ERROR_MESSAGE);
+        } finally {
+            global.Error = originalError;
+        }
+    });
+
     it('only installs once', async () => {
         vi.resetModules();
         const { default: install } = await import('./install_console_error_override');
