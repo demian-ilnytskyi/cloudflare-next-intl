@@ -3,19 +3,31 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.8.47] - 2026-08-28
+## [0.8.48] - 2026-08-28
 
-### Fixed
+### Changed
 
-- **`IntlHelperScript` no longer reloads mid-load on a stale build.** The
-  `BUILD_ID` check ran from an async IIFE that resolved while the document /
-  RSC payload was still streaming, so its `window.location.reload(true)` acted
-  like pressing Stop. Firefox aborts the in-flight stream read and reports
-  "The connection to the page was unexpectedly closed…", which reaches React as
-  a caught error and renders the app's error screen instead of quietly
-  reloading — visible only after a redeploy, on the next visit. The reload now
-  waits for `document.readyState === 'complete'` (via a one-shot `load`
-  listener) and drops the non-standard `reload(true)` argument.
+- **Reverted the 0.8.47 reload-timing fix for `IntlHelperScript`'s BUILD_ID
+  check.** It deferred the stale-build reload until `document.readyState ===
+  'complete'`, but that traded one problem for a worse one (page hangs
+  visibly waiting to reload instead of the error screen briefly flashing).
+  `IntlHelperScript` is back to reloading immediately via
+  `window.location.reload(true)` on a build id change.
+- **`useStaleDeployRecovery` now also recovers when the build was just
+  adopted**, even past its one-reload-per-build cap. `IntlHelperScript`
+  writes `localStorage['buildIdSetAt']` alongside `buildId`; a stale-deploy
+  error within 60s of that timestamp is treated as the new deploy still
+  settling (new chunks, in-flight requests against the old build) rather than
+  a real failure, so the hook shows the loading state and retries instead of
+  falling through to the caller's error UI. New export: `isRecentBuild(setAt,
+  now, windowMs?)`, and `shouldRecoverFromStaleDeploy` takes an optional
+  fourth `recentBuild` argument.
+
+### Added
+
+- **`"FirebaseServerApp appCheckToken is invalid: the token has expired."`**
+  added to `defaultIgnoredConsoleErrors` — expected App Check token
+  expiry noise, alongside the existing `authIdToken` entry.
 
 ## [0.8.46] - 2026-08-28
 

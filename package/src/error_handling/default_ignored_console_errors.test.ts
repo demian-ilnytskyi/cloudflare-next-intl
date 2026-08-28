@@ -12,6 +12,7 @@ describe('defaultIgnoredConsoleErrors', () => {
     it('includes the revoked-session-token noise initializeServerApp logs itself', () => {
         expect(defaultIgnoredConsoleErrors).toContain('auth/invalid-user-token');
         expect(defaultIgnoredConsoleErrors).toContain('FirebaseServerApp could not login user with provided authIdToken');
+        expect(defaultIgnoredConsoleErrors).toContain('FirebaseServerApp appCheckToken is invalid: the token has expired.');
     });
 
     it('does not include the generic unknown-error fallback', () => {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import useStaleDeployRecovery, { shouldRecoverFromStaleDeploy } from './use_stale_deploy_recovery';
+import useStaleDeployRecovery, { shouldRecoverFromStaleDeploy, isRecentBuild } from './use_stale_deploy_recovery';
 import * as clearClientCacheModule from './clear_client_cache';
 
 const staleError = new Error('The connection to the page was unexpectedly closed');
@@ -42,6 +42,30 @@ describe('shouldRecoverFromStaleDeploy', () => {
         const namedChunkError = new Error('custom message');
         namedChunkError.name = 'ChunkLoadError';
         expect(shouldRecoverFromStaleDeploy(namedChunkError, 'build-a', null)).toBe(true);
+    });
+});
+
+describe('isRecentBuild', () => {
+    it('is recent when set less than a minute ago', () => {
+        expect(isRecentBuild(1_000, 1_000 + 59_000)).toBe(true);
+    });
+
+    it('is not recent at or after the window', () => {
+        expect(isRecentBuild(1_000, 1_000 + 60_000)).toBe(false);
+    });
+
+    it('is not recent when never set', () => {
+        expect(isRecentBuild(null, Date.now())).toBe(false);
+    });
+});
+
+describe('shouldRecoverFromStaleDeploy with recentBuild', () => {
+    it('recovers even when the reload marker already matches, if the build is recent', () => {
+        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', true)).toBe(true);
+    });
+
+    it('does not recover for a non-stale error even if the build is recent', () => {
+        expect(shouldRecoverFromStaleDeploy(genericError, 'build-a', 'build-a', true)).toBe(false);
     });
 });
 

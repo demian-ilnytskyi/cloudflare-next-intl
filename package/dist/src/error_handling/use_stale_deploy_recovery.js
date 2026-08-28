@@ -4,6 +4,8 @@ import isStaleDeployError from './is_stale_deploy_error';
 import clearClientCache from './clear_client_cache';
 const RECOVERY_RELOAD_KEY = 'stale-deploy-recovery-reloaded';
 const BUILD_ID_KEY = 'buildId';
+const BUILD_ID_SET_AT_KEY = 'buildIdSetAt';
+const RECENT_BUILD_WINDOW_MS = 60000;
 function currentBuildId() {
     try {
         return localStorage.getItem(BUILD_ID_KEY) ?? 'unknown';
@@ -12,18 +14,39 @@ function currentBuildId() {
         return 'unknown';
     }
 }
-// One silent reload per deployment. The marker carries the build id the reload
-// was spent on, so a redeploy re-arms exactly one more attempt while a repeat
-// failure on the same build falls through to the caller's error UI instead of
-// spinning forever.
-export function shouldRecoverFromStaleDeploy(error, buildId, marker) {
-    return isStaleDeployError(error) && marker !== buildId;
+function buildIdSetAt() {
+    try {
+        const raw = localStorage.getItem(BUILD_ID_SET_AT_KEY);
+        return raw ? Number(raw) : null;
+    }
+    catch {
+        return null;
+    }
+}
+/**
+ * True when this build id was written within the last `windowMs` — i.e. the
+ * client just picked up a new deploy (via `IntlHelperScript`'s BUILD_ID
+ * check). A stale-deploy error in that window is the deploy itself still
+ * settling (new chunks, in-flight RSC requests against the old build), not a
+ * failure a reload can't fix — so it recovers even on a build id the reload
+ * marker already covers.
+ */
+export function isRecentBuild(setAt, now, windowMs = RECENT_BUILD_WINDOW_MS) {
+    return setAt !== null && now - setAt < windowMs;
+}
+// One silent reload per deployment, UNLESS the build id was written moments
+// ago — see `isRecentBuild`. The marker carries the build id the reload was
+// spent on, so a redeploy re-arms exactly one more attempt while a repeat
+// failure well after the deploy settled falls through to the caller's error
+// UI instead of spinning forever.
+export function shouldRecoverFromStaleDeploy(error, buildId, marker, recentBuild = false) {
+    return isStaleDeployError(error) && (marker !== buildId || recentBuild);
 }
 function canRecover(error) {
     if (typeof window === 'undefined')
         return false;
     try {
-        return shouldRecoverFromStaleDeploy(error, currentBuildId(), sessionStorage.getItem(RECOVERY_RELOAD_KEY));
+        return shouldRecoverFromStaleDeploy(error, currentBuildId(), sessionStorage.getItem(RECOVERY_RELOAD_KEY), isRecentBuild(buildIdSetAt(), Date.now()));
     }
     catch {
         return false;

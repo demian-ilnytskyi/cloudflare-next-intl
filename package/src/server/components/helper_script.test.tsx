@@ -27,13 +27,11 @@ describe('HelperScript', () => {
         vi.unstubAllEnvs();
     });
 
-    it('defers the stale-build reload until the document has finished loading', () => {
+    it('records when the build id was written, for stale-build recovery', () => {
         vi.stubEnv('NODE_ENV', 'production');
         const { container: root } = render(<HelperScript />);
         const source = root.querySelector('#build-id-script')?.textContent ?? '';
-        expect(source).toContain("document.readyState === 'complete'");
-        expect(source).toContain("window.addEventListener(");
-        expect(source).not.toContain('reload(true)');
+        expect(source).toContain("localStorage.setItem('buildIdSetAt'");
         vi.unstubAllEnvs();
     });
 

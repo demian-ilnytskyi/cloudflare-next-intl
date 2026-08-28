@@ -32,6 +32,7 @@ export const defaultIgnoredConsoleErrors = [
     'The `punycode` module is deprecated. Please use a userland alternative instead.',
     'failed to pipe response',
     "FirebaseServerApp authIdToken is invalid: the token has expired.",
+    "FirebaseServerApp appCheckToken is invalid: the token has expired.",
     "failed Error: Database is closing/hidden",
     'Failed to fetch RSC payload',
     'The above error occurred in a React component',
