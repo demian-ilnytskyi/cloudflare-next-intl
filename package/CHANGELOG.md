@@ -3,6 +3,19 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.46] - 2026-08-28
+
+### Added
+
+- **`useStaleDeployRecovery` hook** (`cloudflare-next-intl/errorHandling`).
+  Detects a stale-deploy error and, once per build id (tracked via the
+  `BUILD_ID` bootstrap script's `localStorage['buildId']`), silently clears
+  client caches and reloads after a delay instead of showing the error UI. A
+  repeat failure on the same build falls through so it doesn't reload forever.
+  Optional `onRecover` callback runs before the reload (e.g. to clear
+  server-side cookies via a server action). Exposes the pure
+  `shouldRecoverFromStaleDeploy(error, buildId, marker)` predicate for testing.
+
 ## [0.8.45] - 2026-08-27
 
 ### Added

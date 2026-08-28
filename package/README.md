@@ -532,6 +532,34 @@ export default function GlobalError({
 - `getStaleDeployPatterns(): readonly string[]`: Returns the currently active pattern list.
 - `clearClientCache(): Promise<void>`: Best-effort cleanup that deletes all CacheStorage caches (`window.caches`), unregisters active Service Workers, and clears `sessionStorage`.
 
+For a ready-made recovery flow (recommended over wiring `isStaleDeployError` + `clearClientCache` by hand), use the `useStaleDeployRecovery` hook:
+
+```typescript
+'use client';
+
+import { useStaleDeployRecovery } from "cloudflare-next-intl/errorHandling";
+
+export default function GlobalError({
+    error,
+    reset,
+}: {
+    error: Error & { digest?: string };
+    reset: () => void;
+}) {
+    // Optionally pass a server action to clear server-side cookies/cache
+    // before the reload; runs alongside clearClientCache() and any
+    // rejection is ignored (best-effort).
+    const isRecovering = useStaleDeployRecovery(error /*, clearServerCookies */);
+
+    if (isRecovering) return <LoadingIndicator />;
+
+    // ... render your normal error UI
+}
+```
+
+- `useStaleDeployRecovery(error: Error, onRecover?: () => Promise<unknown>, delayMs = 5000): boolean`: Detects a stale-deploy error via `isStaleDeployError` and, **once per build id**, waits `delayMs`, runs `onRecover` (if provided) and `clearClientCache` in parallel, then reloads the page. The build id is read from `localStorage['buildId']` (set by `IntlHelperScript`'s `BUILD_ID` check) and a `sessionStorage` marker records which build id already spent its reload, so a repeat failure on the same build falls through to `false` (render your normal error UI) instead of reloading forever. A redeploy changes the build id and re-arms exactly one more attempt.
+- `shouldRecoverFromStaleDeploy(error: Error, buildId: string, marker: string | null): boolean`: The pure predicate behind the hook, exported for testing.
+
 ### Database (`db`)
 
 Thin Postgres/Drizzle data-access layer over a Postgres connection string

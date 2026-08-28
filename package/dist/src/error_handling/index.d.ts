@@ -9,4 +9,5 @@ export { default as formatErrorMessage } from './format_error_message';
 export { defaultIgnoredConsoleErrors } from './default_ignored_console_errors';
 export { default as isStaleDeployError, defaultStaleDeployPatterns, setStaleDeployPatterns, getStaleDeployPatterns, } from './is_stale_deploy_error';
 export { default as clearClientCache } from './clear_client_cache';
+export { default as useStaleDeployRecovery, shouldRecoverFromStaleDeploy } from './use_stale_deploy_recovery';
 export type { ErrorHandlingParams, ErrorHandlingRoutingConfig } from '../types/types';
