@@ -3,6 +3,15 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.51] - 2026-08-28
+
+### Fixed
+
+- **`installConsoleErrorOverride` provenance for empty/undefined calls**:
+  Attaches `EMPTY_CONSOLE_ERROR_MESSAGE` + caller stack in `params` during argument-less `console.error` calls to preserve thrower origin in error reports.
+- **Branch test coverage**:
+  Added test coverage for empty/undefined error stacks, `null`/`undefined` inputs in stringification, and `NODE_ENV === 'development'` warnings.
+
 ## [0.8.50] - 2026-08-28
 
 ### Added

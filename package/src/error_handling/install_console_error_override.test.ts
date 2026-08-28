@@ -40,7 +40,10 @@ describe('installConsoleErrorOverride', () => {
         install({ errorHandling: { overrideConsoleError: true, onError } });
         console.error();
         expect(original).toHaveBeenCalledWith(expect.stringContaining(EMPTY_CONSOLE_ERROR_MESSAGE));
-        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ error: undefined, params: [] }));
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+            error: undefined,
+            params: [expect.stringContaining(EMPTY_CONSOLE_ERROR_MESSAGE)],
+        }));
     });
 
     it('handles environments where Error stack is empty when logging argument-less console.error', async () => {

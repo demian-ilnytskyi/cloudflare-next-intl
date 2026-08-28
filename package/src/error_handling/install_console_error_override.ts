@@ -83,9 +83,19 @@ export default function installConsoleErrorOverride(
     const suppressOnClient = isClient === true && config.errorHandling?.suppressClientConsoleError === true;
 
     const override = (message?: unknown, ...optionalParams: unknown[]) => {
+        const isEmptyCall = message === undefined && optionalParams.length === 0;
+        // React's own `onCaughtError` fallback logs a caught value with a
+        // plain `console.error(value)` — a component that throws `undefined`
+        // therefore reaches here as an argument-less call carrying no
+        // provenance at all. The stack below this override is the only
+        // remaining pointer to which subtree threw, so it goes to BOTH the
+        // console line and the report; without it the report says nothing
+        // but "undefined".
+        const stack = isEmptyCall ? callerStack() : '';
+
         if (!suppressOnClient) {
-            if (message === undefined && optionalParams.length === 0) {
-                originalConsoleError(`${EMPTY_CONSOLE_ERROR_MESSAGE}${callerStack()}`);
+            if (isEmptyCall) {
+                originalConsoleError(`${EMPTY_CONSOLE_ERROR_MESSAGE}${stack}`);
             } else {
                 originalConsoleError(message, ...optionalParams);
             }
@@ -93,7 +103,12 @@ export default function installConsoleErrorOverride(
 
         void reportError(
             config,
-            { error: message, classOrMethodName: 'Global Console Error Handler', params: optionalParams, isClient },
+            {
+                error: message,
+                classOrMethodName: 'Global Console Error Handler',
+                params: isEmptyCall ? [`${EMPTY_CONSOLE_ERROR_MESSAGE}${stack}`] : optionalParams,
+                isClient,
+            },
         );
     };
     override.__isErrorHandlingOverride = true;
