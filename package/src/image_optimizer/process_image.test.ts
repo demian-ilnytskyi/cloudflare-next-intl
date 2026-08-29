@@ -27,23 +27,23 @@ describe("process_image", () => {
     it("oversized image is downscaled into outDir preserving aspect ratio", async () => {
         const root = await makeTempDir();
         const publicRoot = path.join(root, "public");
-        const file = await writeFixturePng(path.join(publicRoot, "images"), "big.png", 4000, 2000);
+        const file = await writeFixturePng(path.join(publicRoot, "images"), "big.png", 200, 100);
 
         const result = await processImage(
             file,
             publicRoot,
-            resolveOptions({ maxWidth: 1000 }),
+            resolveOptions({ maxWidth: 50 }),
             root,
         );
 
         expect(result.originalSrc).toBe("/images/big.png");
         expect(result.src).toBe("/generated/images/big.png");
-        expect(result.width).toBe(1000);
-        expect(result.height).toBe(500);
+        expect(result.width).toBe(50);
+        expect(result.height).toBe(25);
 
         const targetFile = path.join(publicRoot, "generated", "images", "big.png");
         const targetMeta = await sharp(targetFile).metadata();
-        expect(targetMeta.width).toBe(1000);
+        expect(targetMeta.width).toBe(50);
 
         await cleanup(root);
     });
@@ -74,13 +74,13 @@ describe("process_image", () => {
     it("respects per-image override to disable maxWidth downscaling", async () => {
         const root = await makeTempDir();
         const publicRoot = path.join(root, "public");
-        const file = await writeFixturePng(path.join(publicRoot, "images"), "big.png", 4000, 2000);
+        const file = await writeFixturePng(path.join(publicRoot, "images"), "big.png", 200, 100);
 
         const result = await processImage(
             file,
             publicRoot,
             resolveOptions({
-                maxWidth: 1000,
+                maxWidth: 50,
                 overrides: {
                     "/images/big.png": { maxWidth: false },
                 },
@@ -88,12 +88,12 @@ describe("process_image", () => {
             root,
         );
 
-        expect(result.width).toBe(4000);
-        expect(result.height).toBe(2000);
+        expect(result.width).toBe(200);
+        expect(result.height).toBe(100);
 
         const targetFile = path.join(publicRoot, "generated", "images", "big.png");
         const targetMeta = await sharp(targetFile).metadata();
-        expect(targetMeta.width).toBe(4000);
+        expect(targetMeta.width).toBe(200);
 
         await cleanup(root);
     });
@@ -101,7 +101,7 @@ describe("process_image", () => {
     it("respects per-image override to disable formats conversion", async () => {
         const root = await makeTempDir();
         const publicRoot = path.join(root, "public");
-        const file = await writeFixturePng(path.join(publicRoot, "images"), "no-format.png", 600, 400);
+        const file = await writeFixturePng(path.join(publicRoot, "images"), "no-format.png", 100, 50);
 
         await processImage(
             file,
@@ -125,7 +125,7 @@ describe("process_image", () => {
     it("avif, webp and blur siblings are emitted in outDir", async () => {
         const root = await makeTempDir();
         const publicRoot = path.join(root, "public");
-        const file = await writeFixturePng(path.join(publicRoot, "images"), "a.png", 600, 400);
+        const file = await writeFixturePng(path.join(publicRoot, "images"), "a.png", 100, 50);
 
         await processImage(file, publicRoot, DEFAULT_OPTIONS, root);
 
@@ -140,9 +140,9 @@ describe("process_image", () => {
 
     it("blur data url is a small inline webp with height >= width aspect ratio", async () => {
         const root = await makeTempDir();
-        const file = await writeFixturePng(root, "tall.png", 400, 800);
+        const file = await writeFixturePng(root, "tall.png", 50, 100);
 
-        const blur = await makeBlurDataURL(file, 400, 800, DEFAULT_BLUR_OPTIONS);
+        const blur = await makeBlurDataURL(file, 50, 100, DEFAULT_BLUR_OPTIONS);
 
         expect(blur.blurDataURL.startsWith("data:image/webp;base64,")).toBe(true);
         expect(blur.blurWidth).toBe(4);
