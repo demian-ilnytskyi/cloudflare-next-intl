@@ -41,27 +41,33 @@ function targetAndSiblingPaths(absolutePath, publicRoot, options, root) {
     }
     return result;
 }
-export async function run(root, options, cacheFile) {
-    const publicRoot = path.join(root, "public");
-    const files = await collectImages(options.dirs, root);
+export async function run(root, options, cacheFile = path.resolve(root, options.cacheDir, "manifest.json")) {
+    const publicRoot = path.resolve(root, "public");
+    const manifestPath = path.resolve(root, options.manifest);
     const cache = await loadCache(cacheFile);
-    const next = {};
+    const nextCache = {};
+    const files = await collectImages(options.dirs, root);
     const entries = [];
     for (const file of files) {
-        const key = path.relative(root, file);
-        const cached = cache[key];
+        const relativeKey = path.relative(root, file);
+        const cached = cache[relativeKey];
         const targets = targetAndSiblingPaths(file, publicRoot, options, root);
-        if (await isFresh(file, cached, targets)) {
-            next[key] = cached;
+        const fresh = await isFresh(file, cached, targets);
+        if (fresh && cached) {
             entries.push(cached.result);
+            nextCache[relativeKey] = cached;
             continue;
         }
         const result = await processImage(file, publicRoot, options, root);
-        const stats = await stat(file);
-        next[key] = { mtimeMs: stats.mtimeMs, size: stats.size, result };
+        const fileStat = await stat(file);
         entries.push(result);
+        nextCache[relativeKey] = {
+            mtimeMs: fileStat.mtimeMs,
+            size: fileStat.size,
+            result,
+        };
     }
-    await saveCache(cacheFile, next);
-    await writeManifest(path.resolve(root, options.manifest), entries);
+    await saveCache(cacheFile, nextCache);
+    await writeManifest(manifestPath, entries);
     return entries;
 }

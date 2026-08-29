@@ -1,13 +1,16 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.8.54",
+  "version": "0.8.55",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "module",
   "sideEffects": false,
   "bin": {
     "cfni-db-codegen": "bin/db_codegen.mjs",
-    "cfni-db-install-exec": "bin/db_install_exec.mjs"
+    "cfni-db-install-exec": "bin/db_install_exec.mjs",
+    "cfni-image-optimizer": "bin/image_optimizer.mjs",
+    "optimize-images": "bin/image_optimizer.mjs"
   },
   "files": [
     "dist",

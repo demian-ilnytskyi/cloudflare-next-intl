@@ -56,30 +56,38 @@ function targetAndSiblingPaths(
 export async function run(
     root: string,
     options: ResolvedOptions,
-    cacheFile: string,
+    cacheFile: string = path.resolve(root, options.cacheDir, "manifest.json"),
 ): Promise<OptimizedImage[]> {
-    const publicRoot = path.join(root, "public");
-    const files = await collectImages(options.dirs, root);
+    const publicRoot = path.resolve(root, "public");
+    const manifestPath = path.resolve(root, options.manifest);
     const cache = await loadCache(cacheFile);
-    const next: CacheData = {};
+    const nextCache: CacheData = {};
+    const files = await collectImages(options.dirs, root);
     const entries: OptimizedImage[] = [];
 
     for (const file of files) {
-        const key = path.relative(root, file);
-        const cached = cache[key];
+        const relativeKey = path.relative(root, file);
+        const cached = cache[relativeKey];
         const targets = targetAndSiblingPaths(file, publicRoot, options, root);
-        if (await isFresh(file, cached, targets)) {
-            next[key] = cached;
+        const fresh = await isFresh(file, cached, targets);
+
+        if (fresh && cached) {
             entries.push(cached.result);
+            nextCache[relativeKey] = cached;
             continue;
         }
+
         const result = await processImage(file, publicRoot, options, root);
-        const stats = await stat(file);
-        next[key] = { mtimeMs: stats.mtimeMs, size: stats.size, result };
+        const fileStat = await stat(file);
         entries.push(result);
+        nextCache[relativeKey] = {
+            mtimeMs: fileStat.mtimeMs,
+            size: fileStat.size,
+            result,
+        };
     }
 
-    await saveCache(cacheFile, next);
-    await writeManifest(path.resolve(root, options.manifest), entries);
+    await saveCache(cacheFile, nextCache);
+    await writeManifest(manifestPath, entries);
     return entries;
 }

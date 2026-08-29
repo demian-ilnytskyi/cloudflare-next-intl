@@ -42,16 +42,14 @@ describe("run", () => {
         await cleanup(root);
     });
 
-    it("run writes a manifest and emits optimized images in public/generated", async () => {
+    it("run writes a manifest and emits optimized images using default cacheFile", async () => {
         const root = await makeProject();
         await writeFixturePng(path.join(root, "public", "images"), "a.png", 40, 40);
         const manifest = path.join(root, "public", "generated", "images.json");
-        const cacheFile = path.join(root, ".cache", "manifest.json");
 
         const entries = await run(
             root,
             resolveOptions({ manifest: "public/generated/images.json" }),
-            cacheFile,
         );
 
         expect(entries.length).toBe(1);

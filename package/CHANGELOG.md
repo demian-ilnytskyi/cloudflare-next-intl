@@ -3,6 +3,15 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.55] - 2026-08-29
+
+### Added
+
+- **Image Optimizer Standalone CLI (`cfni-image-optimizer`, `optimize-images`)**:
+  Added CLI binaries (`bin/image_optimizer.mjs`) enabling standalone image optimization scripts in `package.json` scripts or pre-build pipelines.
+- **Default cache file resolution in `run()`**:
+  `run()` in `cloudflare-next-intl/image-optimizer` now automatically resolves `cacheFile` to `path.resolve(root, options.cacheDir, "manifest.json")` when omitted.
+
 ## [0.8.54] - 2026-08-29
 
 ### Added

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.55
+
+### Added
+
+- CLI bin commands `cfni-image-optimizer` and `optimize-images` for manual or build-pipeline standalone image optimization runs.
+- Default `cacheFile` path resolution (`path.resolve(root, options.cacheDir, "manifest.json")`) when omitted in `run()` image optimizer API.
+
 ## 0.8.54
 
 ### Added
