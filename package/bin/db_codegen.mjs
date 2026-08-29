@@ -13,11 +13,10 @@
 // same schema into several projects at once (CFNI_DB_OUT_DIR accepts a
 // comma-separated list too).
 //
-// Needs a reachable Postgres to introspect — any Postgres, not specifically
-// a Docker one. Set CODEGEN_DATABASE_URL to point at whichever you have:
-// local Supabase (./supabase/scripts/db_start.sh --reset, needs Docker), a
-// native Postgres install, or a remote/staging database. With no env var
-// set, it tries the local Supabase default (127.0.0.1:54322).
+// Prefers the embedded-postgres library by default (zero setup, no Docker needed)
+// to introspect the DDL in --ddl-dir. If the user explicitly sets --db-url or
+// CODEGEN_DATABASE_URL, it uses that URL; if the explicit URL is unreachable,
+// it warns and falls back to embedded-postgres.
 // CODEGEN_CONNECT_TIMEOUT_MS overrides the 5s default reachability-check
 // timeout — raise it for a slow/cold-starting remote or serverless target.
 //
@@ -55,13 +54,12 @@ async function isReachable(url) {
     }
 }
 
-function failUnreachable(url) {
-    console.error(`❌ Could not reach Postgres at ${url}`);
-    console.error("\n   drizzle-kit pull needs a live Postgres to introspect — any one works, this script has no Docker dependency of its own. Pick one:");
-    console.error("   - Local Supabase (needs Docker running):  ./supabase/scripts/db_start.sh --reset");
-    console.error("   - A native Postgres you already have:     CODEGEN_DATABASE_URL=postgresql://... npm run db:codegen");
-    console.error("   - A remote/staging database:              CODEGEN_DATABASE_URL=postgresql://... npm run db:codegen");
-    console.error("   - Zero setup (no Docker/Postgres at all):  npm install --save-dev embedded-postgres  (auto-used as a fallback)");
+function failUnreachable(target) {
+    console.error(`❌ Could not reach Postgres at ${target} and embedded-postgres could not be started.`);
+    console.error("\n   drizzle-kit pull needs a Postgres to introspect. You can:");
+    console.error("   - Ensure embedded-postgres is installed (default, no Docker): npm install --save-dev embedded-postgres");
+    console.error("   - Or specify a reachable database URL:                         CODEGEN_DATABASE_URL=postgresql://... npm run db:codegen");
+    console.error("   - Or start local Supabase (needs Docker):                     ./supabase/scripts/db_start.sh --reset");
     console.error(`   Slow/cold-starting target? Raise the timeout: CODEGEN_CONNECT_TIMEOUT_MS=15000 npm run db:codegen`);
     process.exit(1);
 }
@@ -96,7 +94,7 @@ if (paths.check) {
     process.exit(0);
 }
 
-let effectiveDbUrl = paths.dbUrl;
+let effectiveDbUrl = null;
 let ephemeral = null;
 // drizzle-kit's own default config resolution looks for `drizzle.config.json`
 // in the cwd and errors out if it's missing — a project has no reason to
@@ -105,11 +103,32 @@ let ephemeral = null;
 // when the caller didn't pass --drizzle-config, generate one on the fly.
 let generatedConfigPath = null;
 try {
-    if (!(await isReachable(paths.dbUrl))) {
-        if (paths.dbUrlExplicit) failUnreachable(paths.dbUrl);
+    if (paths.dbUrlExplicit && paths.dbUrl) {
+        if (await isReachable(paths.dbUrl)) {
+            effectiveDbUrl = paths.dbUrl;
+        } else {
+            console.warn(`⚠️  Database URL '${paths.dbUrl}' is unreachable or invalid. Falling back to embedded-postgres library...\n`);
+            ephemeral = await startEphemeralPostgres(orderedSqlFiles(paths.ddlDir));
+            if (ephemeral) {
+                effectiveDbUrl = ephemeral.url;
+            } else {
+                failUnreachable(paths.dbUrl);
+            }
+        }
+    } else {
+        // By default, prefer embedded-postgres library directly (zero setup, no Docker/external DB dependency)
         ephemeral = await startEphemeralPostgres(orderedSqlFiles(paths.ddlDir));
-        if (!ephemeral) failUnreachable(paths.dbUrl);
-        effectiveDbUrl = ephemeral.url;
+        if (ephemeral) {
+            effectiveDbUrl = ephemeral.url;
+        } else {
+            // If embedded-postgres is not available / failed, check local Supabase default as fallback
+            const localFallback = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+            if (await isReachable(localFallback)) {
+                effectiveDbUrl = localFallback;
+            } else {
+                failUnreachable('embedded-postgres library or local Supabase (127.0.0.1:54322)');
+            }
+        }
     }
 
     let configPath = paths.drizzleConfig;

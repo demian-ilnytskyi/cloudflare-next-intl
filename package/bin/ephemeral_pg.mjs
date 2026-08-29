@@ -1,8 +1,6 @@
 // Spins up a throwaway, local-only Postgres (via `embedded-postgres`, a
 // prebuilt binary — no Docker) so `cfni-db-codegen` can introspect DDL
-// without any live Postgres already running. Used only as a fallback when
-// no --db-url/CODEGEN_DATABASE_URL was given and nothing is reachable at the
-// local Supabase default.
+// without any external live Postgres running.
 import { readFileSync, rmSync } from 'node:fs';
 import { relative } from 'node:path';
 import { Client } from 'pg';
@@ -44,7 +42,7 @@ export async function startEphemeralPostgres(sqlFiles) {
         persistent: false,
     });
 
-    console.log('ℹ️  No reachable Postgres found — starting an ephemeral one (embedded-postgres, no Docker needed)…');
+    console.log('ℹ️  Using embedded-postgres (zero setup, no Docker) to introspect DDL…');
     try {
         await pg.initialise();
         await pg.start();
@@ -53,8 +51,90 @@ export async function startEphemeralPostgres(sqlFiles) {
         await client.connect();
         try {
             for (const role of SUPABASE_ROLES) {
-                await client.query(`CREATE ROLE ${role} NOLOGIN NOINHERIT;`);
+                await client.query(`CREATE ROLE ${role} NOLOGIN NOINHERIT;`).catch(() => {});
             }
+            await client.query(`CREATE SCHEMA IF NOT EXISTS auth;`).catch(() => {});
+            await client.query(`CREATE SCHEMA IF NOT EXISTS storage;`).catch(() => {});
+            await client.query(`CREATE SCHEMA IF NOT EXISTS extensions;`).catch(() => {});
+            await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`).catch(() => {});
+            await client.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`).catch(() => {});
+
+            // Bootstrap common Supabase helper functions and tables for DDL compatibility
+            await client.query(`
+                CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT null::uuid $$;
+                CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::jsonb $$;
+                CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT 'anon'::text $$;
+                CREATE OR REPLACE FUNCTION auth.email() RETURNS text LANGUAGE sql STABLE AS $$ SELECT ''::text $$;
+
+                CREATE TABLE IF NOT EXISTS auth.users (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    email text,
+                    created_at timestamptz DEFAULT now(),
+                    updated_at timestamptz DEFAULT now(),
+                    raw_user_meta_data jsonb DEFAULT '{}'::jsonb,
+                    raw_app_meta_data jsonb DEFAULT '{}'::jsonb
+                );
+
+                CREATE TABLE IF NOT EXISTS storage.buckets (
+                    id text PRIMARY KEY,
+                    name text NOT NULL,
+                    owner uuid,
+                    created_at timestamptz DEFAULT now(),
+                    updated_at timestamptz DEFAULT now(),
+                    public boolean DEFAULT false,
+                    avif_autodetection boolean DEFAULT false,
+                    file_size_limit bigint,
+                    allowed_mime_types text[],
+                    owner_id text
+                );
+
+                CREATE TABLE IF NOT EXISTS storage.objects (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    bucket_id text REFERENCES storage.buckets(id),
+                    name text,
+                    owner uuid,
+                    created_at timestamptz DEFAULT now(),
+                    updated_at timestamptz DEFAULT now(),
+                    last_accessed_at timestamptz DEFAULT now(),
+                    metadata jsonb,
+                    path_tokens text[] GENERATED ALWAYS AS (string_to_array(name, '/')) STORED,
+                    version text,
+                    owner_id text
+                );
+
+                CREATE OR REPLACE FUNCTION storage.foldername(name text) RETURNS text[] LANGUAGE plpgsql AS $$
+                BEGIN
+                    RETURN string_to_array(name, '/');
+                END
+                $$;
+
+                CREATE OR REPLACE FUNCTION storage.filename(name text) RETURNS text LANGUAGE plpgsql AS $$
+                DECLARE
+                    parts text[];
+                BEGIN
+                    parts := string_to_array(name, '/');
+                    RETURN parts[array_length(parts, 1)];
+                END
+                $$;
+
+                CREATE OR REPLACE FUNCTION storage.extension(name text) RETURNS text LANGUAGE plpgsql AS $$
+                DECLARE
+                    parts text[];
+                    filename text;
+                    ext_parts text[];
+                BEGIN
+                    parts := string_to_array(name, '/');
+                    filename := parts[array_length(parts, 1)];
+                    ext_parts := string_to_array(filename, '.');
+                    IF array_length(ext_parts, 1) > 1 THEN
+                        RETURN ext_parts[array_length(ext_parts, 1)];
+                    ELSE
+                        RETURN '';
+                    END IF;
+                END
+                $$;
+            `).catch(() => {});
+
             for (const file of sqlFiles) {
                 const sql = readFileSync(file, 'utf8');
                 if (sql.trim().length === 0) continue;

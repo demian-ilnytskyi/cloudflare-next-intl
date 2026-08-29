@@ -10,7 +10,7 @@ export interface CodegenPaths {
     outFile: string;
     pullDir: string;
     manifest: string;
-    dbUrl: string;
+    dbUrl: string | null;
     dbUrlExplicit: boolean;
     check: boolean;
     timeoutMs: number;

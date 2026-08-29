@@ -868,7 +868,7 @@ npx cfni-db-codegen --check
 | `--ddl-dir=` | `CFNI_DB_DDL_DIR` | `supabase/data-base` |
 | `--out-dir=` | `CFNI_DB_OUT_DIR` | `src/shared/db/generated` |
 | `--out-file=` | `CFNI_DB_OUT_FILE` | `schema.ts` |
-| `--db-url=` | `CODEGEN_DATABASE_URL` | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
+| `--db-url=` | `CODEGEN_DATABASE_URL` | none (prefers `embedded-postgres`) |
 | `--drizzle-config=` | `CFNI_DB_DRIZZLE_CONFIG` | none |
 | `--rpc-dir=` | `CFNI_DB_RPC_DIR` | inside `--ddl-dir`, e.g. `supabase/data-base/rpcs` |
 | `--rpc-file-name=` | `CFNI_DB_RPC_FILE_NAME` | `cfni_exec.sql` |
@@ -888,14 +888,9 @@ them and fails naming the first one that is stale.
 npx cfni-db-codegen --out-dir=src/shared/db/generated --out-dir=../other-app/src/db/generated
 ```
 
-If no `--db-url`/`CODEGEN_DATABASE_URL` is set and nothing is reachable at the
-local Supabase default, `cfni-db-codegen` falls back to a throwaway,
-local-only Postgres started via the optional `embedded-postgres` package (a
-prebuilt binary, no Docker required): install it once with
-`npm install --save-dev embedded-postgres`, and no local DB setup is needed —
-the DDL in `--ddl-dir` is loaded into it, introspected, and it's torn down
-after. Passing an explicit `--db-url`/`CODEGEN_DATABASE_URL` skips this
-fallback entirely and fails loudly if that target is unreachable.
+By default, `cfni-db-codegen` uses the built-in `embedded-postgres` package to spin up a throwaway local Postgres, load your project's DDL from `--ddl-dir`, and introspect it with zero external dependencies (no Docker or running Postgres required).
+
+If you explicitly pass `--db-url=` or set `CODEGEN_DATABASE_URL`, `cfni-db-codegen` will connect to that specific live database instead. If the provided database URL is unreachable or invalid, a warning is printed and it automatically falls back to generating the schema via `embedded-postgres`.
 
 ##### Keeping `cfni_exec.sql` in sync (`--rpc-dir`/`--rpc-file-name`/`--tests-dir`/`--tests-file-name`/`--force`/`--skip-exec`)
 

@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.52] - 2026-08-29
+
+### Changed
+
+- **`cfni-db-codegen` prefers `embedded-postgres` library by default**:
+  Auto-generates Drizzle models by spinning up an ephemeral Postgres instance using `embedded-postgres` and loading DDL from `--ddl-dir`, requiring zero external database setup or running Docker containers.
+- **Graceful fallback on invalid/unreachable `--db-url`**:
+  When an explicit `--db-url` or `CODEGEN_DATABASE_URL` is provided but unreachable or invalid, prints a warning and automatically falls back to generating the schema via `embedded-postgres`.
+- **Bootstrapped Supabase mock environment in ephemeral Postgres**:
+  Added standard Supabase auth/storage schemas, tables, and functions (`auth.users`, `storage.buckets`, `storage.objects`, `storage.foldername`, etc.) to the ephemeral instance so full Supabase DDL runs without external dependencies.
+
 ## [0.8.51] - 2026-08-28
 
 ### Fixed

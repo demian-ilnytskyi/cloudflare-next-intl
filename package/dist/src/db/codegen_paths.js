@@ -2,7 +2,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 const DEFAULT_DDL_DIR = 'supabase/data-base';
 const DEFAULT_OUT_DIR = 'src/shared/db/generated';
 const DEFAULT_OUT_FILE = 'schema.ts';
-const DEFAULT_DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const DEFAULT_DB_URL = null;
 const DEFAULT_TIMEOUT_MS = 5000;
 const DEFAULT_RPC_FILE_NAME = 'cfni_exec.sql';
 const DEFAULT_TESTS_FILE_NAME = 'cfni_exec.sql';

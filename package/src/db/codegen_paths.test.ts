@@ -11,7 +11,7 @@ describe('resolveCodegenPaths', () => {
         expect(paths.outFile).toBe('/app/src/shared/db/generated/schema.ts');
         expect(paths.manifest).toBe('/app/src/shared/db/generated/manifest.json');
         expect(paths.pullDir).toBe('/app/src/shared/db/.drizzle-pull');
-        expect(paths.dbUrl).toBe('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
+        expect(paths.dbUrl).toBe(null);
         expect(paths.dbUrlExplicit).toBe(false);
         expect(paths.check).toBe(false);
         expect(paths.timeoutMs).toBe(5000);
