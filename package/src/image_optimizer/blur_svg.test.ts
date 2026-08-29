@@ -31,4 +31,29 @@ describe("blur_svg", () => {
         const defaultDecoded = Buffer.from(defaultUri.replace("data:image/svg+xml;base64,", ""), "base64").toString("utf8");
         expect(defaultDecoded).toContain("preserveAspectRatio='none'");
     });
+
+    it("toBase64 falls back to btoa and empty string when Buffer is unavailable", () => {
+        const dummyBlur = "data:image/webp;base64,UklGRmY=";
+        const origBuffer = globalThis.Buffer;
+        try {
+            // @ts-expect-error simulate browser without Buffer
+            delete globalThis.Buffer;
+            const btoaUri = getImageBlurSvg(dummyBlur, 8, 8);
+            expect(btoaUri.startsWith("data:image/svg+xml;base64,")).toBe(true);
+
+            // @ts-expect-error simulate environment without btoa
+            const origBtoa = globalThis.btoa;
+            try {
+                // @ts-expect-error delete btoa
+                delete globalThis.btoa;
+                const fallbackUri = getImageBlurSvg(dummyBlur, 8, 8);
+                expect(fallbackUri).toBe("data:image/svg+xml;base64,");
+            } finally {
+                globalThis.btoa = origBtoa;
+            }
+        } finally {
+            globalThis.Buffer = origBuffer;
+        }
+    });
 });
+

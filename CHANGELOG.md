@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.56
+
+### Fixed
+
+- Browser-safe SVG blur placeholder generation in `getImageBlurSvg` using `btoa` fallback when `Buffer` is undefined in browser/client components.
+- Resilient image manifest lookup in `next_image_shim` supporting object `src` (`StaticImageData`), leading slash variations, query strings, and stripped `public/` prefixes.
+- Injected inline `backgroundImage: url(blurDataURL)` style fallback to guarantee blur placeholder display across all runtimes.
+
 ## 0.8.55
 
 ### Added
