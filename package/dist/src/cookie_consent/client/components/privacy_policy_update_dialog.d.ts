@@ -10,6 +10,11 @@ export interface PrivacyPolicyUpdateDialogProps {
     link?: React.ReactNode;
     /** Label for the default privacy-policy link. Ignored when `link` is set. */
     privacyPolicyLinkText?: string;
+    /**
+     * Whether to show the privacy policy link. Defaults to `cookieConsent.showPrivacyPolicy`
+     * (or `true` if unconfigured). Pass `false` to hide it, or `true` to force show.
+     */
+    showPrivacyPolicy?: boolean;
     closeText?: string;
     id?: string;
     classNames?: CookieDialogClassNames;
@@ -28,4 +33,4 @@ export interface PrivacyPolicyUpdateDialogProps {
  * `null` otherwise, or once acknowledged. Every visual aspect is overridable
  * via `classNames`/`styles` (per-slot) or `render` (full custom markup).
  */
-export default function PrivacyPolicyUpdateDialog({ message, link, privacyPolicyLinkText, closeText, id, classNames, styles, render, }: PrivacyPolicyUpdateDialogProps): React.ReactElement | null;
+export default function PrivacyPolicyUpdateDialog({ message, link, privacyPolicyLinkText, showPrivacyPolicy, closeText, id, classNames, styles, render, }: PrivacyPolicyUpdateDialogProps): React.ReactElement | null;

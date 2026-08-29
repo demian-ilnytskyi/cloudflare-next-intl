@@ -49,7 +49,7 @@ function parseConsent(raw) {
  * ```
  */
 export default function CookieConsentProvider({ requiresConsent = true, children }) {
-    const { consentCookieName, dateCookieName, maxAge, policyDate, privacyPolicyPath } = useMemo(() => {
+    const { consentCookieName, dateCookieName, maxAge, policyDate, privacyPolicyPath, showPrivacyPolicy } = useMemo(() => {
         const cc = requireCookieConsentConfig(config.cookieConsent);
         return {
             consentCookieName: cc.consentCookieName ?? cookieConsentCookieKey,
@@ -57,6 +57,7 @@ export default function CookieConsentProvider({ requiresConsent = true, children
             maxAge: cc.cookieMaxAge ?? 31536000,
             policyDate: cc.privacyPolicyDate ? new Date(cc.privacyPolicyDate) : null,
             privacyPolicyPath: cc.privacyPolicyPath ?? '/privacy-policy',
+            showPrivacyPolicy: cc.showPrivacyPolicy ?? true,
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -120,6 +121,6 @@ export default function CookieConsentProvider({ requiresConsent = true, children
             acknowledgePrivacyPolicyUpdate();
         }
     }, [pathname, privacyPolicyUpdated, privacyPolicyPath, acknowledgePrivacyPolicyUpdate]);
-    const contextValue = useMemo(() => ({ consent, requiresConsent, privacyPolicyUpdated, isMounted, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath }), [consent, requiresConsent, privacyPolicyUpdated, isMounted, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath]);
+    const contextValue = useMemo(() => ({ consent, requiresConsent, privacyPolicyUpdated, isMounted, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath, showPrivacyPolicy }), [consent, requiresConsent, privacyPolicyUpdated, isMounted, setConsent, acknowledgePrivacyPolicyUpdate, privacyPolicyPath, showPrivacyPolicy]);
     return (_jsx(CookieConsentContext.Provider, { value: contextValue, children: children }));
 }

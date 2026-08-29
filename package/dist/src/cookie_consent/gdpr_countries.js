@@ -32,7 +32,7 @@ function getGdprCountriesSet(gdprCountries) {
     }
     return set;
 }
-export default async function resolveRequiresConsent(getCountryCode, getCloudflareContext, gdprCountries, errorHandlingConfig, countryHeaderNames) {
+export default async function resolveRequiresConsent(getCountryCode, getCloudflareContext, gdprCountries, errorHandlingConfig, countryHeaderNames, generateConfig) {
     let countryCode;
     if (getCountryCode) {
         countryCode = await getCountryCode();
@@ -51,7 +51,7 @@ export default async function resolveRequiresConsent(getCountryCode, getCloudfla
     // headers off the current request.
     if (typeof countryCode !== 'string' || !countryCode) {
         try {
-            countryCode = await getCountry(undefined, undefined, countryHeaderNames);
+            countryCode = await getCountry(undefined, generateConfig, countryHeaderNames);
         }
         catch {
             return true;

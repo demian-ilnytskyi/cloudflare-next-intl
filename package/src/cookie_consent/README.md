@@ -79,9 +79,10 @@ Both also render a privacy-policy link by default when their `link` prop is
 omitted — pointing at `cookieConsent.privacyPolicyPath` (defaults to
 `'/privacy-policy'`), locale-prefixed the same way the package's `Link`
 component does. Pass `link={null}` to render no link, `link={<...>}` for a
-fully custom element, or set `cookieConsent.privacyPolicyPath` to `false` to
-disable the default link everywhere. `privacyPolicyLinkText` overrides the
-default link's label (`"Privacy Policy"` / `"Learn more"`).
+fully custom element, set `cookieConsent.showPrivacyPolicy: false` (or pass
+`showPrivacyPolicy={false}` on the dialog component) to hide the privacy policy link,
+or set `cookieConsent.privacyPolicyPath` to `false` to disable the default link everywhere.
+`privacyPolicyLinkText` overrides the default link's label (`"Privacy Policy"` / `"Learn more"`).
 
 ## Gotchas
 

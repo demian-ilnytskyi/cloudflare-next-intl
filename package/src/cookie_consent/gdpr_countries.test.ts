@@ -114,10 +114,18 @@ describe('resolveRequiresConsent', () => {
         vi.resetModules();
     });
 
+    it('resolves country from generateConfig (e.g. generate.ctx with UA returning false)', async () => {
+        const generate = {
+            ctx: () => ({ cf: { country: 'UA' } }),
+        };
+        expect(await resolveRequiresConsent(undefined, undefined, undefined, undefined, undefined, generate as any)).toBe(false);
+    });
+
     it('exposes the default GDPR country list', () => {
         expect(defaultGdprCountries).toContain('DE');
         expect(defaultGdprCountries).toContain('GB');
         expect(defaultGdprCountries).toContain('CH');
         expect(defaultGdprCountries).not.toContain('US');
+        expect(defaultGdprCountries).not.toContain('UA');
     });
 });

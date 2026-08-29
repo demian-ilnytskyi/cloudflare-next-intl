@@ -14,10 +14,10 @@ function extractHeader(h, name) {
 // Read lazily (and tolerantly): `@intl-config` may not be set at all in
 // standalone/unit usage of these helpers, and importing the config eagerly
 // would risk a cycle with a config module that itself imports from here.
-async function configuredHeaderNames(key) {
+async function configuredGenerate() {
     try {
         const config = (await import('../../config/intl_config')).default;
-        return config?.generate?.[key];
+        return config?.generate;
     }
     catch {
         return undefined;
@@ -38,13 +38,13 @@ function extractFromHeaderNames(h, headerNames) {
  * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
  * 2. Next.js request headers via `headers()` (`headerNames`, default
  *    `x-cf-country`, `cf-ipcountry`)
- * 3. `generate.getCloudflareContext` or `cf.country` if passed
+ * 3. `generate.ctx` or `generate.getCloudflareContext` or `cf.country` if passed
  * 4. `undefined` if outside request scope or unavailable
  */
 export async function getCountry(input, generate, headerNames) {
+    const gen = generate ?? await configuredGenerate();
     const names = headerNames
-        ?? generate?.countryHeaderNames
-        ?? await configuredHeaderNames('countryHeaderNames')
+        ?? gen?.countryHeaderNames
         ?? defaultCountryHeaderNames;
     if (input) {
         if ('headers' in input && input.headers) {
@@ -72,9 +72,21 @@ export async function getCountry(input, generate, headerNames) {
     catch {
         // Outside request scope / build time
     }
-    if (generate?.getCloudflareContext) {
+    if (gen?.ctx) {
         try {
-            const ctx = await generate.getCloudflareContext({ async: true });
+            const context = typeof gen.ctx === 'function' ? await gen.ctx() : gen.ctx;
+            const cf = context?.cf;
+            if (cf?.country && typeof cf.country === 'string' && cf.country.length > 0) {
+                return cf.country;
+            }
+        }
+        catch {
+            // Ignore context resolution errors
+        }
+    }
+    if (gen?.getCloudflareContext) {
+        try {
+            const ctx = await gen.getCloudflareContext({ async: true });
             if (ctx?.cf?.country && typeof ctx.cf.country === 'string' && ctx.cf.country.length > 0) {
                 return ctx.cf.country;
             }
@@ -92,13 +104,13 @@ export async function getCountry(input, generate, headerNames) {
  * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
  * 2. Next.js request headers via `headers()` (`headerNames`, default
  *    `x-cf-timezone`, `cf-timezone`)
- * 3. `generate.getCloudflareContext` or `cf.timezone` if passed
+ * 3. `generate.ctx` or `generate.getCloudflareContext` or `cf.timezone` if passed
  * 4. `fallback` (or `undefined`) if outside request scope or unavailable
  */
 export async function getTimezone(input, fallback, generate, headerNames) {
+    const gen = generate ?? await configuredGenerate();
     const names = headerNames
-        ?? generate?.timezoneHeaderNames
-        ?? await configuredHeaderNames('timezoneHeaderNames')
+        ?? gen?.timezoneHeaderNames
         ?? defaultTimezoneHeaderNames;
     if (input) {
         if ('headers' in input && input.headers) {
@@ -126,9 +138,21 @@ export async function getTimezone(input, fallback, generate, headerNames) {
     catch {
         // Outside request scope
     }
-    if (generate?.getCloudflareContext) {
+    if (gen?.ctx) {
         try {
-            const ctx = await generate.getCloudflareContext({ async: true });
+            const context = typeof gen.ctx === 'function' ? await gen.ctx() : gen.ctx;
+            const cf = context?.cf;
+            if (cf?.timezone && typeof cf.timezone === 'string' && cf.timezone.length > 0) {
+                return cf.timezone;
+            }
+        }
+        catch {
+            // Ignore context resolution errors
+        }
+    }
+    if (gen?.getCloudflareContext) {
+        try {
+            const ctx = await gen.getCloudflareContext({ async: true });
             if (ctx?.cf?.timezone && typeof ctx.cf.timezone === 'string' && ctx.cf.timezone.length > 0) {
                 return ctx.cf.timezone;
             }

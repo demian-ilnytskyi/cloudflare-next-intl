@@ -11,6 +11,11 @@ export interface CookieConsentDialogProps {
     link?: React.ReactNode;
     /** Label for the default privacy-policy link. Ignored when `link` is set. */
     privacyPolicyLinkText?: string;
+    /**
+     * Whether to show the privacy policy link. Defaults to `cookieConsent.showPrivacyPolicy`
+     * (or `true` if unconfigured). Pass `false` to hide it, or `true` to force show.
+     */
+    showPrivacyPolicy?: boolean;
     acceptText?: string;
     declineText?: string;
     /** Hides the decline ("necessary only") button, leaving only accept. */
@@ -32,4 +37,4 @@ export interface CookieConsentDialogProps {
  * `render` (full custom markup) — none of it is hardcoded to Tailwind or any
  * particular design system.
  */
-export default function CookieConsentDialog({ message, link, privacyPolicyLinkText, acceptText, declineText, hideDecline, id, classNames, styles, render, }: CookieConsentDialogProps): React.ReactElement | null;
+export default function CookieConsentDialog({ message, link, privacyPolicyLinkText, showPrivacyPolicy, acceptText, declineText, hideDecline, id, classNames, styles, render, }: CookieConsentDialogProps): React.ReactElement | null;

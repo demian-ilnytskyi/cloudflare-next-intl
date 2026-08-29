@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.53
+
+### Added
+
+- `cloudflareNextIntl()` all-in-one Vite plugin (`cloudflare-next-intl/vite`) consolidating `localeFilePlugin`, `userAgentStubPlugin`, `cfWorkersClientStubPlugin`, and `buildIdAsset`.
+- Full support for Vinext Cloudflare Workers builds with zero `node:fs` runtime crashes.
+- `showPrivacyPolicy?: boolean` option (defaults to `true`) in `cookieConsent` config and dialog components (`CookieConsentDialog`, `PrivacyPolicyUpdateDialog`).
+- Forwarded Cloudflare country (`x-cf-country`), timezone (`x-cf-timezone`), pathname, and search request headers in `intlMiddleware` to downstream Server Components.
+- Supported `generate.ctx` in `getCountry()` and `getTimezone()` so visitors from non-GDPR regions (like Ukraine `UA`) skip cookie consent gating.
+
 ## 0.8.43
 
 ### Added

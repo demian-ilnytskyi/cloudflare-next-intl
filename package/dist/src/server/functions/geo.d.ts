@@ -10,7 +10,7 @@ export declare const defaultTimezoneHeaderNames: readonly string[];
  * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
  * 2. Next.js request headers via `headers()` (`headerNames`, default
  *    `x-cf-country`, `cf-ipcountry`)
- * 3. `generate.getCloudflareContext` or `cf.country` if passed
+ * 3. `generate.ctx` or `generate.getCloudflareContext` or `cf.country` if passed
  * 4. `undefined` if outside request scope or unavailable
  */
 export declare function getCountry(input?: RequestOrHeaders, generate?: GenerateRoutingConfig, headerNames?: readonly string[]): Promise<string | undefined>;
@@ -21,7 +21,7 @@ export declare function getCountry(input?: RequestOrHeaders, generate?: Generate
  * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
  * 2. Next.js request headers via `headers()` (`headerNames`, default
  *    `x-cf-timezone`, `cf-timezone`)
- * 3. `generate.getCloudflareContext` or `cf.timezone` if passed
+ * 3. `generate.ctx` or `generate.getCloudflareContext` or `cf.timezone` if passed
  * 4. `fallback` (or `undefined`) if outside request scope or unavailable
  */
 export declare function getTimezone(input?: RequestOrHeaders, fallback?: string, generate?: GenerateRoutingConfig, headerNames?: readonly string[]): Promise<string | undefined>;

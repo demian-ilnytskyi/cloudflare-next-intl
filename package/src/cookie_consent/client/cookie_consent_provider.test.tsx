@@ -37,6 +37,7 @@ function Consumer() {
             <span data-testid="consent">{ctx.consent === null ? 'null' : String(ctx.consent)}</span>
             <span data-testid="updated">{String(ctx.privacyPolicyUpdated)}</span>
             <span data-testid="privacy-policy-path">{String(ctx.privacyPolicyPath)}</span>
+            <span data-testid="show-privacy-policy">{String(ctx.showPrivacyPolicy)}</span>
             <button onClick={() => ctx.setConsent(true)}>accept</button>
             <button onClick={() => ctx.setConsent(false)}>decline</button>
             <button onClick={() => ctx.setConsent(null)}>reset</button>
@@ -271,5 +272,18 @@ describe('CookieConsentProvider', () => {
         const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
         render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
         expect(screen.getByTestId('updated')).toHaveTextContent('true');
+    });
+
+    it('defaults showPrivacyPolicy to true when unconfigured', async () => {
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('show-privacy-policy')).toHaveTextContent('true');
+    });
+
+    it('honors showPrivacyPolicy set to false', async () => {
+        currentConfig = { cookieConsent: { showPrivacyPolicy: false } };
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+        render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('show-privacy-policy')).toHaveTextContent('false');
     });
 });

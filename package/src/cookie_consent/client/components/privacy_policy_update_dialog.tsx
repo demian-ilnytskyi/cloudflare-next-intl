@@ -19,6 +19,11 @@ export interface PrivacyPolicyUpdateDialogProps {
     link?: React.ReactNode;
     /** Label for the default privacy-policy link. Ignored when `link` is set. */
     privacyPolicyLinkText?: string;
+    /**
+     * Whether to show the privacy policy link. Defaults to `cookieConsent.showPrivacyPolicy`
+     * (or `true` if unconfigured). Pass `false` to hide it, or `true` to force show.
+     */
+    showPrivacyPolicy?: boolean;
     closeText?: string;
     id?: string;
     classNames?: CookieDialogClassNames;
@@ -40,13 +45,14 @@ export default function PrivacyPolicyUpdateDialog({
     message,
     link,
     privacyPolicyLinkText,
+    showPrivacyPolicy,
     closeText,
     id = 'privacy-policy-update-dialog',
     classNames,
     styles,
     render,
 }: PrivacyPolicyUpdateDialogProps): React.ReactElement | null {
-    const { privacyPolicyUpdated, acknowledgePrivacyPolicyUpdate, privacyPolicyPath } = useCookieConsent();
+    const { privacyPolicyUpdated, acknowledgePrivacyPolicyUpdate, privacyPolicyPath, showPrivacyPolicy: showPrivacyPolicyCtx } = useCookieConsent();
 
     if (!privacyPolicyUpdated) return null;
 
@@ -57,10 +63,13 @@ export default function PrivacyPolicyUpdateDialog({
     const resolvedPrivacyPolicyLinkText = privacyPolicyLinkText ?? text.privacyPolicyLinkText;
     const resolvedCloseText = closeText ?? text.closeText;
     const resolvedClassNames = { ...defaultCookieDialogClassNames, ...classNames };
+    const shouldShowPolicy = showPrivacyPolicy ?? showPrivacyPolicyCtx;
 
     const resolvedLink = link !== undefined
         ? link
-        : <DefaultPrivacyPolicyLink privacyPolicyPath={privacyPolicyPath} text={resolvedPrivacyPolicyLinkText} className={resolvedClassNames.link} />;
+        : (shouldShowPolicy && privacyPolicyPath !== false)
+            ? <DefaultPrivacyPolicyLink privacyPolicyPath={privacyPolicyPath} text={resolvedPrivacyPolicyLinkText} className={resolvedClassNames.link} />
+            : null;
 
     return (
         <DialogPortal>

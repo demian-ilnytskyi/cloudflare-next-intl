@@ -129,6 +129,54 @@ describe('geo functions', () => {
             expect(result).toBeUndefined();
         });
 
+        it('resolves country from generate.ctx (sync function)', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const generate = {
+                ctx: () => ({ cf: { country: 'UA' } }),
+            };
+
+            const result = await getCountry(undefined, generate as unknown as any);
+            expect(result).toBe('UA');
+        });
+
+        it('resolves country from generate.ctx (async function)', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const generate = {
+                ctx: async () => ({ cf: { country: 'UA' } }),
+            };
+
+            const result = await getCountry(undefined, generate as unknown as any);
+            expect(result).toBe('UA');
+        });
+
+        it('resolves country from generate.ctx (static object)', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const generate = {
+                ctx: { cf: { country: 'UA' } },
+            };
+
+            const result = await getCountry(undefined, generate as unknown as any);
+            expect(result).toBe('UA');
+        });
+
+        it('handles generate.ctx throwing gracefully', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const generate = {
+                ctx: () => { throw new Error('ctx error'); },
+            };
+
+            const result = await getCountry(undefined, generate as unknown as any);
+            expect(result).toBeUndefined();
+        });
+
         it('falls through when next/headers returns headers without any cf headers', async () => {
             const { headers } = await import('next/headers');
             const mockHeaders = new Headers();
@@ -269,6 +317,54 @@ describe('geo functions', () => {
 
             const generate = {
                 getCloudflareContext: vi.fn().mockRejectedValue(new Error('Context error')),
+            };
+
+            const result = await getTimezone(undefined, 'UTC', generate as unknown as any);
+            expect(result).toBe('UTC');
+        });
+
+        it('resolves timezone from generate.ctx (sync function)', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const generate = {
+                ctx: () => ({ cf: { timezone: 'Europe/Kyiv' } }),
+            };
+
+            const result = await getTimezone(undefined, 'UTC', generate as unknown as any);
+            expect(result).toBe('Europe/Kyiv');
+        });
+
+        it('resolves timezone from generate.ctx (async function)', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const generate = {
+                ctx: async () => ({ cf: { timezone: 'Europe/Kyiv' } }),
+            };
+
+            const result = await getTimezone(undefined, 'UTC', generate as unknown as any);
+            expect(result).toBe('Europe/Kyiv');
+        });
+
+        it('resolves timezone from generate.ctx (static object)', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const generate = {
+                ctx: { cf: { timezone: 'Europe/Kyiv' } },
+            };
+
+            const result = await getTimezone(undefined, 'UTC', generate as unknown as any);
+            expect(result).toBe('Europe/Kyiv');
+        });
+
+        it('handles generate.ctx throwing in getTimezone', async () => {
+            const { headers } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const generate = {
+                ctx: () => { throw new Error('ctx error'); },
             };
 
             const result = await getTimezone(undefined, 'UTC', generate as unknown as any);

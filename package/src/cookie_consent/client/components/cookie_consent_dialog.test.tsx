@@ -7,10 +7,11 @@ let consent: boolean | null = null;
 let requiresConsent = true;
 let isMounted = true;
 let privacyPolicyPath: string | false = '/privacy-policy';
+let showPrivacyPolicy = true;
 let locale: string | undefined = undefined;
 
 vi.mock('../use_cookie_consent', () => ({
-    default: () => ({ consent, requiresConsent, isMounted, setConsent, privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn(), privacyPolicyPath }),
+    default: () => ({ consent, requiresConsent, isMounted, setConsent, privacyPolicyUpdated: false, acknowledgePrivacyPolicyUpdate: vi.fn(), privacyPolicyPath, showPrivacyPolicy }),
 }));
 
 vi.mock('../../../general/cache_variables', () => ({
@@ -28,6 +29,7 @@ describe('CookieConsentDialog', () => {
         requiresConsent = true;
         isMounted = true;
         privacyPolicyPath = '/privacy-policy';
+        showPrivacyPolicy = true;
         locale = undefined;
         setConsent.mockClear();
     });
@@ -68,6 +70,23 @@ describe('CookieConsentDialog', () => {
     it('renders the default privacy-policy link when link is omitted', () => {
         render(<CookieConsentDialog />);
         expect(screen.getByTestId('default-privacy-policy-link')).toHaveTextContent('Privacy Policy');
+    });
+
+    it('renders no link when showPrivacyPolicy is false on context', () => {
+        showPrivacyPolicy = false;
+        render(<CookieConsentDialog />);
+        expect(screen.queryByTestId('default-privacy-policy-link')).not.toBeInTheDocument();
+    });
+
+    it('renders no link when showPrivacyPolicy prop is false', () => {
+        render(<CookieConsentDialog showPrivacyPolicy={false} />);
+        expect(screen.queryByTestId('default-privacy-policy-link')).not.toBeInTheDocument();
+    });
+
+    it('renders link when showPrivacyPolicy prop is true even if context is false', () => {
+        showPrivacyPolicy = false;
+        render(<CookieConsentDialog showPrivacyPolicy={true} />);
+        expect(screen.getByTestId('default-privacy-policy-link')).toBeInTheDocument();
     });
 
     it('respects a custom privacyPolicyLinkText for the default link', () => {

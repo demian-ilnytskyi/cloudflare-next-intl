@@ -165,6 +165,7 @@ export default async function LocationzationProvider({ language, messages, stati
                 config.cookieConsent.gdprCountries,
                 config.errorHandling,
                 config.cookieConsent.countryHeaderNames,
+                config.generate,
             )
             : false;
 

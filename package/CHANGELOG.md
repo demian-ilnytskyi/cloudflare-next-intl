@@ -3,6 +3,39 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.53] - 2026-08-29
+
+### Added
+
+- **`showPrivacyPolicy` boolean option in `cookieConsent`**:
+  Added `showPrivacyPolicy?: boolean` (defaults to `true`) on `CookieConsentRoutingConfig`, `CookieConsentContextType`, `CookieConsentDialogProps`, and `PrivacyPolicyUpdateDialogProps`. Set `false` to hide the privacy policy link globally or per dialog component.
+- **`cloudflareNextIntl()` all-in-one Vite plugin (`cloudflare-next-intl/vite`)**:
+  Consolidated Vite plugins required for Vinext and Cloudflare Workers into a single configurable entry point:
+  - **`localeFilePlugin`**: Resolves `@locale-file/*` translation JSON paths, handles `@intl-config` aliasing, dynamic RSC exports (`\0cloudflare-next-intl:rsc`), and transforms dynamic translation imports with `import.meta.glob`.
+  - **`userAgentStubPlugin`**: Provides regex-based User-Agent parsing (`isBot`, `userAgent`, `userAgentFromString`) avoiding Node.js `node:fs` calls on Cloudflare Workers.
+  - **`cfWorkersClientStubPlugin`**: Stubs server-only `cloudflare:workers` exports (`WorkerEntrypoint`, `DurableObject`) on client/browser builds.
+  - **`buildIdAsset`**: Automatically emits client `BUILD_ID` assets for stale-deploy detection and client reload.
+- **Configurable Sub-Plugin Options**:
+  Enabled all plugins by default with fine-grained toggles (`localeFiles`, `userAgentStub`, `cfWorkersClientStub`, `buildIdAsset`) and custom directory options (`messagesDir`, `intlConfigPath`, `root`).
+- **Comprehensive Test Suite & Documentation**:
+  Added 100% test coverage across all `src/vite` plugins and documented Vite setup in README and `llms.txt`.
+
+### Fixed
+
+- **Cloudflare country and timezone header forwarding in `intlMiddleware`**:
+  Ensured `x-cf-country`, `x-cf-timezone`, `x-pathname`, and `x-search` are forwarded in `request: { headers: requestHeaders }` for `NextResponse.next` and `NextResponse.rewrite` so downstream Server Components (`next/headers`, `getCountry`, `getTimezone`, `resolveRequiresConsent`) can read them.
+- **`generate.ctx` support in `getCountry` and `getTimezone`**:
+  `getCountry()` and `getTimezone()` now support resolving `cf.country` and `cf.timezone` from `generate.ctx` (e.g. `getRequestExecutionContext()`). Non-GDPR visitors (such as Ukraine `UA`) correctly skip cookie consent gating.
+  Consolidated Vite plugins required for Vinext and Cloudflare Workers into a single configurable entry point:
+  - **`localeFilePlugin`**: Resolves `@locale-file/*` translation JSON paths, handles `@intl-config` aliasing, dynamic RSC exports (`\0cloudflare-next-intl:rsc`), and transforms dynamic translation imports with `import.meta.glob`.
+  - **`userAgentStubPlugin`**: Provides regex-based User-Agent parsing (`isBot`, `userAgent`, `userAgentFromString`) avoiding Node.js `node:fs` calls on Cloudflare Workers.
+  - **`cfWorkersClientStubPlugin`**: Stubs server-only `cloudflare:workers` exports (`WorkerEntrypoint`, `DurableObject`) on client/browser builds.
+  - **`buildIdAsset`**: Automatically emits client `BUILD_ID` assets for stale-deploy detection and client reload.
+- **Configurable Sub-Plugin Options**:
+  Enabled all plugins by default with fine-grained toggles (`localeFiles`, `userAgentStub`, `cfWorkersClientStub`, `buildIdAsset`) and custom directory options (`messagesDir`, `intlConfigPath`, `root`).
+- **Comprehensive Test Suite & Documentation**:
+  Added 100% test coverage across all `src/vite` plugins and documented Vite setup in README and `llms.txt`.
+
 ## [0.8.52] - 2026-08-29
 
 ### Changed

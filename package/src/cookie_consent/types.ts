@@ -44,6 +44,11 @@ export interface CookieConsentContextType {
      * when their `link` prop is omitted.
      */
     privacyPolicyPath: string | false;
+    /**
+     * Whether the privacy policy link should be shown in default dialogs.
+     * Defaults to `true`.
+     */
+    showPrivacyPolicy: boolean;
 }
 
 /** Slot-level style/class overrides accepted by the default dialog components. */

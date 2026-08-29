@@ -87,6 +87,23 @@ export default async function intlMiddleware(request, options) {
             pathWithoutLocale = pathname;
         }
         const effectiveLocaleForRequest = urlLocale ?? initialChosenLocale;
+        const country = request.cf?.country ?? request.headers.get('cf-ipcountry') ?? request.headers.get('x-cf-country');
+        if (country) {
+            request.headers.set('x-cf-country', country);
+        }
+        const timezone = request.cf?.timezone ?? request.headers.get('cf-timezone') ?? request.headers.get('x-cf-timezone');
+        if (timezone) {
+            request.headers.set('x-cf-timezone', timezone);
+        }
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set('x-pathname', pathWithoutLocale);
+        requestHeaders.set('x-search', search);
+        if (country) {
+            requestHeaders.set('x-cf-country', country);
+        }
+        if (timezone) {
+            requestHeaders.set('x-cf-timezone', timezone);
+        }
         let response;
         let isRedirect = false;
         let rewriteUrl;
@@ -96,7 +113,7 @@ export default async function intlMiddleware(request, options) {
             const localeUrl = new URL(`${targetPath}${search}${hash}`, request.url);
             if (initialChosenLocale === config.defaultLocale) {
                 rewriteUrl = localeUrl;
-                response = NextResponse.rewrite(localeUrl, { request });
+                response = NextResponse.rewrite(localeUrl, { request: { headers: requestHeaders } });
             }
             else {
                 isRedirect = true;
@@ -106,7 +123,9 @@ export default async function intlMiddleware(request, options) {
         }
         else {
             response = NextResponse.next({
-                request,
+                request: {
+                    headers: requestHeaders,
+                },
             });
         }
         if (options?.middlewareHandler && (!isRedirect || options.runHandlerOnRedirect)) {
@@ -130,14 +149,10 @@ export default async function intlMiddleware(request, options) {
         response.headers.set('Content-Language', effectiveLocaleForRequest);
         response.headers.set('x-pathname', pathWithoutLocale);
         response.headers.set('x-search', search);
-        const country = request.cf?.country ?? request.headers.get('cf-ipcountry') ?? request.headers.get('x-cf-country');
         if (country) {
-            request.headers.set('x-cf-country', country);
             response.headers.set('x-cf-country', country);
         }
-        const timezone = request.cf?.timezone ?? request.headers.get('cf-timezone') ?? request.headers.get('x-cf-timezone');
         if (timezone) {
-            request.headers.set('x-cf-timezone', timezone);
             response.headers.set('x-cf-timezone', timezone);
         }
         // Auto-wires the firebase_auth submodule's redirect/session-refresh

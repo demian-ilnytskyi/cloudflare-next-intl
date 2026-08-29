@@ -84,7 +84,7 @@ See [`example/`](example) for a full working Next.js app using the package.
 | `cloudflare-next-intl/use` | Universal translation hook (server/client aware) |
 | `cloudflare-next-intl/ThemeSwitcher` | Optional theme switcher component |
 | `cloudflare-next-intl/geo` | Country & timezone resolution helpers (`getCountry`, `getTimezone`) |
-| `cloudflare-next-intl/vite` | Vite build plugin (`buildIdAsset`) for Vinext client bundles |
+| `cloudflare-next-intl/vite` | All-in-one Vite plugin (`cloudflareNextIntl`) for Vinext & Cloudflare Workers |
 | `cloudflare-next-intl/errorHandling` | Error reporting and stale deploy helpers (`reportError`, `withErrorHandling`, `isStaleDeployError`, `clearClientCache`) |
 | `cloudflare-next-intl/isStaleDeployError` | Stale deploy / chunk load error detector (`isStaleDeployError`) |
 | `cloudflare-next-intl/clearClientCache` | Client cache and service worker cleanup utility (`clearClientCache`) |

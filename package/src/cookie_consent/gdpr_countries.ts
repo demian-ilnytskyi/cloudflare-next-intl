@@ -1,4 +1,4 @@
-import type { CookieConsentGetCloudflareContext, ErrorHandlingRoutingConfig } from '../types/types';
+import type { CookieConsentGetCloudflareContext, ErrorHandlingRoutingConfig, GenerateRoutingConfig } from '../types/types';
 import reportError from '../error_handling/report_error';
 import { getCountry } from '../server/functions/geo';
 
@@ -43,6 +43,7 @@ export default async function resolveRequiresConsent(
     gdprCountries: readonly string[] | undefined,
     errorHandlingConfig?: ErrorHandlingRoutingConfig,
     countryHeaderNames?: readonly string[],
+    generateConfig?: GenerateRoutingConfig,
 ): Promise<boolean> {
     let countryCode: unknown;
     if (getCountryCode) {
@@ -64,7 +65,7 @@ export default async function resolveRequiresConsent(
     // headers off the current request.
     if (typeof countryCode !== 'string' || !countryCode) {
         try {
-        countryCode = await getCountry(undefined, undefined, countryHeaderNames);
+            countryCode = await getCountry(undefined, generateConfig, countryHeaderNames);
         } catch {
             return true;
         }

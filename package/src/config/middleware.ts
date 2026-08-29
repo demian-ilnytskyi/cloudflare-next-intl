@@ -105,6 +105,26 @@ export default async function intlMiddleware(
 
         const effectiveLocaleForRequest = urlLocale ?? initialChosenLocale;
 
+        const country = (request as unknown as { cf?: { country?: string } }).cf?.country ?? request.headers.get('cf-ipcountry') ?? request.headers.get('x-cf-country');
+        if (country) {
+            request.headers.set('x-cf-country', country);
+        }
+
+        const timezone = (request as unknown as { cf?: { timezone?: string } }).cf?.timezone ?? request.headers.get('cf-timezone') ?? request.headers.get('x-cf-timezone');
+        if (timezone) {
+            request.headers.set('x-cf-timezone', timezone);
+        }
+
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set('x-pathname', pathWithoutLocale);
+        requestHeaders.set('x-search', search);
+        if (country) {
+            requestHeaders.set('x-cf-country', country);
+        }
+        if (timezone) {
+            requestHeaders.set('x-cf-timezone', timezone);
+        }
+
         let response: NextResponse;
         let isRedirect = false;
         let rewriteUrl: URL | undefined;
@@ -115,7 +135,7 @@ export default async function intlMiddleware(
             const localeUrl = new URL(`${targetPath}${search}${hash}`, request.url);
             if (initialChosenLocale === config.defaultLocale) {
                 rewriteUrl = localeUrl;
-                response = NextResponse.rewrite(localeUrl, { request });
+                response = NextResponse.rewrite(localeUrl, { request: { headers: requestHeaders } });
             } else {
                 isRedirect = true;
                 redirectUrl = localeUrl;
@@ -123,7 +143,9 @@ export default async function intlMiddleware(
             }
         } else {
             response = NextResponse.next({
-                request,
+                request: {
+                    headers: requestHeaders,
+                },
             });
         }
 
@@ -153,15 +175,11 @@ export default async function intlMiddleware(
         response.headers.set('x-pathname', pathWithoutLocale);
         response.headers.set('x-search', search);
 
-        const country = (request as unknown as { cf?: { country?: string } }).cf?.country ?? request.headers.get('cf-ipcountry') ?? request.headers.get('x-cf-country');
         if (country) {
-            request.headers.set('x-cf-country', country);
             response.headers.set('x-cf-country', country);
         }
 
-        const timezone = (request as unknown as { cf?: { timezone?: string } }).cf?.timezone ?? request.headers.get('cf-timezone') ?? request.headers.get('x-cf-timezone');
         if (timezone) {
-            request.headers.set('x-cf-timezone', timezone);
             response.headers.set('x-cf-timezone', timezone);
         }
 

@@ -239,21 +239,51 @@ export default setIntlConfig({
 });
 ```
 
-#### Vite Build ID Asset Plugin (`cloudflare-next-intl/vite`)
+#### Vite Plugin for Vinext & Cloudflare Workers (`cloudflare-next-intl/vite`)
 
-When building client assets with Vite / Vinext for Cloudflare Workers, use `buildIdAsset` to emit the static `BUILD_ID` asset:
+When using **Vinext** (Vite + Next.js App Router for Cloudflare Workers), add `cloudflareNextIntl()` to `vite.config.ts`. It is **required** for Vinext projects to resolve translations, bundle locale files, stub Node.js dependencies, and emit the build asset:
 
 ```typescript
 // vite.config.ts
 import { defineConfig } from "vite";
-import { buildIdAsset } from "cloudflare-next-intl/vite";
+import { cloudflareNextIntl } from "cloudflare-next-intl/vite";
 
 export default defineConfig({
     plugins: [
-        buildIdAsset(), // reads __VINEXT_SHARED_BUILD_ID or __VINEXT_BUILD_ID
+        cloudflareNextIntl(), // All plugins enabled by default
     ],
 });
 ```
+
+##### What `cloudflareNextIntl()` Does
+1. **Locale File Bundling & Resolution (`localeFiles`)**: Resolves `@locale-file/*` to your `./messages` directory and transforms dynamic imports into `import.meta.glob('/messages/*.json', { eager: true })` for lightning-fast locale loading on Cloudflare Workers.
+2. **User-Agent Stub (`userAgentStub`)**: Prevents Next.js `user-agent` from importing `node:fs` during workerd runtime execution (which otherwise causes runtime 404 / 500 crashes in Workers proxy/middleware).
+3. **Cloudflare Workers Client Stub (`cfWorkersClientStub`)**: Stubs `cloudflare:workers` in client builds so shared modules can be referenced without client bundling errors.
+4. **Build ID Asset Emission (`buildIdAsset`)**: Emits `BUILD_ID` static asset in the client build directory from `process.env.__VINEXT_SHARED_BUILD_ID` or `process.env.__VINEXT_BUILD_ID`.
+
+##### Plugin Options
+All features are enabled by default, and can be individually configured or toggled off:
+
+```typescript
+import { defineConfig } from "vite";
+import { cloudflareNextIntl } from "cloudflare-next-intl/vite";
+
+export default defineConfig({
+    plugins: [
+        cloudflareNextIntl({
+            messagesDir: "./messages",            // Path to locale JSON files (default: './messages')
+            intlConfigPath: "./src/l18n/intl_config.ts", // Path to intl config (auto-detected if omitted)
+            buildIdAsset: true,                   // Emit BUILD_ID asset (or custom string filename, default: true)
+            localeFiles: true,                    // Enable @locale-file & glob bundling (default: true)
+            userAgentStub: true,                  // Enable regex-based user-agent stub (default: true)
+            cfWorkersClientStub: true,            // Enable client cloudflare:workers stub (default: true)
+        }),
+    ],
+});
+```
+
+Individual standalone plugins are also exported if you only need a specific feature:
+`buildIdAsset`, `localeFilePlugin`, `userAgentStubPlugin`, `cfWorkersClientStubPlugin`.
 
 ```tsx
 // Client Components ("use client")
@@ -405,6 +435,7 @@ export default setIntlConfig({
     },
     cookieConsent: {
         privacyPolicyDate: "2026-01-01",
+        // showPrivacyPolicy: false, // defaults to true; set false to hide privacy policy link in dialogs
         // privacyPolicyPath: "/privacy-policy", // default; used by the
         // dialogs' auto-rendered link. Set false to disable that link.
         // country-based gating is enabled by default (reads Cloudflare geo
@@ -414,8 +445,8 @@ export default setIntlConfig({
         // gdprCountries: [...], // defaults to EU/EEA + UK + Switzerland
         // enableAnalyticsInDevMode: true, // analytics stay off in dev otherwise
         // autoWireDialogs: false, // opt out and render the dialogs yourself
-        // dialogProps: { acceptText: "Accept" }, // forwarded to CookieConsentDialog
-        // updateDialogProps: { closeText: "Got it" }, // forwarded to PrivacyPolicyUpdateDialog
+        // dialogProps: { acceptText: "Accept", showPrivacyPolicy: true }, // forwarded to CookieConsentDialog
+        // updateDialogProps: { closeText: "Got it", showPrivacyPolicy: true }, // forwarded to PrivacyPolicyUpdateDialog
     },
 });
 ```

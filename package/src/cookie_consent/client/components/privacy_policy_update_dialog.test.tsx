@@ -5,10 +5,11 @@ import PrivacyPolicyUpdateDialog from './privacy_policy_update_dialog';
 const acknowledgePrivacyPolicyUpdate = vi.fn();
 let privacyPolicyUpdated = false;
 let privacyPolicyPath: string | false = '/privacy-policy';
+let showPrivacyPolicy = true;
 let locale: string | undefined = undefined;
 
 vi.mock('../use_cookie_consent', () => ({
-    default: () => ({ consent: true, setConsent: vi.fn(), privacyPolicyUpdated, acknowledgePrivacyPolicyUpdate, privacyPolicyPath }),
+    default: () => ({ consent: true, setConsent: vi.fn(), privacyPolicyUpdated, acknowledgePrivacyPolicyUpdate, privacyPolicyPath, showPrivacyPolicy }),
 }));
 
 vi.mock('../../../general/cache_variables', () => ({
@@ -24,6 +25,7 @@ describe('PrivacyPolicyUpdateDialog', () => {
     beforeEach(() => {
         privacyPolicyUpdated = false;
         privacyPolicyPath = '/privacy-policy';
+        showPrivacyPolicy = true;
         locale = undefined;
         acknowledgePrivacyPolicyUpdate.mockClear();
     });
@@ -52,6 +54,26 @@ describe('PrivacyPolicyUpdateDialog', () => {
         privacyPolicyUpdated = true;
         render(<PrivacyPolicyUpdateDialog />);
         expect(screen.getByTestId('default-privacy-policy-link')).toHaveTextContent('Learn more');
+    });
+
+    it('renders no link when showPrivacyPolicy is false on context', () => {
+        privacyPolicyUpdated = true;
+        showPrivacyPolicy = false;
+        render(<PrivacyPolicyUpdateDialog />);
+        expect(screen.queryByTestId('default-privacy-policy-link')).not.toBeInTheDocument();
+    });
+
+    it('renders no link when showPrivacyPolicy prop is false', () => {
+        privacyPolicyUpdated = true;
+        render(<PrivacyPolicyUpdateDialog showPrivacyPolicy={false} />);
+        expect(screen.queryByTestId('default-privacy-policy-link')).not.toBeInTheDocument();
+    });
+
+    it('renders link when showPrivacyPolicy prop is true even if context is false', () => {
+        privacyPolicyUpdated = true;
+        showPrivacyPolicy = false;
+        render(<PrivacyPolicyUpdateDialog showPrivacyPolicy={true} />);
+        expect(screen.getByTestId('default-privacy-policy-link')).toBeInTheDocument();
     });
 
     it('respects a custom privacyPolicyLinkText for the default link', () => {

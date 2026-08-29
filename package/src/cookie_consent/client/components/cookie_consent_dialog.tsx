@@ -20,6 +20,11 @@ export interface CookieConsentDialogProps {
     link?: React.ReactNode;
     /** Label for the default privacy-policy link. Ignored when `link` is set. */
     privacyPolicyLinkText?: string;
+    /**
+     * Whether to show the privacy policy link. Defaults to `cookieConsent.showPrivacyPolicy`
+     * (or `true` if unconfigured). Pass `false` to hide it, or `true` to force show.
+     */
+    showPrivacyPolicy?: boolean;
     acceptText?: string;
     declineText?: string;
     /** Hides the decline ("necessary only") button, leaving only accept. */
@@ -44,6 +49,7 @@ export default function CookieConsentDialog({
     message,
     link,
     privacyPolicyLinkText,
+    showPrivacyPolicy,
     acceptText,
     declineText,
     hideDecline = false,
@@ -52,7 +58,7 @@ export default function CookieConsentDialog({
     styles,
     render,
 }: CookieConsentDialogProps): React.ReactElement | null {
-    const { consent, requiresConsent, isMounted, setConsent, privacyPolicyPath } = useCookieConsent();
+    const { consent, requiresConsent, isMounted, setConsent, privacyPolicyPath, showPrivacyPolicy: showPrivacyPolicyCtx } = useCookieConsent();
 
     if (!isMounted || !requiresConsent || consent !== null) return null;
 
@@ -64,10 +70,13 @@ export default function CookieConsentDialog({
     const resolvedAcceptText = acceptText ?? text.acceptText;
     const resolvedDeclineText = declineText ?? text.declineText;
     const resolvedClassNames = { ...defaultCookieDialogClassNames, ...classNames };
+    const shouldShowPolicy = showPrivacyPolicy ?? showPrivacyPolicyCtx;
 
     const resolvedLink = link !== undefined
         ? link
-        : <DefaultPrivacyPolicyLink privacyPolicyPath={privacyPolicyPath} text={resolvedPrivacyPolicyLinkText} className={resolvedClassNames.link} />;
+        : (shouldShowPolicy && privacyPolicyPath !== false)
+            ? <DefaultPrivacyPolicyLink privacyPolicyPath={privacyPolicyPath} text={resolvedPrivacyPolicyLinkText} className={resolvedClassNames.link} />
+            : null;
 
     return (
         <DialogPortal>

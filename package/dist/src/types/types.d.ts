@@ -332,6 +332,12 @@ export interface CookieConsentRoutingConfig {
      * overridable per-dialog via the `link` prop).
      */
     privacyPolicyPath?: string | false;
+    /**
+     * Whether to show the privacy policy link in the default cookie consent
+     * dialog and privacy policy update dialog. Defaults to `true`.
+     * Set `false` to hide the privacy policy link by default.
+     */
+    showPrivacyPolicy?: boolean;
     /** Cookie-consent cookie name. Defaults to `'__cookie_consent_key__'`. */
     consentCookieName?: string;
     /** Privacy-policy-date cookie name. Defaults to `'__privacy_policy_date_key__'`. */
