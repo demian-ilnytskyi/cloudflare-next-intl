@@ -256,10 +256,11 @@ export default defineConfig({
 ```
 
 ##### What `cloudflareNextIntl()` Does
-1. **Locale File Bundling & Resolution (`localeFiles`)**: Resolves `@locale-file/*` to your `./messages` directory and transforms dynamic imports into `import.meta.glob('/messages/*.json', { eager: true })` for lightning-fast locale loading on Cloudflare Workers.
-2. **User-Agent Stub (`userAgentStub`)**: Prevents Next.js `user-agent` from importing `node:fs` during workerd runtime execution (which otherwise causes runtime 404 / 500 crashes in Workers proxy/middleware).
-3. **Cloudflare Workers Client Stub (`cfWorkersClientStub`)**: Stubs `cloudflare:workers` in client builds so shared modules can be referenced without client bundling errors.
-4. **Build ID Asset Emission (`buildIdAsset`)**: Emits `BUILD_ID` static asset in the client build directory from `process.env.__VINEXT_SHARED_BUILD_ID` or `process.env.__VINEXT_BUILD_ID`.
+1. **Build-Time & Dev Image Optimizer (`imageOptimizer`)**: Automatically scans your image directories (`public/images`, `public/icons`), downscales oversized assets, produces modern `.avif` and `.webp` formats, generates 8px `.blur.webp` thumbnails with Next.js-matching SVG Gaussian blur placeholders, and provides transparent `<Image placeholder="blur" />` shimming via virtual modules.
+2. **Locale File Bundling & Resolution (`localeFiles`)**: Resolves `@locale-file/*` to your `./messages` directory and transforms dynamic imports into `import.meta.glob('/messages/*.json', { eager: true })` for lightning-fast locale loading on Cloudflare Workers.
+3. **User-Agent Stub (`userAgentStub`)**: Prevents Next.js `user-agent` from importing `node:fs` during workerd runtime execution (which otherwise causes runtime 404 / 500 crashes in Workers proxy/middleware).
+4. **Cloudflare Workers Client Stub (`cfWorkersClientStub`)**: Stubs `cloudflare:workers` in client builds so shared modules can be referenced without client bundling errors.
+5. **Build ID Asset Emission (`buildIdAsset`)**: Emits `BUILD_ID` static asset in the client build directory from `process.env.__VINEXT_SHARED_BUILD_ID` or `process.env.__VINEXT_BUILD_ID`.
 
 ##### Plugin Options
 All features are enabled by default, and can be individually configured or toggled off:
@@ -271,6 +272,16 @@ import { cloudflareNextIntl } from "cloudflare-next-intl/vite";
 export default defineConfig({
     plugins: [
         cloudflareNextIntl({
+            imageOptimizer: {                     // Image optimizer configuration (or `false` to disable)
+                maxWidth: 1920,                   // Downscale max width limit (default: 1920, or `false`)
+                formats: ["avif", "webp"],        // Target sibling formats (default: ["avif", "webp"], or `false`)
+                quality: 80,                      // Compression quality (default: 80)
+                blur: { quality: 70, stdDeviation: 20 }, // Next.js blur placeholder options (or `false`)
+                overrides: {                      // Per-image overrides keyed by public src path
+                    "/images/hero.png": { maxWidth: false, formats: ["webp"], blur: { quality: 80 } },
+                    "/images/logo.png": { formats: false, blur: false },
+                },
+            },
             messagesDir: "./messages",            // Path to locale JSON files (default: './messages')
             intlConfigPath: "./src/l18n/intl_config.ts", // Path to intl config (auto-detected if omitted)
             buildIdAsset: true,                   // Emit BUILD_ID asset (or custom string filename, default: true)
@@ -283,7 +294,7 @@ export default defineConfig({
 ```
 
 Individual standalone plugins are also exported if you only need a specific feature:
-`buildIdAsset`, `localeFilePlugin`, `userAgentStubPlugin`, `cfWorkersClientStubPlugin`.
+`imageOptimizerPlugin` (or `imageOptimizer`), `buildIdAsset`, `localeFilePlugin`, `userAgentStubPlugin`, `cfWorkersClientStubPlugin`.
 
 ```tsx
 // Client Components ("use client")

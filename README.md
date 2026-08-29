@@ -28,6 +28,7 @@ Most Next.js i18n libraries assume a Node.js runtime and pull in a large depende
 - **Theme switcher included** — an optional, isolated `ThemeSwitcher` component that doesn't affect bundle size if unused.
 - **Cloudflare-first** — no Node-only APIs, works with the Edge/Workers runtime.
 - **Error handling & Stale Deploy recovery** — opt-in error reporting (`reportError`, `withErrorHandling`), `isStaleDeployError()` for detecting stale chunk/RSC load errors after new deployments, and `clearClientCache()` for resetting client caches and service workers.
+- **Built-in Image Optimizer** — automatic downscaling, `.avif`/`.webp` generation, 8px blur thumbnail generation with Next.js-matching SVG Gaussian blur placeholder support, and `<Image placeholder="blur" />` transparent shimming for Vinext/Cloudflare.
 - **Database**: optional Postgres/Drizzle data-access layer, reachable either directly (e.g. via Cloudflare Hyperdrive) or through the Supabase Data API.
 - **100% test coverage** on the package source (`package/src/**`), enforced in CI.
 

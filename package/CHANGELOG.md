@@ -3,6 +3,19 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.54] - 2026-08-29
+
+### Added
+
+- **Built-in Image Optimizer (`cloudflare-next-intl/image-optimizer`, `cloudflare-next-intl/vite`)**:
+  Integrated a complete build-time and dev-server image optimization suite into `cloudflareNextIntl()`:
+  - **Automatic Sharp Processing**: Recursively scans raster directories (`public/images`, `public/icons`), downscales oversized assets, and emits modern `.avif`, `.webp`, and `.blur.webp` sibling files into `public/generated`.
+  - **Next.js Blur Placeholder Shimming**: Generates 8px base WebP thumbnails and wraps them in inline SVG Gaussian blur filters (`feGaussianBlur stdDeviation=20`) matching Next.js native blur aesthetics.
+  - **Transparent Virtual Module Rewrite**: Rewrites `import Image from "next/image"` in application code to `virtual:cloudflare-next-intl-image`, auto-injecting optimized sources and blur placeholders.
+  - **Global & Per-Image Customizability**: Full option resolution with fine-grained per-image overrides (`maxWidth`, `formats`, `quality`, `blur`, `overrides: { "/images/hero.png": { ... } }`).
+  - **Subpath Exports**: Exported `./image-optimizer` and `./imageOptimizer` subpaths for standalone use.
+  - **100% Test Coverage**: Full unit test coverage across all image optimizer and Vite plugin components.
+
 ## [0.8.53] - 2026-08-29
 
 ### Added

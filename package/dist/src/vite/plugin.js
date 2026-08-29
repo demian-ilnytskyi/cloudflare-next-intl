@@ -2,8 +2,14 @@ import { buildIdAsset } from "./build_id_asset.js";
 import { userAgentStubPlugin } from "./user_agent_stub.js";
 import { cfWorkersClientStubPlugin } from "./cf_workers_client_stub.js";
 import { localeFilePlugin } from "./locale_file_plugin.js";
+import { imageOptimizerPlugin } from "../image_optimizer/index.js";
 export function cloudflareNextIntl(options = {}) {
     const plugins = [];
+    if (options.imageOptimizer !== false) {
+        plugins.push(imageOptimizerPlugin(typeof options.imageOptimizer === "object"
+            ? options.imageOptimizer
+            : undefined));
+    }
     if (options.buildIdAsset !== false) {
         const fileName = typeof options.buildIdAsset === "string" ? options.buildIdAsset : "BUILD_ID";
         plugins.push(buildIdAsset(fileName));

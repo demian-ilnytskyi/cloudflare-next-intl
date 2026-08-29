@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.8.53",
+  "version": "0.8.54",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -221,6 +221,14 @@
     "./vite": {
       "types": "./dist/src/vite/index.d.ts",
       "import": "./dist/src/vite/index.js"
+    },
+    "./image-optimizer": {
+      "types": "./dist/src/image_optimizer/index.d.ts",
+      "import": "./dist/src/image_optimizer/index.js"
+    },
+    "./imageOptimizer": {
+      "types": "./dist/src/image_optimizer/index.d.ts",
+      "import": "./dist/src/image_optimizer/index.js"
     }
   },
   "scripts": {
@@ -271,7 +279,8 @@
     "embedded-postgres": "^18.4.0-beta.17",
     "firebase": "^12.17.0",
     "jose": "^6.2.8",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "sharp": "^0.34.5"
   },
   "peerDependencies": {
     "next": ">=12.0.0",

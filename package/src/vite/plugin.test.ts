@@ -1,14 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { cloudflareNextIntl, cloudflareNextIntlPlugin } from "./plugin";
-import * as viteIndex from "./index";
+import { cloudflareNextIntl, cloudflareNextIntlPlugin } from "./plugin.js";
+import * as viteIndex from "./index.js";
 
 describe("cloudflareNextIntl (main plugin)", () => {
     it("returns array of plugins by default", () => {
         const plugins = cloudflareNextIntl();
         expect(Array.isArray(plugins)).toBe(true);
-        expect(plugins.length).toBe(4);
+        expect(plugins.length).toBe(5);
 
         const pluginNames = plugins.map((p) => p.name);
+        expect(pluginNames).toContain("cloudflare-next-intl-image-optimizer");
         expect(pluginNames).toContain("cfni:build-id-asset");
         expect(pluginNames).toContain("cfni:cf-workers-client-stub");
         expect(pluginNames).toContain("cfni:user-agent-stub");
@@ -17,6 +18,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
 
     it("allows disabling specific plugins", () => {
         const plugins = cloudflareNextIntl({
+            imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
             userAgentStub: false,
@@ -28,6 +30,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
 
     it("supports custom buildIdAsset filename", () => {
         const plugins = cloudflareNextIntl({
+            imageOptimizer: false,
             buildIdAsset: "CUSTOM_BUILD_ID",
             cfWorkersClientStub: false,
             userAgentStub: false,
@@ -38,10 +41,28 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(plugins[0].name).toBe("cfni:build-id-asset");
     });
 
+    it("supports custom imageOptimizer configuration", () => {
+        const plugins = cloudflareNextIntl({
+            imageOptimizer: {
+                maxWidth: 1200,
+                formats: ["webp"],
+            },
+            buildIdAsset: false,
+            cfWorkersClientStub: false,
+            userAgentStub: false,
+            localeFiles: false,
+        });
+
+        expect(plugins.length).toBe(1);
+        expect(plugins[0].name).toBe("cloudflare-next-intl-image-optimizer");
+    });
+
     it("exports plugin aliases and index exports", () => {
         expect(cloudflareNextIntlPlugin).toBe(cloudflareNextIntl);
         expect(viteIndex.cloudflareNextIntl).toBe(cloudflareNextIntl);
         expect(viteIndex.default).toBe(cloudflareNextIntl);
+        expect(typeof viteIndex.imageOptimizer).toBe("function");
+        expect(typeof viteIndex.imageOptimizerPlugin).toBe("function");
         expect(typeof viteIndex.buildIdAsset).toBe("function");
         expect(typeof viteIndex.localeFilePlugin).toBe("function");
         expect(typeof viteIndex.userAgentStubPlugin).toBe("function");

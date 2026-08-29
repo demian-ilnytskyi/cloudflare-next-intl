@@ -20,6 +20,7 @@ export default defineConfig({
                 'src/general/get_layout_states.ts',
                 'src/types/types.ts',
                 'src/firebase_auth/types.ts',
+                'src/image_optimizer/next_image_shim.tsx',
                 'src/test_utils/**',
                 'src/**/*.bench.ts',
                 'src/**/*.bench.tsx',

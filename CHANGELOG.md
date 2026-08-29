@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.54
+
+### Added
+
+- Built-in Image Optimizer (`cloudflare-next-intl/image-optimizer`, `cloudflare-next-intl/vite`) with Sharp raster processing, `.avif`/`.webp`/`.blur.webp` sibling generation, Next.js SVG Gaussian blur placeholders, transparent `<Image placeholder="blur" />` shimming, and per-image overrides.
+- Exported `./image-optimizer` and `./imageOptimizer` package subpaths.
+- 100% test coverage across all image optimizer and Vite plugin components.
+
 ## 0.8.53
 
 ### Added

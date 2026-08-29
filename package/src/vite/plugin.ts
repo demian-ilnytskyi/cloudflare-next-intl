@@ -3,6 +3,7 @@ import { buildIdAsset } from "./build_id_asset.js";
 import { userAgentStubPlugin } from "./user_agent_stub.js";
 import { cfWorkersClientStubPlugin } from "./cf_workers_client_stub.js";
 import { localeFilePlugin, type LocaleFilePluginOptions } from "./locale_file_plugin.js";
+import { imageOptimizerPlugin, type ImageOptimizerPluginOptions } from "../image_optimizer/index.js";
 
 export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
     /**
@@ -30,10 +31,28 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
      * @default true
      */
     cfWorkersClientStub?: boolean;
+
+    /**
+     * Build-time and dev image optimizer plugin. Automatically downscales rasters into `public/generated`,
+     * emits AVIF / WebP siblings, generates blur placeholders with SVG filters, and injects blurDataURL.
+     * Pass an options object to customize or `false` to disable.
+     * @default true
+     */
+    imageOptimizer?: boolean | ImageOptimizerPluginOptions;
 }
 
 export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plugin[] {
     const plugins: Plugin[] = [];
+
+    if (options.imageOptimizer !== false) {
+        plugins.push(
+            imageOptimizerPlugin(
+                typeof options.imageOptimizer === "object"
+                    ? options.imageOptimizer
+                    : undefined
+            )
+        );
+    }
 
     if (options.buildIdAsset !== false) {
         const fileName = typeof options.buildIdAsset === "string" ? options.buildIdAsset : "BUILD_ID";
