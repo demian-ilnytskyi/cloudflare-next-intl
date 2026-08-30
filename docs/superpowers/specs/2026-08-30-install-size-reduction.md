@@ -43,16 +43,16 @@ attempted:
 
 ## Approved levers
 
-### A. Remove a dependency that is never imported (dead code)
+### A. ~~Remove `@supabase/supabase-js`~~ — REJECTED, not dead code
 
-`@supabase/supabase-js` (8.6 MB) is declared in `dependencies` but is
-**never imported anywhere** in `src/`, `bin/`, or `scripts/`.
-`src/db/rest_client.ts:14` states this explicitly: the PostgREST client
-shape is declared *structurally* so "nothing here imports
-`@supabase/supabase-js`". Deleting an unused dependency is dead-code
-removal, not a placement move — allowed by constraint 3.
-
-**Saving: 8.6 MB.**
+Initial research (a `grep` truncated with `head -5` per dependency) missed
+`src/db/rest_client.ts:56` — `const { createClient } = await
+import('@supabase/supabase-js')` — a real, lazily-loaded, value-producing
+dynamic import inside `createRestClient`. This backs the REST/PostgREST
+fallback path of the `db` module and is already correctly isolated behind
+a dynamic import (the same isolation pattern `embedded-postgres` uses in
+`bin/ephemeral_pg.mjs`) — it is not dead code and stays in `dependencies`
+unchanged. No saving here.
 
 ### B. Swap the `firebase` umbrella for the scoped entry points it uses
 
@@ -116,8 +116,8 @@ task must be abandoned rather than forced.
 | Stage | node_modules |
 |---|---|
 | Today | 398 MB |
-| After A + B | 243 MB (measured) |
-| After A + B + C | ~125 MB (projected) |
+| After B | 243 MB (measured) |
+| After B + C | ~134 MB (projected — 125 MB previously projected, +8.6 MB since lever A does not apply) |
 
 ## Acceptance criteria
 

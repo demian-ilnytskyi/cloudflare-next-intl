@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Cut the `node_modules` weight `cloudflare-next-intl` forces on consumers from 398 MB to ~125 MB without moving any dependency out of `dependencies` and without removing `README.md` or `llms.txt` from the tarball.
+**Goal:** Cut the `node_modules` weight `cloudflare-next-intl` forces on consumers from 398 MB to ~134 MB without moving any dependency out of `dependencies` and without removing `README.md` or `llms.txt` from the tarball.
 
-**Architecture:** Three independent dependency-level changes, each verifiable on its own. (1) Delete `@supabase/supabase-js`, which is declared but never imported. (2) Replace the `firebase` umbrella package with the four scoped `@firebase/*` entry points the code actually uses — every Firebase import is already `import type` or dynamic `import()`, so this is a specifier rename plus a `package.json` edit. (3) Replace the 144 MB `embedded-postgres` native Postgres build with the 26 MB PGlite WASM Postgres behind the same TCP wire-protocol contract — a spike-first task that is abandoned, not forced, if `drizzle-kit pull` cannot drive it.
+**Architecture:** Two independent dependency-level changes, each verifiable on its own. A third candidate (deleting `@supabase/supabase-js` as dead code) was investigated and rejected — see "Task 1" below, kept for the record. (1) Replace the `firebase` umbrella package with the four scoped `@firebase/*` entry points the code actually uses — every Firebase import is already `import type` or dynamic `import()`, so this is a specifier rename plus a `package.json` edit. (2) Replace the 144 MB `embedded-postgres` native Postgres build with the 26 MB PGlite WASM Postgres behind the same TCP wire-protocol contract — a spike-first task that is abandoned, not forced, if `drizzle-kit pull` cannot drive it.
 
 **Tech Stack:** TypeScript 5.5, Node ESM, Vitest 3 (jsdom, v8 coverage, 100% per-file thresholds), `tsc` build to committed `dist/`, npm.
 
@@ -36,98 +36,9 @@ du -sh node_modules
 
 ---
 
-### Task 1: Remove the never-imported `@supabase/supabase-js` dependency
+### Task 1: REJECTED — `@supabase/supabase-js` is not dead code
 
-`@supabase/supabase-js` is 8.6 MB of `dependencies` weight that no file imports. `src/db/rest_client.ts:14` documents this on purpose: the PostgREST client shape is declared *structurally* so "nothing here imports `@supabase/supabase-js`". This is dead-code removal, explicitly permitted by the constraint above — it is not a placement move.
-
-**Files:**
-- Modify: `package/package.json` (the `dependencies` block)
-- Test: `package/src/db/rest_client.test.ts` (new test added to the existing file)
-
-**Interfaces:**
-- Consumes: nothing from earlier tasks.
-- Produces: nothing later tasks depend on. `dependencies` no longer contains `@supabase/supabase-js`.
-
-- [ ] **Step 1: Prove the dependency is unreachable before touching anything**
-
-Run:
-
-```bash
-cd /Volumes/External/own_projects/cloudflare-next-intl/package
-grep -rnE "(from|import\(|require\()\s*['\"]@supabase" src bin scripts
-```
-
-Expected: every hit is inside a comment or a JSDoc block (`rest_client.ts` lines 5, 13, 14, 29 and `index.test.ts:6`). **Zero** hits are a real `import`/`require` statement. If you find a real import, STOP — the spec's premise is wrong and this task must not proceed.
-
-- [ ] **Step 2: Write the failing test that locks this in**
-
-Append to `package/src/db/rest_client.test.ts`:
-
-```ts
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const here = resolve(fileURLToPath(import.meta.url), '..');
-
-describe('rest_client dependency isolation', () => {
-    it('does not declare @supabase/supabase-js as a dependency, because nothing imports it', () => {
-        const pkg = JSON.parse(
-            readFileSync(resolve(here, '../../package.json'), 'utf8'),
-        ) as { dependencies?: Record<string, string> };
-        expect(pkg.dependencies?.['@supabase/supabase-js']).toBeUndefined();
-    });
-});
-```
-
-If `package/src/db/rest_client.test.ts` does not exist, create it with `import { describe, it, expect } from 'vitest';` at the top followed by the block above.
-
-- [ ] **Step 3: Run the test to verify it fails**
-
-Run: `npx vitest run src/db/rest_client.test.ts -t 'does not declare'`
-Expected: FAIL — `expected "^2.112.3" to be undefined`
-
-- [ ] **Step 4: Delete the dependency**
-
-Remove this single line from the `dependencies` block of `package/package.json`:
-
-```json
-    "@supabase/supabase-js": "^2.112.3",
-```
-
-Then refresh the lockfile:
-
-```bash
-cd /Volumes/External/own_projects/cloudflare-next-intl/package
-npm install
-```
-
-- [ ] **Step 5: Run the test to verify it passes**
-
-Run: `npx vitest run src/db/rest_client.test.ts -t 'does not declare'`
-Expected: PASS
-
-- [ ] **Step 6: Verify nothing else broke**
-
-Run:
-
-```bash
-cd /Volumes/External/own_projects/cloudflare-next-intl/package
-npm test
-npm run build && npm run check:exports
-```
-
-Expected: all tests pass, coverage thresholds hold, `check_exports.mjs` prints no failures and exits 0.
-
-- [ ] **Step 7: Commit**
-
-```bash
-cd /Volumes/External/own_projects/cloudflare-next-intl
-git add package/package.json package/package-lock.json package/src/db/rest_client.test.ts package/dist
-git commit -m "perf: drop unused @supabase/supabase-js dependency (-8.6MB install)"
-```
-
----
+Originally scoped as "remove the never-imported `@supabase/supabase-js` dependency" (8.6 MB). **Do not execute this task.** Pre-execution verification (required by Step 1 below, before any file was touched) found a real, lazily-loaded, value-producing dynamic import: `src/db/rest_client.ts:56` — `const { createClient } = await import('@supabase/supabase-js');`, inside `createRestClient`. It backs the REST/PostgREST fallback path of the `db` module and is already correctly isolated behind a dynamic import — the same isolation pattern `embedded-postgres` uses in `bin/ephemeral_pg.mjs`. It is a live dependency, not dead code, and stays in `dependencies` unchanged. No task executes here; proceed directly to Task 2.
 
 ### Task 2: Replace the `firebase` umbrella with the four scoped `@firebase/*` packages
 
@@ -150,7 +61,7 @@ Every existing Firebase import is already `import type` (13 sites) or dynamic `i
 - Test: `package/src/firebase_auth/require_config.test.ts` (new test appended)
 
 **Interfaces:**
-- Consumes: nothing from Task 1.
+- Consumes: nothing (Task 1 was rejected before execution; no prior task ran).
 - Produces: nothing later tasks depend on. Module specifiers `firebase/app` → `@firebase/app`, `firebase/auth` → `@firebase/auth`, `firebase/app-check` → `@firebase/app-check`, `firebase/performance` → `@firebase/performance`. All imported symbol names are unchanged.
 
 - [ ] **Step 1: Confirm the scoped packages expose everything this code uses**
@@ -319,7 +230,7 @@ and tree-shaking behaviour are unchanged. Install: 398MB -> 243MB."
 - Test (only if the spike succeeds): `package/src/db/codegen_paths.test.ts` (new test appended)
 
 **Interfaces:**
-- Consumes: nothing from Tasks 1–2.
+- Consumes: nothing from Task 2 (Task 1 was rejected before execution).
 - Produces: `startEphemeralPostgres(sqlFiles)` keeps its exact existing contract — returns `null` when the backing Postgres implementation is unavailable, otherwise `{ url, stop() }` where `url` is a `postgresql://` connection string reachable by both `pg`'s `Client` and `drizzle-kit pull`. No caller changes.
 
 - [ ] **Step 1: Write the spike script**
@@ -554,7 +465,7 @@ cd /Volumes/External/own_projects/cloudflare-next-intl/package
 npm pack --dry-run 2>&1 | grep -E "README.md|llms.txt"
 ```
 
-Expected: **~125 MB**; both `README.md` and `llms.txt` still listed.
+Expected: **~134 MB**; both `README.md` and `llms.txt` still listed.
 
 ```bash
 cd /Volumes/External/own_projects/cloudflare-next-intl
@@ -564,14 +475,14 @@ git commit -m "perf: back the ephemeral codegen Postgres with PGlite instead of 
 @embedded-postgres/<platform> ships a 144MB native PostgreSQL build for a
 throwaway DDL-introspection database. PGlite serves the same wire protocol
 from 26MB. Verified: Supabase role/schema/extension bootstrap, concurrent
-connections, and a byte-identical cfni-db-codegen run. Install: 243MB -> 125MB."
+connections, and a byte-identical cfni-db-codegen run. Install: 243MB -> 134MB."
 ```
 
 ---
 
 ### Task 4: Guard the win with a size regression check
 
-Nothing above prevents the next contributor from re-adding `firebase` or `@supabase/supabase-js`. A cheap, dependency-free check in the existing `prepublishOnly` chain makes a regression loud at publish time.
+Nothing above prevents the next contributor from re-adding the `firebase` umbrella or `embedded-postgres`. A cheap, dependency-free check in the existing `prepublishOnly` chain makes a regression loud at publish time.
 
 **Files:**
 - Create: `package/scripts/check_size.mjs`
@@ -579,7 +490,7 @@ Nothing above prevents the next contributor from re-adding `firebase` or `@supab
 - Test: `package/scripts/check_size.mjs` is self-verifying — Step 4 runs it against a deliberately-bad input.
 
 **Interfaces:**
-- Consumes: the final `dependencies` block produced by Tasks 1–3.
+- Consumes: the final `dependencies` block produced by Task 2 (Task 1 was rejected before execution) and Task 3.
 - Produces: `npm run check:size` — exits 0 when clean, exits 1 and prints the offending dependency names otherwise.
 
 - [ ] **Step 1: Write the check**
@@ -599,7 +510,6 @@ const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 // docs/superpowers/specs/2026-08-30-install-size-reduction.md.
 const BANNED = {
   'firebase': 'use the scoped @firebase/{app,auth,app-check,performance} entry points (156MB -> 23MB)',
-  '@supabase/supabase-js': 'never imported — src/db/rest_client.ts types the PostgREST shape structurally',
   'embedded-postgres': 'use @electric-sql/pglite + @electric-sql/pglite-socket (144MB -> 26MB)',
 };
 
@@ -655,6 +565,8 @@ npm run check:size; echo "exit=$?"
 cp /tmp/good-package.json package.json
 ```
 
+(Task 1 was rejected before execution, so `@supabase/supabase-js` is a legitimate dependency and is not in `BANNED` — do not add it back.)
+
 Expected: prints `dependency "firebase" is banned: ...` and `exit=1`. Then the restore puts the good file back — confirm with `npm run check:size` printing `OK` again.
 
 If Task 3 was abandoned, `embedded-postgres` is still a legitimate dependency: delete its entry from `BANNED` in `check_size.mjs` before Step 3, or the check will fail the current tree.
@@ -676,7 +588,7 @@ git commit -m "chore: add check:size guard against re-adding heavy dependencies"
 - Modify: `package/CHANGELOG.md`
 
 **Interfaces:**
-- Consumes: the measured figures from Tasks 1–3.
+- Consumes: the measured figures from Task 2 and Task 3 (Task 1 was rejected before execution — see its ledger/plan entry — and left no measurable change).
 - Produces: nothing.
 
 - [ ] **Step 1: Record the allowed levers in the rules file**
@@ -684,12 +596,17 @@ git commit -m "chore: add check:size guard against re-adding heavy dependencies"
 Append to the `## Package size restrictions` section of `.agent/.sub-rules/packages/package-authoring.md`, after the two existing bullets:
 
 ```markdown
-- **Do** cut install weight by (a) deleting a dependency nothing imports,
-  (b) swapping an umbrella package for the scoped entry points actually
-  used (`firebase` → `@firebase/{app,auth,app-check,performance}`), and
-  (c) swapping a heavy dependency for a lighter package that satisfies the
-  same contract (`embedded-postgres` → `@electric-sql/pglite`). All three
-  keep the dependency in `dependencies`, so none is a placement move.
+- **Do** cut install weight by (a) swapping an umbrella package for the
+  scoped entry points actually used (`firebase` →
+  `@firebase/{app,auth,app-check,performance}`), and (b) swapping a heavy
+  dependency for a lighter package that satisfies the same contract
+  (`embedded-postgres` → `@electric-sql/pglite`). Both keep the dependency
+  in `dependencies`, so neither is a placement move. Deleting a dependency
+  as "dead code" is also allowed in principle, but verify with more than a
+  shallow grep first — a lazily dynamic-imported dependency
+  (`await import(...)` inside a guarded function) looks unused to a naive
+  search and is not; `@supabase/supabase-js` in this package is exactly
+  that case.
 - `npm run check:size` enforces this — it fails the build if a banned
   heavy package reappears in `dependencies` or if `README.md`/`llms.txt`
   leave the `files` field. Add to `BANNED` in
@@ -703,12 +620,12 @@ Prepend a new entry to `package/CHANGELOG.md` matching the file's existing headi
 ```markdown
 ### Performance
 
-- Cut the installed dependency footprint from **398 MB to ~125 MB** with no
+- Cut the installed dependency footprint from **398 MB to ~134 MB** with no
   change to the public API. Replaced the `firebase` umbrella with the four
-  scoped `@firebase/*` entry points the package actually imports, dropped
-  the never-imported `@supabase/supabase-js`, and backed the ephemeral
-  codegen database with PGlite instead of a 144 MB native PostgreSQL build.
-  Consumers get this by upgrading; no code changes required.
+  scoped `@firebase/*` entry points the package actually imports, and
+  backed the ephemeral codegen database with PGlite instead of a 144 MB
+  native PostgreSQL build. Consumers get this by upgrading; no code
+  changes required.
 ```
 
 If Task 3 was abandoned, write **398 MB to 243 MB** and drop the PGlite clause.
