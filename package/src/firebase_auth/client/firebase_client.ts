@@ -2,7 +2,8 @@
 
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
-import type { AppCheck } from 'firebase/app-check';
+import type { AppCheck, CustomProvider } from 'firebase/app-check';
+import type * as FirebaseAuthModule from 'firebase/auth';
 import type { FirebasePerformance } from 'firebase/performance';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config.js';
@@ -75,7 +76,7 @@ function waitForGrecaptcha(): Promise<Grecaptcha> {
 function createExplicitRecaptchaProvider(
     app: FirebaseApp,
     siteKey: string,
-    CustomProvider: typeof import('firebase/app-check').CustomProvider,
+    CustomProviderCtor: typeof CustomProvider,
 ) {
     let widgetReady: Promise<{ grecaptcha: Grecaptcha; widgetId: string }> | undefined;
     let widgetSucceeded = false;
@@ -120,7 +121,7 @@ function createExplicitRecaptchaProvider(
         return widgetReady;
     }
 
-    return new CustomProvider({
+    return new CustomProviderCtor({
         getToken: async () => {
             const { grecaptcha, widgetId } = await ensureWidget();
             // `grecaptcha.execute()` rejects with `null` on failure, which
@@ -261,10 +262,10 @@ export function getFirebasePerformanceSync(): FirebasePerformance | undefined {
     return cachedPerformance;
 }
 
-let cachedAuthModule: Promise<typeof import('firebase/auth')> | undefined;
+let cachedAuthModule: Promise<typeof FirebaseAuthModule> | undefined;
 
 /** Memoized `import('firebase/auth')` — see {@link getFirebaseAuthClient} for why this is worth caching. */
-export function getFirebaseAuthModule(): Promise<typeof import('firebase/auth')> {
+export function getFirebaseAuthModule(): Promise<typeof FirebaseAuthModule> {
     if (!cachedAuthModule) {
         cachedAuthModule = import('firebase/auth');
     }

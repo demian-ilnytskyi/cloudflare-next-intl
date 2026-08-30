@@ -1,4 +1,5 @@
 declare module "virtual:cloudflare-next-intl-images-manifest" {
-    const manifest: { images?: Record<string, import("./types.js").OptimizedImage> } | Record<string, import("./types.js").OptimizedImage>;
+    import type { OptimizedImage } from "./types.js";
+    const manifest: { images?: Record<string, OptimizedImage> } | Record<string, OptimizedImage>;
     export default manifest;
 }

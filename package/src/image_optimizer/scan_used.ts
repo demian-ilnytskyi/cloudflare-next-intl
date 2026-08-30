@@ -205,7 +205,7 @@ function resolvePublicSrc(ref: string): string {
  */
 export async function collectUsedImageOverrides(
     root: string,
-    publicDir: string = "public",
+    publicDir = "public",
 ): Promise<Record<string, ImageOverrideOptions>> {
     const codeFiles = await collectCodeFiles(root, publicDir);
     const overrides: Record<string, ImageOverrideOptions> = {};
@@ -224,7 +224,7 @@ export async function collectUsedImageOverrides(
 
 export async function collectUsedImages(
     root: string,
-    publicDir: string = "public",
+    publicDir = "public",
 ): Promise<string[]> {
     const publicRoot = path.resolve(root, publicDir);
     const codeFiles = await collectCodeFiles(root, publicDir);

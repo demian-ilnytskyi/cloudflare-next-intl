@@ -6,6 +6,8 @@ import config from './intl_config.js';
 import { isBotCookieKey, localeCookieName } from './cookie_key.js';
 import { cache } from 'react';
 import reportError from '../error_handling/report_error.js';
+import type * as UserAgentModule from 'next/dist/server/web/spec-extension/user-agent';
+import type * as UpdateSessionModule from '../firebase_auth/middleware/update_session.js';
 
 const sameSite: true | false | "lax" | "strict" | "none" | undefined = false;
 
@@ -17,7 +19,7 @@ const defaultCookieOption: CookieAttributes = {
     sameSite: sameSite, // Protection against CSRF attacks. 'strict' or 'lax' are good choices.
 };
 
-let userAgentModule: typeof import('next/dist/server/web/spec-extension/user-agent') | undefined;
+let userAgentModule: typeof UserAgentModule | undefined;
 
 async function getIsBotValue(userAgent: string | null): Promise<boolean> {
     if (userAgent === null) return false;
@@ -38,7 +40,7 @@ export const localesSet = new Set(config.locales);
 // plus a Promise allocation), and this middleware runs on every request.
 // Still fully lazy: consumers who never set `config.firebaseAuth` never
 // reach the branch that assigns this, so they never pay the import at all.
-let updateSessionModule: typeof import('../firebase_auth/middleware/update_session.js') | undefined;
+let updateSessionModule: typeof UpdateSessionModule | undefined;
 
 /**
  * This middleware function runs for every incoming request. Handles locale

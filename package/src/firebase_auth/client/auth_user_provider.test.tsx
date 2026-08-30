@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { useContext } from 'react';
+import type { AuthUserContextType } from './auth_user_provider.js';
 
 const fa = {
     apiKey: 'key',
@@ -354,7 +355,7 @@ describe('AuthUserProvider', () => {
         currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
         const unverifiedUser = makeUser({ emailVerified: false });
         authObj.currentUser = unverifiedUser;
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -379,7 +380,7 @@ describe('AuthUserProvider', () => {
         mockPathname = '/verify-email';
         const user = makeUser({ emailVerified: false });
         authObj.currentUser = user;
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -419,7 +420,7 @@ describe('AuthUserProvider', () => {
         currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
         const unverifiedUser = makeUser({ emailVerified: false });
         authObj.currentUser = unverifiedUser;
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -544,7 +545,7 @@ describe('AuthUserProvider', () => {
 
     it('exposes reloadUser which refreshes the current user and cookie', async () => {
         authObj.currentUser = makeUser({ uid: 'reload-user' });
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -562,7 +563,7 @@ describe('AuthUserProvider', () => {
         const user = makeUser({ uid: 'reload-user' });
         Object.defineProperty(user, 'refreshToken', { get() { throw new Error('refresh-token read error'); } });
         authObj.currentUser = user;
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -578,7 +579,7 @@ describe('AuthUserProvider', () => {
     it('reloadUser logs and swallows errors from reload/getIdToken', async () => {
         authObj.currentUser = makeUser({ getIdToken: vi.fn(async () => { throw new Error('reload token error'); }) });
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -598,7 +599,7 @@ describe('AuthUserProvider', () => {
             .mockResolvedValueOnce(staleToken)
             .mockResolvedValue(freshToken);
         authObj.currentUser = makeUser({ uid: 'reload-user', emailVerified: true, getIdToken });
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -620,7 +621,7 @@ describe('AuthUserProvider', () => {
         const staleToken = makeJwt(1000, { email_verified: false });
         const getIdToken = vi.fn().mockResolvedValue(staleToken);
         authObj.currentUser = makeUser({ uid: 'reload-user', emailVerified: true, getIdToken });
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -637,7 +638,7 @@ describe('AuthUserProvider', () => {
     it('reloadUser skips the retry loop entirely when there is no existing session cookie to compare against', async () => {
         const getIdToken = vi.fn(async () => 'id-token');
         authObj.currentUser = makeUser({ uid: 'reload-user', getIdToken });
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -652,7 +653,7 @@ describe('AuthUserProvider', () => {
 
     it('reloadUser is a no-op when there is no current user', async () => {
         authObj.currentUser = null;
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -666,7 +667,7 @@ describe('AuthUserProvider', () => {
 
     it('exposes sendVerificationEmail which calls firebase with actionCodeSettings when present', async () => {
         authObj.currentUser = makeUser();
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -682,7 +683,7 @@ describe('AuthUserProvider', () => {
 
     it('sendVerificationEmail is a no-op when there is no current user', async () => {
         authObj.currentUser = null;
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -695,7 +696,7 @@ describe('AuthUserProvider', () => {
     });
 
     it('exposes logout which signs out, clears cookie, and navigates to redirectAuthPath', async () => {
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -711,7 +712,7 @@ describe('AuthUserProvider', () => {
 
     it('logout clears the session but does not navigate on a whitelisted path', async () => {
         currentConfig.firebaseAuth!.whiteListPaths = ['/dashboard'];
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -727,7 +728,7 @@ describe('AuthUserProvider', () => {
 
     it('logout still clears cookie and navigates even when signOut throws', async () => {
         signOut.mockRejectedValueOnce(new Error('signout failed'));
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -740,7 +741,7 @@ describe('AuthUserProvider', () => {
     });
 
     it('logout calls the server-side clearSessionAction to clear httpOnly cookies', async () => {
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -756,7 +757,7 @@ describe('AuthUserProvider', () => {
     it('logout still navigates when clearSessionAction rejects', async () => {
         clearSessionAction.mockRejectedValueOnce(new Error('server action failed'));
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
@@ -795,7 +796,7 @@ describe('AuthUserProvider', () => {
 
     it('the default context value is null for consumers outside a provider', async () => {
         const { AuthUserContext } = await import('./auth_user_provider.js');
-        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | null | undefined;
+        let ctxValue: AuthUserContextType | null | undefined;
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;

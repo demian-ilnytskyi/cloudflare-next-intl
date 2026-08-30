@@ -2,10 +2,11 @@
 
 import { useEffect } from 'react';
 import reportError from '../../../error_handling/report_error.js';
+import type * as ClarityModule from '@microsoft/clarity';
 
-let cachedClarityModule: Promise<typeof import('@microsoft/clarity')> | undefined;
+let cachedClarityModule: Promise<typeof ClarityModule> | undefined;
 
-function getClarityModule(): Promise<typeof import('@microsoft/clarity')> {
+function getClarityModule(): Promise<typeof ClarityModule> {
     if (!cachedClarityModule) {
         cachedClarityModule = import('@microsoft/clarity');
     }

@@ -450,7 +450,7 @@ describe('useStaleDeployRecovery', () => {
         expect(reloadMock).toHaveBeenCalledTimes(1);
     });
 
-    it('returns false during SSR when window is undefined', () => {
+    it('returns false during SSR when window is undefined', async () => {
         const originalWindow = global.window;
         try {
             // @ts-expect-error test SSR window undefinition
@@ -460,7 +460,7 @@ describe('useStaleDeployRecovery', () => {
                 result = useStaleDeployRecovery(staleError);
                 return null;
             }
-            const { renderToString } = require('react-dom/server');
+            const { renderToString } = await import('react-dom/server');
             renderToString(React.createElement(SsrComponent));
             expect(result).toBe(false);
         } finally {

@@ -12,7 +12,7 @@ export interface SerializedAuthUser {
     displayName: string | null;
 }
 
-export type AuthFormState = { error?: string; success?: boolean; email?: string };
+export interface AuthFormState { error?: string; success?: boolean; email?: string }
 
 /** Overrides for the default English auth error/status messages. */
 export interface AuthActionMessages {

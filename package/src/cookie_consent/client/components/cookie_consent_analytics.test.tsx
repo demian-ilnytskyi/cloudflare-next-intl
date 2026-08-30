@@ -27,7 +27,7 @@ vi.mock('next/dynamic', () => ({
 const clarityInit = vi.fn();
 const clarityConsent = vi.fn();
 vi.mock('./clarity_script', () => ({
-    default: ({ projectId }: { projectId: string }) => {
+    default: function MockClarityScript({ projectId }: { projectId: string }) {
         React.useEffect(() => {
             clarityInit(projectId);
             clarityConsent();

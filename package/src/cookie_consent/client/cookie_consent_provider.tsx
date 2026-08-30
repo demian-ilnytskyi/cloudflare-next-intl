@@ -64,7 +64,7 @@ export default function CookieConsentProvider({ requiresConsent = true, children
             privacyPolicyPath: cc.privacyPolicyPath ?? '/privacy-policy',
             showPrivacyPolicy: cc.showPrivacyPolicy ?? true,
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, []);
 
     const [consent, setConsentState] = useState<ConsentValue>(null);

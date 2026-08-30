@@ -67,7 +67,7 @@ describe('HelperScript', () => {
         const reload = vi.fn();
         Object.defineProperty(window, 'location', { value: { reload }, writable: true });
 
-        // eslint-disable-next-line no-new-func
+         
         new Function(source)();
         window.dispatchEvent(new ErrorEvent('error', { message: 'Failed to fetch dynamically imported module: x.js' }));
         expect(reload).toHaveBeenCalledTimes(1);
@@ -92,7 +92,7 @@ describe('HelperScript', () => {
         const reload = vi.fn();
         Object.defineProperty(window, 'location', { value: { reload }, writable: true });
 
-        // eslint-disable-next-line no-new-func
+         
         new Function(source)();
         // A single stale deploy commonly throws several near-simultaneous chunk
         // failures; a same-tick burst must still only trigger one reload().
@@ -119,7 +119,7 @@ describe('HelperScript', () => {
         });
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-        // eslint-disable-next-line no-new-func
+         
         new Function(source)();
         window.dispatchEvent(new ErrorEvent('error', { message: 'Failed to fetch dynamically imported module: x.js' }));
         window.dispatchEvent(new ErrorEvent('error', { message: 'Failed to fetch dynamically imported module: y.js' }));
@@ -142,7 +142,7 @@ describe('HelperScript', () => {
         const reload = vi.fn();
         Object.defineProperty(window, 'location', { value: { reload }, writable: true });
 
-        // eslint-disable-next-line no-new-func
+         
         new Function(source)();
         window.dispatchEvent(new ErrorEvent('error', { message: 'TypeError: cannot read property of null' }));
         expect(reload).not.toHaveBeenCalled();
@@ -160,7 +160,7 @@ describe('HelperScript', () => {
         const reload = vi.fn();
         Object.defineProperty(window, 'location', { value: { reload }, writable: true });
 
-        // eslint-disable-next-line no-new-func
+         
         new Function(source)();
         const event = new Event('unhandledrejection') as PromiseRejectionEvent & { reason: unknown };
         Object.defineProperty(event, 'reason', { value: new Error('Loading chunk 4 failed') });

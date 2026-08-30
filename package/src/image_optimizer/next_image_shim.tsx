@@ -157,7 +157,7 @@ export default function Image(props: ImageProps): React.JSX.Element {
                     }
                 />
             ))}
-            {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
             <img {...imgProps} onError={onError} />
         </picture>
     );

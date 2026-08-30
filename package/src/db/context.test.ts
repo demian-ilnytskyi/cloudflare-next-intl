@@ -723,6 +723,6 @@ describe('withUserDb role safety', () => {
 
         const calls = tx._clientQuery.mock.calls.map((c: unknown[]) => c[0]);
         const setRole = calls.find((s: string) => typeof s === 'string' && s.startsWith('set role'));
-        expect(setRole).toBe('set role "x\"\" ; set role \"\"postgres"');
+        expect(setRole).toBe('set role "x"" ; set role ""postgres"');
     });
 });

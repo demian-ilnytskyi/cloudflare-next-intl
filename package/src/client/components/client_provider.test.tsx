@@ -31,7 +31,7 @@ vi.mock('next/dynamic', () => ({
 
 let authProviderMountCount = 0;
 vi.mock('../../firebase_auth/client/auth_user_provider', () => ({
-    default: ({ children }: { children: React.ReactNode }) => {
+    default: function MockAuthUserProvider({ children }: { children: React.ReactNode }) {
         useEffect(() => {
             authProviderMountCount += 1;
         }, []);

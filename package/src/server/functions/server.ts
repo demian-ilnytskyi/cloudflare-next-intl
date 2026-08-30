@@ -6,10 +6,11 @@ import { getLocaleCache, getMessageCache, getTranslationCache, setLocaleCache, s
 import { cache } from "react";
 import { localesSet } from "../../config/middleware.js";
 import reportError from "../../error_handling/report_error.js";
+import type * as NextHeadersModule from "next/headers";
 
 const isDev = process.env.NODE_ENV === 'development';
 
-let nextHeadersModule: typeof import("next/headers") | undefined;
+let nextHeadersModule: typeof NextHeadersModule | undefined;
 
 /**
  * Loads and caches messages for a specific locale using dynamic import.

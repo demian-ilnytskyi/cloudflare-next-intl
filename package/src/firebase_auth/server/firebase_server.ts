@@ -1,5 +1,7 @@
 import type { FirebaseApp } from 'firebase/app';
+import type * as FirebaseAppModule from 'firebase/app';
 import type { User } from 'firebase/auth';
+import type * as FirebaseAuthModule from 'firebase/auth';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import config from '@intl-config';
@@ -9,8 +11,8 @@ import reportError from '../../error_handling/report_error.js';
 import mintServerAppCheckToken from './mint_server_app_check_token.js';
 
 let baseAppReady: Promise<FirebaseApp> | undefined;
-let firebaseAppModuleReady: Promise<typeof import('firebase/app')> | undefined;
-let firebaseAuthModuleReady: Promise<typeof import('firebase/auth')> | undefined;
+let firebaseAppModuleReady: Promise<typeof FirebaseAppModule> | undefined;
+let firebaseAuthModuleReady: Promise<typeof FirebaseAuthModule> | undefined;
 
 /**
  * Writes a freshly-minted session/refresh pair back to the cookie jar so the

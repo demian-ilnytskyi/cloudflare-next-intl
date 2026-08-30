@@ -9,12 +9,13 @@ import type { CookieConsentAnalyticsConfig } from "../../types/types.js";
 import resolveRequiresConsent from "../../cookie_consent/gdpr_countries.js";
 import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
 import reportError from "../../error_handling/report_error.js";
+import type * as AuthUserServerProviderModule from "../../firebase_auth/server/auth_user_server_provider.js";
 
 const LocationzationClientProvider = dynamic(
     () => import("../../client/components/client_provider.js"),
 );
 
-let authUserServerProviderModule: typeof import("../../firebase_auth/server/auth_user_server_provider.js") | undefined;
+let authUserServerProviderModule: typeof AuthUserServerProviderModule | undefined;
 
 /**
  * Server component that provides locale/messages context to the rest of the
