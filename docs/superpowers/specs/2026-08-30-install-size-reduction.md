@@ -128,3 +128,31 @@ task must be abandoned rather than forced.
 - No entry in `dependencies` has been relocated to `peerDependencies`,
   `devDependencies`, or `optionalDependencies`.
 - The `example/` app builds against the local package.
+
+## Outcome: lever C rejected
+
+Task 3 spiked replacing `embedded-postgres` (144 MB) with
+`@electric-sql/pglite` + `@electric-sql/pglite-socket` (26 MB) as the backing
+Postgres for `bin/ephemeral_pg.mjs`. The spike (`package/scripts/spike_pglite.mjs`,
+since deleted) exercised exactly what the launcher and `drizzle-kit pull` need.
+All eight Supabase roles and all three schemas created fine, but three checks
+failed:
+
+```
+FAIL CREATE EXTENSION uuid-ossp: extension "uuid-ossp" is not available
+FAIL CREATE EXTENSION pgcrypto: extension "pgcrypto" is not available
+FAIL second concurrent connection: read ECONNRESET
+```
+
+The extension failures mean DDL that uses `uuid_generate_v4()` or pgcrypto
+functions would not load, so the ephemeral database would introspect a
+strictly less-capable Postgres than the one it claims to stand in for. The
+concurrent-connection failure is decisive on its own: `PGLiteSocketServer`
+serves one client at a time and resets the second, so `drizzle-kit pull`
+cannot open its own connection alongside the bootstrap client.
+
+Working around either — dropping extensions, or serialising connections —
+would weaken codegen fidelity, which is a worse outcome than the 144 MB.
+`embedded-postgres` stays. Levers A (rejected: `@supabase/supabase-js` is a
+live lazy dependency) and B (delivered: `firebase` umbrella -> four scoped
+`@firebase/*` packages, 398 MB -> 243 MB) are unaffected.
