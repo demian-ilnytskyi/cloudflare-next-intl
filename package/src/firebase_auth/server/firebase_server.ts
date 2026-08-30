@@ -8,9 +8,9 @@ import { defaultAppCheckTokenCookieName, defaultRefreshTokenCookieName, defaultS
 import reportError from '../../error_handling/report_error';
 import mintServerAppCheckToken from './mint_server_app_check_token';
 
-let baseApp: FirebaseApp | undefined;
-let firebaseAppModule: typeof import('firebase/app') | undefined;
-let firebaseAuthModule: typeof import('firebase/auth') | undefined;
+let baseAppReady: Promise<FirebaseApp> | undefined;
+let firebaseAppModuleReady: Promise<typeof import('firebase/app')> | undefined;
+let firebaseAuthModuleReady: Promise<typeof import('firebase/auth')> | undefined;
 
 /**
  * Writes a freshly-minted session/refresh pair back to the cookie jar so the
@@ -107,10 +107,10 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
     // with `currentUser === null`. So a null user (not a throw) is the signal
     // to drop the bad token and mint a replacement from the refresh cookie.
     const attempt = async (idToken: string) => {
-        if (!firebaseAppModule) firebaseAppModule = await import('firebase/app');
-        if (!firebaseAuthModule) firebaseAuthModule = await import('firebase/auth');
-        const { initializeApp, initializeServerApp } = firebaseAppModule;
-        const { getAuth } = firebaseAuthModule;
+        firebaseAppModuleReady ??= import('firebase/app');
+        firebaseAuthModuleReady ??= import('firebase/auth');
+        const { initializeApp, initializeServerApp } = await firebaseAppModuleReady;
+        const { getAuth } = await firebaseAuthModuleReady;
 
         const firebaseConfig = {
             apiKey: fa.apiKey,
@@ -126,7 +126,12 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
         // named app per token: `initializeServerApp` derives a distinct,
         // token-scoped auth context from this same base app without
         // registering a new named app in Firebase's global app registry.
-        if (!baseApp) baseApp = initializeApp(firebaseConfig, 'firebase-auth-server-base');
+        // Cached as a promise (not the resolved app) so concurrent requests
+        // racing this on a cold start share one `initializeApp` call instead
+        // of each calling `initializeApp` with the same name and racing
+        // Firebase's internal app registry.
+        baseAppReady ??= (async () => initializeApp(firebaseConfig, 'firebase-auth-server-base'))();
+        const baseApp = await baseAppReady;
 
         const firebaseServerApp = initializeServerApp(baseApp, { authIdToken: idToken, appCheckToken });
         const auth = getAuth(firebaseServerApp);

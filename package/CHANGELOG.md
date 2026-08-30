@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.60] - 2026-08-30
+
+### Fixed
+
+- **`getAuthenticatedAppForUser` base-app/module init race**: concurrent server renders on a cold start could each call `initializeApp` for the same named base app, or race the lazy `firebase/app`/`firebase/auth` imports, intermittently throwing `Component auth has not been registered yet`. The base app and both lazy imports are now cached as shared in-flight promises so concurrent callers await the same initialization instead of re-triggering it.
+
 ## [0.8.58] - 2026-08-30
 
 ### Added
