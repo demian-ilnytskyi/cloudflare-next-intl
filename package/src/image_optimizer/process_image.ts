@@ -135,6 +135,7 @@ async function encodeFormat(
     sourcePath: string,
     format: ImageFormat | "original",
     quality: number,
+    effort: number | undefined,
     targetWidth: number | undefined,
 ): Promise<Buffer> {
     let pipeline = sharp(source);
@@ -144,11 +145,13 @@ async function encodeFormat(
 
     let encoded;
     if (format === "avif") {
-        encoded = pipeline.avif({ quality });
+        encoded = pipeline.avif(effort === undefined ? { quality } : { quality, effort });
     } else if (format === "webp") {
-        encoded = pipeline.webp({ quality });
+        encoded = pipeline.webp(effort === undefined ? { quality } : { quality, effort });
     } else if (format === "png") {
-        encoded = pipeline.png({ quality, compressionLevel: 9 });
+        encoded = pipeline.png(effort === undefined
+            ? { quality, compressionLevel: 9 }
+            : { quality, compressionLevel: 9, effort });
     } else if (format === "jpeg") {
         encoded = pipeline.jpeg({ quality, mozjpeg: true });
     } else if (format === "gif") {
@@ -156,11 +159,13 @@ async function encodeFormat(
     } else if (format === "tiff") {
         encoded = pipeline.tiff({ quality });
     } else if (format === "heif") {
-        encoded = pipeline.heif({ quality, compression: "hevc" });
+        encoded = pipeline.heif(effort === undefined
+            ? { quality, compression: "hevc" }
+            : { quality, compression: "hevc", effort });
     } else if (format === "jp2") {
         encoded = pipeline.jp2({ quality });
     } else if (format === "jxl") {
-        encoded = pipeline.jxl({ quality });
+        encoded = pipeline.jxl(effort === undefined ? { quality } : { quality, effort });
     } else {
         const ext = path.extname(sourcePath).toLowerCase();
         encoded = ext === ".png"
@@ -188,7 +193,7 @@ async function processVariant(
     targetWidth: number | undefined,
     sourceWidth: number,
     sourceHeight: number,
-    config: { quality: number; formats: ImageFormat[]; blur: ResolvedBlurOptions },
+    config: { quality: number; effort: number | undefined; formats: ImageFormat[]; blur: ResolvedBlurOptions },
     isDefault: boolean,
 ): Promise<OptimizedImageVariant> {
     const width = targetWidth ?? sourceWidth;
@@ -220,9 +225,9 @@ async function processVariant(
     });
 
     const [primaryBuffer] = await Promise.all([
-        encodeFormat(primaryFile, sourceBuffer, absolutePath, primaryFormat, config.quality, targetWidth),
+        encodeFormat(primaryFile, sourceBuffer, absolutePath, primaryFormat, config.quality, config.effort, targetWidth),
         ...siblingTargets.map((target) =>
-            encodeFormat(target.file, sourceBuffer, absolutePath, target.format, config.quality, targetWidth),
+            encodeFormat(target.file, sourceBuffer, absolutePath, target.format, config.quality, config.effort, targetWidth),
         ),
     ]);
 

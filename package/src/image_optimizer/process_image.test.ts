@@ -270,4 +270,39 @@ describe("process_image", () => {
         expect(existsSync(path.join(root, "tall.blur.webp"))).toBe(true);
         await cleanup(root);
     });
+
+    it("passes effort through to effort-capable encoders", async () => {
+        const dir = await makeTempDir();
+        const source = await writeFixturePng(path.join(dir, "public", "images"), "e.png", 400, 300);
+        const options = resolveOptions({
+            formats: ["avif", "webp", "png"],
+            effort: 1,
+            outDir: "public/generated",
+        });
+        const result = await processImage(source, path.join(dir, "public"), options, dir);
+        expect(result.sources?.length).toBe(3);
+        await cleanup(dir);
+    });
+
+    it.each(["heif", "jxl"] as const)(
+        "passes effort through to %s (skips assertion if this libvips build lacks support)",
+        async (format) => {
+            const root = await makeTempDir();
+            const publicRoot = path.join(root, "public");
+            const file = await writeFixturePng(path.join(publicRoot, "images"), `${format}-effort-src.png`, 40, 20);
+
+            try {
+                const result = await processImage(
+                    file,
+                    publicRoot,
+                    resolveOptions({ formats: [format], effort: 1 }),
+                    root,
+                );
+                expect(result.src).toBe(`/generated/images/${format}-effort-src.${format}`);
+            } catch (error) {
+                expect(String(error)).toMatch(new RegExp(format, "i"));
+            }
+            await cleanup(root);
+        },
+    );
 });

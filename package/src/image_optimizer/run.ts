@@ -167,7 +167,7 @@ export async function run(
         overrides: mergeOverrides(scannedOverrides, options.overrides),
     };
 
-    const processed = await mapWithConcurrency(files, 4, async (file) => {
+    const processed = await mapWithConcurrency(files, options.concurrency, async (file) => {
         const relativeKey = path.relative(root, file);
         const cached = cache[relativeKey];
         const targets = await targetAndSiblingPaths(file, publicRoot, resolvedOptions, root);

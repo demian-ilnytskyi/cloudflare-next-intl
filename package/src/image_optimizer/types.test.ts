@@ -109,4 +109,29 @@ describe("types & option resolvers", () => {
     it("supported extensions include png, jpg, jpeg, webp, avif", () => {
         expect([...SUPPORTED_EXTENSIONS]).toEqual([".png", ".jpg", ".jpeg", ".webp", ".avif"]);
     });
+
+    describe("concurrency and effort options", () => {
+        it("defaults concurrency to a clamped cpu count and effort to undefined", () => {
+            const resolved = resolveOptions({});
+            expect(resolved.concurrency).toBeGreaterThanOrEqual(1);
+            expect(resolved.concurrency).toBeLessThanOrEqual(8);
+            expect(resolved.effort).toBeUndefined();
+        });
+
+        it("honours explicit concurrency and effort", () => {
+            const resolved = resolveOptions({ concurrency: 3, effort: 2 });
+            expect(resolved.concurrency).toBe(3);
+            expect(resolved.effort).toBe(2);
+        });
+
+        it("clamps a nonsensical concurrency to at least 1", () => {
+            expect(resolveOptions({ concurrency: 0 }).concurrency).toBe(1);
+        });
+
+        it("lets a per-image override set effort", () => {
+            const options = resolveOptions({ effort: 2, overrides: { "/images/a.png": { effort: 6 } } });
+            expect(resolveImageConfig("/images/a.png", options).effort).toBe(6);
+            expect(resolveImageConfig("/images/b.png", options).effort).toBe(2);
+        });
+    });
 });

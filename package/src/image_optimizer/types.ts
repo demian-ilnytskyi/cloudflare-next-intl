@@ -1,3 +1,5 @@
+import { cpus } from "node:os";
+
 export type ImageFormat = "avif" | "webp" | "png" | "jpeg" | "gif" | "tiff" | "heif" | "jp2" | "jxl";
 
 export interface ImageBlurOptions {
@@ -27,6 +29,8 @@ export interface ImageOverrideOptions {
     quality?: number;
     /** Blur placeholder settings for this image, or `false` to disable. Default: inherits global */
     blur?: boolean | ImageBlurOptions;
+    /** Encoder effort (0-9) for this image. Default: inherits global */
+    effort?: number;
 }
 
 export interface ImageOptimizerPluginOptions {
@@ -54,6 +58,10 @@ export interface ImageOptimizerPluginOptions {
     onlyUsed?: boolean;
     /** Per-image overrides keyed by public src (e.g. `"/images/hero.png"`) */
     overrides?: Record<string, ImageOverrideOptions>;
+    /** Images processed in parallel. Default: cpu count, clamped to 1-8 */
+    concurrency?: number;
+    /** Encoder effort (0-9) for avif/webp/png/heif/jxl. Default: sharp's own default */
+    effort?: number;
 }
 
 export interface ResolvedBlurOptions {
@@ -76,6 +84,8 @@ export interface ResolvedOptions {
     cacheDir: string;
     onlyUsed: boolean;
     overrides: Record<string, ImageOverrideOptions>;
+    concurrency: number;
+    effort: number | undefined;
 }
 
 export interface ResolvedImageConfig {
@@ -84,6 +94,7 @@ export interface ResolvedImageConfig {
     quality: number;
     formats: ImageFormat[];
     blur: ResolvedBlurOptions;
+    effort: number | undefined;
 }
 
 export interface OptimizedImageSource {
@@ -139,6 +150,8 @@ export const DEFAULT_OPTIONS: ResolvedOptions = {
     cacheDir: "node_modules/.cache/cloudflare-next-intl/image-optimizer",
     onlyUsed: true,
     overrides: {},
+    concurrency: Math.max(1, Math.min(cpus().length, 8)),
+    effort: undefined,
 };
 
 export function resolveBlurOptions(
@@ -183,6 +196,8 @@ export function resolveOptions(
         cacheDir: raw.cacheDir ?? DEFAULT_OPTIONS.cacheDir,
         onlyUsed: raw.onlyUsed ?? DEFAULT_OPTIONS.onlyUsed,
         overrides: raw.overrides ? { ...raw.overrides } : {},
+        concurrency: Math.max(1, raw.concurrency ?? DEFAULT_OPTIONS.concurrency),
+        effort: raw.effort,
     };
 }
 
@@ -198,6 +213,7 @@ export function resolveImageConfig(
             quality: options.quality,
             formats: options.formats,
             blur: options.blur,
+            effort: options.effort,
         };
     }
 
@@ -214,10 +230,11 @@ export function resolveImageConfig(
           : options.maxWidth;
 
     const quality = override.quality ?? options.quality;
+    const effort = override.effort ?? options.effort;
     const blur = override.blur !== undefined
         ? resolveBlurOptions(override.blur, options.blur)
         : options.blur;
     const extraWidths = override.extraWidths ? [...override.extraWidths] : [];
 
-    return { maxWidth, extraWidths, quality, formats, blur };
+    return { maxWidth, extraWidths, quality, formats, blur, effort };
 }
