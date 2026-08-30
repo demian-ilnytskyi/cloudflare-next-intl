@@ -2,6 +2,7 @@ import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-run
 import { isDarkCookieKey, localeCookieName } from "../../config/cookie_key";
 import config from "../../config/intl_config";
 import ClientHelperScript from "../../client/components/client_helper_script";
+import { defaultStaleDeployPatterns } from "../../error_handling/is_stale_deploy_error";
 const isDev = process.env.NODE_ENV === 'development';
 const appCheck = config.firebaseAuth?.appCheck;
 const shouldLoadExplicitRecaptchaScript = !!appCheck?.recaptchaV3SiteKey && appCheck.useExplicitRecaptchaScript !== false;
@@ -14,6 +15,10 @@ const secureCookieAttribute = isDev ? '+ " Secure;"' : '';
  * - redirects to the locale-prefixed URL if the locale cookie disagrees
  *   with the current path (covers client-side navigation edge cases)
  * - (prod only) checks `BUILD_ID` and force-reloads on stale deploys
+ * - (prod only) listens for `error`/`unhandledrejection` events matching
+ *   `isStaleDeployError`'s patterns and force-reloads once per build id —
+ *   catches a stale-chunk failure even when the failing chunk is your own
+ *   error boundary, before React (and `useStaleDeployRecovery`) ever mounts
  * - loads `recaptcha/api.js?render=explicit` when `firebaseAuth.appCheck`
  *   has a `recaptchaV3SiteKey` and `useExplicitRecaptchaScript` isn't
  *   `false`, so `window.grecaptcha` is ready before App Check's
@@ -32,6 +37,47 @@ const secureCookieAttribute = isDev ? '+ " Secure;"' : '';
 export default function HelperScript() {
     return _jsxs(_Fragment, { children: [shouldLoadExplicitRecaptchaScript &&
                 _jsx("script", { src: "https://www.google.com/recaptcha/api.js?render=explicit", async: true, defer: true }), !isDev &&
+                _jsx("script", { id: "stale-deploy-early-catch", dangerouslySetInnerHTML: {
+                        __html: `(function() {
+                var patterns = ${JSON.stringify(defaultStaleDeployPatterns)};
+                var key = 'stale-deploy-recovery-reloaded';
+                var attemptedThisLoad = false;
+                function isStale(msg) {
+                    if (msg === undefined || msg === null) return true;
+                    msg = String(msg).toLowerCase();
+                    for (var i = 0; i < patterns.length; i++) {
+                        if (msg.indexOf(patterns[i]) > -1) return true;
+                    }
+                    return false;
+                }
+                function recover(msg) {
+                    // One reload attempt per page load, no matter how many matching
+                    // errors fire in a row (a single stale deploy commonly throws
+                    // several near-simultaneous chunk failures) — without this guard
+                    // each one would race to read-then-write the same sessionStorage
+                    // key and could re-trigger reload() multiple times before the
+                    // first navigation lands.
+                    if (attemptedThisLoad) return;
+                    try {
+                        if (!isStale(msg)) return;
+                        var buildId = localStorage.getItem('buildId') || 'unknown';
+                        // Same marker/key as useStaleDeployRecovery: one reload per
+                        // build id, so a repeat failure on a build that already spent
+                        // its reload falls through instead of reloading forever.
+                        if (sessionStorage.getItem(key) === buildId) return;
+                        attemptedThisLoad = true;
+                        sessionStorage.setItem(key, buildId);
+                        window.location.reload();
+                    } catch (e) {
+                        console.error('Stale Deploy Early Catch Script Error:', e);
+                    }
+                }
+                window.addEventListener('error', function(e) { recover(e.message); });
+                window.addEventListener('unhandledrejection', function(e) {
+                    recover(e.reason && e.reason.message);
+                });
+      })();`
+                    } }), !isDev &&
                 _jsx("script", { id: "build-id-script", children: `(async function() {
                 try {
                     const resp = await fetch('/BUILD_ID', { method: 'HEAD', cache: 'no-store' });

@@ -209,6 +209,10 @@
       "types": "./dist/src/error_handling/clear_client_cache.d.ts",
       "import": "./dist/src/error_handling/clear_client_cache.js"
     },
+    "./useStaleDeployRecovery": {
+      "types": "./dist/src/error_handling/use_stale_deploy_recovery.d.ts",
+      "import": "./dist/src/error_handling/use_stale_deploy_recovery.js"
+    },
     "./db": {
       "types": "./dist/src/db/index.d.ts",
       "import": "./dist/src/db/index.js"

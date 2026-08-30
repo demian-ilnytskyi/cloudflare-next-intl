@@ -6,6 +6,10 @@
  * - redirects to the locale-prefixed URL if the locale cookie disagrees
  *   with the current path (covers client-side navigation edge cases)
  * - (prod only) checks `BUILD_ID` and force-reloads on stale deploys
+ * - (prod only) listens for `error`/`unhandledrejection` events matching
+ *   `isStaleDeployError`'s patterns and force-reloads once per build id —
+ *   catches a stale-chunk failure even when the failing chunk is your own
+ *   error boundary, before React (and `useStaleDeployRecovery`) ever mounts
  * - loads `recaptcha/api.js?render=explicit` when `firebaseAuth.appCheck`
  *   has a `recaptchaV3SiteKey` and `useExplicitRecaptchaScript` isn't
  *   `false`, so `window.grecaptcha` is ready before App Check's

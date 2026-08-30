@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- **Early-catch stale-deploy recovery in `IntlHelperScript`**: a production-only inline `<script>` (`#stale-deploy-early-catch`) now listens for `error`/`unhandledrejection` events matching `isStaleDeployError`'s patterns and force-reloads once per build id, before hydration. Fixes the case where the failing chunk is the app's own error boundary/global-error bundle — React can never mount `useStaleDeployRecovery` to catch that, since the very module that would render it failed to load. Shares the `stale-deploy-recovery-reloaded` sessionStorage marker with `useStaleDeployRecovery` so the two layers don't double-reload each other. Guarded against infinite/repeated reloads two ways: an in-memory flag caps it at one `reload()` call per page load even under a burst of near-simultaneous chunk failures (common with a single stale deploy), and the sessionStorage marker is still checked/written inside the same try/catch as the reload call, so a storage failure (private browsing, quota) can't leave the guard unset while still reloading.
+- **`./useStaleDeployRecovery` subpath export**: `useStaleDeployRecovery` and `shouldRecoverFromStaleDeploy` are now importable directly from `cloudflare-next-intl/useStaleDeployRecovery`, matching the existing `./isStaleDeployError` / `./clearClientCache` subpaths (previously only available via the `cloudflare-next-intl/errorHandling` barrel).
+
 ## [0.8.60] - 2026-08-30
 
 ### Fixed

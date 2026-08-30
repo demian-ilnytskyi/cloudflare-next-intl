@@ -593,7 +593,11 @@ third party without consent can itself be GDPR-relevant.
 
 #### Stale Deploy & Chunk Load Error Recovery
 
-When a new version of your application is deployed to Cloudflare Workers, users on older client sessions may encounter `ChunkLoadError` or failed dynamic imports when requesting outdated chunks. Use `isStaleDeployError` and `clearClientCache` in error boundaries or global error handlers to automatically recover:
+When a new version of your application is deployed to Cloudflare Workers, users on older client sessions may encounter `ChunkLoadError` or failed dynamic imports when requesting outdated chunks.
+
+`IntlHelperScript` renders an early-catch `<script>` (production only, id `stale-deploy-early-catch`) that runs before hydration and listens for `window.error`/`unhandledrejection` events matching the same patterns as `isStaleDeployError` (inlined as JSON, so it stays in sync with `staleDeployPatterns` config), then force-reloads once per build id. This covers the case a React-level recovery (`useStaleDeployRecovery` below) cannot: when the chunk that failed to load is part of your own error boundary/global-error bundle, React never gets a chance to render the recovery UI. Both layers share the same `sessionStorage['stale-deploy-recovery-reloaded']` marker keyed by build id, so they can't double-reload each other. No setup beyond rendering `<IntlHelperScript />` is required.
+
+For errors that don't crash the module graph itself (a normal thrown error reaching an error boundary), use `isStaleDeployError` and `clearClientCache` in error boundaries or global error handlers to automatically recover:
 
 ```typescript
 import { isStaleDeployError, clearClientCache } from "cloudflare-next-intl/errorHandling";
