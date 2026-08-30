@@ -23,6 +23,11 @@ describe("types & option resolvers", () => {
         expect(resolved.maxWidth).toBe(false);
     });
 
+    it("resolveOptions handles onlyUsed option", () => {
+        const resolved = resolveOptions({ onlyUsed: false });
+        expect(resolved.onlyUsed).toBe(false);
+    });
+
     it("resolveOptions handles blur: false and blur: true", () => {
         const resolvedFalse = resolveOptions({ blur: false });
         expect(resolvedFalse.blur.enabled).toBe(false);
@@ -58,7 +63,7 @@ describe("types & option resolvers", () => {
         const config = resolveImageConfig("/images/photo.png", options);
         expect(config.quality).toBe(85);
         expect(config.maxWidth).toBe(1200);
-        expect(config.formats).toEqual(["avif", "webp"]);
+        expect(config.formats).toEqual(["webp"]);
         expect(config.blur.enabled).toBe(true);
     });
 
@@ -101,7 +106,7 @@ describe("types & option resolvers", () => {
         expect(sizeConfig.maxWidth).toBe(800);
     });
 
-    it("supported extensions include png, jpg, jpeg", () => {
-        expect([...SUPPORTED_EXTENSIONS]).toEqual([".png", ".jpg", ".jpeg"]);
+    it("supported extensions include png, jpg, jpeg, webp, avif", () => {
+        expect([...SUPPORTED_EXTENSIONS]).toEqual([".png", ".jpg", ".jpeg", ".webp", ".avif"]);
     });
 });

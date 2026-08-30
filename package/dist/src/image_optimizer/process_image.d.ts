@@ -1,4 +1,10 @@
-import type { OptimizedImage, ResolvedBlurOptions, ResolvedOptions } from "./types.js";
+import type { ImageFormat, OptimizedImage, OptimizedImageSource, ResolvedBlurOptions, ResolvedOptions } from "./types.js";
+export declare function mimeTypeFor(format: ImageFormat | "original", originalSrc: string): string;
+/**
+ * <picture> tries <source> tags in document order, so sources must follow the
+ * user's own `formats` order (their priority) with "original" always last as fallback.
+ */
+export declare function sortSources(sources: OptimizedImageSource[], formats: ImageFormat[]): OptimizedImageSource[];
 export declare function toPublicSrc(absolutePath: string, publicRoot: string): string;
 export declare function toGeneratedPath(absolutePath: string, publicRoot: string, outDir: string, root: string): {
     targetFile: string;

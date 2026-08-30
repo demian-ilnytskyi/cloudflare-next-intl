@@ -256,7 +256,7 @@ export default defineConfig({
 ```
 
 ##### What `cloudflareNextIntl()` Does
-1. **Build-Time & Dev Image Optimizer (`imageOptimizer`)**: Automatically scans your image directories (`public/images`, `public/icons`), downscales oversized assets, produces modern `.avif` and `.webp` formats, generates 8px `.blur.webp` thumbnails with Next.js-matching SVG Gaussian blur placeholders, and provides transparent `<Image placeholder="blur" />` shimming via virtual modules.
+1. **Build-Time & Dev Image Optimizer (`imageOptimizer`)**: Automatically scans your image directories (`public/images`, `public/icons`), downscales oversized assets, produces sibling formats (`webp` by default; also supports `avif`, `png`, `jpeg`, `gif`, `tiff`, `heif`, `jp2`, `jxl`), generates 8px `.blur.webp` thumbnails with Next.js-matching SVG Gaussian blur placeholders, and provides transparent `<Image placeholder="blur" />` shimming via virtual modules. When more than one format is generated for an image, the shim renders a `<picture>` with one `<source>` per format — ordered exactly as configured — so the browser picks the best format it supports, with the original untouched file as an `onError` fallback if a generated asset fails to load.
 2. **Locale File Bundling & Resolution (`localeFiles`)**: Resolves `@locale-file/*` to your `./messages` directory and transforms dynamic imports into `import.meta.glob('/messages/*.json', { eager: true })` for lightning-fast locale loading on Cloudflare Workers.
 3. **User-Agent Stub (`userAgentStub`)**: Prevents Next.js `user-agent` from importing `node:fs` during workerd runtime execution (which otherwise causes runtime 404 / 500 crashes in Workers proxy/middleware).
 4. **Cloudflare Workers Client Stub (`cfWorkersClientStub`)**: Stubs `cloudflare:workers` in client builds so shared modules can be referenced without client bundling errors.
@@ -274,10 +274,11 @@ export default defineConfig({
         cloudflareNextIntl({
             imageOptimizer: {                     // Image optimizer configuration (or `false` to disable)
                 maxWidth: 1920,                   // Downscale max width limit (default: 1920, or `false`)
-                formats: ["avif", "webp"],        // Target sibling formats (default: ["avif", "webp"], or `false`)
+                formats: ["avif", "webp"],        // Target sibling formats, in browser-preference order (default: ["webp"], or `false`).
+                                                   // Also supports: "png", "jpeg", "gif", "tiff", "heif", "jp2", "jxl"
                 quality: 80,                      // Compression quality (default: 80)
                 blur: { quality: 70, stdDeviation: 20 }, // Next.js blur placeholder options (or `false`)
-                overrides: {                      // Per-image overrides keyed by public src path
+                overrides: {                      // Per-image overrides keyed by public src path (wins over scanned <Image> props)
                     "/images/hero.png": { maxWidth: false, formats: ["webp"], blur: { quality: 80 } },
                     "/images/logo.png": { formats: false, blur: false },
                 },
@@ -295,6 +296,39 @@ export default defineConfig({
 
 Individual standalone plugins are also exported if you only need a specific feature:
 `imageOptimizerPlugin` (or `imageOptimizer`), `buildIdAsset`, `localeFilePlugin`, `userAgentStubPlugin`, `cfWorkersClientStubPlugin`.
+
+##### Per-Image Optimizer Settings
+
+Instead of (or in addition to) the centralized `overrides` config, settings can be set directly as props on individual `<Image>` usages. The build scans your JSX for these props and applies them per image — a matching `overrides` entry for the same `src` still wins if both are set:
+
+```tsx
+import { Image } from "cloudflare-next-intl/image";
+
+<Image src="/images/hero.png" formats={["avif", "webp"]} quality={95} blur={{ size: 16, quality: 90 }} />
+<Image src="/images/icon.svg" formats={false} blur={false} maxWidth={false} />
+```
+
+Supported props: `formats` (array or `false`), `maxWidth` (number or `false`), `quality` (number), `blur` (`true`, `false`, or `{ size, quality, stdDeviation }`).
+
+##### Browser Format Negotiation
+
+When an image's `formats` list has more than one entry, the generated `<source>` tags follow that exact order, so the browser always picks the first format in the list it can decode — no client-side JavaScript is involved:
+
+```tsx
+<Image src="/images/hero.png" formats={["avif", "webp"]} />
+```
+
+renders as:
+
+```html
+<picture>
+  <source type="image/avif" srcset="/generated/images/hero.avif" />
+  <source type="image/webp" srcset="/generated/images/hero.webp" />
+  <img src="/generated/images/hero.avif" ... />
+</picture>
+```
+
+If the primary generated asset fails to load at runtime (e.g. a missing/corrupted build output), the `<img>` falls back to the original, unprocessed source file automatically via `onError`.
 
 ```tsx
 // Client Components ("use client")

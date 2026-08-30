@@ -1,4 +1,4 @@
-import { jsx as _jsx } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import NextImage, { getImageProps as nextGetImageProps } from "next/image";
 import manifest from "virtual:cloudflare-next-intl-images-manifest";
 import { getImageBlurSvg } from "./blur_svg.js";
@@ -32,6 +32,16 @@ function findEntry(srcVal) {
         }
     }
     return undefined;
+}
+/** Swap the format extension of every URL in a generated srcset. */
+function retargetSrcSet(srcSet, fromSrc, toSrc) {
+    if (!srcSet)
+        return srcSet;
+    const fromEncoded = encodeURIComponent(fromSrc);
+    const toEncoded = encodeURIComponent(toSrc);
+    return srcSet
+        .split(fromEncoded).join(toEncoded)
+        .split(fromSrc).join(toSrc);
 }
 function resolveProps(props) {
     let src = props.src;
@@ -74,7 +84,24 @@ function resolveProps(props) {
 }
 export default function Image(props) {
     const resolved = resolveProps(props);
-    return _jsx(NextImage, { ...resolved });
+    const entry = findEntry(props.src);
+    const alternates = (entry?.sources ?? []).filter((source) => source.src !== entry?.src);
+    if (alternates.length === 0) {
+        return _jsx(NextImage, { ...resolved });
+    }
+    const { props: imgProps } = nextGetImageProps(resolved);
+    const primarySrc = entry?.src ?? String(imgProps.src);
+    const originalSrc = entry?.originalSrc;
+    const onError = (event) => {
+        const img = event.currentTarget;
+        if (originalSrc && img.src !== originalSrc && !img.src.endsWith(originalSrc)) {
+            img.srcset = "";
+            img.src = originalSrc;
+        }
+    };
+    return (_jsxs("picture", { children: [alternates.map((source) => (_jsx("source", { type: source.type, sizes: imgProps.sizes, srcSet: imgProps.srcSet
+                    ? retargetSrcSet(imgProps.srcSet, primarySrc, source.src)
+                    : source.src }, source.src))), _jsx("img", { ...imgProps, onError: onError })] }));
 }
 export function getImageProps(props) {
     const resolved = resolveProps(props);

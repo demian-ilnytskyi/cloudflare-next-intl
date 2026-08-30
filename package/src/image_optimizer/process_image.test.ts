@@ -4,7 +4,7 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { DEFAULT_BLUR_OPTIONS, DEFAULT_OPTIONS, resolveOptions } from "./types.js";
-import { makeBlurDataURL, processImage, toGeneratedPath, toPublicSrc } from "./process_image.js";
+import { makeBlurDataURL, mimeTypeFor, processImage, toGeneratedPath, toPublicSrc } from "./process_image.js";
 import { cleanup, makeTempDir, writeFixtureJpg, writeFixturePng } from "../test_utils/image_optimizer_test_helpers.js";
 
 describe("process_image", () => {
@@ -24,7 +24,7 @@ describe("process_image", () => {
         expect(targetSrc).toBe("/generated/images/a.png");
     });
 
-    it("oversized image is downscaled into outDir preserving aspect ratio", async () => {
+    it("oversized image is downscaled into outDir and emitted as webp by default", async () => {
         const root = await makeTempDir();
         const publicRoot = path.join(root, "public");
         const file = await writeFixturePng(path.join(publicRoot, "images"), "big.png", 200, 100);
@@ -37,13 +37,14 @@ describe("process_image", () => {
         );
 
         expect(result.originalSrc).toBe("/images/big.png");
-        expect(result.src).toBe("/generated/images/big.png");
+        expect(result.src).toBe("/generated/images/big.webp");
         expect(result.width).toBe(50);
         expect(result.height).toBe(25);
 
-        const targetFile = path.join(publicRoot, "generated", "images", "big.png");
+        const targetFile = path.join(publicRoot, "generated", "images", "big.webp");
         const targetMeta = await sharp(targetFile).metadata();
         expect(targetMeta.width).toBe(50);
+        expect(targetMeta.format).toBe("webp");
 
         await cleanup(root);
     });
@@ -64,6 +65,7 @@ describe("process_image", () => {
         );
 
         expect(result.originalSrc).toBe("/images/photo.jpg");
+        expect(result.src).toBe("/generated/images/photo.jpg");
         expect(result.blurDataURL).toBeUndefined();
         expect(existsSync(path.join(publicRoot, "generated", "images", "photo.jpg"))).toBe(true);
         expect(existsSync(path.join(publicRoot, "generated", "images", "photo.blur.webp"))).toBe(false);
@@ -91,7 +93,7 @@ describe("process_image", () => {
         expect(result.width).toBe(200);
         expect(result.height).toBe(100);
 
-        const targetFile = path.join(publicRoot, "generated", "images", "big.png");
+        const targetFile = path.join(publicRoot, "generated", "images", "big.webp");
         const targetMeta = await sharp(targetFile).metadata();
         expect(targetMeta.width).toBe(200);
 
@@ -103,7 +105,7 @@ describe("process_image", () => {
         const publicRoot = path.join(root, "public");
         const file = await writeFixturePng(path.join(publicRoot, "images"), "no-format.png", 100, 50);
 
-        await processImage(
+        const result = await processImage(
             file,
             publicRoot,
             resolveOptions({
@@ -114,6 +116,7 @@ describe("process_image", () => {
             root,
         );
 
+        expect(result.src).toBe("/generated/images/no-format.png");
         const genDir = path.join(publicRoot, "generated", "images");
         expect(existsSync(path.join(genDir, "no-format.png"))).toBe(true);
         expect(existsSync(path.join(genDir, "no-format.avif"))).toBe(false);
@@ -122,13 +125,19 @@ describe("process_image", () => {
         await cleanup(root);
     });
 
-    it("avif, webp and blur siblings are emitted in outDir", async () => {
+    it("emits multiple formats when configured", async () => {
         const root = await makeTempDir();
         const publicRoot = path.join(root, "public");
         const file = await writeFixturePng(path.join(publicRoot, "images"), "a.png", 100, 50);
 
-        await processImage(file, publicRoot, DEFAULT_OPTIONS, root);
+        const result = await processImage(
+            file,
+            publicRoot,
+            resolveOptions({ formats: ["avif", "webp"] }),
+            root,
+        );
 
+        expect(result.src).toBe("/generated/images/a.avif");
         const genDir = path.join(publicRoot, "generated", "images");
         expect(existsSync(path.join(genDir, "a.avif"))).toBe(true);
         expect(existsSync(path.join(genDir, "a.webp"))).toBe(true);
@@ -137,6 +146,73 @@ describe("process_image", () => {
         expect(avif.size).toBeGreaterThan(0);
         await cleanup(root);
     });
+
+    it("falls back to jpeg mime for an unrecognized original extension", () => {
+        expect(mimeTypeFor("original", "/images/icon.bmp")).toBe("image/jpeg");
+    });
+
+    it("emits explicit png and jpeg formats when configured", async () => {
+        const root = await makeTempDir();
+        const publicRoot = path.join(root, "public");
+        const file = await writeFixturePng(path.join(publicRoot, "images"), "explicit.png", 40, 20);
+
+        const result = await processImage(
+            file,
+            publicRoot,
+            resolveOptions({ formats: ["png", "jpeg"] }),
+            root,
+        );
+
+        expect(result.src).toBe("/generated/images/explicit.png");
+        const genDir = path.join(publicRoot, "generated", "images");
+        expect(existsSync(path.join(genDir, "explicit.png"))).toBe(true);
+        expect(existsSync(path.join(genDir, "explicit.jpg"))).toBe(true);
+        expect(result.sources?.map((s) => s.format)).toEqual(["png", "jpeg"]);
+        await cleanup(root);
+    });
+
+    it("emits gif and tiff siblings when configured", async () => {
+        const root = await makeTempDir();
+        const publicRoot = path.join(root, "public");
+        const file = await writeFixturePng(path.join(publicRoot, "images"), "multi.png", 40, 20);
+
+        const result = await processImage(
+            file,
+            publicRoot,
+            resolveOptions({ formats: ["gif", "tiff"] }),
+            root,
+        );
+
+        expect(result.src).toBe("/generated/images/multi.gif");
+        const genDir = path.join(publicRoot, "generated", "images");
+        for (const ext of ["gif", "tiff"]) {
+            expect(existsSync(path.join(genDir, `multi.${ext}`))).toBe(true);
+        }
+        expect(result.sources?.map((s) => s.format)).toEqual(["gif", "tiff"]);
+        await cleanup(root);
+    });
+
+    it.each(["heif", "jp2", "jxl"] as const)(
+        "attempts %s encoding (skips assertion if this libvips build lacks support)",
+        async (format) => {
+            const root = await makeTempDir();
+            const publicRoot = path.join(root, "public");
+            const file = await writeFixturePng(path.join(publicRoot, "images"), `${format}-src.png`, 40, 20);
+
+            try {
+                const result = await processImage(
+                    file,
+                    publicRoot,
+                    resolveOptions({ formats: [format] }),
+                    root,
+                );
+                expect(result.src).toBe(`/generated/images/${format}-src.${format}`);
+            } catch (error) {
+                expect(String(error)).toMatch(new RegExp(format, "i"));
+            }
+            await cleanup(root);
+        },
+    );
 
     it("blur data url is a small inline webp with height >= width aspect ratio", async () => {
         const root = await makeTempDir();

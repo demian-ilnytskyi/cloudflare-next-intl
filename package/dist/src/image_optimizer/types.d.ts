@@ -1,4 +1,4 @@
-export type ImageFormat = "avif" | "webp";
+export type ImageFormat = "avif" | "webp" | "png" | "jpeg" | "gif" | "tiff" | "heif" | "jp2" | "jxl";
 export interface ImageBlurOptions {
     /** Enable blur placeholder generation. Default: true */
     enabled?: boolean;
@@ -22,7 +22,7 @@ export interface ImageOverrideOptions {
 export interface ImageOptimizerPluginOptions {
     /** Enable or disable image optimization. Default: true */
     enabled?: boolean;
-    /** Directories scanned recursively relative to project root. Default: ["public/images", "public/icons"] */
+    /** Directories scanned recursively relative to project root when onlyUsed is false. Default: ["public/images", "public/icons"] */
     dirs?: string[];
     /** Target directory for optimized assets. Default: "public/generated" */
     outDir?: string;
@@ -30,7 +30,7 @@ export interface ImageOptimizerPluginOptions {
     maxWidth?: number | false;
     /** Compression quality for rasters. Default: 80 */
     quality?: number;
-    /** Target sibling formats, or `false` to disable format conversions. Default: ["avif", "webp"] */
+    /** Target sibling formats, or `false` to disable format conversions. Default: ["webp"] */
     formats?: ImageFormat[] | false;
     /** Output path for generated JSON manifest. Default: "public/generated/images.json" */
     manifest?: string;
@@ -40,6 +40,8 @@ export interface ImageOptimizerPluginOptions {
     dev?: boolean;
     /** Cache directory. Default: "node_modules/.cache/cloudflare-next-intl/image-optimizer" */
     cacheDir?: string;
+    /** Scan code files and optimize ONLY images actually referenced in <Image>. Default: true */
+    onlyUsed?: boolean;
     /** Per-image overrides keyed by public src (e.g. `"/images/hero.png"`) */
     overrides?: Record<string, ImageOverrideOptions>;
 }
@@ -60,6 +62,7 @@ export interface ResolvedOptions {
     blur: ResolvedBlurOptions;
     dev: boolean;
     cacheDir: string;
+    onlyUsed: boolean;
     overrides: Record<string, ImageOverrideOptions>;
 }
 export interface ResolvedImageConfig {
@@ -68,9 +71,15 @@ export interface ResolvedImageConfig {
     formats: ImageFormat[];
     blur: ResolvedBlurOptions;
 }
+export interface OptimizedImageSource {
+    format: ImageFormat | "original";
+    src: string;
+    type: string;
+}
 export interface OptimizedImage {
     originalSrc: string;
     src: string;
+    sources?: OptimizedImageSource[];
     width: number;
     height: number;
     blurDataURL?: string;

@@ -4,5 +4,6 @@ export { processImage, makeBlurDataURL, toGeneratedPath, toPublicSrc, } from "./
 export { renderManifest, writeManifest, } from "./manifest.js";
 export { isFresh, loadCache, saveCache, type CacheEntry, type CacheData, } from "./cache.js";
 export { collectImages, run, } from "./run.js";
+export { collectUsedImages, findCodeFiles, extractImageReferences, CODE_EXTENSIONS, IGNORED_DIRS, } from "./scan_used.js";
 export { getImageBlurSvg, } from "./blur_svg.js";
 export { type ManifestEntry, } from "./next_image_shim.js";

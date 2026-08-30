@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.57
+
+### Added
+
+- Codebase usage scanner (`scan_used.ts` / `collectUsedImages`): automatically scans application source code (`.tsx`, `.ts`, `.jsx`, `.js`, `.vue`, `.svelte`, `.mdx`, `.html`) for image references and only optimizes images actually used in `<Image>` components, skipping unused assets.
+- Automatic WebP primary source URL: `entry.src` now points directly to the optimized `.webp` file (`/generated/.../image.webp`), saving 80-90% bandwidth automatically with zero client config changes.
+- CLI support for `--all` flag to force scanning all files in configured image directories.
+
 ## 0.8.56
 
 ### Fixed

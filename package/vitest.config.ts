@@ -39,6 +39,7 @@ export default defineConfig({
         alias: {
             '@intl-config': path.resolve(__dirname, './src/test_utils/mock_intl_config.ts'),
             '@locale-file': path.resolve(__dirname, './src/test_utils/mock_locale_file'),
+            'virtual:cloudflare-next-intl-images-manifest': path.resolve(__dirname, './src/test_utils/mock_images_manifest.ts'),
         },
     },
 });

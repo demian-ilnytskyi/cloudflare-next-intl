@@ -1,4 +1,4 @@
-export const SUPPORTED_EXTENSIONS = [".png", ".jpg", ".jpeg"];
+export const SUPPORTED_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".avif"];
 export const DEFAULT_BLUR_OPTIONS = {
     enabled: true,
     size: 8,
@@ -11,11 +11,12 @@ export const DEFAULT_OPTIONS = {
     outDir: "public/generated",
     maxWidth: 1920,
     quality: 80,
-    formats: ["avif", "webp"],
+    formats: ["webp"],
     manifest: "public/generated/images.json",
     blur: DEFAULT_BLUR_OPTIONS,
     dev: true,
     cacheDir: "node_modules/.cache/cloudflare-next-intl/image-optimizer",
+    onlyUsed: true,
     overrides: {},
 };
 export function resolveBlurOptions(blur, parentDefault = DEFAULT_BLUR_OPTIONS) {
@@ -51,6 +52,7 @@ export function resolveOptions(options) {
         blur,
         dev: raw.dev ?? DEFAULT_OPTIONS.dev,
         cacheDir: raw.cacheDir ?? DEFAULT_OPTIONS.cacheDir,
+        onlyUsed: raw.onlyUsed ?? DEFAULT_OPTIONS.onlyUsed,
         overrides: raw.overrides ? { ...raw.overrides } : {},
     };
 }

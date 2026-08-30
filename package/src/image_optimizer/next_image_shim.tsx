@@ -40,6 +40,16 @@ function findEntry(srcVal: unknown): ManifestEntry | undefined {
     return undefined;
 }
 
+/** Swap the format extension of every URL in a generated srcset. */
+function retargetSrcSet(srcSet: string, fromSrc: string, toSrc: string): string {
+    if (!srcSet) return srcSet;
+    const fromEncoded = encodeURIComponent(fromSrc);
+    const toEncoded = encodeURIComponent(toSrc);
+    return srcSet
+        .split(fromEncoded).join(toEncoded)
+        .split(fromSrc).join(toSrc);
+}
+
 function resolveProps(props: ImageProps): ImageProps {
     let src = props.src;
     let blurDataURL = props.blurDataURL;
@@ -88,7 +98,43 @@ function resolveProps(props: ImageProps): ImageProps {
 
 export default function Image(props: ImageProps): React.JSX.Element {
     const resolved = resolveProps(props);
-    return <NextImage {...resolved} />;
+    const entry = findEntry(props.src);
+    const alternates = (entry?.sources ?? []).filter((source) => source.src !== entry?.src);
+
+    if (alternates.length === 0) {
+        return <NextImage {...resolved} />;
+    }
+
+    const { props: imgProps } = nextGetImageProps(resolved);
+    const primarySrc = entry?.src ?? String(imgProps.src);
+    const originalSrc = entry?.originalSrc;
+
+    const onError: React.ReactEventHandler<HTMLImageElement> = (event) => {
+        const img = event.currentTarget;
+        if (originalSrc && img.src !== originalSrc && !img.src.endsWith(originalSrc)) {
+            img.srcset = "";
+            img.src = originalSrc;
+        }
+    };
+
+    return (
+        <picture>
+            {alternates.map((source) => (
+                <source
+                    key={source.src}
+                    type={source.type}
+                    sizes={imgProps.sizes}
+                    srcSet={
+                        imgProps.srcSet
+                            ? retargetSrcSet(imgProps.srcSet, primarySrc, source.src)
+                            : source.src
+                    }
+                />
+            ))}
+            {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
+            <img {...imgProps} onError={onError} />
+        </picture>
+    );
 }
 
 export function getImageProps(props: ImageProps): ReturnType<typeof nextGetImageProps> {
