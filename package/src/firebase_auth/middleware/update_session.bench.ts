@@ -48,4 +48,12 @@ describe('updateSession', () => {
         });
         await updateSession(req, NextResponse.next(), 'en');
     });
+
+    bench('verified user on verifyEmailPath: decodeJwtPayload gate + page-exit check, same token', async () => {
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeTestRequest('https://example.com/en/verify-email', {
+            cookies: { __fa_session__: makeJwt(Date.now() / 1000 + 3600, { email_verified: true }) },
+        });
+        await updateSession(req, NextResponse.next(), 'en');
+    });
 });

@@ -21,6 +21,13 @@ vi.mock('@intl-config', () => ({
     },
 }));
 
+const decodeJwtPayloadSpy = vi.fn();
+vi.mock('../decode_jwt_payload.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../decode_jwt_payload.js')>();
+    decodeJwtPayloadSpy.mockImplementation(actual.default);
+    return { default: decodeJwtPayloadSpy };
+});
+
 function makeJwt(exp: number, claims: Record<string, unknown> = {}): string {
     const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
     const payload = Buffer.from(JSON.stringify({ exp, ...claims })).toString('base64url');
@@ -34,6 +41,25 @@ describe('updateSession', () => {
 
     afterEach(() => {
         vi.unstubAllGlobals();
+    });
+
+    it('decodes the token at most once for the memoized email_verified gate + page-exit check', async () => {
+        decodeJwtPayloadSpy.mockClear();
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
+        const { default: updateSession } = await import('./update_session.js');
+        const token = makeJwt(Date.now() / 1000 + 3600, { email_verified: true });
+        const req = makeRequest('https://example.com/en/verify-email', {
+            cookies: { __fa_session__: token },
+        });
+        await updateSession(req, NextResponse.next(), 'en');
+
+        // 2, not 3: one decode from the expiry check (`isJwtExpired`, out of
+        // scope for this memo — see update_session.ts), plus ONE memoized
+        // decode shared by both the email_verified === false gate and the
+        // later email_verified === true page-exit check, instead of one
+        // decode per check.
+        const callsOnThisToken = decodeJwtPayloadSpy.mock.calls.filter(([t]) => t === token);
+        expect(callsOnThisToken.length).toBe(2);
     });
 
     it('returns baseResponse untouched when firebaseAuth is not configured', async () => {
