@@ -1,7 +1,6 @@
 import React from "react";
 import NextImage, { getImageProps as nextGetImageProps } from "next/image";
 import type { ImageProps } from "next/image";
-import manifest from "virtual:cloudflare-next-intl-images-manifest";
 import { getImageBlurSvg } from "./blur_svg.js";
 import type { OptimizedImage, OptimizedImageVariant } from "./types.js";
 
@@ -25,7 +24,12 @@ function pickVariant(entry: ManifestEntry, requestedWidth: number | undefined): 
     return entry.variants.reduce((best, v) => (v.width > best.width ? v : best));
 }
 
-const manifestData = manifest as { images?: Record<string, ManifestEntry> } | undefined;
+let manifestData: { images?: Record<string, ManifestEntry> } | undefined;
+try {
+    manifestData = (await import(/* @vite-ignore */ "virtual:cloudflare-next-intl-images-manifest")).default;
+} catch {
+    manifestData = undefined;
+}
 const images: Record<string, ManifestEntry> = (manifestData && typeof manifestData === "object" && manifestData.images)
     ? manifestData.images
     : {};

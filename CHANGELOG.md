@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.59
+
+### Fixed
+
+- `next_image_shim` no longer statically imports the `virtual:cloudflare-next-intl-images-manifest` module, which only the Vite/build plugin resolves. Consumers running Vitest/Jest without the plugin loaded (e.g. testing components that render `<Image>`) previously failed with `Cannot find package 'virtual:cloudflare-next-intl-images-manifest'`. The manifest is now loaded via a dynamic `import()` guarded by `try/catch`, falling back to an empty manifest when unresolved.
+
 ## 0.8.57
 
 ### Added

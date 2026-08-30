@@ -1,6 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import NextImage, { getImageProps as nextGetImageProps } from "next/image";
-import manifest from "virtual:cloudflare-next-intl-images-manifest";
 import { getImageBlurSvg } from "./blur_svg.js";
 /**
  * When an image was generated at multiple widths (because it's used at
@@ -19,7 +18,13 @@ function pickVariant(entry, requestedWidth) {
     }
     return entry.variants.reduce((best, v) => (v.width > best.width ? v : best));
 }
-const manifestData = manifest;
+let manifestData;
+try {
+    manifestData = (await import(/* @vite-ignore */ "virtual:cloudflare-next-intl-images-manifest")).default;
+}
+catch {
+    manifestData = undefined;
+}
 const images = (manifestData && typeof manifestData === "object" && manifestData.images)
     ? manifestData.images
     : {};
