@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { resolveImageConfig } from "./types.js";
@@ -130,12 +130,13 @@ export async function makeBlurDataURL(
 
 async function encodeFormat(
     targetFile: string,
+    source: Buffer,
     sourcePath: string,
     format: ImageFormat | "original",
     quality: number,
     targetWidth: number | undefined,
 ): Promise<void> {
-    let pipeline = sharp(sourcePath);
+    let pipeline = sharp(source);
     if (targetWidth !== undefined) {
         pipeline = pipeline.resize({ width: targetWidth });
     }
@@ -177,6 +178,7 @@ function resolveTargetWidth(requestedWidth: number | false, sourceWidth: number)
 
 async function processVariant(
     absolutePath: string,
+    sourceBuffer: Buffer,
     publicSrc: string,
     targetFile: string,
     targetSrc: string,
@@ -204,7 +206,7 @@ async function processVariant(
         isDefault,
     );
 
-    await encodeFormat(primaryFile, absolutePath, primaryFormat, config.quality, targetWidth);
+    await encodeFormat(primaryFile, sourceBuffer, absolutePath, primaryFormat, config.quality, targetWidth);
 
     const sources: OptimizedImageSource[] = [
         { format: primaryFormat, src: primarySrc, type: mimeTypeFor(primaryFormat, publicSrc) },
@@ -214,7 +216,7 @@ async function processVariant(
         const format = config.formats[i];
         const ext = EXTENSION_BY_FORMAT[format];
         const siblingFile = withWidthSuffix(targetFile.replace(/\.[^.]+$/, `.${ext}`), width, isDefault);
-        await encodeFormat(siblingFile, absolutePath, format, config.quality, targetWidth);
+        await encodeFormat(siblingFile, sourceBuffer, absolutePath, format, config.quality, targetWidth);
         sources.push({
             format,
             src: withWidthSuffix(targetSrc.replace(/\.[^.]+$/, `.${ext}`), width, isDefault),
@@ -247,7 +249,8 @@ export async function processImage(
     const publicSrc = toPublicSrc(absolutePath, publicRoot);
     const config = resolveImageConfig(publicSrc, options);
 
-    const metadata = await sharp(absolutePath).metadata();
+    const sourceBuffer = await readFile(absolutePath);
+    const metadata = await sharp(sourceBuffer).metadata();
     const sourceWidth = metadata.width as number;
     const sourceHeight = metadata.height as number;
 
@@ -267,14 +270,14 @@ export async function processImage(
         .filter((w) => w !== (defaultTargetWidth ?? sourceWidth));
 
     const defaultVariant = await processVariant(
-        absolutePath, publicSrc, targetFile, targetSrc, defaultTargetWidth,
+        absolutePath, sourceBuffer, publicSrc, targetFile, targetSrc, defaultTargetWidth,
         sourceWidth, sourceHeight, config, true,
     );
 
     const variants: OptimizedImageVariant[] = [defaultVariant];
     for (const width of extraTargetWidths) {
         variants.push(await processVariant(
-            absolutePath, publicSrc, targetFile, targetSrc, width,
+            absolutePath, sourceBuffer, publicSrc, targetFile, targetSrc, width,
             sourceWidth, sourceHeight, config, false,
         ));
     }
