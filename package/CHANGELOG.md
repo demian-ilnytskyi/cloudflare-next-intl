@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Performance
+
+- Cut the installed dependency footprint from **398 MB to 243 MB** with no
+  change to the public API. Replaced the `firebase` umbrella with the four
+  scoped `@firebase/*` entry points the package actually imports — every
+  Firebase import was already `import type` or a dynamic `import()`, so
+  this only changes the module specifiers and the declared dependency.
+  Consumers get this by upgrading; no code changes required.
+
 ## [0.8.61] - 2026-08-30
 
 ### Added
