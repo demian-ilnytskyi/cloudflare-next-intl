@@ -3,6 +3,37 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.0] - 2026-08-30
+
+### Performance
+
+- **Image optimizer: single decode, parallel encodes**: `processImage` now reads and decodes the
+  source file once per image instead of once per encoded format/width, and encodes sibling
+  formats and extra-width variants concurrently instead of sequentially. The blur placeholder is
+  now written directly from the already-encoded primary buffer instead of a second sharp
+  encode/decode pass (this changes `*.blur.webp` bytes; all other generated file bytes are
+  unchanged for identical inputs). Format fan-out overhead (1 format vs. 3) dropped from 5.15x to
+  2.19x; width fan-out overhead (default width vs. default + 3 extra widths) dropped from 2.70x to
+  1.52x.
+- **Image optimizer: bounded-concurrency file pool in `run()`**: images across a directory are now
+  processed with a small worker pool (`mapWithConcurrency`) instead of one at a time. A 12-photo
+  end-to-end run dropped from a ~1027ms mean to ~286ms on an 8-core machine.
+- Measured `avif`/`webp` `effort` and JPEG `mozjpeg` vs. baseline against a synthetic photo-like
+  fixture to decide whether to change any encoder default (bar: >25% faster for <5% larger
+  output). Nothing cleared it — `webp`/`avif` effort 0 is much faster but 7-11% larger; baseline
+  JPEG is faster than `mozjpeg` but 64% larger; the `mitchell` resize kernel is not even faster
+  than the default `lanczos3`. No encoder defaults changed; `effort` is now available as an
+  opt-in per the option below.
+
+### Added
+
+- **`concurrency` plugin option**: number of images processed in parallel during `run()`.
+  Default: cpu count, clamped to 1-8.
+- **`effort` plugin option (global and per-image `overrides`)**: encoder effort (0-9) passed
+  through to `avif`/`webp`/`png`/`heif`/`jxl` encoding. Default: `undefined`, meaning each
+  format's own sharp default — existing behavior and output bytes are unchanged unless set.
+  Not scanned from `<Image>` JSX props; set it via `overrides` or the global option.
+
 ## [0.8.62] - 2026-08-30
 
 ### Performance

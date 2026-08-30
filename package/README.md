@@ -277,6 +277,8 @@ export default defineConfig({
                 formats: ["avif", "webp"],        // Target sibling formats, in browser-preference order (default: ["webp"], or `false`).
                                                    // Also supports: "png", "jpeg", "gif", "tiff", "heif", "jp2", "jxl"
                 quality: 80,                      // Compression quality (default: 80)
+                effort: 4,                        // Encoder effort 0-9 for avif/webp/png/heif/jxl (default: sharp's own default per format)
+                concurrency: 4,                   // Images processed in parallel (default: cpu count, clamped to 1-8)
                 blur: { quality: 70, stdDeviation: 20 }, // Next.js blur placeholder options (or `false`)
                 overrides: {                      // Per-image overrides keyed by public src path (wins over scanned <Image> props)
                     "/images/hero.png": { maxWidth: false, formats: ["webp"], blur: { quality: 80 } },
@@ -308,7 +310,7 @@ import { Image } from "cloudflare-next-intl/image";
 <Image src="/images/icon.svg" formats={false} blur={false} maxWidth={false} />
 ```
 
-Supported props: `formats` (array or `false`), `maxWidth` (number or `false`), `quality` (number), `blur` (`true`, `false`, or `{ size, quality, stdDeviation }`).
+Supported props: `formats` (array or `false`), `maxWidth` (number or `false`), `quality` (number), `blur` (`true`, `false`, or `{ size, quality, stdDeviation }`). `effort` is not scanned from JSX props — set it via the centralized `overrides` config or the global option.
 
 ##### Multi-Size Variants (Responsive Images)
 
