@@ -37,7 +37,7 @@ const authObj = { currentUser: null as unknown };
 const getAppCheckToken = vi.fn(async (): Promise<string | undefined> => undefined);
 vi.mock('./firebase_client', () => ({
     getFirebaseAuthClient: vi.fn(async () => ({ auth: authObj })),
-    getFirebaseAuthModule: () => import('firebase/auth'),
+    getFirebaseAuthModule: () => import('@firebase/auth'),
     getAppCheckToken: (...args: unknown[]) => getAppCheckToken(...args),
 }));
 
@@ -59,7 +59,7 @@ vi.mock('../server/clear_session_action', () => ({
     default: (...args: unknown[]) => clearSessionAction(...args),
 }));
 
-vi.mock('firebase/auth', () => ({
+vi.mock('@firebase/auth', () => ({
     onIdTokenChanged: (...args: [unknown, (user: unknown) => void | Promise<void>]) => onIdTokenChanged(...args),
     reload: (...args: unknown[]) => reload(...args),
     sendEmailVerification: (...args: unknown[]) => sendEmailVerification(...args),

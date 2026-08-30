@@ -1,10 +1,10 @@
 'use client';
 
-import type { FirebaseApp } from 'firebase/app';
-import type { Auth } from 'firebase/auth';
-import type { AppCheck, CustomProvider } from 'firebase/app-check';
-import type * as FirebaseAuthModule from 'firebase/auth';
-import type { FirebasePerformance } from 'firebase/performance';
+import type { FirebaseApp } from '@firebase/app';
+import type { Auth } from '@firebase/auth';
+import type { AppCheck, CustomProvider } from '@firebase/app-check';
+import type * as FirebaseAuthModule from '@firebase/auth';
+import type { FirebasePerformance } from '@firebase/performance';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config.js';
 import type { FirebaseAppCheckConfig } from '../../types/types.js';
@@ -158,7 +158,7 @@ function createExplicitRecaptchaProvider(
 
 async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: FirebaseAppCheckConfig): Promise<AppCheck> {
     const { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider, CustomProvider } = await import(
-        'firebase/app-check'
+        '@firebase/app-check'
     );
     if (appCheckConfig.debugToken) {
         (globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: boolean | string }).FIREBASE_APPCHECK_DEBUG_TOKEN =
@@ -186,7 +186,7 @@ const APP_CHECK_TOKEN_TIMEOUT_MS = 10_000;
 
 export async function getAppCheckToken(): Promise<string | undefined> {
     if (!cachedAppCheck) return undefined;
-    const { getToken } = await import('firebase/app-check');
+    const { getToken } = await import('@firebase/app-check');
     try {
         const result = await Promise.race([
             getToken(cachedAppCheck),
@@ -218,9 +218,9 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
         const fa = config.firebaseAuth;
         const isPerformanceEnabled = fa.performance !== false && typeof window !== 'undefined';
         cachedPromise = Promise.all([
-            import('firebase/app'),
-            import('firebase/auth'),
-            isPerformanceEnabled ? import('firebase/performance') : Promise.resolve(null),
+            import('@firebase/app'),
+            import('@firebase/auth'),
+            isPerformanceEnabled ? import('@firebase/performance') : Promise.resolve(null),
         ]).then(
             async ([{ getApp, getApps, initializeApp }, { getAuth }, perfModule]) => {
                 const firebaseConfig = {
@@ -264,10 +264,10 @@ export function getFirebasePerformanceSync(): FirebasePerformance | undefined {
 
 let cachedAuthModule: Promise<typeof FirebaseAuthModule> | undefined;
 
-/** Memoized `import('firebase/auth')` — see {@link getFirebaseAuthClient} for why this is worth caching. */
+/** Memoized `import('@firebase/auth')` — see {@link getFirebaseAuthClient} for why this is worth caching. */
 export function getFirebaseAuthModule(): Promise<typeof FirebaseAuthModule> {
     if (!cachedAuthModule) {
-        cachedAuthModule = import('firebase/auth');
+        cachedAuthModule = import('@firebase/auth');
     }
     return cachedAuthModule;
 }

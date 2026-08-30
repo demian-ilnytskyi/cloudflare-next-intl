@@ -13,7 +13,7 @@ const fa = {
 vi.mock('@intl-config', () => ({ default: { firebaseAuth: fa } }));
 vi.mock('./firebase_client', () => ({
     getFirebaseAuthClient: vi.fn(async () => ({ auth: {} })),
-    getFirebaseAuthModule: () => import('firebase/auth'),
+    getFirebaseAuthModule: () => import('@firebase/auth'),
 }));
 vi.mock('../error_messages/firebase_auth_error_helper', () => ({
     default: vi.fn(() => 'translated error'),
@@ -21,7 +21,7 @@ vi.mock('../error_messages/firebase_auth_error_helper', () => ({
 
 const signInWithEmailAndPassword = vi.fn(async (_auth: unknown, _email: string, _password: string) => undefined);
 
-vi.mock('firebase/auth', () => ({
+vi.mock('@firebase/auth', () => ({
     signInWithEmailAndPassword: (auth: unknown, email: string, password: string) => signInWithEmailAndPassword(auth, email, password),
     createUserWithEmailAndPassword: vi.fn(async () => undefined),
     sendPasswordResetEmail: vi.fn(async () => undefined),

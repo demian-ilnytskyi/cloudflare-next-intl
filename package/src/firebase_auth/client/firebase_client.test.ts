@@ -30,23 +30,23 @@ const CustomProvider = vi.fn(function (this: unknown, options: unknown) {
     return { options };
 });
 
-vi.mock('firebase/app', () => ({
+vi.mock('@firebase/app', () => ({
     initializeApp: (...args: unknown[]) => initializeApp(...args),
     getApps: () => getApps(),
     getApp: () => getApp(),
 }));
-vi.mock('firebase/auth', () => ({
+vi.mock('@firebase/auth', () => ({
     getAuth: (...args: unknown[]) => getAuth(...args),
 }));
 const getToken = vi.fn(() => Promise.resolve({ token: 'app-check-token' }));
 
 const getPerformance = vi.fn(() => ({}));
 
-vi.mock('firebase/performance', () => ({
+vi.mock('@firebase/performance', () => ({
     getPerformance: (...args: unknown[]) => getPerformance(...args),
 }));
 
-vi.mock('firebase/app-check', () => ({
+vi.mock('@firebase/app-check', () => ({
     initializeAppCheck: (...args: unknown[]) => initializeAppCheck(...args),
     ReCaptchaV3Provider,
     ReCaptchaEnterpriseProvider,

@@ -30,11 +30,11 @@ const initializeServerApp = vi.fn(() => ({ name: 'server-app' }));
 const authStateReady = vi.fn(async () => {});
 const getAuth = vi.fn(() => ({ authStateReady, currentUser: { uid: 'u1' } }));
 
-vi.mock('firebase/app', () => ({
+vi.mock('@firebase/app', () => ({
     initializeApp: (...args: unknown[]) => initializeApp(...args),
     initializeServerApp: (...args: unknown[]) => initializeServerApp(...args),
 }));
-vi.mock('firebase/auth', () => ({
+vi.mock('@firebase/auth', () => ({
     getAuth: (...args: unknown[]) => getAuth(...args),
 }));
 

@@ -1,7 +1,7 @@
-import type { FirebaseApp } from 'firebase/app';
-import type * as FirebaseAppModule from 'firebase/app';
-import type { User } from 'firebase/auth';
-import type * as FirebaseAuthModule from 'firebase/auth';
+import type { FirebaseApp } from '@firebase/app';
+import type * as FirebaseAppModule from '@firebase/app';
+import type { User } from '@firebase/auth';
+import type * as FirebaseAuthModule from '@firebase/auth';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import config from '@intl-config';
@@ -109,8 +109,8 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
     // with `currentUser === null`. So a null user (not a throw) is the signal
     // to drop the bad token and mint a replacement from the refresh cookie.
     const attempt = async (idToken: string) => {
-        firebaseAppModuleReady ??= import('firebase/app');
-        firebaseAuthModuleReady ??= import('firebase/auth');
+        firebaseAppModuleReady ??= import('@firebase/app');
+        firebaseAuthModuleReady ??= import('@firebase/auth');
         const { initializeApp, initializeServerApp } = await firebaseAppModuleReady;
         const { getAuth } = await firebaseAuthModuleReady;
 

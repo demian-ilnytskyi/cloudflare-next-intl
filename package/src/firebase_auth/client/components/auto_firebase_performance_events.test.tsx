@@ -21,7 +21,7 @@ vi.mock('../firebase_client', () => ({
 
 const record = vi.fn();
 const trace = vi.fn(() => ({ record }));
-vi.mock('firebase/performance', () => ({
+vi.mock('@firebase/performance', () => ({
     trace: (...args: unknown[]) => trace(...args),
 }));
 

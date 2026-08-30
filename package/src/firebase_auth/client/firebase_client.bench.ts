@@ -13,12 +13,12 @@ vi.mock('@intl-config', () => ({
         },
     },
 }));
-vi.mock('firebase/app', () => ({
+vi.mock('@firebase/app', () => ({
     initializeApp: vi.fn(() => ({ name: 'bench-app' })),
     getApps: vi.fn(() => []),
     getApp: vi.fn(() => ({ name: 'bench-app' })),
 }));
-vi.mock('firebase/auth', () => ({
+vi.mock('@firebase/auth', () => ({
     getAuth: vi.fn(() => ({ currentUser: null })),
 }));
 

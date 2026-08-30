@@ -15,7 +15,7 @@ import setCookie from '../../client/functions/set_cookie.js';
 import getCookie from '../../client/functions/get_cookie.js';
 import clearSessionAction from '../server/clear_session_action.js';
 import type { AuthActionCodeSettings, AuthUser, SerializedAuthUser } from '../types.js';
-import type { User } from 'firebase/auth';
+import type { User } from '@firebase/auth';
 
 export interface AuthUserContextType {
     /** Current Firebase user, or `null` if signed out (or not yet resolved while `loading`). */

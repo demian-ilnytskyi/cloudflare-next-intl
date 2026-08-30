@@ -1,0 +1,26 @@
+export default async function signCustomTokenRemote(clientEmail, claims, oauth) {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            client_id: oauth.clientId,
+            client_secret: oauth.clientSecret,
+            refresh_token: oauth.refreshToken,
+            grant_type: 'refresh_token',
+        }),
+    });
+    if (!tokenRes.ok) {
+        throw new Error(`oauth2 refresh_token exchange failed: ${tokenRes.status} ${await tokenRes.text()}`);
+    }
+    const { access_token: accessToken } = await tokenRes.json();
+    const signRes = await fetch(`https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${clientEmail}:signJwt`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: JSON.stringify(claims) }),
+    });
+    if (!signRes.ok) {
+        throw new Error(`iamcredentials.signJwt failed: ${signRes.status} ${await signRes.text()}`);
+    }
+    const { signedJwt } = await signRes.json();
+    return signedJwt;
+}

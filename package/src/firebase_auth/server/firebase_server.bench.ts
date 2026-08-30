@@ -14,11 +14,11 @@ vi.mock('@intl-config', () => ({ default: { firebaseAuth: fa } }));
 vi.mock('next/headers', () => ({
     cookies: vi.fn(async () => ({ get: () => ({ value: 'bench-token-123456' }) })),
 }));
-vi.mock('firebase/app', () => ({
+vi.mock('@firebase/app', () => ({
     initializeApp: vi.fn(() => ({ name: 'bench-app' })),
     initializeServerApp: vi.fn(() => ({ name: 'bench-server-app' })),
 }));
-vi.mock('firebase/auth', () => ({
+vi.mock('@firebase/auth', () => ({
     getAuth: vi.fn(() => ({ currentUser: { uid: 'bench-user' }, authStateReady: vi.fn(async () => {}) })),
 }));
 

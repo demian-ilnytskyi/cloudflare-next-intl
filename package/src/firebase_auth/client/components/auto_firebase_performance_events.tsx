@@ -27,7 +27,7 @@ async function recordFirebaseTrace(
         await getFirebaseAuthClient();
         const performance = getFirebasePerformanceSync();
         if (!performance) return;
-        const { trace } = await import('firebase/performance');
+        const { trace } = await import('@firebase/performance');
         const duration = Math.max(Math.round(durationMs), 1);
         trace(performance, name).record(Date.now() - duration, duration, { attributes, metrics });
     } catch (error) {
