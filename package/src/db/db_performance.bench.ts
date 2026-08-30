@@ -5,7 +5,7 @@ import inlineParams from './inline_params.js';
 import encodeParam from './encode_param.js';
 import parseWhere from './parse_where.js';
 import parseComposite from './parse_composite.js';
-import buildRestFilters from './rest_filters.js';
+import buildRestFilters, { type FilterTarget } from './rest_filters.js';
 import resolveRawSql from './resolve_raw_sql.js';
 import { parseExecResult } from './supabase_transport.js';
 import { excluded, onConflictSet } from './helpers.js';
@@ -32,7 +32,7 @@ describe('DB Module Branch Benchmarks', () => {
         gte: () => mockTarget,
         in: () => mockTarget,
         or: () => mockTarget,
-    } as any;
+    } as unknown as FilterTarget;
 
     const sampleWhereTree = {
         kind: 'and' as const,

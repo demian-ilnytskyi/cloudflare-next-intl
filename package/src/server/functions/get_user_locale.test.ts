@@ -34,7 +34,7 @@ describe('languageDetecotr', () => {
         const original = String.prototype.trim;
         const boom = new Error('boom');
         void boom.stack; // force V8 to lazily format+cache the stack before trim is patched below
-        (String.prototype as any).trim = () => { throw boom; };
+        String.prototype.trim = (): string => { throw boom; };
         try {
             expect(languageDetecotr('de')).toBe('en');
         } finally {

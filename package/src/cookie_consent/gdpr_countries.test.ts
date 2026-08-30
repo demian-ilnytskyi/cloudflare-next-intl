@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import resolveRequiresConsent, { defaultGdprCountries } from './gdpr_countries.js';
-import type { CookieConsentGetCloudflareContext } from '../types/types.js';
+import type { CookieConsentGetCloudflareContext, GenerateRoutingConfig } from '../types/types.js';
 
 describe('resolveRequiresConsent', () => {
     it('requires consent when neither getter is provided and no request headers are available (fail-safe default)', async () => {
@@ -115,10 +115,10 @@ describe('resolveRequiresConsent', () => {
     });
 
     it('resolves country from generateConfig (e.g. generate.ctx with UA returning false)', async () => {
-        const generate = {
-            ctx: () => ({ cf: { country: 'UA' } }),
+        const generate: GenerateRoutingConfig = {
+            ctx: () => ({ cf: { country: 'UA' } }) as unknown as { waitUntil?: (promise: Promise<unknown>) => void },
         };
-        expect(await resolveRequiresConsent(undefined, undefined, undefined, undefined, undefined, generate as any)).toBe(false);
+        expect(await resolveRequiresConsent(undefined, undefined, undefined, undefined, undefined, generate)).toBe(false);
     });
 
     it('exposes the default GDPR country list', () => {

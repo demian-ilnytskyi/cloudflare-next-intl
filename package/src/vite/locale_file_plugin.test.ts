@@ -3,6 +3,12 @@ import path from "node:path";
 import fs from "node:fs";
 import { localeFilePlugin, resolveDefaultIntlConfigPath, getCfniDistSrcDir } from "./locale_file_plugin.js";
 
+type ConfigResolvedFn = (config: { root?: string }) => void;
+interface ResolveIdContext { environment?: { name: string } }
+type ResolveIdFn = (this: ResolveIdContext, id: string) => string | undefined;
+type LoadFn = (id: string) => string | undefined;
+type TransformFn = (code: string, id: string) => { code: string; map: null } | undefined;
+
 describe("localeFilePlugin", () => {
     it("resolves default intl config path using existing candidate or fallback", () => {
         const root = process.cwd();
@@ -41,7 +47,7 @@ describe("localeFilePlugin", () => {
 
     it("handles configResolved hook with and without root", () => {
         const plugin = localeFilePlugin();
-        const configResolved = plugin.configResolved as any;
+        const configResolved = plugin.configResolved as ConfigResolvedFn;
         expect(() => configResolved({ root: "/my-app" })).not.toThrow();
         expect(() => configResolved({})).not.toThrow();
 
@@ -50,20 +56,20 @@ describe("localeFilePlugin", () => {
             intlConfigPath: "/custom/intl.ts",
             root: "/my-custom-root",
         });
-        const customConfigResolved = customPlugin.configResolved as any;
+        const customConfigResolved = customPlugin.configResolved as ConfigResolvedFn;
         expect(() => customConfigResolved({ root: "/my-app" })).not.toThrow();
 
         const relPlugin = localeFilePlugin({
             messagesDir: "./rel/messages",
             intlConfigPath: "./rel/intl.ts",
         });
-        const relConfigResolved = relPlugin.configResolved as any;
+        const relConfigResolved = relPlugin.configResolved as ConfigResolvedFn;
         expect(() => relConfigResolved({ root: "/my-app" })).not.toThrow();
     });
 
     it("resolves @locale-file/* paths", () => {
         const plugin = localeFilePlugin({ messagesDir: "./custom_messages", root: "/test-root" });
-        const resolveId = plugin.resolveId as any;
+        const resolveId = plugin.resolveId as ResolveIdFn;
 
         const resolved = resolveId.call({}, "@locale-file/en.json");
         expect(resolved).toBe(path.join("/test-root", "custom_messages", "en.json"));
@@ -71,14 +77,14 @@ describe("localeFilePlugin", () => {
 
     it("resolves @intl-config path", () => {
         const plugin = localeFilePlugin({ intlConfigPath: "/custom/intl_config.ts" });
-        const resolveId = plugin.resolveId as any;
+        const resolveId = plugin.resolveId as ResolveIdFn;
 
         expect(resolveId.call({}, "@intl-config")).toBe("/custom/intl_config.ts");
     });
 
     it("resolves cloudflare-next-intl in rsc environment", () => {
         const plugin = localeFilePlugin();
-        const resolveId = plugin.resolveId as any;
+        const resolveId = plugin.resolveId as ResolveIdFn;
 
         const rscContext = { environment: { name: "rsc" } };
         expect(resolveId.call(rscContext, "cloudflare-next-intl")).toBe("\0cloudflare-next-intl:rsc");
@@ -89,7 +95,7 @@ describe("localeFilePlugin", () => {
 
     it("loads virtual rsc module", () => {
         const plugin = localeFilePlugin();
-        const load = plugin.load as any;
+        const load = plugin.load as LoadFn;
 
         const rscCode = load("\0cloudflare-next-intl:rsc");
         expect(rscCode).toContain("/config/index.js");
@@ -99,7 +105,7 @@ describe("localeFilePlugin", () => {
 
     it("transforms dynamic locale imports in cloudflare-next-intl", () => {
         const plugin = localeFilePlugin();
-        const transform = plugin.transform as any;
+        const transform = plugin.transform as TransformFn;
 
         const inputCode = `
 const messages = (await import(\`@locale-file/\${locale}.json\`)).default;

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getCountry, getTimezone, resolveEnv } from './geo.js';
+import type { GenerateRoutingConfig } from '../../types/types.js';
 
 vi.mock('next/headers', () => ({
     headers: vi.fn(),
@@ -99,7 +100,7 @@ describe('geo functions', () => {
                 }),
             };
 
-            const result = await getCountry(undefined, generate as unknown as any);
+            const result = await getCountry(undefined, generate as GenerateRoutingConfig);
             expect(result).toBe('JP');
         });
 
@@ -113,7 +114,7 @@ describe('geo functions', () => {
                 }),
             };
 
-            const result = await getCountry(undefined, generate as unknown as any);
+            const result = await getCountry(undefined, generate as GenerateRoutingConfig);
             expect(result).toBeUndefined();
         });
 
@@ -125,7 +126,7 @@ describe('geo functions', () => {
                 getCloudflareContext: vi.fn().mockRejectedValue(new Error('Context error')),
             };
 
-            const result = await getCountry(undefined, generate as unknown as any);
+            const result = await getCountry(undefined, generate as GenerateRoutingConfig);
             expect(result).toBeUndefined();
         });
 
@@ -137,7 +138,7 @@ describe('geo functions', () => {
                 ctx: () => ({ cf: { country: 'UA' } }),
             };
 
-            const result = await getCountry(undefined, generate as unknown as any);
+            const result = await getCountry(undefined, generate as GenerateRoutingConfig);
             expect(result).toBe('UA');
         });
 
@@ -149,7 +150,7 @@ describe('geo functions', () => {
                 ctx: async () => ({ cf: { country: 'UA' } }),
             };
 
-            const result = await getCountry(undefined, generate as unknown as any);
+            const result = await getCountry(undefined, generate as GenerateRoutingConfig);
             expect(result).toBe('UA');
         });
 
@@ -161,7 +162,7 @@ describe('geo functions', () => {
                 ctx: { cf: { country: 'UA' } },
             };
 
-            const result = await getCountry(undefined, generate as unknown as any);
+            const result = await getCountry(undefined, generate as GenerateRoutingConfig);
             expect(result).toBe('UA');
         });
 
@@ -173,7 +174,7 @@ describe('geo functions', () => {
                 ctx: () => { throw new Error('ctx error'); },
             };
 
-            const result = await getCountry(undefined, generate as unknown as any);
+            const result = await getCountry(undefined, generate as GenerateRoutingConfig);
             expect(result).toBeUndefined();
         });
 
@@ -293,7 +294,7 @@ describe('geo functions', () => {
                 }),
             };
 
-            const result = await getTimezone(undefined, undefined, generate as unknown as any);
+            const result = await getTimezone(undefined, undefined, generate as GenerateRoutingConfig);
             expect(result).toBe('Asia/Tokyo');
         });
 
@@ -307,7 +308,7 @@ describe('geo functions', () => {
                 }),
             };
 
-            const result = await getTimezone(undefined, 'UTC', generate as unknown as any);
+            const result = await getTimezone(undefined, 'UTC', generate as GenerateRoutingConfig);
             expect(result).toBe('UTC');
         });
 
@@ -319,7 +320,7 @@ describe('geo functions', () => {
                 getCloudflareContext: vi.fn().mockRejectedValue(new Error('Context error')),
             };
 
-            const result = await getTimezone(undefined, 'UTC', generate as unknown as any);
+            const result = await getTimezone(undefined, 'UTC', generate as GenerateRoutingConfig);
             expect(result).toBe('UTC');
         });
 
@@ -331,7 +332,7 @@ describe('geo functions', () => {
                 ctx: () => ({ cf: { timezone: 'Europe/Kyiv' } }),
             };
 
-            const result = await getTimezone(undefined, 'UTC', generate as unknown as any);
+            const result = await getTimezone(undefined, 'UTC', generate as GenerateRoutingConfig);
             expect(result).toBe('Europe/Kyiv');
         });
 
@@ -343,7 +344,7 @@ describe('geo functions', () => {
                 ctx: async () => ({ cf: { timezone: 'Europe/Kyiv' } }),
             };
 
-            const result = await getTimezone(undefined, 'UTC', generate as unknown as any);
+            const result = await getTimezone(undefined, 'UTC', generate as GenerateRoutingConfig);
             expect(result).toBe('Europe/Kyiv');
         });
 
@@ -355,7 +356,7 @@ describe('geo functions', () => {
                 ctx: { cf: { timezone: 'Europe/Kyiv' } },
             };
 
-            const result = await getTimezone(undefined, 'UTC', generate as unknown as any);
+            const result = await getTimezone(undefined, 'UTC', generate as GenerateRoutingConfig);
             expect(result).toBe('Europe/Kyiv');
         });
 
@@ -367,7 +368,7 @@ describe('geo functions', () => {
                 ctx: () => { throw new Error('ctx error'); },
             };
 
-            const result = await getTimezone(undefined, 'UTC', generate as unknown as any);
+            const result = await getTimezone(undefined, 'UTC', generate as GenerateRoutingConfig);
             expect(result).toBe('UTC');
         });
 
