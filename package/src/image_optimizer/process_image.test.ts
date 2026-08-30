@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { existsSync } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { DEFAULT_BLUR_OPTIONS, resolveOptions } from "./types.js";
@@ -261,7 +261,8 @@ describe("process_image", () => {
         const root = await makeTempDir();
         const file = await writeFixturePng(root, "tall.png", 50, 100);
 
-        const blur = await makeBlurDataURL(file, 50, 100, DEFAULT_BLUR_OPTIONS);
+        const buffer = await readFile(file);
+        const blur = await makeBlurDataURL(buffer, file, 50, 100, DEFAULT_BLUR_OPTIONS);
 
         expect(blur.blurDataURL.startsWith("data:image/webp;base64,")).toBe(true);
         expect(blur.blurWidth).toBe(4);

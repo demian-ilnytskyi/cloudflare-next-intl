@@ -1,4 +1,4 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { resolveImageConfig } from "./types.js";
@@ -97,6 +97,7 @@ export function withWidthSuffix(pathStr: string, width: number, isDefault: boole
 }
 
 export async function makeBlurDataURL(
+    primaryBuffer: Buffer,
     targetFile: string,
     sourceWidth: number,
     sourceHeight: number,
@@ -114,12 +115,12 @@ export async function makeBlurDataURL(
         blurHeight = blurOptions.size;
     }
 
-    const buffer = await sharp(targetFile)
+    const buffer = await sharp(primaryBuffer)
         .resize({ width: blurWidth, height: blurHeight, fit: "inside" })
         .webp({ quality: blurOptions.quality })
         .toBuffer();
 
-    await sharp(buffer).toFile(blurFile);
+    await writeFile(blurFile, buffer);
 
     return {
         blurDataURL: `data:image/webp;base64,${buffer.toString("base64")}`,
@@ -135,7 +136,7 @@ async function encodeFormat(
     format: ImageFormat | "original",
     quality: number,
     targetWidth: number | undefined,
-): Promise<void> {
+): Promise<Buffer> {
     let pipeline = sharp(source);
     if (targetWidth !== undefined) {
         pipeline = pipeline.resize({ width: targetWidth });
@@ -167,7 +168,9 @@ async function encodeFormat(
             : pipeline.jpeg({ quality, mozjpeg: true });
     }
 
-    await encoded.toFile(targetFile);
+    const buffer = await encoded.toBuffer();
+    await writeFile(targetFile, buffer);
+    return buffer;
 }
 
 /** Resolves one requested width against the source dimensions: `undefined` means "use source size" (no resize), a number is clamped to not exceed the source width (never upscale). */
@@ -206,27 +209,35 @@ async function processVariant(
         isDefault,
     );
 
-    await encodeFormat(primaryFile, sourceBuffer, absolutePath, primaryFormat, config.quality, targetWidth);
+    const siblingFormats = config.formats.slice(1);
+    const siblingTargets = siblingFormats.map((format) => {
+        const ext = EXTENSION_BY_FORMAT[format];
+        return {
+            format,
+            file: withWidthSuffix(targetFile.replace(/\.[^.]+$/, `.${ext}`), width, isDefault),
+            src: withWidthSuffix(targetSrc.replace(/\.[^.]+$/, `.${ext}`), width, isDefault),
+        };
+    });
+
+    const [primaryBuffer] = await Promise.all([
+        encodeFormat(primaryFile, sourceBuffer, absolutePath, primaryFormat, config.quality, targetWidth),
+        ...siblingTargets.map((target) =>
+            encodeFormat(target.file, sourceBuffer, absolutePath, target.format, config.quality, targetWidth),
+        ),
+    ]);
 
     const sources: OptimizedImageSource[] = [
         { format: primaryFormat, src: primarySrc, type: mimeTypeFor(primaryFormat, publicSrc) },
+        ...siblingTargets.map((target) => ({
+            format: target.format,
+            src: target.src,
+            type: mimeTypeFor(target.format, publicSrc),
+        })),
     ];
-
-    for (let i = 1; i < config.formats.length; i++) {
-        const format = config.formats[i];
-        const ext = EXTENSION_BY_FORMAT[format];
-        const siblingFile = withWidthSuffix(targetFile.replace(/\.[^.]+$/, `.${ext}`), width, isDefault);
-        await encodeFormat(siblingFile, sourceBuffer, absolutePath, format, config.quality, targetWidth);
-        sources.push({
-            format,
-            src: withWidthSuffix(targetSrc.replace(/\.[^.]+$/, `.${ext}`), width, isDefault),
-            type: mimeTypeFor(format, publicSrc),
-        });
-    }
 
     let blurResult: { blurDataURL: string; blurWidth: number; blurHeight: number } | undefined;
     if (config.blur.enabled) {
-        blurResult = await makeBlurDataURL(primaryFile, width, height, config.blur);
+        blurResult = await makeBlurDataURL(primaryBuffer, primaryFile, width, height, config.blur);
     }
 
     return {
@@ -274,13 +285,13 @@ export async function processImage(
         sourceWidth, sourceHeight, config, true,
     );
 
-    const variants: OptimizedImageVariant[] = [defaultVariant];
-    for (const width of extraTargetWidths) {
-        variants.push(await processVariant(
+    const variants: OptimizedImageVariant[] = [
+        defaultVariant,
+        ...(await Promise.all(extraTargetWidths.map((width) => processVariant(
             absolutePath, sourceBuffer, publicSrc, targetFile, targetSrc, width,
             sourceWidth, sourceHeight, config, false,
-        ));
-    }
+        )))),
+    ];
 
     return {
         originalSrc: publicSrc,
