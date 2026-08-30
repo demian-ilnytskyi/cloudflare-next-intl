@@ -327,6 +327,7 @@
     "eslint": "^9.28.0",
     "eslint-config-next": "15.3.3",
     "eslint-config-prettier": "^10.1.2",
+    "jiti": "^2.7.0",
     "jsdom": "^29.1.1",
     "next": "^15.3.0",
     "react": "19.2.0",
