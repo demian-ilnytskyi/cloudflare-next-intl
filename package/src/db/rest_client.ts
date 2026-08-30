@@ -1,6 +1,6 @@
-import type { SupabaseDbConfig } from '../types/types';
-import type { FilterTarget } from './rest_filters';
-import resolveSupabaseEndpoint from './supabase_config';
+import type { SupabaseDbConfig } from '../types/types.js';
+import type { FilterTarget } from './rest_filters.js';
+import resolveSupabaseEndpoint from './supabase_config.js';
 
 /** The object shape `@supabase/postgrest-js` query promises resolve with. */
 export interface RestQueryResult<T> {

@@ -1,6 +1,6 @@
-import type { TranslationEntry, TranslationObject, ReturnType, TranslatorReturnType } from "../types/types";
-import { setTranslationCache } from "./cache_variables";
-import reportError from "../error_handling/report_error";
+import type { TranslationEntry, TranslationObject, ReturnType, TranslatorReturnType } from "../types/types.js";
+import { setTranslationCache } from "./cache_variables.js";
+import reportError from "../error_handling/report_error.js";
 
 /**
  * Logs a warning message and returns a fallback translation function.

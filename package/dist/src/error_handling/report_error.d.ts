@@ -1,4 +1,4 @@
-import type { ErrorHandlingParams, ErrorHandlingRoutingConfig, GenerateRoutingConfig } from '../types/types';
+import type { ErrorHandlingParams, ErrorHandlingRoutingConfig, GenerateRoutingConfig } from '../types/types.js';
 export interface ReportErrorConfig {
     errorHandling?: ErrorHandlingRoutingConfig;
     generate?: GenerateRoutingConfig;

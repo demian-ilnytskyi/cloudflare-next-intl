@@ -22,7 +22,7 @@ vi.mock('firebase/auth', () => ({
 }));
 describe('getFirebaseAuthClient', () => {
     bench('warm: cached client, no dynamic import', async () => {
-        const { getFirebaseAuthClient } = await import('./firebase_client');
+        const { getFirebaseAuthClient } = await import('./firebase_client.js');
         await getFirebaseAuthClient();
     });
 });

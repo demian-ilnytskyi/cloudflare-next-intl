@@ -1,4 +1,4 @@
-import stringifyUnknown from './stringify_unknown';
+import stringifyUnknown from './stringify_unknown.js';
 function formatSection(title, value, isClient) {
     if (value === undefined)
         return '';

@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import reportError from './report_error';
+import reportError from './report_error.js';
 
 const noopOnError = () => { /* swallow for bench */ };
 const waitUntil = () => { /* fire-and-forget for bench */ };

@@ -1,6 +1,6 @@
-import tokenizeSql from './sql_tokens';
-import parseWhere from './parse_where';
-import UnsupportedSqlError from './unsupported_sql';
+import tokenizeSql from './sql_tokens.js';
+import parseWhere from './parse_where.js';
+import UnsupportedSqlError from './unsupported_sql.js';
 /**
  * Parses a generated statement into the smallest description the REST
  * executor needs, rejecting anything PostgREST's single-table API cannot do.

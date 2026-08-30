@@ -1,8 +1,8 @@
 import { jsx as _jsx } from "react/jsx-runtime";
 import { bench, describe } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useLocale, useTranslations } from './client_hooks';
-import { LocaleContext } from '../components/client_provider';
+import { useLocale, useTranslations } from './client_hooks.js';
+import { LocaleContext } from '../components/client_provider.js';
 const messages = { Common: { title: 'Hello' } };
 function wrapper({ children }) {
     return (_jsx(LocaleContext.Provider, { value: { language: 'en', messages }, children: children }));

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import requireFirebaseAuthConfig from './require_config';
-import type { FirebaseAuthRoutingConfig } from '../types/types';
+import requireFirebaseAuthConfig from './require_config.js';
+import type { FirebaseAuthRoutingConfig } from '../types/types.js';
 
 describe('requireFirebaseAuthConfig', () => {
     it('throws when firebaseAuth config is undefined', () => {

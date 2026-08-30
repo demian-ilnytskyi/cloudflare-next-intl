@@ -1,4 +1,4 @@
-import type { FirebaseAppCheckConfig } from '../../types/types';
+import type { FirebaseAppCheckConfig } from '../../types/types.js';
 /**
  * Mints a fresh App Check token server-side via a service account, for use
  * when the client-written App Check cookie (see `appCheckTokenCookieName`)

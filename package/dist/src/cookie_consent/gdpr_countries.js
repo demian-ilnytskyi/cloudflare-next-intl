@@ -1,5 +1,5 @@
-import reportError from '../error_handling/report_error';
-import { getCountry } from '../server/functions/geo';
+import reportError from '../error_handling/report_error.js';
+import { getCountry } from '../server/functions/geo.js';
 /**
  * Default `cookieConsent.gdprCountries` — EU/EEA member states (GDPR),
  * Iceland/Liechtenstein/Norway (EEA), the UK (UK-GDPR), and Switzerland

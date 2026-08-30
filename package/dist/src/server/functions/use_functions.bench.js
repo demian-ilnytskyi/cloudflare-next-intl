@@ -7,7 +7,7 @@ vi.mock('./server', () => ({
 describe('useLocaleImpl', () => {
     vi.spyOn(ReactModule, 'use').mockReturnValue('en');
     bench('resolves the locale via use(getLocale())', async () => {
-        const { useLocaleImpl } = await import('./use_functions');
+        const { useLocaleImpl } = await import('./use_functions.js');
         useLocaleImpl();
     });
 });
@@ -16,7 +16,7 @@ describe('useTranslations (RSC)', () => {
         .mockReturnValueOnce('en')
         .mockImplementation(() => ({ Common: { title: 'Hello' } }));
     bench('resolves locale + messages and builds a translation function', async () => {
-        const { useTranslations } = await import('./use_functions');
+        const { useTranslations } = await import('./use_functions.js');
         const t = useTranslations('Common');
         t('title');
     });

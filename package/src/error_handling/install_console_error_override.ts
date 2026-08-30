@@ -1,4 +1,4 @@
-import reportError, { type ReportErrorConfig, consoleOverrideState } from './report_error';
+import reportError, { type ReportErrorConfig, consoleOverrideState } from './report_error.js';
 
 /**
  * Replaces the global `console.error` so every `console.error(...)` call is

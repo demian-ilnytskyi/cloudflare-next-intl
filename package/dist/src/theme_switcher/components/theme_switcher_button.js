@@ -1,8 +1,8 @@
 "use client";
 import { jsx as _jsx } from "react/jsx-runtime";
 import { useEffect, useState } from "react";
-import { isDarkCookieKey } from "../../config/cookie_key";
-import setCookie from "../../client/functions/set_cookie";
+import { isDarkCookieKey } from "../../config/cookie_key.js";
+import setCookie from "../../client/functions/set_cookie.js";
 export default function ThemeSwticherButton({ className, lightLabelText, darkLabelText, children, }) {
     const [isDarkMode, setDarkMode] = useState(false);
     useEffect(() => {

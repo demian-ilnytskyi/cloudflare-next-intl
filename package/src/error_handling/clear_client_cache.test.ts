@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import clearClientCache from './clear_client_cache';
+import clearClientCache from './clear_client_cache.js';
 
 describe('clearClientCache', () => {
     const originalSessionStorage = window.sessionStorage;

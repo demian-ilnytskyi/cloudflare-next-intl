@@ -2,19 +2,19 @@
 
 import { createContext, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import usePathname from '../../client/hooks/use_path_name';
+import usePathname from '../../client/hooks/use_path_name.js';
 import config from '@intl-config';
-import requireFirebaseAuthConfig from '../require_config';
-import { getAppCheckToken, getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
-import { setAuthUserCache } from './auth_user_cache';
-import { defaultAppCheckTokenCookieName, defaultEmailVerifiedHintCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName } from '../middleware/update_session';
-import decodeJwtPayload from '../decode_jwt_payload';
-import isWhitelisted from '../is_whitelisted';
-import withRedirectQuery from '../preserve_redirect_query';
-import setCookie from '../../client/functions/set_cookie';
-import getCookie from '../../client/functions/get_cookie';
-import clearSessionAction from '../server/clear_session_action';
-import type { AuthActionCodeSettings, AuthUser, SerializedAuthUser } from '../types';
+import requireFirebaseAuthConfig from '../require_config.js';
+import { getAppCheckToken, getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client.js';
+import { setAuthUserCache } from './auth_user_cache.js';
+import { defaultAppCheckTokenCookieName, defaultEmailVerifiedHintCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName } from '../middleware/update_session.js';
+import decodeJwtPayload from '../decode_jwt_payload.js';
+import isWhitelisted from '../is_whitelisted.js';
+import withRedirectQuery from '../preserve_redirect_query.js';
+import setCookie from '../../client/functions/set_cookie.js';
+import getCookie from '../../client/functions/get_cookie.js';
+import clearSessionAction from '../server/clear_session_action.js';
+import type { AuthActionCodeSettings, AuthUser, SerializedAuthUser } from '../types.js';
 import type { User } from 'firebase/auth';
 
 export interface AuthUserContextType {

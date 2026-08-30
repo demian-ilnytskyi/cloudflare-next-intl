@@ -1,11 +1,11 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { languageDetecotr } from '../server/functions/get_user_locale';
-import type { CookieAttributes, MiddlewareCustomHandler } from '../types/types';
-import config from './intl_config';
-import { isBotCookieKey, localeCookieName } from './cookie_key';
+import { languageDetecotr } from '../server/functions/get_user_locale.js';
+import type { CookieAttributes, MiddlewareCustomHandler } from '../types/types.js';
+import config from './intl_config.js';
+import { isBotCookieKey, localeCookieName } from './cookie_key.js';
 import { cache } from 'react';
-import reportError from '../error_handling/report_error';
+import reportError from '../error_handling/report_error.js';
 
 const sameSite: true | false | "lax" | "strict" | "none" | undefined = false;
 
@@ -38,7 +38,7 @@ export const localesSet = new Set(config.locales);
 // plus a Promise allocation), and this middleware runs on every request.
 // Still fully lazy: consumers who never set `config.firebaseAuth` never
 // reach the branch that assigns this, so they never pay the import at all.
-let updateSessionModule: typeof import('../firebase_auth/middleware/update_session') | undefined;
+let updateSessionModule: typeof import('../firebase_auth/middleware/update_session.js') | undefined;
 
 /**
  * This middleware function runs for every incoming request. Handles locale
@@ -194,7 +194,7 @@ export default async function intlMiddleware(
         // as `middlewareHandler` is also skipped on this path by default.
         if (!isRedirect && config.firebaseAuth && config.firebaseAuth.middlewareEnabled !== false) {
             if (!updateSessionModule) {
-                updateSessionModule = await import('../firebase_auth/middleware/update_session');
+                updateSessionModule = await import('../firebase_auth/middleware/update_session.js');
             }
             response = await updateSessionModule.default(
                 request,

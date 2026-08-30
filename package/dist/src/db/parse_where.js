@@ -1,4 +1,4 @@
-import UnsupportedSqlError from './unsupported_sql';
+import UnsupportedSqlError from './unsupported_sql.js';
 const OPERATORS = {
     '=': 'eq',
     '<>': 'neq',

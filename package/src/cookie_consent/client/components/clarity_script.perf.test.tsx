@@ -18,7 +18,7 @@ afterEach(() => {
 
 describe('ClarityScript dynamic import cost', () => {
     it('caches the @microsoft/clarity module import across mounts, so repeated mounts do not re-pay the import cost', async () => {
-        const { default: ClarityScript } = await import('./clarity_script');
+        const { default: ClarityScript } = await import('./clarity_script.js');
 
         for (let i = 0; i < 5; i++) {
             const { unmount } = render(<ClarityScript projectId={`proj-${i}`} />);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import parseComposite from './parse_composite';
+import parseComposite from './parse_composite.js';
 
 describe('parseComposite', () => {
     it('parses bare unquoted fields', () => {

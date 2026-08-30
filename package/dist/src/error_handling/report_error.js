@@ -1,6 +1,6 @@
-import formatErrorMessage from './format_error_message';
-import stringifyUnknown from './stringify_unknown';
-import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors';
+import formatErrorMessage from './format_error_message.js';
+import stringifyUnknown from './stringify_unknown.js';
+import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors.js';
 const DEFAULT_THROTTLE_MS = 5000;
 // Set by `installConsoleErrorOverride` once it patches `console.error`.
 // When active, THAT override is the sole place that ever calls the real

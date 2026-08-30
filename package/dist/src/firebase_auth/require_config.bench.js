@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import requireFirebaseAuthConfig from './require_config';
+import requireFirebaseAuthConfig from './require_config.js';
 const fa = {
     apiKey: 'key',
     authDomain: 'domain',

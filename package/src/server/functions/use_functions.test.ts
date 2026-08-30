@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as ReactModule from 'react';
-import { setTranslationCache } from '../../general/cache_variables';
+import { setTranslationCache } from '../../general/cache_variables.js';
 
 vi.mock('./server', () => ({
     getLocale: vi.fn(async () => 'en'),
@@ -10,13 +10,13 @@ vi.mock('./server', () => ({
 describe('useLocaleImpl', () => {
     it('returns the resolved locale from use(getLocale())', async () => {
         vi.spyOn(ReactModule, 'use').mockReturnValue('en');
-        const { useLocaleImpl } = await import('./use_functions');
+        const { useLocaleImpl } = await import('./use_functions.js');
         expect(useLocaleImpl()).toBe('en');
     });
 
     it('throws when the resolved locale is undefined', async () => {
         vi.spyOn(ReactModule, 'use').mockReturnValue(undefined);
-        const { useLocaleImpl } = await import('./use_functions');
+        const { useLocaleImpl } = await import('./use_functions.js');
         expect(() => useLocaleImpl()).toThrow('useLocale must be used within an IntlProvider');
     });
 });
@@ -26,7 +26,7 @@ describe('useTranslations (RSC)', () => {
         vi.spyOn(ReactModule, 'use')
             .mockReturnValueOnce('en')
             .mockReturnValueOnce({ Common: { title: 'Hello' } });
-        const { useTranslations } = await import('./use_functions');
+        const { useTranslations } = await import('./use_functions.js');
         const t = useTranslations('Common');
         expect(t('title')).toBe('Hello');
     });
@@ -35,7 +35,7 @@ describe('useTranslations (RSC)', () => {
         vi.spyOn(ReactModule, 'use')
             .mockReturnValueOnce('')
             .mockReturnValueOnce({ Common: {} });
-        const { useTranslations } = await import('./use_functions');
+        const { useTranslations } = await import('./use_functions.js');
         expect(() => useTranslations('LanguageFalsyNs')).toThrow('useTranslations must be used within an IntlProvider');
     });
 
@@ -43,14 +43,14 @@ describe('useTranslations (RSC)', () => {
         vi.spyOn(ReactModule, 'use')
             .mockReturnValueOnce('en')
             .mockReturnValueOnce(undefined);
-        const { useTranslations } = await import('./use_functions');
+        const { useTranslations } = await import('./use_functions.js');
         expect(() => useTranslations('Empty')).toThrow('useTranslations must be used within an IntlProvider');
     });
 
     it('returns the cached translation function without reading messages', async () => {
         setTranslationCache('en-CachedNs', (k: string) => `cached:${k}`);
         vi.spyOn(ReactModule, 'use').mockReturnValueOnce('en');
-        const { useTranslations } = await import('./use_functions');
+        const { useTranslations } = await import('./use_functions.js');
         const t = useTranslations('CachedNs');
         expect(t('title')).toBe('cached:title');
     });
@@ -63,7 +63,7 @@ describe('useTranslations (RSC)', () => {
         vi.spyOn(freshReact, 'use')
             .mockReturnValueOnce('en')
             .mockReturnValueOnce({ DevNs: { title: 'Fresh' } });
-        const { useTranslations } = await import('./use_functions');
+        const { useTranslations } = await import('./use_functions.js');
         const t = useTranslations('DevNs');
         expect(t('title')).toBe('Fresh');
         vi.unstubAllEnvs();

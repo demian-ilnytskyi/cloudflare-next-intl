@@ -31,7 +31,7 @@ describe('clearSessionAction', () => {
     });
 
     it('deletes the default session and refresh-token cookies', async () => {
-        const { default: clearSessionAction } = await import('./clear_session_action');
+        const { default: clearSessionAction } = await import('./clear_session_action.js');
         await clearSessionAction();
         expect(cookieDelete).toHaveBeenCalledWith('__fa_session__');
         expect(cookieDelete).toHaveBeenCalledWith('__fa_refresh_token__');
@@ -40,7 +40,7 @@ describe('clearSessionAction', () => {
     it('deletes custom-named cookies when configured', async () => {
         currentConfig.firebaseAuth!.sessionCookieName = 'my_session';
         currentConfig.firebaseAuth!.refreshTokenCookieName = 'my_refresh';
-        const { default: clearSessionAction } = await import('./clear_session_action');
+        const { default: clearSessionAction } = await import('./clear_session_action.js');
         await clearSessionAction();
         expect(cookieDelete).toHaveBeenCalledWith('my_session');
         expect(cookieDelete).toHaveBeenCalledWith('my_refresh');
@@ -48,7 +48,7 @@ describe('clearSessionAction', () => {
 
     it('is a no-op when firebaseAuth is not configured', async () => {
         currentConfig = {};
-        const { default: clearSessionAction } = await import('./clear_session_action');
+        const { default: clearSessionAction } = await import('./clear_session_action.js');
         await clearSessionAction();
         expect(cookieDelete).not.toHaveBeenCalled();
     });

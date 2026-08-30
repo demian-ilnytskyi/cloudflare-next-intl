@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import useCookieConsent from './use_cookie_consent';
-import { CookieConsentContext } from './cookie_consent_provider';
+import useCookieConsent from './use_cookie_consent.js';
+import { CookieConsentContext } from './cookie_consent_provider.js';
 
 function Consumer() {
     const ctx = useCookieConsent();

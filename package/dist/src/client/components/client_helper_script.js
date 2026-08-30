@@ -1,7 +1,7 @@
 'use client';
 import { useEffect } from "react";
-import { isDarkCookieKey } from "../../config";
-import getCookie from "../functions/get_cookie";
+import { isDarkCookieKey } from "../../config/index.js";
+import getCookie from "../functions/get_cookie.js";
 export default function ClientHelperScript() {
     useEffect(() => {
         const isDark = getCookie(isDarkCookieKey);

@@ -1,8 +1,8 @@
 'use client';
 import { jsx as _jsx } from "react/jsx-runtime";
 import NextLink from 'next/link';
-import config from '../../../config/intl_config';
-import { getLocaleCache } from '../../../general/cache_variables';
+import config from '../../../config/intl_config.js';
+import { getLocaleCache } from '../../../general/cache_variables.js';
 /**
  * Renders the default privacy-policy link used by `CookieConsentDialog`/
  * `PrivacyPolicyUpdateDialog` when their `link` prop is omitted. Returns

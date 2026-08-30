@@ -1,20 +1,20 @@
-import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables";
-import { getMessage } from "../functions/server";
-import type { TranslationObject } from "../../types/types";
+import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
+import { getMessage } from "../functions/server.js";
+import type { TranslationObject } from "../../types/types.js";
 import dynamic from "next/dynamic";
-import { localesSet } from "../../config/middleware";
-import config from "../../config/intl_config";
-import type { SerializedAuthUser } from "../../firebase_auth/types";
-import type { CookieConsentAnalyticsConfig } from "../../types/types";
-import resolveRequiresConsent from "../../cookie_consent/gdpr_countries";
-import installConsoleErrorOverride from "../../error_handling/install_console_error_override";
-import reportError from "../../error_handling/report_error";
+import { localesSet } from "../../config/middleware.js";
+import config from "../../config/intl_config.js";
+import type { SerializedAuthUser } from "../../firebase_auth/types.js";
+import type { CookieConsentAnalyticsConfig } from "../../types/types.js";
+import resolveRequiresConsent from "../../cookie_consent/gdpr_countries.js";
+import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
+import reportError from "../../error_handling/report_error.js";
 
 const LocationzationClientProvider = dynamic(
-    () => import("../../client/components/client_provider"),
+    () => import("../../client/components/client_provider.js"),
 );
 
-let authUserServerProviderModule: typeof import("../../firebase_auth/server/auth_user_server_provider") | undefined;
+let authUserServerProviderModule: typeof import("../../firebase_auth/server/auth_user_server_provider.js") | undefined;
 
 /**
  * Server component that provides locale/messages context to the rest of the
@@ -140,7 +140,7 @@ export default async function LocationzationProvider({ language, messages, stati
 
         if (!staticSafe) {
             if (!authUserServerProviderModule) {
-                authUserServerProviderModule = await import("../../firebase_auth/server/auth_user_server_provider");
+                authUserServerProviderModule = await import("../../firebase_auth/server/auth_user_server_provider.js");
             }
             initialAuthUser = await authUserServerProviderModule.resolveAuthUserAndRedirect();
         }

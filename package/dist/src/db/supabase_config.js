@@ -1,4 +1,4 @@
-import resolveConfigValue from './resolve_config_value';
+import resolveConfigValue from './resolve_config_value.js';
 /**
  * Resolves the Supabase project URL and anon key, preferring explicit config
  * over the `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`

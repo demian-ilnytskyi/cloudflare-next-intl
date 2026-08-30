@@ -48,7 +48,7 @@ describe('createLoginAction', () => {
 
     it('signs in successfully and returns success state', async () => {
         signInWithEmailAndPassword.mockResolvedValue(undefined);
-        const { createLoginAction } = await import('./auth_actions');
+        const { createLoginAction } = await import('./auth_actions.js');
         const action = createLoginAction('en', {});
         const result = await action({}, makeFormData({ email: ' a@b.com ', password: ' pw ' }));
         expect(signInWithEmailAndPassword).toHaveBeenCalledWith({}, 'a@b.com', 'pw');
@@ -57,7 +57,7 @@ describe('createLoginAction', () => {
 
     it('returns a translated error message when sign-in fails', async () => {
         signInWithEmailAndPassword.mockRejectedValue({ code: 'auth/invalid-credential' });
-        const { createLoginAction } = await import('./auth_actions');
+        const { createLoginAction } = await import('./auth_actions.js');
         const action = createLoginAction('en', {});
         const result = await action({}, makeFormData({ email: 'a@b.com', password: 'pw' }));
         expect(result).toEqual({ error: 'translated error' });
@@ -65,7 +65,7 @@ describe('createLoginAction', () => {
 
     it('treats missing email/password fields as empty strings', async () => {
         signInWithEmailAndPassword.mockResolvedValue(undefined);
-        const { createLoginAction } = await import('./auth_actions');
+        const { createLoginAction } = await import('./auth_actions.js');
         const action = createLoginAction('en', {});
         await action({}, new FormData());
         expect(signInWithEmailAndPassword).toHaveBeenCalledWith({}, '', '');
@@ -78,7 +78,7 @@ describe('createSignUpAction', () => {
     });
 
     it('returns the mismatch message without calling firebase when passwords do not match', async () => {
-        const { createSignUpAction } = await import('./auth_actions');
+        const { createSignUpAction } = await import('./auth_actions.js');
         const action = createSignUpAction('en', { mismatch: 'Passwords do not match' });
         const result = await action(
             {},
@@ -90,7 +90,7 @@ describe('createSignUpAction', () => {
 
     it('proceeds with sign-up when there is no mismatch message configured', async () => {
         createUserWithEmailAndPassword.mockResolvedValue(undefined);
-        const { createSignUpAction } = await import('./auth_actions');
+        const { createSignUpAction } = await import('./auth_actions.js');
         const action = createSignUpAction('en', {});
         const result = await action(
             {},
@@ -102,7 +102,7 @@ describe('createSignUpAction', () => {
 
     it('signs up successfully when passwords match', async () => {
         createUserWithEmailAndPassword.mockResolvedValue(undefined);
-        const { createSignUpAction } = await import('./auth_actions');
+        const { createSignUpAction } = await import('./auth_actions.js');
         const action = createSignUpAction('en', { mismatch: 'no match' });
         const result = await action(
             {},
@@ -113,7 +113,7 @@ describe('createSignUpAction', () => {
 
     it('returns a translated error message when sign-up fails', async () => {
         createUserWithEmailAndPassword.mockRejectedValue({ code: 'auth/email-already-in-use' });
-        const { createSignUpAction } = await import('./auth_actions');
+        const { createSignUpAction } = await import('./auth_actions.js');
         const action = createSignUpAction('en', {});
         const result = await action(
             {},
@@ -123,7 +123,7 @@ describe('createSignUpAction', () => {
     });
 
     it('treats a missing confirmPassword field as an empty string', async () => {
-        const { createSignUpAction } = await import('./auth_actions');
+        const { createSignUpAction } = await import('./auth_actions.js');
         const action = createSignUpAction('en', { mismatch: 'no match' });
         const result = await action({}, makeFormData({ email: 'a@b.com', password: 'pw' }));
         expect(result).toEqual({ error: 'no match' });
@@ -138,7 +138,7 @@ describe('createForgotPasswordAction', () => {
 
     it('sends a password reset email and returns success state', async () => {
         sendPasswordResetEmail.mockResolvedValue(undefined);
-        const { createForgotPasswordAction } = await import('./auth_actions');
+        const { createForgotPasswordAction } = await import('./auth_actions.js');
         const action = createForgotPasswordAction('en');
         const result = await action({}, makeFormData({ email: ' a@b.com ' }));
         expect(sendPasswordResetEmail).toHaveBeenCalledWith({}, 'a@b.com', undefined);
@@ -147,7 +147,7 @@ describe('createForgotPasswordAction', () => {
 
     it('returns a translated error message when the reset request fails', async () => {
         sendPasswordResetEmail.mockRejectedValue({ code: 'auth/invalid-email' });
-        const { createForgotPasswordAction } = await import('./auth_actions');
+        const { createForgotPasswordAction } = await import('./auth_actions.js');
         const action = createForgotPasswordAction('en');
         const result = await action({}, makeFormData({ email: 'bad' }));
         expect(result).toEqual({ error: 'translated error' });
@@ -155,7 +155,7 @@ describe('createForgotPasswordAction', () => {
 
     it('treats a missing email field as an empty string', async () => {
         sendPasswordResetEmail.mockResolvedValue(undefined);
-        const { createForgotPasswordAction } = await import('./auth_actions');
+        const { createForgotPasswordAction } = await import('./auth_actions.js');
         const action = createForgotPasswordAction('en');
         await action({}, new FormData());
         expect(sendPasswordResetEmail).toHaveBeenCalledWith({}, '', undefined);
@@ -163,7 +163,7 @@ describe('createForgotPasswordAction', () => {
 
     it('passes actionCodeSettings to sendPasswordResetEmail when provided', async () => {
         sendPasswordResetEmail.mockResolvedValue(undefined);
-        const { createForgotPasswordAction } = await import('./auth_actions');
+        const { createForgotPasswordAction } = await import('./auth_actions.js');
         const settings = { url: 'https://example.com/login', handleCodeInApp: true };
         const action = createForgotPasswordAction('en', settings);
         await action({}, makeFormData({ email: 'a@b.com' }));
@@ -180,7 +180,7 @@ describe('createSendSignInLinkAction', () => {
 
     it('sends a sign-in link and returns success with the trimmed email', async () => {
         sendSignInLinkToEmail.mockResolvedValue(undefined);
-        const { createSendSignInLinkAction } = await import('./auth_actions');
+        const { createSendSignInLinkAction } = await import('./auth_actions.js');
         const action = createSendSignInLinkAction('en', settings);
         const result = await action({}, makeFormData({ email: ' a@b.com ' }));
         expect(sendSignInLinkToEmail).toHaveBeenCalledWith({}, 'a@b.com', {
@@ -192,7 +192,7 @@ describe('createSendSignInLinkAction', () => {
 
     it('returns a translated error message when sending fails', async () => {
         sendSignInLinkToEmail.mockRejectedValue({ code: 'auth/invalid-email' });
-        const { createSendSignInLinkAction } = await import('./auth_actions');
+        const { createSendSignInLinkAction } = await import('./auth_actions.js');
         const action = createSendSignInLinkAction('en', settings);
         const result = await action({}, makeFormData({ email: 'bad' }));
         expect(result).toEqual({ error: 'translated error' });
@@ -200,7 +200,7 @@ describe('createSendSignInLinkAction', () => {
 
     it('treats a missing email field as an empty string', async () => {
         sendSignInLinkToEmail.mockResolvedValue(undefined);
-        const { createSendSignInLinkAction } = await import('./auth_actions');
+        const { createSendSignInLinkAction } = await import('./auth_actions.js');
         const action = createSendSignInLinkAction('en', settings);
         await action({}, new FormData());
         expect(sendSignInLinkToEmail).toHaveBeenCalledWith({}, '', {
@@ -218,7 +218,7 @@ describe('completeSignInWithLink', () => {
     it('signs in when the URL is a valid email sign-in link', async () => {
         isSignInWithEmailLink.mockReturnValue(true);
         signInWithEmailLink.mockResolvedValue(undefined);
-        const { completeSignInWithLink } = await import('./auth_actions');
+        const { completeSignInWithLink } = await import('./auth_actions.js');
         const result = await completeSignInWithLink('en', 'https://x/complete?apiKey=1', 'a@b.com');
         expect(isSignInWithEmailLink).toHaveBeenCalledWith({}, 'https://x/complete?apiKey=1');
         expect(signInWithEmailLink).toHaveBeenCalledWith({}, 'a@b.com', 'https://x/complete?apiKey=1');
@@ -227,7 +227,7 @@ describe('completeSignInWithLink', () => {
 
     it('returns a translated error without calling signInWithEmailLink when the URL is not a valid link', async () => {
         isSignInWithEmailLink.mockReturnValue(false);
-        const { completeSignInWithLink } = await import('./auth_actions');
+        const { completeSignInWithLink } = await import('./auth_actions.js');
         const result = await completeSignInWithLink('en', 'https://x/complete', 'a@b.com');
         expect(signInWithEmailLink).not.toHaveBeenCalled();
         expect(result).toEqual({ error: 'translated error' });
@@ -236,7 +236,7 @@ describe('completeSignInWithLink', () => {
     it('returns a translated error when sign-in fails', async () => {
         isSignInWithEmailLink.mockReturnValue(true);
         signInWithEmailLink.mockRejectedValue({ code: 'auth/invalid-action-code' });
-        const { completeSignInWithLink } = await import('./auth_actions');
+        const { completeSignInWithLink } = await import('./auth_actions.js');
         const result = await completeSignInWithLink('en', 'https://x/complete', 'a@b.com');
         expect(result).toEqual({ error: 'translated error' });
     });

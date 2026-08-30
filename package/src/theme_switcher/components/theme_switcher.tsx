@@ -1,5 +1,5 @@
-import { Moon, Sun } from "./icons";
-import ThemeSwticherButton from "./theme_switcher_button";
+import { Moon, Sun } from "./icons.js";
+import ThemeSwticherButton from "./theme_switcher_button.js";
 
 
 /**

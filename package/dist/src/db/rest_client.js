@@ -1,4 +1,4 @@
-import resolveSupabaseEndpoint from './supabase_config';
+import resolveSupabaseEndpoint from './supabase_config.js';
 /**
  * Builds a memoized accessor for the `@supabase/supabase-js` client used by
  * both the REST translator and the `cfni_exec` fallback.

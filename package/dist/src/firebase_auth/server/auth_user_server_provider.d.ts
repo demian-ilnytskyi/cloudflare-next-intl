@@ -1,4 +1,4 @@
-import type { SerializedAuthUser } from '../types';
+import type { SerializedAuthUser } from '../types.js';
 /**
  * Resolves the signed-in user from the session cookie and performs the
  * authoritative pre-render redirect (guest→`redirectAuthPath`, signed-in→

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import resolveRawSql from './resolve_raw_sql';
+import resolveRawSql from './resolve_raw_sql.js';
 
 let dir: string;
 

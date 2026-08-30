@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import isStaleDeployError from './is_stale_deploy_error';
-import clearClientCache from './clear_client_cache';
+import isStaleDeployError from './is_stale_deploy_error.js';
+import clearClientCache from './clear_client_cache.js';
 const RECOVERY_RELOAD_KEY = 'stale-deploy-recovery-reloaded';
 const BUILD_ID_KEY = 'buildId';
 const BUILD_ID_SET_AT_KEY = 'buildIdSetAt';

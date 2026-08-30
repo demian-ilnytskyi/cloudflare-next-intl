@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pgTable, varchar, integer, index, sql } from './schema';
+import { pgTable, varchar, integer, index, sql } from './schema.js';
 
 describe('dbSchema', () => {
 	it('re-exports pg-core table builders', () => {

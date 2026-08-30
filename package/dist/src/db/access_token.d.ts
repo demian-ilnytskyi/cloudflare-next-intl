@@ -1,4 +1,4 @@
-import type { DbConfig } from './connection';
+import type { DbConfig } from './connection.js';
 /**
  * Resolves the JWT that identifies the caller to Supabase, trying
  * `db.getAccessToken()` first, then the signed-in Firebase user's ID token.

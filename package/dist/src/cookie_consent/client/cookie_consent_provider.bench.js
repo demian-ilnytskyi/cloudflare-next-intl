@@ -13,7 +13,7 @@ vi.mock('../../client/functions/set_cookie', () => ({
         cookies.set(name, String(value));
     },
 }));
-const { default: CookieConsentProvider } = await import('./cookie_consent_provider');
+const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
 describe('CookieConsentProvider mount cost', () => {
     bench('cold mount: no stored consent', async () => {
         cookies.clear();

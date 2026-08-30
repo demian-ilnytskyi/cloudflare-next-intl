@@ -1,9 +1,9 @@
 "use client";
 
 import { useContext, useMemo } from "react";
-import { LocaleContext } from "../components/client_provider";
-import type { TranslatorReturnType } from "../../types/types";
-import { getTranslationsImpl } from "../../general/general_functions";
+import { LocaleContext } from "../components/client_provider.js";
+import type { TranslatorReturnType } from "../../types/types.js";
+import { getTranslationsImpl } from "../../general/general_functions.js";
 
 
 /**

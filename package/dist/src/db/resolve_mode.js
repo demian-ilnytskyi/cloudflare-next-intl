@@ -1,4 +1,4 @@
-import resolveConfigValue from './resolve_config_value';
+import resolveConfigValue from './resolve_config_value.js';
 /**
  * Decides how to reach the database from the shape of the `db` config.
  *

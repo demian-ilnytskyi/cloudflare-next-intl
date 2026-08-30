@@ -1,4 +1,4 @@
-import { setStaleDeployPatterns } from '../error_handling/is_stale_deploy_error';
+import { setStaleDeployPatterns } from '../error_handling/is_stale_deploy_error.js';
 // Every path this package compares against `request.nextUrl.pathname`
 // (always `/`-prefixed) must itself start with `/` — a missing leading
 // slash means `path === fa.verifyEmailPath` (and the same check for

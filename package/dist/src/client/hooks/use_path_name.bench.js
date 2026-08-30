@@ -1,8 +1,8 @@
 import { jsx as _jsx } from "react/jsx-runtime";
 import { bench, describe, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import usePathname from './use_path_name';
-import { LocaleContext } from '../components/client_provider';
+import usePathname from './use_path_name.js';
+import { LocaleContext } from '../components/client_provider.js';
 vi.mock('next/navigation', () => ({
     usePathname: vi.fn(() => '/en/about'),
 }));

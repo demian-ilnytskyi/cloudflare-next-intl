@@ -1,5 +1,5 @@
-import { setTranslationCache } from "./cache_variables";
-import reportError from "../error_handling/report_error";
+import { setTranslationCache } from "./cache_variables.js";
+import reportError from "../error_handling/report_error.js";
 /**
  * Logs a warning message and returns a fallback translation function.
  * This function helps in debugging missing translations or incorrect structures.

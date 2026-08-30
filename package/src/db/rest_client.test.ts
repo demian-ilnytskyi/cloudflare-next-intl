@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import createRestClient from './rest_client';
+import createRestClient from './rest_client.js';
 
 const createClient = vi.fn();
 vi.mock('@supabase/supabase-js', () => ({ createClient: (...args: unknown[]) => createClient(...args) }));

@@ -106,19 +106,19 @@ describe('AuthUserProvider', () => {
 
     it('throws when firebaseAuth is not configured', async () => {
         currentConfig = {};
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         expect(() => render(<AuthUserProvider>{null}</AuthUserProvider>)).toThrow(/firebaseAuth/);
     });
 
     it('renders children and starts loading with the given initialUser', async () => {
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         expect(screen.getByText('child')).toBeInTheDocument();
         await flush();
     });
 
     it('does not redirect while state is still loading (no initialUser provided)', async () => {
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider><span>child</span></AuthUserProvider>);
         await flush();
         expect(routerReplace).not.toHaveBeenCalled();
@@ -126,7 +126,7 @@ describe('AuthUserProvider', () => {
 
     it('does not redirect on an auth page even when signed out', async () => {
         mockPathname = '/login';
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}>
             <span>child</span>
         </AuthUserProvider>);
@@ -140,7 +140,7 @@ describe('AuthUserProvider', () => {
 
     it('redirects a signed-in user away from an auth page to homePath', async () => {
         mockPathname = '/login';
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={{ uid: 'x', email: null, emailVerified: true, displayName: null }}>
             <span>child</span>
         </AuthUserProvider>);
@@ -151,7 +151,7 @@ describe('AuthUserProvider', () => {
     it('redirects an unverified signed-in user to verifyEmailPath even when they are on an auth page (unverified takes priority over the auth-page redirect)', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         mockPathname = '/login';
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={{ uid: 'x', email: null, emailVerified: false, displayName: null }}>
             <span>child</span>
         </AuthUserProvider>);
@@ -161,7 +161,7 @@ describe('AuthUserProvider', () => {
 
     it('does not redirect on a whitelisted path', async () => {
         currentConfig.firebaseAuth!.whiteListPaths = ['/dashboard'];
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { idTokenListener?.(null); });
@@ -173,7 +173,7 @@ describe('AuthUserProvider', () => {
 
     it('does not refresh on a whitelisted path when signed out', async () => {
         currentConfig.firebaseAuth!.whiteListPaths = ['/dashboard'];
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { await idTokenListener?.(null); });
@@ -183,7 +183,7 @@ describe('AuthUserProvider', () => {
 
     it('still refreshes on a whitelisted path when the signed-in state actually flips', async () => {
         currentConfig.firebaseAuth!.whiteListPaths = ['/dashboard'];
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { await idTokenListener?.(null); });
@@ -194,7 +194,7 @@ describe('AuthUserProvider', () => {
     });
 
     it('redirects to redirectAuthPath once confirmed signed-out (two consecutive nulls)', async () => {
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { idTokenListener?.(null); });
@@ -207,7 +207,7 @@ describe('AuthUserProvider', () => {
     it('calls onSignIn exactly once on a real sign-in, not on a subsequent token refresh of the same user', async () => {
         const onSignIn = vi.fn();
         currentConfig.firebaseAuth!.onSignIn = onSignIn;
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         const user = makeUser();
@@ -224,7 +224,7 @@ describe('AuthUserProvider', () => {
     it('does not call onSignIn when signed out (null callback)', async () => {
         const onSignIn = vi.fn();
         currentConfig.firebaseAuth!.onSignIn = onSignIn;
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { idTokenListener?.(null); });
@@ -236,7 +236,7 @@ describe('AuthUserProvider', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const onSignIn = vi.fn(() => { throw new Error('boom'); });
         currentConfig.firebaseAuth!.onSignIn = onSignIn;
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         const user = makeUser();
@@ -249,7 +249,7 @@ describe('AuthUserProvider', () => {
 
     it('writes the App Check token cookie when getAppCheckToken resolves a token', async () => {
         getAppCheckToken.mockResolvedValueOnce('app-check-token');
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         const user = makeUser();
@@ -261,7 +261,7 @@ describe('AuthUserProvider', () => {
     it('logs and swallows an App Check token fetch failure without blocking cookie sync', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         getAppCheckToken.mockRejectedValueOnce(new Error('boom'));
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         const user = makeUser();
@@ -274,7 +274,7 @@ describe('AuthUserProvider', () => {
     it('calls onSignOut exactly once after sign-out is confirmed (two consecutive nulls), not on the first null', async () => {
         const onSignOut = vi.fn();
         currentConfig.firebaseAuth!.onSignOut = onSignOut;
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={makeUser()}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { idTokenListener?.(null); });
@@ -288,7 +288,7 @@ describe('AuthUserProvider', () => {
     it('does not call onSignOut when initialUser was already null (no real transition — already signed out at mount)', async () => {
         const onSignOut = vi.fn();
         currentConfig.firebaseAuth!.onSignOut = onSignOut;
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { idTokenListener?.(null); });
@@ -300,7 +300,7 @@ describe('AuthUserProvider', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const onSignOut = vi.fn(() => { throw new Error('boom'); });
         currentConfig.firebaseAuth!.onSignOut = onSignOut;
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={makeUser()}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { idTokenListener?.(null); });
@@ -315,7 +315,7 @@ describe('AuthUserProvider', () => {
         const onEmailVerified = vi.fn();
         currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
 
@@ -338,7 +338,7 @@ describe('AuthUserProvider', () => {
     it('does not call onEmailVerified when the initial user is already verified (no prior unverified observation)', async () => {
         const onEmailVerified = vi.fn();
         currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={{ uid: 'x', email: null, emailVerified: true, displayName: null }}>
             <span>child</span>
         </AuthUserProvider>);
@@ -354,8 +354,8 @@ describe('AuthUserProvider', () => {
         currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
         const unverifiedUser = makeUser({ emailVerified: false });
         authObj.currentUser = unverifiedUser;
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -379,8 +379,8 @@ describe('AuthUserProvider', () => {
         mockPathname = '/verify-email';
         const user = makeUser({ emailVerified: false });
         authObj.currentUser = user;
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -402,7 +402,7 @@ describe('AuthUserProvider', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const onEmailVerified = vi.fn(() => { throw new Error('boom'); });
         currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { idTokenListener?.(makeUser({ emailVerified: false })); });
@@ -419,8 +419,8 @@ describe('AuthUserProvider', () => {
         currentConfig.firebaseAuth!.onEmailVerified = onEmailVerified;
         const unverifiedUser = makeUser({ emailVerified: false });
         authObj.currentUser = unverifiedUser;
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -438,7 +438,7 @@ describe('AuthUserProvider', () => {
     });
 
     it('redirects immediately on a single null callback when initialUser was already null (server-confirmed signed-out)', async () => {
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { idTokenListener?.(null); });
@@ -448,7 +448,7 @@ describe('AuthUserProvider', () => {
 
     it('redirects to verifyEmailPath when signed in but email is unverified', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { idTokenListener?.(makeUser({ emailVerified: false })); });
@@ -459,7 +459,7 @@ describe('AuthUserProvider', () => {
     it('does not redirect for verifyEmailPath when already on that page (still unverified)', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         mockPathname = '/verify-email';
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { idTokenListener?.(makeUser({ emailVerified: false })); });
@@ -470,7 +470,7 @@ describe('AuthUserProvider', () => {
     it('redirects a verified user away from verifyEmailPath to homePath', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         mockPathname = '/verify-email';
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { idTokenListener?.(makeUser({ emailVerified: true })); });
@@ -479,7 +479,7 @@ describe('AuthUserProvider', () => {
     });
 
     it('writes the session cookie and calls router.refresh on sign-in transition', async () => {
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { await idTokenListener?.(makeUser()); });
@@ -493,7 +493,7 @@ describe('AuthUserProvider', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const user = makeUser();
         Object.defineProperty(user, 'refreshToken', { get() { throw new Error('refresh-token read error'); } });
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { await idTokenListener?.(user); });
@@ -506,7 +506,7 @@ describe('AuthUserProvider', () => {
     it('handles a session-sync failure by still updating state with the user', async () => {
         const failingUser = makeUser({ getIdToken: vi.fn(async () => { throw new Error('token error'); }) });
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { await idTokenListener?.(failingUser); });
@@ -515,7 +515,7 @@ describe('AuthUserProvider', () => {
     });
 
     it('clears the session cookie when transitioning from signed-in to signed-out', async () => {
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { await idTokenListener?.(makeUser()); });
@@ -527,7 +527,7 @@ describe('AuthUserProvider', () => {
     });
 
     it('clears the server httpOnly cookie via clearSessionAction when the client Firebase SDK reports signed-out on its own (no logout() click), so a stale server session cookie cannot outlive a real client sign-out', async () => {
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={{ uid: 'server-user', email: null, emailVerified: true, displayName: null }}>
             <span>child</span>
         </AuthUserProvider>);
@@ -544,8 +544,8 @@ describe('AuthUserProvider', () => {
 
     it('exposes reloadUser which refreshes the current user and cookie', async () => {
         authObj.currentUser = makeUser({ uid: 'reload-user' });
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -562,8 +562,8 @@ describe('AuthUserProvider', () => {
         const user = makeUser({ uid: 'reload-user' });
         Object.defineProperty(user, 'refreshToken', { get() { throw new Error('refresh-token read error'); } });
         authObj.currentUser = user;
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -578,8 +578,8 @@ describe('AuthUserProvider', () => {
     it('reloadUser logs and swallows errors from reload/getIdToken', async () => {
         authObj.currentUser = makeUser({ getIdToken: vi.fn(async () => { throw new Error('reload token error'); }) });
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -598,8 +598,8 @@ describe('AuthUserProvider', () => {
             .mockResolvedValueOnce(staleToken)
             .mockResolvedValue(freshToken);
         authObj.currentUser = makeUser({ uid: 'reload-user', emailVerified: true, getIdToken });
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -620,8 +620,8 @@ describe('AuthUserProvider', () => {
         const staleToken = makeJwt(1000, { email_verified: false });
         const getIdToken = vi.fn().mockResolvedValue(staleToken);
         authObj.currentUser = makeUser({ uid: 'reload-user', emailVerified: true, getIdToken });
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -637,8 +637,8 @@ describe('AuthUserProvider', () => {
     it('reloadUser skips the retry loop entirely when there is no existing session cookie to compare against', async () => {
         const getIdToken = vi.fn(async () => 'id-token');
         authObj.currentUser = makeUser({ uid: 'reload-user', getIdToken });
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -652,8 +652,8 @@ describe('AuthUserProvider', () => {
 
     it('reloadUser is a no-op when there is no current user', async () => {
         authObj.currentUser = null;
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -666,8 +666,8 @@ describe('AuthUserProvider', () => {
 
     it('exposes sendVerificationEmail which calls firebase with actionCodeSettings when present', async () => {
         authObj.currentUser = makeUser();
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -682,8 +682,8 @@ describe('AuthUserProvider', () => {
 
     it('sendVerificationEmail is a no-op when there is no current user', async () => {
         authObj.currentUser = null;
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -695,8 +695,8 @@ describe('AuthUserProvider', () => {
     });
 
     it('exposes logout which signs out, clears cookie, and navigates to redirectAuthPath', async () => {
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -711,8 +711,8 @@ describe('AuthUserProvider', () => {
 
     it('logout clears the session but does not navigate on a whitelisted path', async () => {
         currentConfig.firebaseAuth!.whiteListPaths = ['/dashboard'];
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -727,8 +727,8 @@ describe('AuthUserProvider', () => {
 
     it('logout still clears cookie and navigates even when signOut throws', async () => {
         signOut.mockRejectedValueOnce(new Error('signout failed'));
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -740,8 +740,8 @@ describe('AuthUserProvider', () => {
     });
 
     it('logout calls the server-side clearSessionAction to clear httpOnly cookies', async () => {
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -756,8 +756,8 @@ describe('AuthUserProvider', () => {
     it('logout still navigates when clearSessionAction rejects', async () => {
         clearSessionAction.mockRejectedValueOnce(new Error('server action failed'));
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;
@@ -769,7 +769,7 @@ describe('AuthUserProvider', () => {
     });
 
     it('unsubscribes the id-token listener and cancels pending work on unmount', async () => {
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         const { unmount } = render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         unmount();
@@ -777,12 +777,12 @@ describe('AuthUserProvider', () => {
     });
 
     it('does not register an id-token listener when unmounted before getFirebaseAuthClient resolves', async () => {
-        const { getFirebaseAuthClient } = await import('./firebase_client');
+        const { getFirebaseAuthClient } = await import('./firebase_client.js');
         let resolveClient!: (value: { auth: unknown }) => void;
         vi.mocked(getFirebaseAuthClient).mockReturnValueOnce(
             new Promise((resolve) => { resolveClient = resolve; }),
         );
-        const { default: AuthUserProvider } = await import('./auth_user_provider');
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         const { unmount } = render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         unmount();
         await act(async () => {
@@ -794,8 +794,8 @@ describe('AuthUserProvider', () => {
     });
 
     it('the default context value is null for consumers outside a provider', async () => {
-        const { AuthUserContext } = await import('./auth_user_provider');
-        let ctxValue: import('./auth_user_provider').AuthUserContextType | null | undefined;
+        const { AuthUserContext } = await import('./auth_user_provider.js');
+        let ctxValue: import('./auth_user_provider.js').AuthUserContextType | null | undefined;
         function Consumer() {
             ctxValue = useContext(AuthUserContext);
             return null;

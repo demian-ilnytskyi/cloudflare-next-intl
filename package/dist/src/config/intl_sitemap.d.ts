@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import type { IntlSitemap } from '../types/types';
+import type { IntlSitemap } from '../types/types.js';
 declare function generateIntlSitemapIml({ intlSitemap, url }: {
     intlSitemap: IntlSitemap[];
     url: string;

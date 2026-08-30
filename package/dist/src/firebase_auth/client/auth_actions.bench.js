@@ -30,7 +30,7 @@ function makeFormData(fields) {
 }
 describe('createLoginAction', () => {
     bench('creates and invokes a login action (successful sign-in)', async () => {
-        const { createLoginAction } = await import('./auth_actions');
+        const { createLoginAction } = await import('./auth_actions.js');
         const action = createLoginAction('en', {});
         await action({}, makeFormData({ email: 'a@b.com', password: 'pw' }));
     });

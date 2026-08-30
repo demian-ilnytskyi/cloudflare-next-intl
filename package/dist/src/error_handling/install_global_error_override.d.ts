@@ -1,4 +1,4 @@
-import { type ReportErrorConfig } from './report_error';
+import { type ReportErrorConfig } from './report_error.js';
 /**
  * Client-only: attaches `window.addEventListener('error'|'unhandledrejection', ...)`
  * handlers that route through `config.errorHandling.onError`/`reportError` —

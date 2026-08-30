@@ -1,6 +1,6 @@
-import { getTranslationsImpl } from "../../general/general_functions";
-import { getLocale, getMessage } from "./server";
-import { getTranslationCache } from "../../general/cache_variables";
+import { getTranslationsImpl } from "../../general/general_functions.js";
+import { getLocale, getMessage } from "./server.js";
+import { getTranslationCache } from "../../general/cache_variables.js";
 import { cache, use } from "react";
 const isDev = process.env.NODE_ENV === 'development';
 /**

@@ -1,8 +1,8 @@
 'use client';
 import config from '@intl-config';
-import requireFirebaseAuthConfig from '../require_config';
-import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
-import firebaseAuthErrorMessage from '../error_messages/firebase_auth_error_helper';
+import requireFirebaseAuthConfig from '../require_config.js';
+import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client.js';
+import firebaseAuthErrorMessage from '../error_messages/firebase_auth_error_helper.js';
 function readCredentials(formData) {
     return {
         email: (formData.get('email')?.toString() ?? '').trim(),

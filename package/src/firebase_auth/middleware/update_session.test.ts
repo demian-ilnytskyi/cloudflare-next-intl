@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextResponse } from 'next/server';
-import { makeTestRequest as makeRequest } from '../../test_utils/mock_next_server';
+import { makeTestRequest as makeRequest } from '../../test_utils/mock_next_server.js';
 
 const baseFa = {
     apiKey: 'test-api-key',
@@ -38,7 +38,7 @@ describe('updateSession', () => {
 
     it('returns baseResponse untouched when firebaseAuth is not configured', async () => {
         currentConfig = { locales: ['en', 'de'], defaultLocale: 'en' };
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
@@ -47,7 +47,7 @@ describe('updateSession', () => {
 
     it('returns baseResponse untouched when middlewareEnabled is false', async () => {
         currentConfig.firebaseAuth!.middlewareEnabled = false;
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
@@ -55,7 +55,7 @@ describe('updateSession', () => {
     });
 
     it('passes through static asset requests untouched', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/favicon.ico');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
@@ -63,7 +63,7 @@ describe('updateSession', () => {
     });
 
     it('passes through /_next requests untouched', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/_next/static/chunk.js');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
@@ -72,7 +72,7 @@ describe('updateSession', () => {
 
     it('passes through whitelisted paths untouched', async () => {
         currentConfig.firebaseAuth!.whiteListPaths = ['/pricing'];
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/pricing');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
@@ -80,7 +80,7 @@ describe('updateSession', () => {
     });
 
     it('treats the bare locale root (path equals the locale prefix exactly) as "/"', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
@@ -89,7 +89,7 @@ describe('updateSession', () => {
     });
 
     it('redirects to redirectAuthPath when there is no session and the page is not an auth page', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
@@ -98,7 +98,7 @@ describe('updateSession', () => {
     });
 
     it('answers a prefetch request with an empty 204 instead of a guest redirect', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             headers: { rsc: '1', 'next-router-prefetch': '1' },
         });
@@ -110,7 +110,7 @@ describe('updateSession', () => {
     });
 
     it('answers purpose: prefetch request with 204 and anti-cache headers', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             headers: { purpose: 'prefetch' },
         });
@@ -122,7 +122,7 @@ describe('updateSession', () => {
     });
 
     it('answers x-purpose: prefetch request with 204 and anti-cache headers', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             headers: { 'x-purpose': 'prefetch' },
         });
@@ -134,7 +134,7 @@ describe('updateSession', () => {
     });
 
     it('answers a prefetch request with an empty 204 instead of an auth-page redirect', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
         const req = makeRequest('https://example.com/en/login', {
             cookies: { __fa_session__: token },
@@ -148,7 +148,7 @@ describe('updateSession', () => {
 
     it('answers a prefetch request with 204 instead of redirecting unverified email user', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: token },
@@ -162,7 +162,7 @@ describe('updateSession', () => {
 
     it('answers a prefetch request with 204 instead of redirecting verified user away from verify-email page', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
         const req = makeRequest('https://example.com/en/verify-email', {
             cookies: { __fa_session__: token },
@@ -177,7 +177,7 @@ describe('updateSession', () => {
     it('answers a prefetch request with 204 instead of redirecting action link mode target', async () => {
         currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
         currentConfig.firebaseAuth!.resetPasswordPath = '/reset-password';
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/auth/action?mode=resetPassword&oobCode=123', {
             headers: { 'next-router-prefetch': '1' },
         });
@@ -189,7 +189,7 @@ describe('updateSession', () => {
 
     it('answers a prefetch request with 204 instead of redirecting action link continueUrl', async () => {
         currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/auth/action?mode=verifyEmail&oobCode=123&continueUrl=https://example.com/en/custom', {
             headers: { 'next-router-prefetch': '1' },
         });
@@ -200,7 +200,7 @@ describe('updateSession', () => {
     });
 
     it('returns baseResponse (not 204) for prefetch requests on permitted routes', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         // 1. Guest prefetching auth page
         const guestReq = makeRequest('https://example.com/en/login', {
             headers: { 'next-router-prefetch': '1' },
@@ -221,7 +221,7 @@ describe('updateSession', () => {
     });
 
     it('still redirects a non-prefetch RSC navigation request', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             headers: { rsc: '1' },
         });
@@ -231,7 +231,7 @@ describe('updateSession', () => {
     });
 
     it('applies default-locale prefix rules when redirecting for the default locale', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/dashboard');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
@@ -239,7 +239,7 @@ describe('updateSession', () => {
     });
 
     it('keeps the non-default locale prefix when redirecting', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/de/dashboard');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'de');
@@ -247,7 +247,7 @@ describe('updateSession', () => {
     });
 
     it('allows the request through when there is no session but the page is an auth page', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/login');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
@@ -255,7 +255,7 @@ describe('updateSession', () => {
     });
 
     it('redirects away from the auth page to homePath when a valid session exists', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
         const req = makeRequest('https://example.com/en/login', {
             cookies: { __fa_session__: token },
@@ -267,7 +267,7 @@ describe('updateSession', () => {
     });
 
     it('preserves the query string when redirecting a guest to redirectAuthPath', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard?test=test&a=b');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
@@ -275,7 +275,7 @@ describe('updateSession', () => {
     });
 
     it('preserves the query string when redirecting a signed-in user away from an auth page to homePath', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
         const req = makeRequest('https://example.com/en/login?test=test', {
             cookies: { __fa_session__: token },
@@ -286,7 +286,7 @@ describe('updateSession', () => {
     });
 
     it('preserves the query string alongside a non-default locale prefix', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/de/dashboard?test=test');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'de');
@@ -295,7 +295,7 @@ describe('updateSession', () => {
 
     it('drops the query string when preserveRedirectQuery is false', async () => {
         currentConfig.firebaseAuth!.preserveRedirectQuery = false;
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard?test=test');
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
@@ -304,7 +304,7 @@ describe('updateSession', () => {
 
     it('redirects an unverified signed-in user to verifyEmailPath even when they are on an auth page (unverified takes priority over the auth-page redirect)', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/login', {
             cookies: { __fa_session__: token, __fa_email_verified_hint__: 'false' },
@@ -316,7 +316,7 @@ describe('updateSession', () => {
     });
 
     it('passes through with a valid session on a non-auth page', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: token },
@@ -328,7 +328,7 @@ describe('updateSession', () => {
 
     it('redirects to verifyEmailPath when session email is unverified', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: token },
@@ -348,7 +348,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/verify-email', {
             cookies: {
@@ -374,7 +374,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/verify-email', {
             cookies: {
@@ -394,7 +394,7 @@ describe('updateSession', () => {
 
     it('does not redirect to verifyEmailPath when already on it', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/verify-email', {
             cookies: { __fa_session__: token },
@@ -406,7 +406,7 @@ describe('updateSession', () => {
 
     it('redirects a verified user away from verifyEmailPath to homePath', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
         const req = makeRequest('https://example.com/en/verify-email', {
             cookies: { __fa_session__: token },
@@ -425,7 +425,7 @@ describe('updateSession', () => {
     // redirect loop directly on verifyEmailPath.
     it('does NOT redirect a user with a missing (undefined) email_verified claim away from verifyEmailPath', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
         const req = makeRequest('https://example.com/en/verify-email', {
             cookies: { __fa_session__: token },
@@ -437,7 +437,7 @@ describe('updateSession', () => {
 
     it('passes through when email is verified', async () => {
         currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: token },
@@ -464,7 +464,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: {
@@ -491,7 +491,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: {
@@ -519,7 +519,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: staleToken, __fa_refresh_token__: 'old-refresh-token' },
@@ -541,7 +541,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         // Already expired, so the session refresh above runs first and leaves
         // `refreshedToken` set — the email check must then reuse that token
         // rather than mint a second one.
@@ -564,7 +564,7 @@ describe('updateSession', () => {
             json: async () => ({ id_token: refreshed, refresh_token: 'new-refresh-token' }),
         }));
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const expiredToken = makeJwt(Math.floor(Date.now() / 1000) - 100, { email_verified: false });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: {
@@ -592,7 +592,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/', {
             cookies: {
@@ -621,7 +621,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: {
@@ -643,7 +643,7 @@ describe('updateSession', () => {
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: staleToken, __fa_email_verified_hint__: 'true' },
@@ -661,7 +661,7 @@ describe('updateSession', () => {
         const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503 });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: {
@@ -686,7 +686,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const staleToken = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: false });
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: {
@@ -705,7 +705,7 @@ describe('updateSession', () => {
     });
 
     it('treats an expired session token as no session', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) - 3600);
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: token },
@@ -716,7 +716,7 @@ describe('updateSession', () => {
     });
 
     it('treats a malformed session token as expired/invalid', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: 'not-a-jwt' },
         });
@@ -726,7 +726,7 @@ describe('updateSession', () => {
     });
 
     it('treats a token expiring within the clock-skew margin as already expired', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         // Real expiry is 30s in the future — inside the 60s clock-skew
         // margin, so this must be refreshed/redirected now rather than
         // handed to the client one request away from dying.
@@ -740,7 +740,7 @@ describe('updateSession', () => {
     });
 
     it('treats a token expiring well beyond the clock-skew margin as still valid', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 300);
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: token },
@@ -757,7 +757,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_refresh_token__: 'old-refresh-token' },
         });
@@ -777,7 +777,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_refresh_token__: 'old-refresh-token' },
         });
@@ -798,7 +798,7 @@ describe('updateSession', () => {
     });
 
     it('clears an invalid session cookie when there is no refresh token to use instead', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: 'not-a-jwt' },
         });
@@ -820,7 +820,7 @@ describe('updateSession', () => {
         const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503 });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_refresh_token__: 'still-valid-refresh-token' },
         });
@@ -836,7 +836,7 @@ describe('updateSession', () => {
         const fetchMock = vi.fn().mockRejectedValue(new Error('network down'));
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_refresh_token__: 'still-valid-refresh-token' },
         });
@@ -855,7 +855,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_refresh_token__: 'still-valid-refresh-token' },
         });
@@ -874,7 +874,7 @@ describe('updateSession', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_refresh_token__: 'actually-invalid-refresh-token' },
         });
@@ -903,7 +903,7 @@ describe('updateSession with custom cookie names', () => {
     });
 
     it('passes through with a valid session under the custom cookie name', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __session: token },
@@ -914,7 +914,7 @@ describe('updateSession with custom cookie names', () => {
     });
 
     it('redirects to login when the custom-named session cookie is missing, even if __fa_session__ happens to be set', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
         const req = makeRequest('https://example.com/en/dashboard', {
             // Wrong cookie name for this config — must not be picked up.
@@ -933,7 +933,7 @@ describe('updateSession with custom cookie names', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __refresh_token: 'old-refresh-token' },
         });
@@ -980,7 +980,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         const fakeCache = makeFakeCache();
         vi.stubGlobal('caches', { default: fakeCache });
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_refresh_token__: 'a-refresh-token' },
         });
@@ -1004,7 +1004,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         const fakeCache = makeFakeCache();
         vi.stubGlobal('caches', { default: fakeCache });
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const makeReq = () => makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_refresh_token__: 'a-refresh-token' },
         });
@@ -1030,7 +1030,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         const fakeCache = makeFakeCache();
         vi.stubGlobal('caches', { default: fakeCache });
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const makeReq = () => makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_refresh_token__: 'a-refresh-token' },
         });
@@ -1056,7 +1056,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
             },
         });
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_refresh_token__: 'a-refresh-token' },
         });
@@ -1072,7 +1072,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         const fakeCache = makeFakeCache();
         vi.stubGlobal('caches', { default: fakeCache });
 
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const makeReq = () => makeRequest('https://example.com/en/dashboard', {
             cookies: { __fa_refresh_token__: 'a-refresh-token' },
         });
@@ -1089,7 +1089,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         it('with actionLinkPath set, ignores ?mode= on a different path', async () => {
             currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
             currentConfig.firebaseAuth!.whiteListPaths = ['/pricing'];
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/pricing?mode=resetPassword&oobCode=a');
             const base = NextResponse.next();
             const res = await updateSession(req, base, 'en');
@@ -1098,7 +1098,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
 
         it('with actionLinkPath set, forwards ?mode= arriving on that exact path', async () => {
             currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/auth/action?mode=resetPassword&oobCode=a');
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
@@ -1107,7 +1107,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('forwards ?mode=resetPassword to the default reset-password path, preserving the query', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/?mode=resetPassword&oobCode=abc123');
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.status).toBe(307);
@@ -1118,7 +1118,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
 
         it('forwards ?mode=verifyEmail to verifyEmailPath', async () => {
             currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/?mode=verifyEmail&oobCode=xyz');
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
@@ -1128,7 +1128,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
 
         it('forwards ?mode=signIn to signInPath', async () => {
             currentConfig.firebaseAuth!.signInPath = '/complete-sign-in';
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/?mode=signIn&oobCode=xyz');
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
@@ -1138,7 +1138,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
 
         it('keeps mode/apiKey on a ?mode=signIn forward so signInWithEmailLink can validate the link', async () => {
             currentConfig.firebaseAuth!.signInPath = '/complete-sign-in';
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/?mode=signIn&oobCode=xyz&apiKey=KEY&lang=en');
             const res = await updateSession(req, NextResponse.next(), 'en');
             const loc = new URL(res.headers.get('location')!);
@@ -1149,7 +1149,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('does not forward ?mode=signIn when signInPath is not configured', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             currentConfig.firebaseAuth!.whiteListPaths = ['/pricing'];
             const req = makeRequest('https://example.com/en/pricing?mode=signIn&oobCode=xyz');
             const base = NextResponse.next();
@@ -1160,7 +1160,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         it('ignores a self-referential continueUrl (same origin, same path) and uses the mode target instead — actionCodeSettings.url === actionLinkPath, e.g. localhost:3000/auth/action?mode=signIn&oobCode=... -> localhost:3000/complete-sign-in', async () => {
             currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
             currentConfig.firebaseAuth!.signInPath = '/complete-sign-in';
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://localhost:3000/en/auth/action?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3000%2Fauth%2Faction',
             );
@@ -1172,7 +1172,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
 
         it('keeps the full query on a same-origin forward when stripActionLinkQuery is false', async () => {
             currentConfig.firebaseAuth!.stripActionLinkQuery = false;
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/?mode=resetPassword&oobCode=a&lang=en');
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toBe(
@@ -1183,7 +1183,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         it('does not follow continueUrl away from the mode target once the request is already on it', async () => {
             currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
             currentConfig.firebaseAuth!.whiteListPaths = ['/verify-email'];
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/en/verify-email?mode=verifyEmail&oobCode=xyz&continueUrl=https%3A%2F%2Fexample.com%2Fauth%2Faction',
             );
@@ -1195,7 +1195,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         it('still follows a genuinely different same-origin continueUrl path over the mode target — e.g. localhost:3000/code -> localhost:3000/custom-path', async () => {
             currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
             currentConfig.firebaseAuth!.signInPath = '/complete-sign-in';
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://localhost:3000/en/auth/action?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3000%2Fcustom-path',
             );
@@ -1208,7 +1208,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         it('follows a different-origin continueUrl through to the target origin, then applies the mode path there — e.g. localhost:3000/code -> localhost:3001/code -> localhost:3001/complete-sign-in', async () => {
             currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
             currentConfig.firebaseAuth!.signInPath = '/complete-sign-in';
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://localhost:3000/en/auth/action?mode=signIn&oobCode=xyz&continueUrl=https%3A%2F%2Flocalhost%3A3001%2Fauth%2Faction',
             );
@@ -1219,7 +1219,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('forwards before the guest redirect, so a signed-out user keeps their oobCode', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/dashboard?mode=resetPassword&oobCode=abc');
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toContain('/reset-password');
@@ -1229,7 +1229,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         it('honours resetPasswordPath / recoverEmailPath overrides', async () => {
             currentConfig.firebaseAuth!.resetPasswordPath = '/new-password';
             currentConfig.firebaseAuth!.recoverEmailPath = '/recover';
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
 
             const reset = await updateSession(
                 makeRequest('https://example.com/en/?mode=resetPassword&oobCode=a'), NextResponse.next(), 'en');
@@ -1242,14 +1242,14 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
 
         it('lets actionModePaths handle a mode with no dedicated config field', async () => {
             currentConfig.firebaseAuth!.actionModePaths = { verifyAndChangeEmail: '/change-email' };
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/?mode=verifyAndChangeEmail&oobCode=c');
             const res = await updateSession(req, NextResponse.next(), 'en');
             expect(res.headers.get('location')).toContain('/change-email');
         });
 
         it('does not loop when the request is already on the destination path', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/reset-password?mode=resetPassword&oobCode=a');
             const base = NextResponse.next();
             const res = await updateSession(req, base, 'en');
@@ -1257,7 +1257,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('ignores an unknown mode', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/pricing?mode=somethingElse');
             currentConfig.firebaseAuth!.whiteListPaths = ['/pricing'];
             const base = NextResponse.next();
@@ -1268,7 +1268,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         it('skips the forward entirely when actionLinkRedirectEnabled is false', async () => {
             currentConfig.firebaseAuth!.actionLinkRedirectEnabled = false;
             currentConfig.firebaseAuth!.whiteListPaths = ['/pricing'];
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/en/pricing?mode=resetPassword&oobCode=a');
             const base = NextResponse.next();
             const res = await updateSession(req, base, 'en');
@@ -1276,7 +1276,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('keeps the locale prefix for a non-default locale', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest('https://example.com/de/?mode=resetPassword&oobCode=a');
             const res = await updateSession(req, NextResponse.next(), 'de');
             expect(res.headers.get('location')).toBe(
@@ -1285,7 +1285,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('redirects to continueUrl path when continueUrl matches the request origin', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fcustom-reset',
             );
@@ -1296,7 +1296,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('strip locale prefix from continueUrl pathname if present for same origin', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/de/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fde%2Fcustom-reset',
             );
@@ -1307,7 +1307,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('falls back to mode path when continueUrl path is exact non-default locale root /de', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/de/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fde',
             );
@@ -1318,7 +1318,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('falls back to default mode path when continueUrl is unparseable/invalid URL', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2F%3A%3Anot-a-valid-url',
             );
@@ -1330,7 +1330,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
 
 
         it('redirects directly to external continueUrl when continueUrl is from another origin', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fother-site.com%2Freset',
             );
@@ -1341,7 +1341,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('applies mode path to external continueUrl when its path is root', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2Flocalhost%3A3000',
             );
@@ -1352,7 +1352,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('handles relative continueUrl path correctly as same-origin', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=%2Fcustom-reset',
             );
@@ -1363,7 +1363,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('falls back to mode path when continueUrl path is / (home root)', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com',
             );
@@ -1375,7 +1375,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
 
 
         it('redirects to external origin mode path when external continueUrl path is / (home root)', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2Flocalhost%3A3000',
             );
@@ -1386,7 +1386,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('keeps locale prefix on external continueUrl root fallback for non-default locale', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/de/auth/action?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2Flocalhost%3A3000%2F',
             );
@@ -1398,7 +1398,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
 
         it('redirects to external origin actionLinkPath when external continueUrl path is / and actionLinkPath is set', async () => {
             currentConfig.firebaseAuth!.actionLinkPath = '/auth/action';
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=http%3A%2F%2Flocalhost%3A3000',
             );
@@ -1409,7 +1409,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
         });
 
         it('redirects to external origin root when external continueUrl path is / and mode target is unknown', async () => {
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/auth/action?mode=unknownMode&oobCode=a&continueUrl=http%3A%2F%2Flocalhost%3A3000',
             );
@@ -1421,7 +1421,7 @@ describe('updateSession refresh caching (Cloudflare Workers Cache API)', () => {
 
         it('ignores continueUrl when followSameOriginContinueUrl is set to false', async () => {
             currentConfig.firebaseAuth!.followSameOriginContinueUrl = false;
-            const { default: updateSession } = await import('./update_session');
+            const { default: updateSession } = await import('./update_session.js');
             const req = makeRequest(
                 'https://example.com/auth/action?mode=resetPassword&oobCode=a&continueUrl=https%3A%2F%2Fexample.com%2Fcustom-reset',
             );
@@ -1441,13 +1441,13 @@ describe('isIdTokenExpired', () => {
     });
 
     it('returns false for a token that has not expired yet', async () => {
-        const { isIdTokenExpired } = await import('./update_session');
+        const { isIdTokenExpired } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
         expect(isIdTokenExpired(token)).toBe(false);
     });
 
     it('returns true for a token past its exp', async () => {
-        const { isIdTokenExpired } = await import('./update_session');
+        const { isIdTokenExpired } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) - 10);
         expect(isIdTokenExpired(token)).toBe(true);
     });
@@ -1469,7 +1469,7 @@ describe('refreshIdToken skipCache option', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const { refreshIdToken } = await import('./update_session');
+        const { refreshIdToken } = await import('./update_session.js');
         const result = await refreshIdToken('api-key', 'a-refresh-token', { skipCache: true });
 
         expect(fakeCache.match).not.toHaveBeenCalled();

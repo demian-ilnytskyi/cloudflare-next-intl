@@ -1,4 +1,4 @@
-import encodeParam from './encode_param';
+import encodeParam from './encode_param.js';
 /**
  * Substitutes `$1`, `$2`, … placeholders in a generated statement with
  * literal-encoded values, so a single-statement RPC call

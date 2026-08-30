@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import requireDbConfig from './require_config';
-import type { DbRoutingConfig } from '../types/types';
+import requireDbConfig from './require_config.js';
+import type { DbRoutingConfig } from '../types/types.js';
 
 describe('requireDbConfig', () => {
     it('throws when db config is undefined', () => {

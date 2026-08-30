@@ -1,4 +1,4 @@
-import type { CookieDialogClassNames, CookieDialogStyles } from '../../types';
+import type { CookieDialogClassNames, CookieDialogStyles } from '../../types.js';
 export interface PrivacyPolicyUpdateDialogProps {
     message?: React.ReactNode;
     /**

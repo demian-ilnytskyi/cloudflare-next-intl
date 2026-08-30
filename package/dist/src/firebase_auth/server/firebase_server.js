@@ -1,10 +1,10 @@
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import config from '@intl-config';
-import requireFirebaseAuthConfig from '../require_config';
-import { defaultAppCheckTokenCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName, isIdTokenExpired, refreshIdToken, sessionCookieOptions } from '../middleware/update_session';
-import reportError from '../../error_handling/report_error';
-import mintServerAppCheckToken from './mint_server_app_check_token';
+import requireFirebaseAuthConfig from '../require_config.js';
+import { defaultAppCheckTokenCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName, isIdTokenExpired, refreshIdToken, sessionCookieOptions } from '../middleware/update_session.js';
+import reportError from '../../error_handling/report_error.js';
+import mintServerAppCheckToken from './mint_server_app_check_token.js';
 let baseAppReady;
 let firebaseAppModuleReady;
 let firebaseAuthModuleReady;

@@ -1,5 +1,5 @@
-import type { SupabaseDbConfig } from '../types/types';
-import resolveConfigValue from './resolve_config_value';
+import type { SupabaseDbConfig } from '../types/types.js';
+import resolveConfigValue from './resolve_config_value.js';
 
 /** The Supabase project URL and anon key the transport builds a client from. */
 export interface ResolvedSupabaseEndpoint {

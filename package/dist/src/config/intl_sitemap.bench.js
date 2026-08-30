@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import generateIntlSitemap from './intl_sitemap';
+import generateIntlSitemap from './intl_sitemap.js';
 const smallRoutes = [
     { link: '/about', lastModified: '2024-01-01' },
     { link: '/contact', lastModified: '2024-01-01' },

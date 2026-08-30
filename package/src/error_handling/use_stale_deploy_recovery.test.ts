@@ -1,8 +1,8 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import useStaleDeployRecovery, { shouldRecoverFromStaleDeploy, isRecentBuild } from './use_stale_deploy_recovery';
-import * as clearClientCacheModule from './clear_client_cache';
+import useStaleDeployRecovery, { shouldRecoverFromStaleDeploy, isRecentBuild } from './use_stale_deploy_recovery.js';
+import * as clearClientCacheModule from './clear_client_cache.js';
 
 const staleError = new Error('The connection to the page was unexpectedly closed');
 const chunkError = new Error('Loading chunk 42 failed');

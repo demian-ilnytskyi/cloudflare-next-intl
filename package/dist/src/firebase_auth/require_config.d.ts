@@ -1,4 +1,4 @@
-import type { FirebaseAuthRoutingConfig } from '../types/types';
+import type { FirebaseAuthRoutingConfig } from '../types/types.js';
 /**
  * Every firebase_auth export calls this before touching `firebase/*`. Throws
  * instead of silently no-op'ing so a consumer who calls e.g. `useAuthUser()`

@@ -1,6 +1,6 @@
 import config from '@intl-config';
-import reportError from '../../error_handling/report_error';
-import signCustomTokenRemote from './sign_custom_token_remote';
+import reportError from '../../error_handling/report_error.js';
+import signCustomTokenRemote from './sign_custom_token_remote.js';
 // Matches `firebase-admin`'s own `AppCheckTokenGenerator.createCustomToken`
 // exactly (`token-generator.js`) — this specific audience (the App Check
 // TOKEN EXCHANGE service, not the App Check API resource name itself) is

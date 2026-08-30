@@ -7,7 +7,7 @@ import {
     type ComponentProps,
     type Ref,
 } from 'react';
-import LocaleLinkClient from './locale_link_client';
+import LocaleLinkClient from './locale_link_client.js';
 
 type NextLinkProps = Omit<ComponentProps<'a'>, keyof LinkProps> &
     Omit<LinkProps, 'locale' | 'href' | 'prefetch' | 'onNavigate' | 'hrefLang' | 'replace' | 'scroll'>;

@@ -1,4 +1,4 @@
-import type { CookieConsentAnalyticsConfig } from '../../../types/types';
+import type { CookieConsentAnalyticsConfig } from '../../../types/types.js';
 /**
  * Renders whichever analytics/ads scripts have a resolved secret, gated on
  * consent: Google Consent Mode bootstrap always loads (defaults to

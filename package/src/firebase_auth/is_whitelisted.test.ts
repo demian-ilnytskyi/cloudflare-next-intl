@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import isWhitelisted from './is_whitelisted';
+import isWhitelisted from './is_whitelisted.js';
 
 describe('isWhitelisted', () => {
     it('returns false when whiteListPaths is undefined', () => {

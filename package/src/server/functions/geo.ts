@@ -1,4 +1,4 @@
-import type { GenerateRoutingConfig, RequestOrHeaders } from '../../types/types';
+import type { GenerateRoutingConfig, RequestOrHeaders } from '../../types/types.js';
 
 /** Default request headers read to resolve the visitor's country, in order. */
 export const defaultCountryHeaderNames: readonly string[] = ['x-cf-country', 'cf-ipcountry'];
@@ -21,7 +21,7 @@ function extractHeader(h: Headers | Record<string, string | null | undefined>, n
 // would risk a cycle with a config module that itself imports from here.
 async function configuredGenerate(): Promise<GenerateRoutingConfig | undefined> {
     try {
-        const config = (await import('../../config/intl_config')).default;
+        const config = (await import('../../config/intl_config.js')).default;
         return config?.generate;
     } catch {
         return undefined;

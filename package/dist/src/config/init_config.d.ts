@@ -1,4 +1,4 @@
-import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
+import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types.js';
 /**
  * Defines and type-checks your app's i18n routing config.
  *

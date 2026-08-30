@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import withErrorHandling from './with_error_handling';
+import withErrorHandling from './with_error_handling.js';
 
 describe('withErrorHandling', () => {
     it('returns the wrapped function result when it does not throw', async () => {

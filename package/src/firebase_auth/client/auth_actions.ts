@@ -1,10 +1,10 @@
 'use client';
 
 import config from '@intl-config';
-import requireFirebaseAuthConfig from '../require_config';
-import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
-import firebaseAuthErrorMessage from '../error_messages/firebase_auth_error_helper';
-import type { AuthActionCodeSettings, AuthActionMessages, AuthFormState } from '../types';
+import requireFirebaseAuthConfig from '../require_config.js';
+import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client.js';
+import firebaseAuthErrorMessage from '../error_messages/firebase_auth_error_helper.js';
+import type { AuthActionCodeSettings, AuthActionMessages, AuthFormState } from '../types.js';
 
 function readCredentials(formData: FormData) {
     return {

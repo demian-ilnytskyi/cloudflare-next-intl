@@ -1,5 +1,5 @@
-import type { ConsentValue } from '../cookie_consent/types';
-import { type ReportErrorConfig } from './report_error';
+import type { ConsentValue } from '../cookie_consent/types.js';
+import { type ReportErrorConfig } from './report_error.js';
 export interface WithErrorHandlingOptions {
     /** Pass the relevant slices of your `RoutingConfig` directly — `{ errorHandling: config.errorHandling, generate: config.generate }`. */
     config?: ReportErrorConfig;

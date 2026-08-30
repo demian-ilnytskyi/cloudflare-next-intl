@@ -1,4 +1,4 @@
-import type { SqlValue, WhereNode } from './parse_where';
+import type { SqlValue, WhereNode } from './parse_where.js';
 /**
  * The subset of `@supabase/postgrest-js`'s filter methods this module calls,
  * declared structurally so nothing here imports `@supabase/supabase-js`.

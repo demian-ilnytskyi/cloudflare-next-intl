@@ -1,8 +1,8 @@
 import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
-import { isDarkCookieKey, localeCookieName } from "../../config/cookie_key";
-import config from "../../config/intl_config";
-import ClientHelperScript from "../../client/components/client_helper_script";
-import { defaultStaleDeployPatterns } from "../../error_handling/is_stale_deploy_error";
+import { isDarkCookieKey, localeCookieName } from "../../config/cookie_key.js";
+import config from "../../config/intl_config.js";
+import ClientHelperScript from "../../client/components/client_helper_script.js";
+import { defaultStaleDeployPatterns } from "../../error_handling/is_stale_deploy_error.js";
 const isDev = process.env.NODE_ENV === 'development';
 const appCheck = config.firebaseAuth?.appCheck;
 const shouldLoadExplicitRecaptchaScript = !!appCheck?.recaptchaV3SiteKey && appCheck.useExplicitRecaptchaScript !== false;

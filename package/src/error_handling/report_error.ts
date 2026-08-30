@@ -1,7 +1,7 @@
-import type { ErrorHandlingParams, ErrorHandlingRoutingConfig, GenerateRoutingConfig } from '../types/types';
-import formatErrorMessage from './format_error_message';
-import stringifyUnknown from './stringify_unknown';
-import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors';
+import type { ErrorHandlingParams, ErrorHandlingRoutingConfig, GenerateRoutingConfig } from '../types/types.js';
+import formatErrorMessage from './format_error_message.js';
+import stringifyUnknown from './stringify_unknown.js';
+import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors.js';
 
 export interface ReportErrorConfig {
     errorHandling?: ErrorHandlingRoutingConfig;

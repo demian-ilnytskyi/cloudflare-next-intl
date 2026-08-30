@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import stringifyUnknown from './stringify_unknown';
+import stringifyUnknown from './stringify_unknown.js';
 const error = new Error('boom');
 const plainObject = { a: 1, b: { c: 2, d: [1, 2, 3] } };
 const circular = {};

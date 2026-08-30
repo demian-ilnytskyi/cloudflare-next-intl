@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { languageDetecotr } from '../server/functions/get_user_locale';
-import config from './intl_config';
-import { isBotCookieKey, localeCookieName } from './cookie_key';
+import { languageDetecotr } from '../server/functions/get_user_locale.js';
+import config from './intl_config.js';
+import { isBotCookieKey, localeCookieName } from './cookie_key.js';
 import { cache } from 'react';
-import reportError from '../error_handling/report_error';
+import reportError from '../error_handling/report_error.js';
 const sameSite = false;
 const defaultCookieOption = {
     path: '/', // Cookie is valid for the entire domain
@@ -166,7 +166,7 @@ export default async function intlMiddleware(request, options) {
         // as `middlewareHandler` is also skipped on this path by default.
         if (!isRedirect && config.firebaseAuth && config.firebaseAuth.middlewareEnabled !== false) {
             if (!updateSessionModule) {
-                updateSessionModule = await import('../firebase_auth/middleware/update_session');
+                updateSessionModule = await import('../firebase_auth/middleware/update_session.js');
             }
             response = await updateSessionModule.default(request, response, effectiveLocaleForRequest, (refreshedRequest) => rewriteUrl
                 ? NextResponse.rewrite(rewriteUrl, { request: refreshedRequest })

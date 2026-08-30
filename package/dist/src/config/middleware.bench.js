@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { bench, describe, vi } from 'vitest';
-import intlMiddleware from './middleware';
-import { makeTestRequest } from '../test_utils/mock_next_server';
+import intlMiddleware from './middleware.js';
+import { makeTestRequest } from '../test_utils/mock_next_server.js';
 describe('intlMiddleware', () => {
     bench('warm path: valid locale cookie present', async () => {
         const req = makeTestRequest('https://example.com/en/page', { cookies: { __user_locale_key__: 'en' } });
@@ -22,12 +22,12 @@ vi.doMock('./intl_config', () => ({
 describe('intlMiddleware with firebaseAuth configured', () => {
     bench('first call: pays the dynamic import of update_session.ts', async () => {
         vi.resetModules();
-        const { default: freshIntlMiddleware } = await import('./middleware');
+        const { default: freshIntlMiddleware } = await import('./middleware.js');
         const req = makeTestRequest('https://example.com/en/page', { cookies: { __user_locale_key__: 'en' } });
         await freshIntlMiddleware(req);
     });
     bench('repeat call: memoized dynamic import (no re-import cost)', async () => {
-        const { default: intlMiddlewareWithAuth } = await import('./middleware');
+        const { default: intlMiddlewareWithAuth } = await import('./middleware.js');
         const req = makeTestRequest('https://example.com/en/page', { cookies: { __user_locale_key__: 'en' } });
         await intlMiddlewareWithAuth(req);
     });

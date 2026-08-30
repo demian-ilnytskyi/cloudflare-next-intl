@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import inlineParams from './inline_params';
+import inlineParams from './inline_params.js';
 
 describe('inlineParams', () => {
     it('substitutes a single placeholder', () => {

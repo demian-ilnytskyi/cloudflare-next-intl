@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import type { MiddlewareCustomHandler } from '../types/types';
+import type { MiddlewareCustomHandler } from '../types/types.js';
 export declare const localesSet: Set<string>;
 /**
  * This middleware function runs for every incoming request. Handles locale

@@ -23,7 +23,7 @@ describe('CookieConsentAnalytics perf characteristics', () => {
         const gtag = vi.fn();
         (window as unknown as { gtag: typeof gtag }).gtag = gtag;
 
-        return import('./cookie_consent_analytics').then(({ default: CookieConsentAnalytics }) => {
+        return import('./cookie_consent_analytics.js').then(({ default: CookieConsentAnalytics }) => {
             const { rerender } = render(<CookieConsentAnalytics config={{ googleAnalyticsId: 'G-XXX' }} />);
             for (let i = 0; i < 10; i++) {
                 rerender(<CookieConsentAnalytics config={{ googleAnalyticsId: 'G-XXX' }} />);

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import setCookie from './set_cookie';
-import getCookie from './get_cookie';
+import setCookie from './set_cookie.js';
+import getCookie from './get_cookie.js';
 
 describe('setCookie', () => {
     it('sets a cookie readable back via document.cookie', () => {

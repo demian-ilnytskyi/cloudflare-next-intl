@@ -1,6 +1,6 @@
 import { bench, describe } from 'vitest';
-import requireFirebaseAuthConfig from './require_config';
-import type { FirebaseAuthRoutingConfig } from '../types/types';
+import requireFirebaseAuthConfig from './require_config.js';
+import type { FirebaseAuthRoutingConfig } from '../types/types.js';
 
 const fa: FirebaseAuthRoutingConfig = {
     apiKey: 'key',

@@ -1,7 +1,7 @@
 "use client";
 import { useContext, useMemo } from "react";
-import { LocaleContext } from "../components/client_provider";
-import { getTranslationsImpl } from "../../general/general_functions";
+import { LocaleContext } from "../components/client_provider.js";
+import { getTranslationsImpl } from "../../general/general_functions.js";
 /**
  * Client Component `useLocale` — reached via the default condition of the
  * `cloudflare-next-intl/use` subpath (Server Components get the

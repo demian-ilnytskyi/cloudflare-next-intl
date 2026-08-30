@@ -1,4 +1,4 @@
-import type { TranslationObject, TranslatorReturnType } from "../../types/types";
+import type { TranslationObject, TranslatorReturnType } from "../../types/types.js";
 /**
  * Loads and caches messages for a specific locale using dynamic import.
  * Prevents redundant file loads and handles import errors gracefully.

@@ -1,7 +1,7 @@
 'use client';
 import { useReportWebVitals } from 'next/web-vitals';
-import reportError from '../../../error_handling/report_error';
-import { getFirebaseAuthClient, getFirebasePerformanceSync } from '../firebase_client';
+import reportError from '../../../error_handling/report_error.js';
+import { getFirebaseAuthClient, getFirebasePerformanceSync } from '../firebase_client.js';
 /**
  * Records a Firebase Performance custom trace with a real duration, so
  * Firebase's own duration histograms/percentiles are meaningful. No-ops if

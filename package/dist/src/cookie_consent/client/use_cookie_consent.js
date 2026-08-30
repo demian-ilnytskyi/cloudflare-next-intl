@@ -1,6 +1,6 @@
 'use client';
 import { useContext } from 'react';
-import { CookieConsentContext } from './cookie_consent_provider';
+import { CookieConsentContext } from './cookie_consent_provider.js';
 /**
  * Reads cookie-consent + privacy-policy-update state. Must be called within
  * a `CookieConsentProvider`.

@@ -16,7 +16,7 @@ function extractHeader(h, name) {
 // would risk a cycle with a config module that itself imports from here.
 async function configuredGenerate() {
     try {
-        const config = (await import('../../config/intl_config')).default;
+        const config = (await import('../../config/intl_config.js')).default;
         return config?.generate;
     }
     catch {

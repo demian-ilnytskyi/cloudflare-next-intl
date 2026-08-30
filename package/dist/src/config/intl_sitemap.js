@@ -1,5 +1,5 @@
-import { languages } from '../general/metadata';
-import config from './intl_config';
+import { languages } from '../general/metadata.js';
+import config from './intl_config.js';
 import { cache } from 'react';
 function generateAlternates(url, link) {
     return {

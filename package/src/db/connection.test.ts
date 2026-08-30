@@ -19,7 +19,7 @@ import {
     withSessionLock,
     connectToPostgres,
     disconnectPostgres,
-} from './connection';
+} from './connection.js';
 
 const baseConfig = { locales: ['en'] as const, defaultLocale: 'en' };
 const pgConfig = { ...baseConfig, db: { connectionString: 'postgresql://x' } } as never;

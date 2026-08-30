@@ -1,6 +1,6 @@
 'use client';
 import { useEffect } from 'react';
-import reportError from '../../../error_handling/report_error';
+import reportError from '../../../error_handling/report_error.js';
 let cachedClarityModule;
 function getClarityModule() {
     if (!cachedClarityModule) {

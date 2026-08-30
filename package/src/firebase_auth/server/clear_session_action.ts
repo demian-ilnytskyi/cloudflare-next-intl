@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import config from "@intl-config";
-import { defaultRefreshTokenCookieName, defaultSessionCookieName } from "../middleware/update_session";
+import { defaultRefreshTokenCookieName, defaultSessionCookieName } from "../middleware/update_session.js";
 
 /**
  * Server action: clears the httpOnly session/refresh-token cookies.

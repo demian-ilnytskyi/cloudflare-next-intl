@@ -71,7 +71,7 @@ describe('getAuthenticatedAppForUser', () => {
             if (name === '__fa_session__') return { value: expiredToken };
             return undefined;
         });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(fetchMock).toHaveBeenCalled();
         expect(result.currentUser).toEqual({ uid: 'u1' });
@@ -83,7 +83,7 @@ describe('getAuthenticatedAppForUser', () => {
         cookieGet.mockImplementation((name: string) =>
             name === '__fa_refresh_token__' ? undefined : { value: expiredToken },
         );
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
         expect(initializeServerApp).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe('getAuthenticatedAppForUser', () => {
         cookieGet.mockImplementation((name: string) =>
             name === '__fa_refresh_token__' ? { value: 'old-refresh-token' } : { value: expiredToken },
         );
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
         expect(initializeServerApp).not.toHaveBeenCalled();
@@ -116,7 +116,7 @@ describe('getAuthenticatedAppForUser', () => {
             if (name === '__fa_session__') return { value: revokedToken };
             return undefined;
         });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(fetchMock).toHaveBeenCalled();
         expect(result.currentUser).toEqual({ uid: 'u1' });
@@ -136,7 +136,7 @@ describe('getAuthenticatedAppForUser', () => {
             if (name === '__fa_session__') return { value: revokedToken };
             return undefined;
         });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(fetchMock).toHaveBeenCalled();
         expect(result.currentUser).toEqual({ uid: 'u1' });
@@ -159,7 +159,7 @@ describe('getAuthenticatedAppForUser', () => {
             if (name === '__fa_session__') return { value: revokedToken };
             return undefined;
         });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(fetchMock).toHaveBeenCalled();
         expect(result.currentUser).toEqual({ uid: 'u1' });
@@ -173,7 +173,7 @@ describe('getAuthenticatedAppForUser', () => {
         cookieGet.mockImplementation((name: string) =>
             name === '__fa_session__' ? { value: revokedToken } : undefined,
         );
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
         expect(fetchMock).not.toHaveBeenCalled();
@@ -192,7 +192,7 @@ describe('getAuthenticatedAppForUser', () => {
             if (name === '__fa_session__') return { value: revokedToken };
             return undefined;
         });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         await getAuthenticatedAppForUser();
         expect(cookieSet).toHaveBeenCalledWith('__fa_session__', validToken, expect.objectContaining({ httpOnly: true, secure: true }));
         expect(cookieSet).toHaveBeenCalledWith('__fa_refresh_token__', 'new-refresh-token', expect.objectContaining({ httpOnly: true }));
@@ -212,7 +212,7 @@ describe('getAuthenticatedAppForUser', () => {
             if (name === '__fa_session__') return { value: revokedToken };
             return undefined;
         });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(result.currentUser).toEqual({ uid: 'u1' });
     });
@@ -230,7 +230,7 @@ describe('getAuthenticatedAppForUser', () => {
             if (name === '__fa_session__') return { value: revokedToken };
             return undefined;
         });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
         expect(initializeServerApp).toHaveBeenCalledTimes(1);
@@ -250,7 +250,7 @@ describe('getAuthenticatedAppForUser', () => {
             if (name === '__fa_session__') return { value: revokedToken };
             return undefined;
         });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
     });
@@ -269,7 +269,7 @@ describe('getAuthenticatedAppForUser', () => {
             if (name === '__fa_session__') return { value: revokedToken };
             return undefined;
         });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
         expect(initializeServerApp).toHaveBeenCalledTimes(1);
@@ -277,7 +277,7 @@ describe('getAuthenticatedAppForUser', () => {
 
     it('returns null user when no session cookie is present', async () => {
         cookieGet.mockReturnValue(undefined);
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
         expect(initializeApp).not.toHaveBeenCalled();
@@ -285,7 +285,7 @@ describe('getAuthenticatedAppForUser', () => {
 
     it('resolves the current user from a valid session cookie', async () => {
         cookieGet.mockReturnValue({ value: validToken });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(result.currentUser).toEqual({ uid: 'u1' });
         expect(result.firebaseServerApp).toBeDefined();
@@ -296,7 +296,7 @@ describe('getAuthenticatedAppForUser', () => {
         cookieGet.mockImplementation((name: string) =>
             name === '__fa_app_check_token__' ? { value: 'ac-token' } : { value: validToken },
         );
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         await getAuthenticatedAppForUser();
         expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: validToken, appCheckToken: 'ac-token' });
     });
@@ -305,7 +305,7 @@ describe('getAuthenticatedAppForUser', () => {
         cookieGet.mockImplementation((name: string) =>
             name === '__fa_app_check_token__' ? undefined : { value: validToken },
         );
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         await getAuthenticatedAppForUser();
         expect(mintServerAppCheckToken).toHaveBeenCalledWith('proj', 'key', undefined);
         expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: validToken, appCheckToken: undefined });
@@ -317,7 +317,7 @@ describe('getAuthenticatedAppForUser', () => {
             name === '__fa_app_check_token__' ? undefined : { value: validToken },
         );
         mintServerAppCheckToken.mockResolvedValue('minted-token');
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         await getAuthenticatedAppForUser();
         expect(mintServerAppCheckToken).toHaveBeenCalledWith('proj', 'key', fa.appCheck);
         expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: validToken, appCheckToken: 'minted-token' });
@@ -328,7 +328,7 @@ describe('getAuthenticatedAppForUser', () => {
         cookieGet.mockImplementation((name: string) =>
             name === '__fa_app_check_token__' ? { value: 'ac-token' } : { value: validToken },
         );
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         await getAuthenticatedAppForUser();
         expect(mintServerAppCheckToken).not.toHaveBeenCalled();
         expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: validToken, appCheckToken: 'ac-token' });
@@ -336,14 +336,14 @@ describe('getAuthenticatedAppForUser', () => {
 
     it('does not attempt to mint when there is no session cookie at all', async () => {
         cookieGet.mockReturnValue(undefined);
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         await getAuthenticatedAppForUser();
         expect(mintServerAppCheckToken).not.toHaveBeenCalled();
     });
 
     it('initializes the base app only once across repeated calls', async () => {
         cookieGet.mockReturnValue({ value: validToken });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         await getAuthenticatedAppForUser();
         expect(initializeApp).toHaveBeenCalledTimes(1);
     });
@@ -351,7 +351,7 @@ describe('getAuthenticatedAppForUser', () => {
     it('reads the session from a custom sessionCookieName instead of the default __fa_session__', async () => {
         fa.sessionCookieName = '__session';
         cookieGet.mockReturnValue({ value: validToken });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(cookieGet).toHaveBeenCalledWith('__session');
         expect(cookieGet).not.toHaveBeenCalledWith('__fa_session__');
@@ -363,7 +363,7 @@ describe('getAuthenticatedAppForUser', () => {
         getAuth.mockImplementation(() => {
             throw new Error('invalid token');
         });
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         const result = await getAuthenticatedAppForUser();
         expect(result).toEqual({ firebaseServerApp: null, currentUser: null });
     });

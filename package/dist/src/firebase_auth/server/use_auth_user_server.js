@@ -1,4 +1,4 @@
-import { getAuthenticatedAppForUser } from './firebase_server';
+import { getAuthenticatedAppForUser } from './firebase_server.js';
 /**
  * Resolves the current request's authenticated Firebase user.
  * @returns `{ user, loading: false }` — `loading` is always `false` here;

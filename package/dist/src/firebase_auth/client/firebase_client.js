@@ -1,6 +1,6 @@
 'use client';
 import config from '@intl-config';
-import requireFirebaseAuthConfig from '../require_config';
+import requireFirebaseAuthConfig from '../require_config.js';
 let cachedAppCheck;
 let cachedPerformance;
 const GRECAPTCHA_LOAD_TIMEOUT_MS = 15000;

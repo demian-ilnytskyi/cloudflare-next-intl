@@ -5,8 +5,8 @@ import {
     type Ref,
 } from 'react';
 import type { UrlObject } from 'url';
-import config from '../../config/intl_config';
-import { getLocaleCache } from '../../general/cache_variables';
+import config from '../../config/intl_config.js';
+import { getLocaleCache } from '../../general/cache_variables.js';
 
 type Url = string | UrlObject;
 

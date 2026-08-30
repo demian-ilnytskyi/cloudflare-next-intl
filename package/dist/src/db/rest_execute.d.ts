@@ -1,5 +1,5 @@
-import type { ParsedStatement } from './parse_statement';
-import type { RestClient } from './rest_client';
+import type { ParsedStatement } from './parse_statement.js';
+import type { RestClient } from './rest_client.js';
 /**
  * Runs a parsed statement through PostgREST and reshapes the response into the
  * `{ rows, rowCount }` contract `drizzle-orm/pg-proxy` expects.

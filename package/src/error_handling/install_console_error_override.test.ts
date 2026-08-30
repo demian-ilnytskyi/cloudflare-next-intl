@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import installConsoleErrorOverride from './install_console_error_override';
-import { consoleOverrideState } from './report_error';
+import installConsoleErrorOverride from './install_console_error_override.js';
+import { consoleOverrideState } from './report_error.js';
 
 describe('installConsoleErrorOverride', () => {
     const originalConsoleError = console.error;
@@ -12,7 +12,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('does nothing when overrideConsoleError is not true', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const before = console.error;
         install(undefined);
         install({ errorHandling: { overrideConsoleError: false } });
@@ -21,7 +21,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('routes console.error through onError and still calls the original', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         const original = vi.fn();
         console.error = original;
@@ -33,7 +33,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('logs a descriptive message instead of a bare undefined, but reports the raw value', async () => {
         vi.resetModules();
-        const { default: install, EMPTY_CONSOLE_ERROR_MESSAGE } = await import('./install_console_error_override');
+        const { default: install, EMPTY_CONSOLE_ERROR_MESSAGE } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         const original = vi.fn();
         console.error = original;
@@ -48,7 +48,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('handles environments where Error stack is empty when logging argument-less console.error', async () => {
         vi.resetModules();
-        const { default: install, EMPTY_CONSOLE_ERROR_MESSAGE } = await import('./install_console_error_override');
+        const { default: install, EMPTY_CONSOLE_ERROR_MESSAGE } = await import('./install_console_error_override.js');
         const original = vi.fn();
         console.error = original;
         const originalError = global.Error;
@@ -70,7 +70,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('only installs once', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onErrorA = vi.fn();
         const onErrorB = vi.fn();
         console.error = vi.fn();
@@ -83,7 +83,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('skips reporting (but still logs) when ignoreConsoleError returns true', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         const original = vi.fn();
         console.error = original;
@@ -95,7 +95,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('skips reporting known Firebase Auth error codes by default (defaultIgnoredConsoleErrors)', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         const original = vi.fn();
         console.error = original;
@@ -107,7 +107,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('ignoreConsoleErrors replaces the default list entirely', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         console.error = vi.fn();
         install({ errorHandling: { overrideConsoleError: true, onError, ignoreConsoleErrors: [] } });
@@ -117,7 +117,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('always logs every call, even ones reportError throttles away', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         const original = vi.fn();
         console.error = original;
@@ -131,7 +131,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('reports distinct messages individually — no count-based cap', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         console.error = vi.fn();
         install({ errorHandling: { overrideConsoleError: true, onError } });
@@ -141,8 +141,8 @@ describe('installConsoleErrorOverride', () => {
 
     it('sets consoleOverrideState.active to true once installed', async () => {
         vi.resetModules();
-        const { consoleOverrideState: freshState } = await import('./report_error');
-        const { default: install } = await import('./install_console_error_override');
+        const { consoleOverrideState: freshState } = await import('./report_error.js');
+        const { default: install } = await import('./install_console_error_override.js');
         console.error = vi.fn();
         expect(freshState.active).toBe(false);
         install({ errorHandling: { overrideConsoleError: true, onError: vi.fn() } });
@@ -151,7 +151,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('does not recurse: reportError\'s own console.error fallback (onError throwing) is suppressed while the override is active, so it never re-enters the override', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const originalConsoleErrorSpy = vi.fn();
         console.error = originalConsoleErrorSpy;
         const onError = vi.fn(() => { throw new Error('reporter broke'); });
@@ -169,7 +169,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('suppresses the real console.error output on the client when suppressClientConsoleError is true, but still reports via onError', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         const original = vi.fn();
         console.error = original;
@@ -181,7 +181,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('does not suppress console.error server-side even if suppressClientConsoleError is true (isClient omitted/false)', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         const original = vi.fn();
         console.error = original;
@@ -193,7 +193,7 @@ describe('installConsoleErrorOverride', () => {
 
     it('logs normally on the client when suppressClientConsoleError is not set', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         const original = vi.fn();
         console.error = original;

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import * as React from 'react';
-import AutoFirebasePerformanceEvents from './auto_firebase_performance_events';
+import AutoFirebasePerformanceEvents from './auto_firebase_performance_events.js';
 
 let performanceInstance: object | undefined = {};
 

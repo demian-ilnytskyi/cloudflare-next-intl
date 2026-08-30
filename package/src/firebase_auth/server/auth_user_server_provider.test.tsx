@@ -66,48 +66,48 @@ describe('resolveAuthUserAndRedirect', () => {
     });
 
     it('redirects guests to redirectAuthPath when the page is not an auth page', async () => {
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
-        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider.js');
         await expect(resolveAuthUserAndRedirect()).rejects.toThrow('NEXT_REDIRECT:/login');
     });
 
     it('redirects signed-in users away from auth pages to homePath', async () => {
         setHeaders('/login');
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({
             firebaseServerApp: null,
             currentUser: { uid: 'u1', email: 'a@b.com', emailVerified: true, displayName: null } as never,
         });
-        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider.js');
         await expect(resolveAuthUserAndRedirect()).rejects.toThrow('NEXT_REDIRECT:/');
     });
 
     it('returns the serialized user without redirecting for a signed-in non-auth page', async () => {
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({
             firebaseServerApp: null,
             currentUser: { uid: 'u1', email: 'a@b.com', emailVerified: true, displayName: 'Alice' } as never,
         });
-        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider.js');
         const result = await resolveAuthUserAndRedirect();
         expect(result).toEqual({ uid: 'u1', email: 'a@b.com', emailVerified: true, displayName: 'Alice' });
     });
 
     it('returns null without redirecting for a guest on an auth page', async () => {
         setHeaders('/login');
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
-        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider.js');
         const result = await resolveAuthUserAndRedirect();
         expect(result).toBeNull();
     });
 
     it('skips all redirect logic for whitelisted paths', async () => {
         currentConfig.firebaseAuth!.whiteListPaths = ['/dashboard'];
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
-        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider.js');
         const result = await resolveAuthUserAndRedirect();
         expect(result).toBeNull();
         expect(redirect).not.toHaveBeenCalled();
@@ -116,9 +116,9 @@ describe('resolveAuthUserAndRedirect', () => {
     it('skips redirect logic for nested subpaths of whitelisted paths', async () => {
         currentConfig.firebaseAuth!.whiteListPaths = ['/dashboard'];
         setHeaders('/dashboard/subpath');
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
-        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider.js');
         const result = await resolveAuthUserAndRedirect();
         expect(result).toBeNull();
         expect(redirect).not.toHaveBeenCalled();
@@ -126,43 +126,43 @@ describe('resolveAuthUserAndRedirect', () => {
 
     it('defaults to "/" when x-pathname header is missing', async () => {
         setHeaders(null);
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
-        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider.js');
         await expect(resolveAuthUserAndRedirect()).rejects.toThrow('NEXT_REDIRECT:/login');
     });
 
     it('preserves the query string when redirecting a guest to redirectAuthPath', async () => {
         setHeaders('/dashboard', '?test=test&a=b');
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
-        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider.js');
         await expect(resolveAuthUserAndRedirect()).rejects.toThrow('NEXT_REDIRECT:/login?test=test&a=b');
     });
 
     it('preserves the query string when redirecting a signed-in user to homePath', async () => {
         setHeaders('/login', '?test=test');
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({
             firebaseServerApp: null,
             currentUser: { uid: 'u1', email: 'a@b.com', emailVerified: true, displayName: null } as never,
         });
-        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider.js');
         await expect(resolveAuthUserAndRedirect()).rejects.toThrow('NEXT_REDIRECT:/?test=test');
     });
 
     it('drops the query string when preserveRedirectQuery is false', async () => {
         currentConfig.firebaseAuth!.preserveRedirectQuery = false;
         setHeaders('/dashboard', '?test=test');
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({ firebaseServerApp: null, currentUser: null });
-        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider.js');
         await expect(resolveAuthUserAndRedirect()).rejects.toThrow('NEXT_REDIRECT:/login');
     });
 
     it('throws if firebaseAuth is not configured', async () => {
         currentConfig = {};
-        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider');
+        const { resolveAuthUserAndRedirect } = await import('./auth_user_server_provider.js');
         await expect(resolveAuthUserAndRedirect()).rejects.toThrow(/firebaseAuth/);
     });
 });
@@ -175,12 +175,12 @@ describe('AuthUserServerProvider', () => {
     });
 
     it('resolves the user and renders children inside the client AuthUserProvider', async () => {
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         vi.mocked(getAuthenticatedAppForUser).mockResolvedValue({
             firebaseServerApp: null,
             currentUser: { uid: 'u1', email: 'a@b.com', emailVerified: true, displayName: null } as never,
         });
-        const { default: AuthUserServerProvider } = await import('./auth_user_server_provider');
+        const { default: AuthUserServerProvider } = await import('./auth_user_server_provider.js');
         render(await AuthUserServerProvider({ children: <span>child</span> }));
         expect(await screen.findByTestId('client-provider')).toBeInTheDocument();
         expect(await screen.findByText('child')).toBeInTheDocument();

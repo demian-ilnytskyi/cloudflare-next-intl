@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import encodeParam from './encode_param';
+import encodeParam from './encode_param.js';
 
 describe('encodeParam', () => {
     it('encodes null and undefined as NULL', () => {

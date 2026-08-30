@@ -1,12 +1,23 @@
 import type * as Pg from 'pg';
 import type { Client } from 'pg';
-import type { DbRoutingConfig, GenerateRoutingConfig, LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
-import reportError from '../error_handling/report_error';
-import requireDbConfig from './require_config';
-import resolveConfigValue from './resolve_config_value';
-import { resolveEnv } from '../server/functions/geo';
+import type { DbRoutingConfig, ErrorHandlingRoutingConfig, FirebaseAuthRoutingConfig, GenerateRoutingConfig } from '../types/types.js';
+import reportError from '../error_handling/report_error.js';
+import requireDbConfig from './require_config.js';
+import resolveConfigValue from './resolve_config_value.js';
+import { resolveEnv } from '../server/functions/geo.js';
 
-export type DbConfig = RoutingConfig<Locales, LocalePrefixMode>;
+/**
+ * The slice of `RoutingConfig` every `db` export actually reads — deliberately
+ * missing `locales`/`defaultLocale` so a standalone (non-Next.js) caller via
+ * `cloudflare-next-intl/db/standalone` can pass this directly, without the
+ * i18n fields a plain TypeScript project has no use for.
+ */
+export interface DbConfig {
+    db?: DbRoutingConfig;
+    firebaseAuth?: FirebaseAuthRoutingConfig;
+    generate?: GenerateRoutingConfig;
+    errorHandling?: ErrorHandlingRoutingConfig;
+}
 
 let pgModule: Promise<typeof Pg> | undefined;
 

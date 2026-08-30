@@ -1,8 +1,8 @@
 import { jsx as _jsx } from "react/jsx-runtime";
 import LinkComponent from 'next/link';
 import { forwardRef, } from 'react';
-import config from '../../config/intl_config';
-import { getLocaleCache } from '../../general/cache_variables';
+import config from '../../config/intl_config.js';
+import { getLocaleCache } from '../../general/cache_variables.js';
 function CustomLinkFunction({ href, prefetch, ...rest }, ref) {
     const localeValue = getLocaleCache();
     const needsLangPath = localeValue !== config.defaultLocale || !localeValue;

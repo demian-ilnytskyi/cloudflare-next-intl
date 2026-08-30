@@ -1,4 +1,4 @@
-import type { AuthActionCodeSettings, AuthActionMessages, AuthFormState } from '../types';
+import type { AuthActionCodeSettings, AuthActionMessages, AuthFormState } from '../types.js';
 /**
  * Builds a login server action for React's `useActionState` form hook.
  * The returned function has the `(prevState, formData) => Promise<AuthFormState>`

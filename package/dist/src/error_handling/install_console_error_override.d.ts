@@ -1,4 +1,4 @@
-import { type ReportErrorConfig } from './report_error';
+import { type ReportErrorConfig } from './report_error.js';
 /**
  * Replaces the global `console.error` so every `console.error(...)` call is
  * also routed through `config.errorHandling.onError`/`reportError` — the

@@ -1,5 +1,5 @@
-import type { DbConfig } from './connection';
-import requireDbConfig from './require_config';
+import type { DbConfig } from './connection.js';
+import requireDbConfig from './require_config.js';
 
 /**
  * Resolves the JWT that identifies the caller to Supabase, trying
@@ -19,7 +19,7 @@ export default async function resolveAccessToken(config: DbConfig): Promise<stri
     const fromConfig = await db.getAccessToken?.();
     if (fromConfig) return fromConfig;
     if (config.firebaseAuth) {
-        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server');
+        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server.js');
         const { user } = await getAuthUser();
         const token = await user?.getIdToken(false);
         if (token) return token;

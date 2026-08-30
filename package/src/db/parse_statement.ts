@@ -1,6 +1,6 @@
-import tokenizeSql, { type SqlToken } from './sql_tokens';
-import parseWhere, { type SqlValue, type WhereNode } from './parse_where';
-import UnsupportedSqlError from './unsupported_sql';
+import tokenizeSql, { type SqlToken } from './sql_tokens.js';
+import parseWhere, { type SqlValue, type WhereNode } from './parse_where.js';
+import UnsupportedSqlError from './unsupported_sql.js';
 
 /** One selected/returned column, with its output name when aliased. */
 export interface Projection {

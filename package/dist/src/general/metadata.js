@@ -1,6 +1,6 @@
 import { cache } from "react";
-import config from "../config/intl_config";
-import reportError from "../error_handling/report_error";
+import config from "../config/intl_config.js";
+import reportError from "../error_handling/report_error.js";
 /**
  * Builds the `alternates` field for Next's `generateMetadata` — a canonical
  * URL plus per-locale `hreflang` links, exported memoized as `alternatesLinks`

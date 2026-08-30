@@ -1,4 +1,4 @@
-import type { ConsentValue, CookieDialogClassNames, CookieDialogStyles } from '../../types';
+import type { ConsentValue, CookieDialogClassNames, CookieDialogStyles } from '../../types.js';
 export interface CookieConsentDialogProps {
     /** Banner message text. */
     message?: React.ReactNode;

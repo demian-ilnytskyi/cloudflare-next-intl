@@ -718,6 +718,36 @@ query code is identical either way — switching is a config change only.
 A direct connection always wins if both are configured, so adding a `supabase`
 block cannot silently reroute live traffic.
 
+#### Standalone usage (no Next.js / `@intl-config`)
+
+`withPublicDb`/`withUserDb` normally read their `db` config from
+`@intl-config` (Next.js apps, via `setIntlConfig`). Outside Next.js — Firebase
+Functions, a script, any plain TypeScript project with no bundler alias to
+set up — pass the `db` block directly as the last argument instead:
+
+```typescript
+// e.g. firebase/functions/src/index.ts — no @intl-config alias needed
+import { withPublicDb, withUserDb } from "cloudflare-next-intl/db";
+
+const rows = await withPublicDb(
+    (db) => db.select().from(bonds).limit(10),
+    { connectionString: process.env.DATABASE_URL },
+);
+
+const own = await withUserDb(
+    (db) => db.select().from(invitations),
+    uid,
+    { supabase: { url: process.env.SUPABASE_URL, anonKey: process.env.SUPABASE_ANON_KEY } },
+);
+```
+
+Import the whole package (`npm install cloudflare-next-intl`) but only the
+`cloudflare-next-intl/db` subpath — its dynamic `import()`s for `pg`/
+`drizzle-orm`/`@supabase/supabase-js` mean nothing Next.js/React-specific ever
+loads. This is the same `db` export Next.js apps use; the override argument is
+additive; Next.js call sites that omit it keep reading `@intl-config` exactly
+as before.
+
 ```typescript
 export default setIntlConfig({
     locales: ["en", "uk"] as const,
@@ -897,12 +927,12 @@ allowed to see the rows; call `.transaction(...)` on the handle either one
 hands your callback when a write needs more than one statement to succeed or
 fail together (see [Multi-statement transactions](#multi-statement-transactions-dbtransaction) above):
 
-- `withPublicDb(fn)` — runs `fn` as the anonymous role: a pooled connection
-  with no transaction/role switch in connection-string mode, or the anon key
-  as the PostgREST bearer token in Supabase mode. No user id is attached
-  either way, so RLS policies that test `auth.jwt()->>'sub'` will deny access
-  — use `withUserDb` for user-owned rows.
-- `withUserDb(fn, uid?)` — runs `fn` as the signed-in user. In
+- `withPublicDb(fn, dbOverride?)` — runs `fn` as the anonymous role: a pooled
+  connection with no transaction/role switch in connection-string mode, or the
+  anon key as the PostgREST bearer token in Supabase mode. No user id is
+  attached either way, so RLS policies that test `auth.jwt()->>'sub'` will
+  deny access — use `withUserDb` for user-owned rows.
+- `withUserDb(fn, uid?, dbOverride?)` — runs `fn` as the signed-in user. In
   connection-string mode this opens a transaction where Postgres sees the
   resolved user id as `auth.jwt()->>'sub'` under `db.authenticatedRole`; in
   Supabase mode identity instead rides on the JWT from `getAccessToken`/
@@ -912,6 +942,11 @@ fail together (see [Multi-statement transactions](#multi-statement-transactions-
   the id comes from `db.getUserId()` if set, otherwise automatically from the
   signed-in Firebase user when `firebaseAuth` is configured — you rarely need
   to pass it explicitly.
+
+`dbOverride` — a `db` block (`{ connectionString }` or `{ supabase }`) used
+for that one call instead of `@intl-config`'s. This is what makes `db` usable
+outside Next.js — see [Standalone usage](#standalone-usage-no-nextintl-config)
+below.
 
 ```typescript
 // anywhere on the server

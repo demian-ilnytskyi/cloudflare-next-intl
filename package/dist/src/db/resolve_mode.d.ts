@@ -1,4 +1,4 @@
-import type { DbRoutingConfig, SupabaseDbConfig } from '../types/types';
+import type { DbRoutingConfig, SupabaseDbConfig } from '../types/types.js';
 /** Which transport the `db` exports use for a given config. */
 export type DbMode = 'postgres' | 'supabase';
 /**

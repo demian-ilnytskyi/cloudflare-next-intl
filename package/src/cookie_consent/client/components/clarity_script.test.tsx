@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, waitFor, cleanup } from '@testing-library/react';
-import ClarityScript from './clarity_script';
+import ClarityScript from './clarity_script.js';
 
 const clarityInit = vi.fn();
 const clarityConsent = vi.fn();
@@ -35,7 +35,7 @@ describe('ClarityScript', () => {
         vi.resetModules();
         vi.doMock('@microsoft/clarity', () => Promise.reject(new Error('load failed')));
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-        const { default: FreshClarityScript } = await import('./clarity_script');
+        const { default: FreshClarityScript } = await import('./clarity_script.js');
         render(<FreshClarityScript projectId="proj-123" />);
         await waitFor(() => expect(errorSpy).toHaveBeenCalled());
         errorSpy.mockRestore();

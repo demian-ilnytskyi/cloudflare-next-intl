@@ -1,4 +1,4 @@
-import type { CookieConsentContextType } from '../types';
+import type { CookieConsentContextType } from '../types.js';
 /**
  * Reads cookie-consent + privacy-policy-update state. Must be called within
  * a `CookieConsentProvider`.

@@ -1,13 +1,13 @@
 import { jsx as _jsx } from "react/jsx-runtime";
-import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables";
-import { getMessage } from "../functions/server";
+import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
+import { getMessage } from "../functions/server.js";
 import dynamic from "next/dynamic";
-import { localesSet } from "../../config/middleware";
-import config from "../../config/intl_config";
-import resolveRequiresConsent from "../../cookie_consent/gdpr_countries";
-import installConsoleErrorOverride from "../../error_handling/install_console_error_override";
-import reportError from "../../error_handling/report_error";
-const LocationzationClientProvider = dynamic(() => import("../../client/components/client_provider_static"));
+import { localesSet } from "../../config/middleware.js";
+import config from "../../config/intl_config.js";
+import resolveRequiresConsent from "../../cookie_consent/gdpr_countries.js";
+import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
+import reportError from "../../error_handling/report_error.js";
+const LocationzationClientProvider = dynamic(() => import("../../client/components/client_provider_static.js"));
 /**
  * `output: 'export'`-safe variant of `IntlProvider`, exported publicly as
  * `cloudflare-next-intl/serverProviderStatic`. Identical to the regular

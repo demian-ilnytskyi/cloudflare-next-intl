@@ -11,7 +11,7 @@ describe('installGlobalErrorOverride', () => {
     });
 
     it('does nothing when overrideWindowErrors and overrideConsoleError are both not true', async () => {
-        const { default: install } = await import('./install_global_error_override');
+        const { default: install } = await import('./install_global_error_override.js');
         const addEventListener = vi.spyOn(window, 'addEventListener');
         install(undefined);
         install({ errorHandling: { overrideWindowErrors: false, overrideConsoleError: false } });
@@ -20,7 +20,7 @@ describe('installGlobalErrorOverride', () => {
     });
 
     it('defaults to overrideConsoleError\'s value when overrideWindowErrors is omitted', async () => {
-        const { default: install } = await import('./install_global_error_override');
+        const { default: install } = await import('./install_global_error_override.js');
         const onError = vi.fn();
         install({ errorHandling: { overrideConsoleError: true, onError } });
         window.dispatchEvent(Object.assign(new Event('error'), { message: 'boom', error: new Error('boom') }));
@@ -28,7 +28,7 @@ describe('installGlobalErrorOverride', () => {
     });
 
     it('overrideWindowErrors: false opts out even when overrideConsoleError is true', async () => {
-        const { default: install } = await import('./install_global_error_override');
+        const { default: install } = await import('./install_global_error_override.js');
         const onError = vi.fn();
         install({ errorHandling: { overrideConsoleError: true, overrideWindowErrors: false, onError } });
         window.dispatchEvent(Object.assign(new Event('error'), { message: 'boom', error: new Error('boom') }));
@@ -36,7 +36,7 @@ describe('installGlobalErrorOverride', () => {
     });
 
     it('reports uncaught errors via the error listener, using event.error when present', async () => {
-        const { default: install } = await import('./install_global_error_override');
+        const { default: install } = await import('./install_global_error_override.js');
         const onError = vi.fn();
         install({ errorHandling: { overrideWindowErrors: true, onError } });
         const err = new Error('boom');
@@ -45,7 +45,7 @@ describe('installGlobalErrorOverride', () => {
     });
 
     it('falls back to the stringified message when event.error is absent', async () => {
-        const { default: install } = await import('./install_global_error_override');
+        const { default: install } = await import('./install_global_error_override.js');
         const onError = vi.fn();
         install({ errorHandling: { overrideWindowErrors: true, onError } });
         window.dispatchEvent(Object.assign(new Event('error'), { message: 'boom, no error object' }));
@@ -53,7 +53,7 @@ describe('installGlobalErrorOverride', () => {
     });
 
     it('reports unhandled promise rejections', async () => {
-        const { default: install } = await import('./install_global_error_override');
+        const { default: install } = await import('./install_global_error_override.js');
         const onError = vi.fn();
         install({ errorHandling: { overrideWindowErrors: true, onError } });
         const reason = new Error('rejected');
@@ -64,7 +64,7 @@ describe('installGlobalErrorOverride', () => {
     it('is a no-op when window does not exist (server-side)', async () => {
         vi.stubGlobal('window', undefined);
         try {
-            const { default: install } = await import('./install_global_error_override');
+            const { default: install } = await import('./install_global_error_override.js');
             const onError = vi.fn();
             expect(() => install({ errorHandling: { overrideWindowErrors: true, onError } })).not.toThrow();
         } finally {
@@ -73,7 +73,7 @@ describe('installGlobalErrorOverride', () => {
     });
 
     it('only installs once', async () => {
-        const { default: install } = await import('./install_global_error_override');
+        const { default: install } = await import('./install_global_error_override.js');
         const onErrorA = vi.fn();
         const onErrorB = vi.fn();
         install({ errorHandling: { overrideWindowErrors: true, onError: onErrorA } });

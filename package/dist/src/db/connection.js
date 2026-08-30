@@ -1,7 +1,7 @@
-import reportError from '../error_handling/report_error';
-import requireDbConfig from './require_config';
-import resolveConfigValue from './resolve_config_value';
-import { resolveEnv } from '../server/functions/geo';
+import reportError from '../error_handling/report_error.js';
+import requireDbConfig from './require_config.js';
+import resolveConfigValue from './resolve_config_value.js';
+import { resolveEnv } from '../server/functions/geo.js';
 let pgModule;
 /**
  * Loads `pg` lazily, so an app that never touches the Postgres transport never

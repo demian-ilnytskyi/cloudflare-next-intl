@@ -1,5 +1,5 @@
 "use client";
-import reportError from "../../error_handling/report_error";
+import reportError from "../../error_handling/report_error.js";
 /**
  * Client-only: sets a `document.cookie` value directly. Not used by this
  * package's own locale handling (that goes through `intlMiddleware` server-side)

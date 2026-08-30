@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { localeCookieName, isBotCookieKey, isDarkCookieKey } from './cookie_key';
+import { localeCookieName, isBotCookieKey, isDarkCookieKey } from './cookie_key.js';
 
 describe('cookie_key constants', () => {
     it('exports distinct, stable cookie names', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import tokenizeSql from './sql_tokens';
+import tokenizeSql from './sql_tokens.js';
 
 describe('tokenizeSql', () => {
     it('tokenizes a drizzle-shaped select', () => {

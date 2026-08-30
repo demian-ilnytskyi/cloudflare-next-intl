@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import config from '@intl-config';
-import decodeJwtPayload from '../decode_jwt_payload';
-import isWhitelisted from '../is_whitelisted';
-import withRedirectQuery from '../preserve_redirect_query';
+import decodeJwtPayload from '../decode_jwt_payload.js';
+import isWhitelisted from '../is_whitelisted.js';
+import withRedirectQuery from '../preserve_redirect_query.js';
 
 export const defaultSessionCookieName = '__fa_session__';
 export const defaultRefreshTokenCookieName = '__fa_refresh_token__';

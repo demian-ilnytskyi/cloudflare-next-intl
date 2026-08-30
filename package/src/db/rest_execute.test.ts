@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import executeRest from './rest_execute';
-import type { RestClient } from './rest_client';
-import UnsupportedSqlError from './unsupported_sql';
+import executeRest from './rest_execute.js';
+import type { RestClient } from './rest_client.js';
+import UnsupportedSqlError from './unsupported_sql.js';
 
 function stubClient(result: { data: unknown; error?: { message: string; code?: string } | null; count?: number | null }) {
     const calls: { method: string; args: unknown[] }[] = [];

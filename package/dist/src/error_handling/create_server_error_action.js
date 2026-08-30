@@ -1,5 +1,5 @@
-import reportError from './report_error';
-import stringifyUnknown from './stringify_unknown';
+import reportError from './report_error.js';
+import stringifyUnknown from './stringify_unknown.js';
 /**
  * Reads request context (page path, user agent, referer) via `next/headers`
  * for a client-originated error report. `path` comes from `x-pathname`, set

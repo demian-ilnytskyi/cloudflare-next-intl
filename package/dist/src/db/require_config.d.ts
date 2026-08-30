@@ -1,4 +1,4 @@
-import type { DbRoutingConfig } from '../types/types';
+import type { DbRoutingConfig } from '../types/types.js';
 /**
  * Asserts that the optional `db` config is present, narrowing it from
  * `DbRoutingConfig | undefined` to `DbRoutingConfig` for the rest of the

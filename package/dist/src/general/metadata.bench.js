@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { alternatesLinks, languages } from './metadata';
+import { alternatesLinks, languages } from './metadata.js';
 describe('languages', () => {
     bench('builds per-locale hreflang map for one URL', () => {
         languages(`https://example.com/${Math.random()}`, '/about');

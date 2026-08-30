@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { setLocaleCache, getLocaleCache, setMessageForLocaleCache, getMessageCache, setTranslationCache, getTranslationCache, } from './cache_variables';
+import { setLocaleCache, getLocaleCache, setMessageForLocaleCache, getMessageCache, setTranslationCache, getTranslationCache, } from './cache_variables.js';
 describe('cache_variables', () => {
     bench('setLocaleCache + getLocaleCache round-trip', () => {
         setLocaleCache('en');

@@ -1,13 +1,13 @@
 import { jsx as _jsx } from "react/jsx-runtime";
-import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables";
-import { getMessage } from "../functions/server";
+import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
+import { getMessage } from "../functions/server.js";
 import dynamic from "next/dynamic";
-import { localesSet } from "../../config/middleware";
-import config from "../../config/intl_config";
-import resolveRequiresConsent from "../../cookie_consent/gdpr_countries";
-import installConsoleErrorOverride from "../../error_handling/install_console_error_override";
-import reportError from "../../error_handling/report_error";
-const LocationzationClientProvider = dynamic(() => import("../../client/components/client_provider"));
+import { localesSet } from "../../config/middleware.js";
+import config from "../../config/intl_config.js";
+import resolveRequiresConsent from "../../cookie_consent/gdpr_countries.js";
+import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
+import reportError from "../../error_handling/report_error.js";
+const LocationzationClientProvider = dynamic(() => import("../../client/components/client_provider.js"));
 let authUserServerProviderModule;
 /**
  * Server component that provides locale/messages context to the rest of the
@@ -127,7 +127,7 @@ export default async function LocationzationProvider({ language, messages, stati
         }
         if (!staticSafe) {
             if (!authUserServerProviderModule) {
-                authUserServerProviderModule = await import("../../firebase_auth/server/auth_user_server_provider");
+                authUserServerProviderModule = await import("../../firebase_auth/server/auth_user_server_provider.js");
             }
             initialAuthUser = await authUserServerProviderModule.resolveAuthUserAndRedirect();
         }

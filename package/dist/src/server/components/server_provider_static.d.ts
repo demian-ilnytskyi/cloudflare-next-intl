@@ -1,4 +1,4 @@
-import type { TranslationObject } from "../../types/types";
+import type { TranslationObject } from "../../types/types.js";
 /**
  * `output: 'export'`-safe variant of `IntlProvider`, exported publicly as
  * `cloudflare-next-intl/serverProviderStatic`. Identical to the regular

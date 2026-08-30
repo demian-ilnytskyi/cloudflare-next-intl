@@ -1,10 +1,10 @@
 "use client";
 import { jsx as _jsx } from "react/jsx-runtime";
 import { forwardRef, useEffect, useState, } from 'react';
-import config from '../../config/intl_config';
-import usePathname from '../hooks/use_path_name';
-import { localeCookieName } from '../../config/cookie_key';
-import setCookie from '../functions/set_cookie';
+import config from '../../config/intl_config.js';
+import usePathname from '../hooks/use_path_name.js';
+import { localeCookieName } from '../../config/cookie_key.js';
+import setCookie from '../functions/set_cookie.js';
 import { useSearchParams } from 'next/navigation';
 function ClientLocaleLinkComponent({ locale, className, ...rest }, ref) {
     const pathname = usePathname();

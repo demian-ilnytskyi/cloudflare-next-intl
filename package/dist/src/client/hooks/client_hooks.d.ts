@@ -1,4 +1,4 @@
-import type { TranslatorReturnType } from "../../types/types";
+import type { TranslatorReturnType } from "../../types/types.js";
 /**
  * Client Component `useLocale` — reached via the default condition of the
  * `cloudflare-next-intl/use` subpath (Server Components get the

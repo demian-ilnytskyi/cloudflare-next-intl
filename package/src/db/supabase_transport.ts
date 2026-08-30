@@ -1,10 +1,10 @@
-import type { SupabaseDbConfig } from '../types/types';
-import createRestClient, { type RestClient } from './rest_client';
-import parseStatement from './parse_statement';
-import executeRest from './rest_execute';
-import UnsupportedSqlError from './unsupported_sql';
-import inlineParams from './inline_params';
-import parseComposite from './parse_composite';
+import type { SupabaseDbConfig } from '../types/types.js';
+import createRestClient, { type RestClient } from './rest_client.js';
+import parseStatement from './parse_statement.js';
+import executeRest from './rest_execute.js';
+import UnsupportedSqlError from './unsupported_sql.js';
+import inlineParams from './inline_params.js';
+import parseComposite from './parse_composite.js';
 
 const DEFAULT_EXEC_FUNCTION = 'cfni_exec';
 

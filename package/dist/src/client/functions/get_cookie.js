@@ -1,5 +1,5 @@
 "use client";
-import reportError from "../../error_handling/report_error";
+import reportError from "../../error_handling/report_error.js";
 /**
  * Client-only: reads a `document.cookie` value by name. Pairs with
  * {@link setCookie} for your OWN client-side cookies — this package's

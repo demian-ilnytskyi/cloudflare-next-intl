@@ -1,4 +1,4 @@
-import type { SupabaseDbConfig } from '../types/types';
+import type { SupabaseDbConfig } from '../types/types.js';
 export interface SupabaseRpcError {
     message: string;
     code?: string;

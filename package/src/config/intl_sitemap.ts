@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
-import { languages } from '../general/metadata';
-import config from './intl_config';
-import type { Alternates, IntlSitemap } from '../types/types';
+import { languages } from '../general/metadata.js';
+import config from './intl_config.js';
+import type { Alternates, IntlSitemap } from '../types/types.js';
 import { cache } from 'react';
 
 function generateAlternates(url: string, link?: string): Alternates {

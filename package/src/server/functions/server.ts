@@ -1,11 +1,11 @@
-import { getTranslationsImpl } from "../../general/general_functions";
-import config from "../../config/intl_config";
-import { localeCookieName } from "../../config/cookie_key";
-import type { TranslationObject, TranslatorReturnType } from "../../types/types";
-import { getLocaleCache, getMessageCache, getTranslationCache, setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables";
+import { getTranslationsImpl } from "../../general/general_functions.js";
+import config from "../../config/intl_config.js";
+import { localeCookieName } from "../../config/cookie_key.js";
+import type { TranslationObject, TranslatorReturnType } from "../../types/types.js";
+import { getLocaleCache, getMessageCache, getTranslationCache, setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
 import { cache } from "react";
-import { localesSet } from "../../config/middleware";
-import reportError from "../../error_handling/report_error";
+import { localesSet } from "../../config/middleware.js";
+import reportError from "../../error_handling/report_error.js";
 
 const isDev = process.env.NODE_ENV === 'development';
 

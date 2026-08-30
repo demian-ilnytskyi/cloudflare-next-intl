@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import CookieConsentDialog from './cookie_consent_dialog';
+import CookieConsentDialog from './cookie_consent_dialog.js';
 
 const setConsent = vi.fn();
 let consent: boolean | null = null;

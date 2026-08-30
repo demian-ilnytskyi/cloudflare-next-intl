@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getCountry, getTimezone, resolveEnv } from './geo';
+import { getCountry, getTimezone, resolveEnv } from './geo.js';
 
 vi.mock('next/headers', () => ({
     headers: vi.fn(),
@@ -458,7 +458,7 @@ describe('geo header name overrides', () => {
             },
         }));
         vi.resetModules();
-        const { getCountry: getC, getTimezone: getT } = await import('./geo');
+        const { getCountry: getC, getTimezone: getT } = await import('./geo.js');
         expect(await getC(new Headers({ 'x-custom-country': 'IT' }))).toBe('IT');
         expect(await getT(new Headers({ 'x-custom-tz': 'Europe/Rome' }))).toBe('Europe/Rome');
         vi.doUnmock('../../config/intl_config');
@@ -470,7 +470,7 @@ describe('geo header name overrides', () => {
             throw new Error('module load failed');
         });
         vi.resetModules();
-        const { getCountry: getC, getTimezone: getT } = await import('./geo');
+        const { getCountry: getC, getTimezone: getT } = await import('./geo.js');
         expect(await getC(new Headers({ 'cf-ipcountry': 'PL' }))).toBe('PL');
         expect(await getT(new Headers({ 'cf-timezone': 'Europe/Warsaw' }))).toBe('Europe/Warsaw');
         vi.doUnmock('../../config/intl_config');

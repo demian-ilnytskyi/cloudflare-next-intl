@@ -6,7 +6,7 @@ import {
     setMessageForLocaleCache,
     getMessageCache,
     setTranslationCache,
-} from './cache_variables';
+} from './cache_variables.js';
 
 describe('cache_variables', () => {
     it('sets and gets the current locale', () => {

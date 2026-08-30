@@ -1,9 +1,9 @@
 import type { NextResponse } from 'next/server';
 import type { Languages } from 'next/dist/lib/metadata/types/alternative-urls-types';
 import type { Videos } from 'next/dist/lib/metadata/types/metadata-types';
-import type { CookieConsentDialogProps } from '../cookie_consent/client/components/cookie_consent_dialog';
-import type { PrivacyPolicyUpdateDialogProps } from '../cookie_consent/client/components/privacy_policy_update_dialog';
-import type { ConsentValue } from '../cookie_consent/types';
+import type { CookieConsentDialogProps } from '../cookie_consent/client/components/cookie_consent_dialog.js';
+import type { PrivacyPolicyUpdateDialogProps } from '../cookie_consent/client/components/privacy_policy_update_dialog.js';
+import type { ConsentValue } from '../cookie_consent/types.js';
 import type { User } from 'firebase/auth';
 /**
  * Custom middleware hook, run by `intlMiddleware` for your own logic

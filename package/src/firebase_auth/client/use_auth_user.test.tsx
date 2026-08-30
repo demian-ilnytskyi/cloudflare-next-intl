@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import useAuthUser from './use_auth_user';
-import { AuthUserContext } from './auth_user_provider';
+import useAuthUser from './use_auth_user.js';
+import { AuthUserContext } from './auth_user_provider.js';
 
 function Consumer() {
     const ctx = useAuthUser();

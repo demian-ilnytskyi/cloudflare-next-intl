@@ -1,4 +1,4 @@
-import type { AuthActionCodeSettings, AuthUser, SerializedAuthUser } from '../types';
+import type { AuthActionCodeSettings, AuthUser, SerializedAuthUser } from '../types.js';
 export interface AuthUserContextType {
     /** Current Firebase user, or `null` if signed out (or not yet resolved while `loading`). */
     user: AuthUser | null;

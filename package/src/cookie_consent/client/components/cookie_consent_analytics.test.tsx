@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import * as React from 'react';
-import CookieConsentAnalytics from './cookie_consent_analytics';
+import CookieConsentAnalytics from './cookie_consent_analytics.js';
 
 let consent: boolean | null = null;
 let requiresConsent = true;

@@ -1,8 +1,8 @@
 'use client';
 
 import { useReportWebVitals } from 'next/web-vitals';
-import reportError from '../../../error_handling/report_error';
-import { getFirebaseAuthClient, getFirebasePerformanceSync } from '../firebase_client';
+import reportError from '../../../error_handling/report_error.js';
+import { getFirebaseAuthClient, getFirebasePerformanceSync } from '../firebase_client.js';
 
 interface WebVitalMetric {
     name: 'CLS' | 'FCP' | 'FID' | 'LCP' | 'TTFB' | 'INP';

@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { googleConsentModeBootstrapScript } from './cookie_consent_analytics';
+import { googleConsentModeBootstrapScript } from './cookie_consent_analytics.js';
 describe('googleConsentModeBootstrapScript', () => {
     bench('all providers configured', () => {
         googleConsentModeBootstrapScript({

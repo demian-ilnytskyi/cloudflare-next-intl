@@ -10,7 +10,7 @@ vi.mock('./firebase_server', () => ({
 
 describe('useAuthUser (server)', () => {
     bench('resolves the authenticated user', async () => {
-        const { default: useAuthUser } = await import('./use_auth_user_server');
+        const { default: useAuthUser } = await import('./use_auth_user_server.js');
         await useAuthUser();
     });
 });

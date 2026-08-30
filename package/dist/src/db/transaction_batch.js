@@ -1,6 +1,6 @@
-import createRestClient from './rest_client';
-import inlineParams from './inline_params';
-import { parseExecResult, describeFailure } from './supabase_transport';
+import createRestClient from './rest_client.js';
+import inlineParams from './inline_params.js';
+import { parseExecResult, describeFailure } from './supabase_transport.js';
 /**
  * Fixed, unlike `cfni_exec`'s `execFunction` — `cfni_exec_batch` ships in the
  * same `supabase/cfni_exec.sql` file and is always available whenever

@@ -1,5 +1,5 @@
-import type { SupabaseDbConfig } from '../types/types';
-import { type ExecResult } from './supabase_transport';
+import type { SupabaseDbConfig } from '../types/types.js';
+import { type ExecResult } from './supabase_transport.js';
 /** One statement to run inside a batch: Drizzle's `.toSQL()` output. */
 export interface BatchQuery {
     sql: string;

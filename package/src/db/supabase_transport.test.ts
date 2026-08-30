@@ -8,7 +8,7 @@ const { rpc, from, createClientMock } = vi.hoisted(() => {
 });
 vi.mock('@supabase/supabase-js', () => ({ createClient: createClientMock }));
 
-import createSupabaseTransport from './supabase_transport';
+import createSupabaseTransport from './supabase_transport.js';
 
 const endpoint = { url: 'https://abc.supabase.co', anonKey: 'anon-key' };
 

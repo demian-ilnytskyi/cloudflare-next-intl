@@ -1,4 +1,4 @@
-import type { GenerateRoutingConfig, RequestOrHeaders } from '../../types/types';
+import type { GenerateRoutingConfig, RequestOrHeaders } from '../../types/types.js';
 /** Default request headers read to resolve the visitor's country, in order. */
 export declare const defaultCountryHeaderNames: readonly string[];
 /** Default request headers read to resolve the visitor's timezone, in order. */

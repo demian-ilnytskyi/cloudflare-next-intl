@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { getCountry, getTimezone } from './geo';
+import { getCountry, getTimezone } from './geo.js';
 describe('geo benchmarks', () => {
     const headers = new Headers({
         'x-cf-country': 'UA',

@@ -1,6 +1,6 @@
 
 import intlConfig from '@intl-config';
-import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
+import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types.js';
 
 function getConfig(): RoutingConfig<Locales, LocalePrefixMode> {
     const value = intlConfig;

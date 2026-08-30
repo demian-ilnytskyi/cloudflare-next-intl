@@ -1,6 +1,6 @@
 import { bench, describe } from 'vitest';
-import firebaseAuthErrorMessage from './firebase_auth_error_helper';
-import { setMessageForLocaleCache } from '../../general/cache_variables';
+import firebaseAuthErrorMessage from './firebase_auth_error_helper.js';
+import { setMessageForLocaleCache } from '../../general/cache_variables.js';
 
 describe('firebaseAuthErrorMessage', () => {
     bench('no message cache for locale: falls back to English default', () => {

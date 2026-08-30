@@ -1,6 +1,6 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { Moon, Sun } from "./icons";
-import ThemeSwticherButton from "./theme_switcher_button";
+import { Moon, Sun } from "./icons.js";
+import ThemeSwticherButton from "./theme_switcher_button.js";
 /**
  * Light/dark theme toggle button, exported as `ThemeSwitcher` from
  * `cloudflare-next-intl/ThemeSwitcher`. Persists the choice via the

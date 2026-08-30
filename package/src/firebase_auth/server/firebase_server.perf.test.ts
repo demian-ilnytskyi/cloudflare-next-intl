@@ -47,7 +47,7 @@ afterEach(() => {
 
 describe('getAuthenticatedAppForUser SSR cost', () => {
     it('calls initializeApp exactly once across multiple calls within the same module scope', async () => {
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
 
         await getAuthenticatedAppForUser();
         await getAuthenticatedAppForUser();

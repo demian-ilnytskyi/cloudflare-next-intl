@@ -1,5 +1,5 @@
-import reportError from './report_error';
-import stringifyUnknown from './stringify_unknown';
+import reportError from './report_error.js';
+import stringifyUnknown from './stringify_unknown.js';
 /**
  * Client-only: attaches `window.addEventListener('error'|'unhandledrejection', ...)`
  * handlers that route through `config.errorHandling.onError`/`reportError` —

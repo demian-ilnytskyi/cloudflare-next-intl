@@ -24,7 +24,7 @@ vi.mock('firebase/auth', () => ({
 
 describe('getAuthenticatedAppForUser', () => {
     bench('resolves a validated session (mocked Firebase)', async () => {
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         await getAuthenticatedAppForUser();
     });
 });

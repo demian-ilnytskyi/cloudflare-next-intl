@@ -2,7 +2,7 @@
 import { usePathname } from 'next/navigation';
 import { useReportWebVitals } from 'next/web-vitals';
 import { useEffect } from 'react';
-import useCookieConsent from '../use_cookie_consent';
+import useCookieConsent from '../use_cookie_consent.js';
 const metricEventNames = {
     CLS: 'web_cls',
     FCP: 'web_fcp',

@@ -6,12 +6,12 @@ import {
     useState,
     type Ref,
 } from 'react';
-import config from '../../config/intl_config';
-import usePathname from '../hooks/use_path_name';
-import { localeCookieName } from '../../config/cookie_key';
-import setCookie from '../functions/set_cookie';
+import config from '../../config/intl_config.js';
+import usePathname from '../hooks/use_path_name.js';
+import { localeCookieName } from '../../config/cookie_key.js';
+import setCookie from '../functions/set_cookie.js';
 import { useSearchParams } from 'next/navigation';
-import type { LocaleLinkProps } from './locale_link';
+import type { LocaleLinkProps } from './locale_link.js';
 
 
 function ClientLocaleLinkComponent(

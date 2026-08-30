@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import parseStatement from './parse_statement';
-import UnsupportedSqlError from './unsupported_sql';
+import parseStatement from './parse_statement.js';
+import UnsupportedSqlError from './unsupported_sql.js';
 
 describe('parseStatement — select', () => {
     it('parses a projection, table, where, order, limit and offset', () => {

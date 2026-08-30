@@ -1,12 +1,12 @@
-import config from '../config/intl_config';
-import requireDbConfig from './require_config';
-import { withDbClient } from './connection';
-import resolveDbMode from './resolve_mode';
-import resolveSupabaseEndpoint from './supabase_config';
-import createSupabaseTransport from './supabase_transport';
-import resolveAccessToken from './access_token';
-import runTransactionBatch from './transaction_batch';
-import inlineParams from './inline_params';
+import requireDbConfig from './require_config.js';
+import { withDbClient } from './connection.js';
+import resolveDbConfig from './resolve_db_config.js';
+import resolveDbMode from './resolve_mode.js';
+import resolveSupabaseEndpoint from './supabase_config.js';
+import createSupabaseTransport from './supabase_transport.js';
+import resolveAccessToken from './access_token.js';
+import runTransactionBatch from './transaction_batch.js';
+import inlineParams from './inline_params.js';
 const DEFAULT_ROLE = 'authenticated';
 /**
  * Resolves the user id for `withUserDb`, trying, in order: the explicit `uid`
@@ -14,7 +14,7 @@ const DEFAULT_ROLE = 'authenticated';
  * `null` (as well as omitted) to mean "skip this source, try the next one" —
  * useful when the caller's own uid lookup can itself come back empty.
  */
-async function resolveUserId(uid) {
+async function resolveUserId(config, uid) {
     if (uid)
         return uid;
     const db = config.db;
@@ -23,7 +23,7 @@ async function resolveUserId(uid) {
     if (fromConfig)
         return fromConfig;
     if (config.firebaseAuth) {
-        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server');
+        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server.js');
         const { user } = await getAuthUser();
         if (user?.uid)
             return user.uid;
@@ -38,10 +38,10 @@ async function resolveUserId(uid) {
  * otherwise falls back to `db.authenticatedRole` (string or sync/async
  * function), then `DEFAULT_ROLE`.
  */
-async function resolveAuthenticatedRole(db) {
+async function resolveAuthenticatedRole(config, db) {
     const claimField = db.authenticatedRoleClaim;
     if (config.firebaseAuth && claimField !== false) {
-        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server');
+        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server.js');
         const { user } = await getAuthUser();
         if (user && typeof user.getIdTokenResult === 'function') {
             const { claims } = await user.getIdTokenResult();
@@ -157,10 +157,16 @@ async function callBuild(build) {
  * user identity attached. Use this for data any visitor may read.
  *
  * @param fn Receives the Drizzle handle; return whatever the caller needs.
+ * @param dbOverride A `db` block (`connectionString` or `supabase`) to use
+ * for this call instead of `@intl-config`'s — the only thing a standalone
+ * (non-Next.js) project needs to pass, since there is no `@intl-config` alias
+ * to set up outside Next.js.
  * @returns Whatever `fn` resolves to.
- * @throws If `db` is not set on your `RoutingConfig`, or the connection fails.
+ * @throws If `db` is not set (neither `dbOverride` nor `@intl-config`), or
+ * the connection fails.
  */
-export async function withPublicDb(fn) {
+export async function withPublicDb(fn, dbOverride) {
+    const config = await resolveDbConfig(dbOverride);
     const db = config.db;
     requireDbConfig(db);
     const resolved = await resolveDbMode(db);
@@ -199,8 +205,13 @@ function injectUidComment(sql, userId) {
  *
  * @param fn Receives the Drizzle handle
  * @param uid Overrides the user ID for authenticated calls
+ * @param dbOverride A `db` block (`connectionString` or `supabase`) to use
+ * for this call instead of `@intl-config`'s — the only thing a standalone
+ * (non-Next.js) project needs to pass, since there is no `@intl-config` alias
+ * to set up outside Next.js.
  */
-export async function withUserDb(fn, uid) {
+export async function withUserDb(fn, uid, dbOverride) {
+    const config = await resolveDbConfig(dbOverride);
     const db = config.db;
     requireDbConfig(db);
     const resolved = await resolveDbMode(db);
@@ -208,8 +219,8 @@ export async function withUserDb(fn, uid) {
         const token = await resolveAccessToken(config);
         return fn(await supabaseDb(resolved.supabase, token));
     }
-    const userId = await resolveUserId(uid);
-    const role = await resolveAuthenticatedRole(db);
+    const userId = await resolveUserId(config, uid);
+    const role = await resolveAuthenticatedRole(config, db);
     return await withDbClient(config, async (client) => {
         const rawClient = client;
         const setSessionState = async () => {

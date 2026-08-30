@@ -1,6 +1,6 @@
-import type { ErrorHandlingParams } from '../types/types';
-import reportError, { type ReportErrorConfig } from './report_error';
-import stringifyUnknown from './stringify_unknown';
+import type { ErrorHandlingParams } from '../types/types.js';
+import reportError, { type ReportErrorConfig } from './report_error.js';
+import stringifyUnknown from './stringify_unknown.js';
 
 /**
  * Reads request context (page path, user agent, referer) via `next/headers`

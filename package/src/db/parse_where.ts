@@ -1,5 +1,5 @@
-import type { SqlToken } from './sql_tokens';
-import UnsupportedSqlError from './unsupported_sql';
+import type { SqlToken } from './sql_tokens.js';
+import UnsupportedSqlError from './unsupported_sql.js';
 
 /** A value in a parsed clause: a `$n` placeholder or an inline literal. */
 export type SqlValue =

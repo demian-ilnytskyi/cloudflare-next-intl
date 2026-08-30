@@ -1,4 +1,4 @@
-import type { AutoAnalyticsEventsConfig } from '../../../types/types';
+import type { AutoAnalyticsEventsConfig } from '../../../types/types.js';
 /**
  * Auto-rendered alongside `CookieConsentAnalytics` when Google Analytics/Ads
  * is configured — sends `screen_view` on route change and one

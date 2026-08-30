@@ -1,16 +1,16 @@
 "use client";
 
-import type { TranslationObject } from "../../types/types";
-import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables";
+import type { TranslationObject } from "../../types/types.js";
+import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
 import { createContext, useMemo } from "react";
 import dynamic from "next/dynamic";
 import config from "@intl-config";
-import type { SerializedAuthUser } from "../../firebase_auth/types";
-import type { CookieConsentAnalyticsConfig, AutoAnalyticsEventsConfig } from "../../types/types";
-import type { CookieConsentDialogProps } from "../../cookie_consent/client/components/cookie_consent_dialog";
-import type { PrivacyPolicyUpdateDialogProps } from "../../cookie_consent/client/components/privacy_policy_update_dialog";
-import installConsoleErrorOverride from "../../error_handling/install_console_error_override";
-import installGlobalErrorOverride from "../../error_handling/install_global_error_override";
+import type { SerializedAuthUser } from "../../firebase_auth/types.js";
+import type { CookieConsentAnalyticsConfig, AutoAnalyticsEventsConfig } from "../../types/types.js";
+import type { CookieConsentDialogProps } from "../../cookie_consent/client/components/cookie_consent_dialog.js";
+import type { PrivacyPolicyUpdateDialogProps } from "../../cookie_consent/client/components/privacy_policy_update_dialog.js";
+import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
+import installGlobalErrorOverride from "../../error_handling/install_global_error_override.js";
 
 interface LocaleContextType {
     language: string;
@@ -26,13 +26,13 @@ export const LocaleContext = createContext<LocaleContextType | undefined>(undefi
 // Firebase immediately replays with the current user, triggering a state
 // update (and a `getIdToken(true)` refresh) that causes another render —
 // an infinite loop of session-cookie writes, one per render.
-const AuthUserProvider = dynamic(() => import("../../firebase_auth/client/auth_user_provider"));
-const AutoFirebasePerformanceEvents = dynamic(() => import("../../firebase_auth/client/components/auto_firebase_performance_events"));
-const CookieConsentProvider = dynamic(() => import("../../cookie_consent/client/cookie_consent_provider"));
-const CookieConsentAnalytics = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_analytics"));
-const AutoAnalyticsEvents = dynamic(() => import("../../cookie_consent/client/components/auto_analytics_events"));
-const CookieConsentDialog = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_dialog"));
-const PrivacyPolicyUpdateDialog = dynamic(() => import("../../cookie_consent/client/components/privacy_policy_update_dialog"));
+const AuthUserProvider = dynamic(() => import("../../firebase_auth/client/auth_user_provider.js"));
+const AutoFirebasePerformanceEvents = dynamic(() => import("../../firebase_auth/client/components/auto_firebase_performance_events.js"));
+const CookieConsentProvider = dynamic(() => import("../../cookie_consent/client/cookie_consent_provider.js"));
+const CookieConsentAnalytics = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_analytics.js"));
+const AutoAnalyticsEvents = dynamic(() => import("../../cookie_consent/client/components/auto_analytics_events.js"));
+const CookieConsentDialog = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_dialog.js"));
+const PrivacyPolicyUpdateDialog = dynamic(() => import("../../cookie_consent/client/components/privacy_policy_update_dialog.js"));
 
 export default function LocationzationClientProvider({
     language,

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import HelperScript from './helper_script';
+import HelperScript from './helper_script.js';
 
 vi.mock('../../client/components/client_helper_script', () => ({ default: () => null }));
 
@@ -20,7 +20,7 @@ describe('HelperScript', () => {
     it('omits the build-id script in dev', async () => {
         vi.resetModules();
         vi.stubEnv('NODE_ENV', 'development');
-        const { default: DevHelperScript } = await import('./helper_script');
+        const { default: DevHelperScript } = await import('./helper_script.js');
         const { container: root } = render(<DevHelperScript />);
         expect(root.querySelector('#build-id-script')).toBeNull();
         expect(root.querySelector('#intl-app-state-checker')).not.toBeNull();
@@ -51,7 +51,7 @@ describe('HelperScript', () => {
     it('omits the stale-deploy early-catch script in dev', async () => {
         vi.resetModules();
         vi.stubEnv('NODE_ENV', 'development');
-        const { default: DevHelperScript } = await import('./helper_script');
+        const { default: DevHelperScript } = await import('./helper_script.js');
         const { container: root } = render(<DevHelperScript />);
         expect(root.querySelector('#stale-deploy-early-catch')).toBeNull();
         vi.unstubAllEnvs();
@@ -188,7 +188,7 @@ describe('HelperScript', () => {
                 firebaseAuth: { appCheck: { recaptchaV3SiteKey: 'site-key' } },
             },
         }));
-        const { default: AppCheckHelperScript } = await import('./helper_script');
+        const { default: AppCheckHelperScript } = await import('./helper_script.js');
         render(<AppCheckHelperScript />);
         expect(recaptchaScript()).not.toBeNull();
         recaptchaScript()?.remove();
@@ -205,7 +205,7 @@ describe('HelperScript', () => {
                 },
             },
         }));
-        const { default: LegacyHelperScript } = await import('./helper_script');
+        const { default: LegacyHelperScript } = await import('./helper_script.js');
         render(<LegacyHelperScript />);
         expect(recaptchaScript()).toBeNull();
         vi.doUnmock('../../config/intl_config');

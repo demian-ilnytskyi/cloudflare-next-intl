@@ -1,4 +1,4 @@
-import { type SqlValue, type WhereNode } from './parse_where';
+import { type SqlValue, type WhereNode } from './parse_where.js';
 /** One selected/returned column, with its output name when aliased. */
 export interface Projection {
     column: string;

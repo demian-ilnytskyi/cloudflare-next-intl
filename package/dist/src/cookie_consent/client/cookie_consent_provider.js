@@ -2,11 +2,11 @@
 import { jsx as _jsx } from "react/jsx-runtime";
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import config from '../../config/intl_config';
-import requireCookieConsentConfig from '../require_config';
-import getCookie from '../../client/functions/get_cookie';
-import setCookie from '../../client/functions/set_cookie';
-import { cookieConsentCookieKey, privacyPolicyDateCookieKey } from '../../config/cookie_key';
+import config from '../../config/intl_config.js';
+import requireCookieConsentConfig from '../require_config.js';
+import getCookie from '../../client/functions/get_cookie.js';
+import setCookie from '../../client/functions/set_cookie.js';
+import { cookieConsentCookieKey, privacyPolicyDateCookieKey } from '../../config/cookie_key.js';
 export const CookieConsentContext = createContext(null);
 function parseConsent(raw) {
     if (raw === 'true')

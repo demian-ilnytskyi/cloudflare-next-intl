@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { isDarkCookieKey } from '../../config/cookie_key';
+import { isDarkCookieKey } from '../../config/cookie_key.js';
 
 const getCookieRegex = (name: string): string | null => {
     const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));

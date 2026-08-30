@@ -1,8 +1,8 @@
-import type { TranslationObject } from "../../types/types";
-import type { SerializedAuthUser } from "../../firebase_auth/types";
-import type { CookieConsentAnalyticsConfig, AutoAnalyticsEventsConfig } from "../../types/types";
-import type { CookieConsentDialogProps } from "../../cookie_consent/client/components/cookie_consent_dialog";
-import type { PrivacyPolicyUpdateDialogProps } from "../../cookie_consent/client/components/privacy_policy_update_dialog";
+import type { TranslationObject } from "../../types/types.js";
+import type { SerializedAuthUser } from "../../firebase_auth/types.js";
+import type { CookieConsentAnalyticsConfig, AutoAnalyticsEventsConfig } from "../../types/types.js";
+import type { CookieConsentDialogProps } from "../../cookie_consent/client/components/cookie_consent_dialog.js";
+import type { PrivacyPolicyUpdateDialogProps } from "../../cookie_consent/client/components/privacy_policy_update_dialog.js";
 interface LocaleContextType {
     language: string;
     messages: TranslationObject;

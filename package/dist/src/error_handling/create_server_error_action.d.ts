@@ -1,5 +1,5 @@
-import type { ErrorHandlingParams } from '../types/types';
-import { type ReportErrorConfig } from './report_error';
+import type { ErrorHandlingParams } from '../types/types.js';
+import { type ReportErrorConfig } from './report_error.js';
 /**
  * Builds a function that reports a client-originated error via
  * `reportError`, meant to be re-exported directly from your OWN

@@ -1,4 +1,4 @@
-import type { ErrorHandlingParams } from '../types/types';
+import type { ErrorHandlingParams } from '../types/types.js';
 /**
  * Builds a human-readable one-string summary of an `ErrorHandlingParams` —
  * `[classOrMethodName] Error: <message>` followed by non-empty `Params`/

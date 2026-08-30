@@ -1,5 +1,5 @@
-import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types';
-import { setStaleDeployPatterns } from '../error_handling/is_stale_deploy_error';
+import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types.js';
+import { setStaleDeployPatterns } from '../error_handling/is_stale_deploy_error.js';
 
 // Every path this package compares against `request.nextUrl.pathname`
 // (always `/`-prefixed) must itself start with `/` — a missing leading

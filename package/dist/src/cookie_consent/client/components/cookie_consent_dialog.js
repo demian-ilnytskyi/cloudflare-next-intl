@@ -1,11 +1,11 @@
 'use client';
 import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import useCookieConsent from '../use_cookie_consent';
-import DefaultPrivacyPolicyLink from './default_privacy_policy_link';
-import DialogPortal from './dialog_portal';
-import { getLocaleCache } from '../../../general/cache_variables';
-import { defaultCookieConsentText } from './default_dialog_text';
-import { defaultCookieDialogClassNames } from './default_dialog_styles';
+import useCookieConsent from '../use_cookie_consent.js';
+import DefaultPrivacyPolicyLink from './default_privacy_policy_link.js';
+import DialogPortal from './dialog_portal.js';
+import { getLocaleCache } from '../../../general/cache_variables.js';
+import { defaultCookieConsentText } from './default_dialog_text.js';
+import { defaultCookieDialogClassNames } from './default_dialog_styles.js';
 /**
  * Cookie-consent banner. Renders `null` once `consent` is already decided.
  * Every visual aspect is overridable via `classNames`/`styles` (per-slot) or

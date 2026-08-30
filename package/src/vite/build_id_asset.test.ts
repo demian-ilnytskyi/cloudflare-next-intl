@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { buildIdAsset } from './build_id_asset';
+import { buildIdAsset } from './build_id_asset.js';
 
 describe('buildIdAsset', () => {
     const originalEnv = process.env;

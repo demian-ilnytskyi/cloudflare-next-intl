@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import DefaultPrivacyPolicyLink from './default_privacy_policy_link';
+import DefaultPrivacyPolicyLink from './default_privacy_policy_link.js';
 
 vi.mock('../../../general/cache_variables', () => ({ getLocaleCache: vi.fn() }));
 
@@ -15,28 +15,28 @@ describe('DefaultPrivacyPolicyLink', () => {
     });
 
     it('prepends the locale segment for a non-default cached locale', async () => {
-        const { getLocaleCache } = await import('../../../general/cache_variables');
+        const { getLocaleCache } = await import('../../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('de');
         render(<DefaultPrivacyPolicyLink privacyPolicyPath="/privacy-policy" text="Privacy Policy" />);
         expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/de/privacy-policy');
     });
 
     it('does not prepend a locale segment for the default cached locale', async () => {
-        const { getLocaleCache } = await import('../../../general/cache_variables');
+        const { getLocaleCache } = await import('../../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
         render(<DefaultPrivacyPolicyLink privacyPolicyPath="/privacy-policy" text="Privacy Policy" />);
         expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy-policy');
     });
 
     it('prepends a locale segment when no locale is cached at all', async () => {
-        const { getLocaleCache } = await import('../../../general/cache_variables');
+        const { getLocaleCache } = await import('../../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue(undefined);
         render(<DefaultPrivacyPolicyLink privacyPolicyPath="/privacy-policy" text="Privacy Policy" />);
         expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/undefined/privacy-policy');
     });
 
     it('applies className and style', async () => {
-        const { getLocaleCache } = await import('../../../general/cache_variables');
+        const { getLocaleCache } = await import('../../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
         render(
             <DefaultPrivacyPolicyLink

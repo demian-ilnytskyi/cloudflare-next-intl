@@ -1,4 +1,4 @@
-import type { TranslationObject, TranslatorReturnType } from "../types/types";
+import type { TranslationObject, TranslatorReturnType } from "../types/types.js";
 /**
  * Sets the current locale.
  * @param locale The language to set.

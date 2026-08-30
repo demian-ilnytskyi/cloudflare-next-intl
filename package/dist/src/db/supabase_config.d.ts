@@ -1,4 +1,4 @@
-import type { SupabaseDbConfig } from '../types/types';
+import type { SupabaseDbConfig } from '../types/types.js';
 /** The Supabase project URL and anon key the transport builds a client from. */
 export interface ResolvedSupabaseEndpoint {
     /** Project URL, trailing slashes stripped. */

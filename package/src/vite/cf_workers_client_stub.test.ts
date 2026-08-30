@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cfWorkersClientStubPlugin, CF_WORKERS_CLIENT_STUB_ID, CF_WORKERS_CLIENT_STUB_CODE } from "./cf_workers_client_stub";
+import { cfWorkersClientStubPlugin, CF_WORKERS_CLIENT_STUB_ID, CF_WORKERS_CLIENT_STUB_CODE } from "./cf_workers_client_stub.js";
 
 describe("cfWorkersClientStubPlugin", () => {
     it("has correct plugin metadata", () => {

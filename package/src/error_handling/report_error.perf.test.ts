@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import reportError from './report_error';
+import reportError from './report_error.js';
 
 describe('reportError perf characteristics', () => {
     it('does not call getCloudflareContext at all when it is unset (no wasted context resolution)', async () => {

@@ -5,8 +5,8 @@ import type { Auth } from 'firebase/auth';
 import type { AppCheck } from 'firebase/app-check';
 import type { FirebasePerformance } from 'firebase/performance';
 import config from '@intl-config';
-import requireFirebaseAuthConfig from '../require_config';
-import type { FirebaseAppCheckConfig } from '../../types/types';
+import requireFirebaseAuthConfig from '../require_config.js';
+import type { FirebaseAppCheckConfig } from '../../types/types.js';
 
 let cachedAppCheck: AppCheck | undefined;
 let cachedPerformance: FirebasePerformance | undefined;

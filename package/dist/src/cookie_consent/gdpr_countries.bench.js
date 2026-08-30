@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import resolveRequiresConsent, { defaultGdprCountries } from './gdpr_countries';
+import resolveRequiresConsent, { defaultGdprCountries } from './gdpr_countries.js';
 const fakeGetCloudflareContext = ((options) => {
     const context = { cf: { country: 'DE' } };
     return options?.async === false ? context : Promise.resolve(context);

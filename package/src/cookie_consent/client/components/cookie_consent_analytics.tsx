@@ -2,14 +2,14 @@
 
 import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import useCookieConsent from '../use_cookie_consent';
-import type { CookieConsentAnalyticsConfig } from '../../../types/types';
+import useCookieConsent from '../use_cookie_consent.js';
+import type { CookieConsentAnalyticsConfig } from '../../../types/types.js';
 
 // Hoisted to module scope — calling `dynamic()` inside the component body
 // creates a brand-new component identity every render, forcing a
 // remount. Splitting into a separate chunk keeps `@microsoft/clarity`'s
 // import out of this module until `ClarityScript` is actually rendered.
-const ClarityScript = dynamic(() => import('./clarity_script'));
+const ClarityScript = dynamic(() => import('./clarity_script.js'));
 
 /**
  * Renders whichever analytics/ads scripts have a resolved secret, gated on

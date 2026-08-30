@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { setIntlConfig } from './init_config';
+import { setIntlConfig } from './init_config.js';
 
 const baseFa = {
     apiKey: 'key',

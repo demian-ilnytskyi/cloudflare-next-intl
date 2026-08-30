@@ -1,4 +1,4 @@
-import requireDbConfig from './require_config';
+import requireDbConfig from './require_config.js';
 /**
  * Resolves the JWT that identifies the caller to Supabase, trying
  * `db.getAccessToken()` first, then the signed-in Firebase user's ID token.
@@ -18,7 +18,7 @@ export default async function resolveAccessToken(config) {
     if (fromConfig)
         return fromConfig;
     if (config.firebaseAuth) {
-        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server');
+        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server.js');
         const { user } = await getAuthUser();
         const token = await user?.getIdToken(false);
         if (token)

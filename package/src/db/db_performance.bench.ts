@@ -1,14 +1,14 @@
 import { bench, describe } from 'vitest';
-import tokenizeSql from './sql_tokens';
-import parseStatement from './parse_statement';
-import inlineParams from './inline_params';
-import encodeParam from './encode_param';
-import parseWhere from './parse_where';
-import parseComposite from './parse_composite';
-import buildRestFilters from './rest_filters';
-import resolveRawSql from './resolve_raw_sql';
-import { parseExecResult } from './supabase_transport';
-import { excluded, onConflictSet } from './helpers';
+import tokenizeSql from './sql_tokens.js';
+import parseStatement from './parse_statement.js';
+import inlineParams from './inline_params.js';
+import encodeParam from './encode_param.js';
+import parseWhere from './parse_where.js';
+import parseComposite from './parse_composite.js';
+import buildRestFilters from './rest_filters.js';
+import resolveRawSql from './resolve_raw_sql.js';
+import { parseExecResult } from './supabase_transport.js';
+import { excluded, onConflictSet } from './helpers.js';
 import { pgTable, text, integer, timestamp } from 'drizzle-orm/pg-core';
 
 describe('DB Module Branch Benchmarks', () => {

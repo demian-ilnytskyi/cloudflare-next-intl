@@ -1,6 +1,6 @@
-import { getTranslationsImpl } from '../../general/general_functions';
-import { getMessageCache, getTranslationCache } from '../../general/cache_variables';
-import { DEFAULT_MESSAGES_EN } from './default_messages.en';
+import { getTranslationsImpl } from '../../general/general_functions.js';
+import { getMessageCache, getTranslationCache } from '../../general/cache_variables.js';
+import { DEFAULT_MESSAGES_EN } from './default_messages.en.js';
 
 const ERROR_CODE_TO_KEY: Record<string, string> = {
     'auth/invalid-email': 'invalidEmail',

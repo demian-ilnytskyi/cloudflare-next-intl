@@ -1,4 +1,4 @@
-import type { SqlToken } from './sql_tokens';
+import type { SqlToken } from './sql_tokens.js';
 /** A value in a parsed clause: a `$n` placeholder or an inline literal. */
 export type SqlValue = {
     kind: 'param';

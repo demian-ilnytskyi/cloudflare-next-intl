@@ -1,4 +1,4 @@
-import type { TranslationObject } from "../../types/types";
+import type { TranslationObject } from "../../types/types.js";
 /**
  * Server component that provides locale/messages context to the rest of the
  * tree. Exported publicly as `IntlProvider` from `cloudflare-next-intl/serverProvider`.

@@ -12,7 +12,7 @@ beforeEach(() => {
 
 describe('getMessage SSR cost', () => {
     it('loads the messages file at most once per locale across repeated calls', async () => {
-        const { getMessage } = await import('./server');
+        const { getMessage } = await import('./server.js');
         const m1 = await getMessage('en');
         const m2 = await getMessage('en');
         const m3 = await getMessage('en');
@@ -29,9 +29,9 @@ describe('getMessage SSR cost', () => {
         vi.stubEnv('NODE_ENV', 'development');
         vi.resetModules();
 
-        const cacheVars = await import('../../general/cache_variables');
+        const cacheVars = await import('../../general/cache_variables.js');
         const setMessageForLocaleCacheSpy = vi.spyOn(cacheVars, 'setMessageForLocaleCache');
-        const { getMessage } = await import('./server');
+        const { getMessage } = await import('./server.js');
 
         await getMessage('en');
         await getMessage('en');
@@ -47,7 +47,7 @@ describe('getMessage SSR cost', () => {
 
 describe('getTranslations SSR cost', () => {
     it('returns the cached translator function on a repeat call for the same locale/namespace', async () => {
-        const { getTranslations } = await import('./server');
+        const { getTranslations } = await import('./server.js');
         const t1 = await getTranslations('Common', 'en');
         const t2 = await getTranslations('Common', 'en');
 
@@ -61,7 +61,7 @@ describe('getTranslations SSR cost', () => {
 describe('getLocale SSR cost', () => {
     it('reads the locale cookie at most once per module scope', async () => {
         mockCookiesGet.mockReturnValue({ value: 'en' });
-        const { getLocale } = await import('./server');
+        const { getLocale } = await import('./server.js');
 
         await getLocale();
         await getLocale();

@@ -1,4 +1,4 @@
-import type { CookieConsentGetCloudflareContext, ErrorHandlingRoutingConfig, GenerateRoutingConfig } from '../types/types';
+import type { CookieConsentGetCloudflareContext, ErrorHandlingRoutingConfig, GenerateRoutingConfig } from '../types/types.js';
 /**
  * Default `cookieConsent.gdprCountries` — EU/EEA member states (GDPR),
  * Iceland/Liechtenstein/Norway (EEA), the UK (UK-GDPR), and Switzerland

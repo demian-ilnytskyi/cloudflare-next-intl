@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import tokenizeSql from './sql_tokens';
-import parseWhere from './parse_where';
-import UnsupportedSqlError from './unsupported_sql';
+import tokenizeSql from './sql_tokens.js';
+import parseWhere from './parse_where.js';
+import UnsupportedSqlError from './unsupported_sql.js';
 
 function parse(clause: string) {
     const tokens = tokenizeSql(`where ${clause}`);

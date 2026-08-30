@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import decodeJwtPayload from './decode_jwt_payload';
+import decodeJwtPayload from './decode_jwt_payload.js';
 function makeJwt(payload) {
     const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');

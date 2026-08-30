@@ -8,12 +8,12 @@ vi.mock('next/headers', () => ({
 describe('getMessage', () => {
     bench('cold: dynamic import + cache write for an uncached locale', async () => {
         vi.resetModules();
-        const { getMessage } = await import('./server');
+        const { getMessage } = await import('./server.js');
         await getMessage('en');
     });
 
     bench('warm: module-scope Map cache hit for an already-loaded locale', async () => {
-        const { getMessage } = await import('./server');
+        const { getMessage } = await import('./server.js');
         await getMessage('en');
     });
 });
@@ -21,12 +21,12 @@ describe('getMessage', () => {
 describe('getTranslations', () => {
     bench('cold: full namespace traversal + translator build', async () => {
         vi.resetModules();
-        const { getTranslations } = await import('./server');
+        const { getTranslations } = await import('./server.js');
         await getTranslations('Common', 'en');
     });
 
     bench('warm: translationFunctionsCache hit for repeated namespace/locale', async () => {
-        const { getTranslations } = await import('./server');
+        const { getTranslations } = await import('./server.js');
         await getTranslations('Common', 'en');
         await getTranslations('Common', 'en');
     });
@@ -35,12 +35,12 @@ describe('getTranslations', () => {
 describe('getLocale', () => {
     bench('cold: reads the locale cookie', async () => {
         vi.resetModules();
-        const { getLocale } = await import('./server');
+        const { getLocale } = await import('./server.js');
         await getLocale();
     });
 
     bench('warm: module-scope currentLanguage cache hit', async () => {
-        const { getLocale } = await import('./server');
+        const { getLocale } = await import('./server.js');
         await getLocale();
     });
 });

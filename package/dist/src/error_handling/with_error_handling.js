@@ -1,4 +1,4 @@
-import reportError from './report_error';
+import reportError from './report_error.js';
 /**
  * Wraps `fn`, reporting (via `options.config`) then rethrowing any error it
  * throws or rejects with. Never swallows — callers keep their own

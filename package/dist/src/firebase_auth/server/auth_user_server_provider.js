@@ -3,11 +3,11 @@ import dynamic from 'next/dynamic';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import config from '@intl-config';
-import requireFirebaseAuthConfig from '../require_config';
-import { getAuthenticatedAppForUser } from './firebase_server';
-import withRedirectQuery from '../preserve_redirect_query';
-import isWhitelisted from '../is_whitelisted';
-const AuthUserProvider = dynamic(() => import('../client/auth_user_provider'));
+import requireFirebaseAuthConfig from '../require_config.js';
+import { getAuthenticatedAppForUser } from './firebase_server.js';
+import withRedirectQuery from '../preserve_redirect_query.js';
+import isWhitelisted from '../is_whitelisted.js';
+const AuthUserProvider = dynamic(() => import('../client/auth_user_provider.js'));
 /**
  * Resolves the signed-in user from the session cookie and performs the
  * authoritative pre-render redirect (guest→`redirectAuthPath`, signed-in→

@@ -1,4 +1,4 @@
-import type { CookieConsentContextType } from '../types';
+import type { CookieConsentContextType } from '../types.js';
 export declare const CookieConsentContext: import("react").Context<CookieConsentContextType | null>;
 /**
  * Provides cookie-consent + privacy-policy-update state to

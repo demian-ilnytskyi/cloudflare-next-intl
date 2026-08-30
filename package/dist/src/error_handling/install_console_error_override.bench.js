@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import installConsoleErrorOverride from './install_console_error_override';
+import installConsoleErrorOverride from './install_console_error_override.js';
 describe('installConsoleErrorOverride: repeated install calls (no-op after first)', () => {
     const originalConsoleError = console.error;
     console.error = () => { };
