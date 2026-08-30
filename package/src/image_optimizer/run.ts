@@ -8,6 +8,28 @@ import { EXTENSION_BY_FORMAT, processImage, toGeneratedPath, toPublicSrc, withWi
 import { collectUsedImageOverrides, collectUsedImages } from "./scan_used.js";
 import { resolveImageConfig, SUPPORTED_EXTENSIONS } from "./types.js";
 import type { ImageFormat, ImageOverrideOptions, OptimizedImage, ResolvedOptions } from "./types.js";
+import type { CacheEntry } from "./cache.js";
+
+export async function mapWithConcurrency<T, R>(
+    items: T[],
+    limit: number,
+    worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+    const results = new Array<R>(items.length);
+    const width = Math.max(1, Math.min(limit, items.length));
+    let next = 0;
+
+    async function pump(): Promise<void> {
+        while (next < items.length) {
+            const index = next;
+            next += 1;
+            results[index] = await worker(items[index], index);
+        }
+    }
+
+    await Promise.all(Array.from({ length: width }, () => pump()));
+    return results;
+}
 
 async function walk(directory: string, found: string[]): Promise<void> {
     let items;
@@ -145,28 +167,28 @@ export async function run(
         overrides: mergeOverrides(scannedOverrides, options.overrides),
     };
 
-    const entries: OptimizedImage[] = [];
-
-    for (const file of files) {
+    const processed = await mapWithConcurrency(files, 4, async (file) => {
         const relativeKey = path.relative(root, file);
         const cached = cache[relativeKey];
         const targets = await targetAndSiblingPaths(file, publicRoot, resolvedOptions, root);
         const fresh = await isFresh(file, cached, targets);
 
         if (fresh && cached) {
-            entries.push(cached.result);
-            nextCache[relativeKey] = cached;
-            continue;
+            return { relativeKey, entry: cached };
         }
 
         const result = await processImage(file, publicRoot, resolvedOptions, root);
         const fileStat = await stat(file);
-        entries.push(result);
-        nextCache[relativeKey] = {
-            mtimeMs: fileStat.mtimeMs,
-            size: fileStat.size,
-            result,
+        return {
+            relativeKey,
+            entry: { mtimeMs: fileStat.mtimeMs, size: fileStat.size, result } as CacheEntry,
         };
+    });
+
+    const entries: OptimizedImage[] = [];
+    for (const { relativeKey, entry } of processed) {
+        entries.push(entry.result);
+        nextCache[relativeKey] = entry;
     }
 
     await saveCache(cacheFile, nextCache);
