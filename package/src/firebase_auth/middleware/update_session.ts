@@ -238,6 +238,20 @@ export default async function updateSession(
     const fa = config.firebaseAuth;
     if (!fa || fa.middlewareEnabled === false) return baseResponse;
 
+    // `decodeJwtPayload` re-does a base64 decode + 3 regex execs per call.
+    // Several branches below independently ask the same question of the
+    // same token (e.g. "is email_verified false?" then later "...true?"
+    // after nothing changed it) — memoize per unique token string for the
+    // lifetime of this one call, not process-wide (a refreshed token is a
+    // different string and must decode fresh).
+    const decodedTokenCache = new Map<string, ReturnType<typeof decodeJwtPayload>>();
+    function decodeTokenOnce(t: string): ReturnType<typeof decodeJwtPayload> {
+        if (decodedTokenCache.has(t)) return decodedTokenCache.get(t)!;
+        const decoded = decodeJwtPayload(t);
+        decodedTokenCache.set(t, decoded);
+        return decoded;
+    }
+
     const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
     const refreshTokenCookieName = fa.refreshTokenCookieName ?? defaultRefreshTokenCookieName;
     const emailVerifiedHintCookieName = fa.emailVerifiedHintCookieName ?? defaultEmailVerifiedHintCookieName;
@@ -409,7 +423,7 @@ export default async function updateSession(
     // hint cookie. Refresh once when the hint claims `true` against a stale
     // `false` claim, so the redirect-home branch below can observe it.
     if (isVerifyEmailPage && hasSession && !refreshedToken
-        && decodeJwtPayload(token!)?.email_verified === false
+        && decodeTokenOnce(token!)?.email_verified === false
         && request.cookies.get(emailVerifiedHintCookieName)?.value === 'true') {
         const refreshToken = request.cookies.get(refreshTokenCookieName)?.value;
         if (refreshToken) {
@@ -424,7 +438,7 @@ export default async function updateSession(
     }
 
     let unverifiedEmail = false;
-    if (fa.verifyEmailPath && !isVerifyEmailPage && hasSession && decodeJwtPayload(token!)?.email_verified === false) {
+    if (fa.verifyEmailPath && !isVerifyEmailPage && hasSession && decodeTokenOnce(token!)?.email_verified === false) {
         // Sending a user to `verifyEmailPath` is only safe when this claim
         // reflects the LIVE account state, because that page resolves the
         // same user through `getAuthUser()`/`initializeServerApp` — which
@@ -454,7 +468,7 @@ export default async function updateSession(
                     // A `true` hint means the client already observed
                     // verification live; never redirect against it, even if
                     // this mint's claim hasn't caught up.
-                    unverifiedEmail = hint !== 'true' && decodeJwtPayload(token)?.email_verified === false;
+                    unverifiedEmail = hint !== 'true' && decodeTokenOnce(token)?.email_verified === false;
                 } else if (result.status === 'invalid') {
                     clearInvalidSession = true;
                 } else {
@@ -468,7 +482,7 @@ export default async function updateSession(
                 unverifiedEmail = true;
             }
         } else {
-            unverifiedEmail = hint !== 'true' && decodeJwtPayload(token!)?.email_verified === false;
+            unverifiedEmail = hint !== 'true' && decodeTokenOnce(token!)?.email_verified === false;
         }
     }
 
@@ -486,7 +500,7 @@ export default async function updateSession(
         // auth page like /login — homePath is not a state they're allowed
         // to reach yet either.
         response = buildRedirect(baseResponse, localeUrl(fa.verifyEmailPath!), isPrefetch);
-    } else if (isAuthPage || (isVerifyEmailPage && decodeJwtPayload(token!)?.email_verified === true)) {
+    } else if (isAuthPage || (isVerifyEmailPage && decodeTokenOnce(token!)?.email_verified === true)) {
         // A verified user has no reason to be on verifyEmailPath either —
         // same "you're done here, go home" treatment as an auth page.
         // `unverifiedEmail` can't be reused here: its own computation
