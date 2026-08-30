@@ -65,7 +65,7 @@ export async function resolveAuthUserAndRedirect(): Promise<SerializedAuthUser |
  */
 export default async function AuthUserServerProvider({ children }: {
     children: React.ReactNode;
-}) {
+}): Promise<React.JSX.Element> {
     const initialUser = await resolveAuthUserAndRedirect();
     return <AuthUserProvider initialUser={initialUser}>
         {children}

@@ -201,8 +201,7 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>, dbOverr
         const { drizzle } = await import('drizzle-orm/node-postgres');
         const drizzleHandle = drizzle(client) as unknown as NodePgDatabase<Record<string, never>>;
         
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return await fn(await postgresDb(drizzleHandle, client as any));
+        return await fn(await postgresDb(drizzleHandle, client));
     });
 }
 
@@ -276,9 +275,8 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
         const interceptingClient = new Proxy(client, {
             get(target, prop) {
                 if (prop === 'query') {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    return async (sql: any, ...args: any[]) => {
-                        const text = typeof sql === 'string' ? sql : (typeof (sql as any)?.text === 'string' ? (sql as any).text : '');
+                    return async (sql: string | { text?: unknown }, ...args: unknown[]) => {
+                        const text = typeof sql === 'string' ? sql : (typeof sql?.text === 'string' ? sql.text : '');
                         const isBegin = /^begin\b/i.test(text.trimStart());
                         const isCommitOrRollback = /^(commit|rollback)\b/i.test(text.trimStart());
 
@@ -328,12 +326,11 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
                             }
                         });
 
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        return (target as any).query(injectUidComment(sql, userId), ...args);
+                        const targetClient = target as unknown as { query: (...queryArgs: unknown[]) => unknown };
+                        return targetClient.query(injectUidComment(sql, userId), ...args);
                     };
                 }
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const value = (target as any)[prop];
+                const value = (target as unknown as Record<PropertyKey, unknown>)[prop];
                 return typeof value === 'function' ? value.bind(target) : value;
             }
         });

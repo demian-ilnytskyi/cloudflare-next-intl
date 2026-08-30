@@ -114,8 +114,8 @@ describe('DB Module Branch Benchmarks', () => {
     describe('helpers', () => {
         const exUsers = excluded(usersTable);
         bench('excluded column lookup', () => {
-            const _a = exUsers.name;
-            const _b = exUsers.email;
+            void exUsers.name;
+            void exUsers.email;
         });
 
         bench('onConflictSet generation', () => {

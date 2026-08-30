@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import { DEFAULT_BLUR_OPTIONS, DEFAULT_OPTIONS, resolveOptions } from "./types.js";
+import { DEFAULT_BLUR_OPTIONS, resolveOptions } from "./types.js";
 import { makeBlurDataURL, mimeTypeFor, processImage, toGeneratedPath, toPublicSrc } from "./process_image.js";
 import { cleanup, makeTempDir, writeFixtureJpg, writeFixturePng } from "../test_utils/image_optimizer_test_helpers.js";
 

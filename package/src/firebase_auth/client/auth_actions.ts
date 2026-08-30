@@ -27,7 +27,7 @@ function readCredentials(formData: FormData) {
  * const [state, action] = useActionState(createLoginAction(locale, messages), {});
  * <form action={action}>...</form>
  */
-export function createLoginAction(locale: string, messages: AuthActionMessages) {
+export function createLoginAction(locale: string, _messages: AuthActionMessages) {
     return async function loginAction(
         _prevState: AuthFormState,
         formData: FormData,

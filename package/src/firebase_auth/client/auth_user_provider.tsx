@@ -142,7 +142,7 @@ async function writeSession(
 export default function AuthUserProvider({ initialUser = null, children }: {
     initialUser?: SerializedAuthUser | null;
     children: React.ReactNode;
-}) {
+}): React.JSX.Element {
     const fa = config.firebaseAuth;
     requireFirebaseAuthConfig(fa);
 
@@ -211,8 +211,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             // they're done here, same as the auth-page case.
             router.replace(withRedirectQuery(fa.homePath, window.location.search));
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [state, pathname, isAuthPage, isWhiteListed, confirmedSignedOut]);
+    }, [state, pathname, isAuthPage, isWhiteListed, confirmedSignedOut, fa, router]);
 
     useEffect(() => {
         let unsubscribe: (() => void) | undefined;
@@ -308,8 +307,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             cancelled = true;
             unsubscribe?.();
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [router, isAuthPage, isWhiteListed, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge]);
+    }, [router, isAuthPage, isWhiteListed, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge, fa]);
 
     const reloadUser = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();
@@ -361,7 +359,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
         } catch (e) {
             console.error('AuthUserProvider: reloadUser failed', e);
         }
-    }, []);
+    }, [fa, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge]);
 
     const sendVerificationEmail = useCallback(async (actionCodeSettings?: AuthActionCodeSettings) => {
         const { auth } = await getFirebaseAuthClient();
@@ -386,8 +384,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             // result afterwards.
             if (!isWhiteListed) router.push(fa.redirectAuthPath);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fa.redirectAuthPath, sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, isWhiteListed]);
+    }, [fa, router, sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, isWhiteListed]);
 
     return <AuthUserContext.Provider value={{ ...state, reloadUser, sendVerificationEmail, logout }}>
         {children}

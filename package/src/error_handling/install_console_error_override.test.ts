@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import installConsoleErrorOverride from './install_console_error_override.js';
 import { consoleOverrideState } from './report_error.js';
 
 describe('installConsoleErrorOverride', () => {

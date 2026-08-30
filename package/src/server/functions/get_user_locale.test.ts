@@ -34,7 +34,6 @@ describe('languageDetecotr', () => {
         const original = String.prototype.trim;
         const boom = new Error('boom');
         void boom.stack; // force V8 to lazily format+cache the stack before trim is patched below
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (String.prototype as any).trim = () => { throw boom; };
         try {
             expect(languageDetecotr('de')).toBe('en');

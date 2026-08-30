@@ -65,8 +65,7 @@ export function excluded<T extends Table>(table: T): { [K in keyof T["_"]["colum
             }
             return sql.raw(`excluded.${col.name}`);
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any;
+    }) as unknown as { [K in keyof T["_"]["columns"]]: SQL };
 }
 
 /**

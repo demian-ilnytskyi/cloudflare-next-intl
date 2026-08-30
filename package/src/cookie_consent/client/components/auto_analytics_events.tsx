@@ -51,10 +51,9 @@ export default function AutoAnalyticsEvents({ config }: { config?: AutoAnalytics
 
     useEffect(() => {
         if (!granted) return;
-        if (!isEnabled('screen_view')) return;
+        if (!(!enabledEvents || enabledEvents.includes('screen_view'))) return;
         gtagEvent('screen_view', { screen_name: screenName, page_path: path });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [path, screenName, granted]);
+    }, [path, screenName, granted, enabledEvents]);
 
     useReportWebVitals((metric: WebVitalMetric) => {
         if (!granted) return;

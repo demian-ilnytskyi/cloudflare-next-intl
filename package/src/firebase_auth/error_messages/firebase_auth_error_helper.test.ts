@@ -44,7 +44,7 @@ describe('firebaseAuthErrorMessage', () => {
         const { getMessageCache } = await import('../../general/cache_variables.js');
         const { getTranslationsImpl } = await import('../../general/general_functions.js');
         vi.mocked(getMessageCache).mockReturnValue({ firebaseAuth: { invalidEmail: 'E-mail invalide.' } });
-        vi.mocked(getTranslationsImpl).mockReturnValue(((key: string) => 'E-mail invalide.') as never);
+        vi.mocked(getTranslationsImpl).mockReturnValue((() => 'E-mail invalide.') as never);
         const { default: firebaseAuthErrorMessage } = await import('./firebase_auth_error_helper.js');
 
         const result = firebaseAuthErrorMessage('fr', { code: 'auth/invalid-email' });

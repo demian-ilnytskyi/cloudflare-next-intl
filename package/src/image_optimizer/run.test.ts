@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_OPTIONS, resolveOptions } from "./types.js";
+import { resolveOptions } from "./types.js";
 import { collectImages, mergeOverrides, run, targetAndSiblingPaths } from "./run.js";
 import { cleanup, makeTempDir, writeFixturePng } from "../test_utils/image_optimizer_test_helpers.js";
 
@@ -190,8 +190,8 @@ describe("run", () => {
     it("run scans only referenced code images when onlyUsed is true", async () => {
         const root = await makeProject();
         await mkdir(path.join(root, "src"), { recursive: true });
-        const usedPng = await writeFixturePng(path.join(root, "public", "images"), "used.png", 40, 40);
-        const unusedPng = await writeFixturePng(path.join(root, "public", "images"), "unused.png", 40, 40);
+        await writeFixturePng(path.join(root, "public", "images"), "used.png", 40, 40);
+        await writeFixturePng(path.join(root, "public", "images"), "unused.png", 40, 40);
 
         await writeFile(
             path.join(root, "src", "App.tsx"),

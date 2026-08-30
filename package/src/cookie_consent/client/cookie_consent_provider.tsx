@@ -97,8 +97,7 @@ export default function CookieConsentProvider({ requiresConsent = true, children
 
         const storedDate = new Date(storedDateRaw);
         setPrivacyPolicyUpdated(!Number.isNaN(storedDate.getTime()) && storedDate < policyDate);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [consentCookieName, dateCookieName, maxAge, policyDate]);
 
     // `value: null` stores the literal string `'null'` (rather than clearing
     // the cookie) so the mount effect above can tell "explicitly reset" apart
@@ -112,14 +111,12 @@ export default function CookieConsentProvider({ requiresConsent = true, children
         }
         setConsentState(value);
         setPrivacyPolicyUpdated(false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [consentCookieName, dateCookieName, maxAge, policyDate]);
 
     const acknowledgePrivacyPolicyUpdate = useCallback(() => {
         if (policyDate) setCookie({ name: dateCookieName, value: policyDate.toISOString(), maxAge });
         setPrivacyPolicyUpdated(false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [dateCookieName, maxAge, policyDate]);
 
     // Visiting the privacy-policy page itself counts as having seen the
     // update — auto-acknowledge instead of also showing the banner there.
