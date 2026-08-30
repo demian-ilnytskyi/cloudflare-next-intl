@@ -72,6 +72,15 @@ inside this package).
   `v8 ignore` pragmas to production source to force a number up without
   that proof; a wrong claim can mask a real untested bug.
 
+## Package size restrictions
+
+- Never move a package out of `dependencies` (e.g. to `peerDependencies`,
+  `devDependencies`, or `optionalDependencies`) as a size-optimization move —
+  dependency placement is fixed; optimize elsewhere (tarball contents, dead
+  code, duplicate build output).
+- Never remove `README.md` or `llms.txt` from the `files` field or the
+  published tarball to reduce package size — both must always ship.
+
 ## Documentation
 
 - Every subpath/module gets a short "how to enable / isolation rules /
