@@ -9,6 +9,10 @@ export default defineConfig({
             include: [
                 'src/server/components/helper_script.bench.ts',
                 'src/image_optimizer/*.bench.ts',
+                'src/config/middleware.bench.ts',
+                'src/server/functions/get_user_locale.bench.ts',
+                'src/firebase_auth/decode_jwt_payload.bench.ts',
+                'src/firebase_auth/middleware/update_session.bench.ts',
             ],
             outputJson: process.env.BENCH_JSON ?? './bench-result.json',
         },
