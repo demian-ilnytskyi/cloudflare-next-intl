@@ -251,7 +251,8 @@
     "bench": "vitest bench --run",
     "build": "rm -rf dist && tsc && node scripts/write_dist_type.mjs",
     "check:exports": "node scripts/check_exports.mjs",
-    "prepublishOnly": "npm run build && npm run check:exports"
+    "check:size": "node scripts/check_size.mjs",
+    "prepublishOnly": "npm run build && npm run check:exports && npm run check:size"
   },
   "repository": {
     "type": "git",
