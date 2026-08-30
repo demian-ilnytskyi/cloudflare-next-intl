@@ -22,5 +22,32 @@ export default {
             width: 400,
             height: 300,
         },
+        "/images/sized.png": {
+            originalSrc: "/images/sized.png",
+            src: "/generated/images/sized.webp",
+            sources: [
+                { format: "webp", src: "/generated/images/sized.webp", type: "image/webp" },
+            ],
+            width: 1000,
+            height: 750,
+            variants: [
+                {
+                    width: 1000,
+                    height: 750,
+                    src: "/generated/images/sized.webp",
+                    sources: [
+                        { format: "webp", src: "/generated/images/sized.webp", type: "image/webp" },
+                    ],
+                },
+                {
+                    width: 200,
+                    height: 150,
+                    src: "/generated/images/sized-200w.webp",
+                    sources: [
+                        { format: "webp", src: "/generated/images/sized-200w.webp", type: "image/webp" },
+                    ],
+                },
+            ],
+        },
     },
 };

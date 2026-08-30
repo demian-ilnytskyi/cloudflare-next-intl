@@ -3,6 +3,24 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.58] - 2026-08-30
+
+### Added
+
+- **Full sharp format coverage (`ImageFormat`)**:
+  `formats` now accepts `avif`, `webp`, `png`, `jpeg`, `gif`, `tiff`, `heif`, `jp2`, and `jxl` — every raster format sharp can encode, not just avif/webp.
+- **Browser format negotiation via `<picture>`**:
+  When more than one format is generated for an image, the `<Image>` shim renders a `<picture>` with one `<source>` per format, ordered exactly as configured, so the browser picks the best format it supports natively (no client-side JS). Falls back to the original, unprocessed source file via `onError` if a generated asset fails to load.
+- **Per-image optimizer props on `<Image>`**:
+  `formats`, `maxWidth`, `quality`, and `blur` can now be set directly as props on individual `<Image>` usages (scanned at build time), in addition to the centralized `overrides` config. A matching `overrides` entry still wins if both are set.
+- **Multi-size variants (responsive images)**:
+  The same `src` used at different `width`s across the codebase now generates a separate optimized variant per size instead of one usage's width silently overwriting another's. Each `<Image>` usage automatically resolves to the closest generated size that is at least as large as its own `width` prop.
+
+### Fixed
+
+- **Cache freshness checks (`targetAndSiblingPaths`) matched wrong extensions**:
+  Sibling-format target paths used the raw format name as the file extension (e.g. `.jpeg` instead of `.jpg`), causing the cache to always consider `jpeg`-format images stale. Now shares the same `EXTENSION_BY_FORMAT` mapping used during encoding.
+
 ## [0.8.55] - 2026-08-29
 
 ### Added

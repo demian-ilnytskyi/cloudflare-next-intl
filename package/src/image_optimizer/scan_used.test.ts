@@ -85,6 +85,26 @@ describe("scan_used", () => {
         expect(Object.keys(overrides)).not.toContain(undefined);
     });
 
+    it("extractImageOverrides collects the tag's own width prop as an extraWidths variant", () => {
+        const code = `
+            <Image src="/images/sized.png" width={400} height={300} />
+            <Image src="/images/with-max.png" width={400} maxWidth={800} />
+        `;
+        const overrides = extractImageOverrides(code);
+        expect(overrides["/images/sized.png"]).toEqual({ extraWidths: [400] });
+        expect(overrides["/images/with-max.png"]).toEqual({ maxWidth: 800, extraWidths: [400] });
+    });
+
+    it("extractImageOverrides merges extraWidths across multiple usages of the same src instead of overwriting", () => {
+        const code = `
+            <Image src="/images/multi-size.png" width={200} />
+            <Image src="/images/multi-size.png" width={1200} />
+            <Image src="/images/multi-size.png" width={200} />
+        `;
+        const overrides = extractImageOverrides(code);
+        expect(overrides["/images/multi-size.png"].extraWidths?.sort((a, b) => a - b)).toEqual([200, 1200]);
+    });
+
     it("extractImageOverrides ignores unrecognized format keywords, non-numeric maxWidth, and an empty src", () => {
         const code = `
             <Image src="/images/weird.png" formats={["bogus"]} maxWidth={"nope"} />

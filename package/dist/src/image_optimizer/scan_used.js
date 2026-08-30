@@ -57,6 +57,17 @@ export function extractImageReferences(code) {
     }
     return Array.from(refs);
 }
+/** Merges one override into a map by src, unioning `extraWidths` instead of letting the later usage overwrite the earlier one. */
+function mergeOverrideInto(map, src, override) {
+    const existing = map[src];
+    const mergedWidths = existing?.extraWidths || override.extraWidths
+        ? Array.from(new Set([...(existing?.extraWidths ?? []), ...(override.extraWidths ?? [])]))
+        : undefined;
+    map[src] = { ...existing, ...override };
+    if (mergedWidths) {
+        map[src].extraWidths = mergedWidths;
+    }
+}
 const IMAGE_FORMATS = [
     "avif", "webp", "png", "jpeg", "gif", "tiff", "heif", "jp2", "jxl",
 ];
@@ -96,7 +107,11 @@ function parseBlurAttr(raw) {
  * Scans JSX/TSX source for <Image> tags carrying per-image optimizer props
  * (formats / blur / quality / maxWidth) and turns them into override entries
  * keyed by the tag's own src, so settings can live next to usage instead of
- * only in the plugin's centralized `overrides` config.
+ * only in the plugin's centralized `overrides` config. Every tag's own
+ * `width` prop is also collected into `extraWidths`, merged across all usages
+ * of the same src, so the same image used at different sizes (a thumbnail and
+ * a hero, say) gets a separate generated variant for each size instead of one
+ * usage's width silently overwriting another's.
  */
 export function extractImageOverrides(code) {
     const overrides = {};
@@ -122,6 +137,10 @@ export function extractImageOverrides(code) {
             if (parsed !== undefined)
                 override.maxWidth = parsed;
         }
+        const widthMatch = attrs.match(/\bwidth\s*=\s*\{?(\d+)\}?/);
+        if (widthMatch) {
+            override.extraWidths = [Number(widthMatch[1])];
+        }
         const qualityMatch = attrs.match(/\bquality\s*=\s*\{?(\d+)\}?/);
         if (qualityMatch) {
             override.quality = Number(qualityMatch[1]);
@@ -133,7 +152,7 @@ export function extractImageOverrides(code) {
                 override.blur = parsed;
         }
         if (Object.keys(override).length > 0) {
-            overrides[src] = { ...overrides[src], ...override };
+            mergeOverrideInto(overrides, src, override);
         }
     }
     return overrides;
@@ -184,7 +203,7 @@ export async function collectUsedImageOverrides(root, publicDir = "public") {
         const fileOverrides = extractImageOverrides(content);
         for (const [src, override] of Object.entries(fileOverrides)) {
             const publicSrc = resolvePublicSrc(src);
-            overrides[publicSrc] = { ...overrides[publicSrc], ...override };
+            mergeOverrideInto(overrides, publicSrc, override);
         }
     }
     return overrides;

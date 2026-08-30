@@ -61,6 +61,7 @@ export function resolveImageConfig(publicSrc, options) {
     if (!override) {
         return {
             maxWidth: options.maxWidth,
+            extraWidths: [],
             quality: options.quality,
             formats: options.formats,
             blur: options.blur,
@@ -80,5 +81,6 @@ export function resolveImageConfig(publicSrc, options) {
     const blur = override.blur !== undefined
         ? resolveBlurOptions(override.blur, options.blur)
         : options.blur;
-    return { maxWidth, quality, formats, blur };
+    const extraWidths = override.extraWidths ? [...override.extraWidths] : [];
+    return { maxWidth, extraWidths, quality, formats, blur };
 }

@@ -27,7 +27,7 @@ const MIME_BY_EXTENSION = {
     ".jp2": "image/jp2",
     ".jxl": "image/jxl",
 };
-const EXTENSION_BY_FORMAT = {
+export const EXTENSION_BY_FORMAT = {
     avif: "avif",
     webp: "webp",
     png: "png",
@@ -64,6 +64,12 @@ export function toGeneratedPath(absolutePath, publicRoot, outDir, root) {
     const targetSrc = `/${path.join(outDirRelativePublic, relative).split(path.sep).join("/")}`;
     return { targetFile, targetSrc };
 }
+/** Suffixes a generated file/src path with `-{width}w` so multiple widths of the same image don't collide, e.g. hero.webp -> hero-400w.webp. The default (first/primary) width keeps the unsuffixed name for backward compatibility. */
+export function withWidthSuffix(pathStr, width, isDefault) {
+    if (isDefault)
+        return pathStr;
+    return pathStr.replace(/(\.[^./]+)$/, `-${width}w$1`);
+}
 export async function makeBlurDataURL(targetFile, sourceWidth, sourceHeight, blurOptions) {
     const blurFile = targetFile.replace(/\.[^.]+$/, ".blur.webp");
     let blurWidth;
@@ -87,10 +93,10 @@ export async function makeBlurDataURL(targetFile, sourceWidth, sourceHeight, blu
         blurHeight,
     };
 }
-async function encodeFormat(targetFile, sourcePath, format, quality, maxWidth, needsResize) {
+async function encodeFormat(targetFile, sourcePath, format, quality, targetWidth) {
     let pipeline = sharp(sourcePath);
-    if (needsResize) {
-        pipeline = pipeline.resize({ width: maxWidth });
+    if (targetWidth !== undefined) {
+        pipeline = pipeline.resize({ width: targetWidth });
     }
     let encoded;
     if (format === "avif") {
@@ -128,40 +134,32 @@ async function encodeFormat(targetFile, sourcePath, format, quality, maxWidth, n
     }
     await encoded.toFile(targetFile);
 }
-export async function processImage(absolutePath, publicRoot, options, root = path.dirname(publicRoot)) {
-    const publicSrc = toPublicSrc(absolutePath, publicRoot);
-    const config = resolveImageConfig(publicSrc, options);
-    const metadata = await sharp(absolutePath).metadata();
-    const sourceWidth = metadata.width;
-    const sourceHeight = metadata.height;
-    const needsResize = typeof config.maxWidth === "number" && sourceWidth > config.maxWidth;
-    const width = needsResize ? config.maxWidth : sourceWidth;
-    const height = needsResize
-        ? Math.round((sourceHeight * config.maxWidth) / sourceWidth)
-        : sourceHeight;
-    const { targetFile, targetSrc } = toGeneratedPath(absolutePath, publicRoot, options.outDir, root);
-    await mkdir(path.dirname(targetFile), { recursive: true });
+/** Resolves one requested width against the source dimensions: `undefined` means "use source size" (no resize), a number is clamped to not exceed the source width (never upscale). */
+function resolveTargetWidth(requestedWidth, sourceWidth) {
+    if (requestedWidth === false)
+        return undefined;
+    return requestedWidth < sourceWidth ? requestedWidth : undefined;
+}
+async function processVariant(absolutePath, publicSrc, targetFile, targetSrc, targetWidth, sourceWidth, sourceHeight, config, isDefault) {
+    const width = targetWidth ?? sourceWidth;
+    const height = targetWidth ? Math.round((sourceHeight * targetWidth) / sourceWidth) : sourceHeight;
     const primaryFormat = config.formats.length > 0
         ? config.formats[0]
         : "original";
-    const primaryFile = primaryFormat === "original"
-        ? targetFile
-        : targetFile.replace(/\.[^.]+$/, `.${EXTENSION_BY_FORMAT[primaryFormat]}`);
-    const primarySrc = primaryFormat === "original"
-        ? targetSrc
-        : targetSrc.replace(/\.[^.]+$/, `.${EXTENSION_BY_FORMAT[primaryFormat]}`);
-    await encodeFormat(primaryFile, absolutePath, primaryFormat, config.quality, config.maxWidth, needsResize);
+    const primaryFile = withWidthSuffix(primaryFormat === "original" ? targetFile : targetFile.replace(/\.[^.]+$/, `.${EXTENSION_BY_FORMAT[primaryFormat]}`), width, isDefault);
+    const primarySrc = withWidthSuffix(primaryFormat === "original" ? targetSrc : targetSrc.replace(/\.[^.]+$/, `.${EXTENSION_BY_FORMAT[primaryFormat]}`), width, isDefault);
+    await encodeFormat(primaryFile, absolutePath, primaryFormat, config.quality, targetWidth);
     const sources = [
         { format: primaryFormat, src: primarySrc, type: mimeTypeFor(primaryFormat, publicSrc) },
     ];
     for (let i = 1; i < config.formats.length; i++) {
         const format = config.formats[i];
         const ext = EXTENSION_BY_FORMAT[format];
-        const siblingFile = targetFile.replace(/\.[^.]+$/, `.${ext}`);
-        await encodeFormat(siblingFile, absolutePath, format, config.quality, config.maxWidth, needsResize);
+        const siblingFile = withWidthSuffix(targetFile.replace(/\.[^.]+$/, `.${ext}`), width, isDefault);
+        await encodeFormat(siblingFile, absolutePath, format, config.quality, targetWidth);
         sources.push({
             format,
-            src: targetSrc.replace(/\.[^.]+$/, `.${ext}`),
+            src: withWidthSuffix(targetSrc.replace(/\.[^.]+$/, `.${ext}`), width, isDefault),
             type: mimeTypeFor(format, publicSrc),
         });
     }
@@ -170,13 +168,36 @@ export async function processImage(absolutePath, publicRoot, options, root = pat
         blurResult = await makeBlurDataURL(primaryFile, width, height, config.blur);
     }
     return {
-        originalSrc: publicSrc,
-        src: primarySrc,
-        sources: sortSources(sources, config.formats),
         width,
         height,
+        src: primarySrc,
+        sources: sortSources(sources, config.formats),
         blurDataURL: blurResult?.blurDataURL,
         blurWidth: blurResult?.blurWidth,
         blurHeight: blurResult?.blurHeight,
+    };
+}
+export async function processImage(absolutePath, publicRoot, options, root = path.dirname(publicRoot)) {
+    const publicSrc = toPublicSrc(absolutePath, publicRoot);
+    const config = resolveImageConfig(publicSrc, options);
+    const metadata = await sharp(absolutePath).metadata();
+    const sourceWidth = metadata.width;
+    const sourceHeight = metadata.height;
+    const { targetFile, targetSrc } = toGeneratedPath(absolutePath, publicRoot, options.outDir, root);
+    await mkdir(path.dirname(targetFile), { recursive: true });
+    const defaultTargetWidth = resolveTargetWidth(config.maxWidth, sourceWidth);
+    const requestedWidths = Array.from(new Set(config.extraWidths));
+    const extraTargetWidths = requestedWidths
+        .map((w) => resolveTargetWidth(w, sourceWidth) ?? sourceWidth)
+        .filter((w) => w !== (defaultTargetWidth ?? sourceWidth));
+    const defaultVariant = await processVariant(absolutePath, publicSrc, targetFile, targetSrc, defaultTargetWidth, sourceWidth, sourceHeight, config, true);
+    const variants = [defaultVariant];
+    for (const width of extraTargetWidths) {
+        variants.push(await processVariant(absolutePath, publicSrc, targetFile, targetSrc, width, sourceWidth, sourceHeight, config, false));
+    }
+    return {
+        originalSrc: publicSrc,
+        ...defaultVariant,
+        variants: variants.length > 1 ? variants : undefined,
     };
 }

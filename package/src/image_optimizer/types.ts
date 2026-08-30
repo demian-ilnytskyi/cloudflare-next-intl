@@ -16,6 +16,13 @@ export interface ImageOverrideOptions {
     formats?: ImageFormat[] | false;
     /** Max width to downscale, or `false` to preserve original dimensions. Default: inherits global */
     maxWidth?: number | false;
+    /**
+     * Additional widths to also generate as separate variants, e.g. when the
+     * same src is used at different sizes across the codebase (a thumbnail and
+     * a hero). Populated automatically by scanning <Image width=...> usages;
+     * merges (never overwrites) across multiple usages of the same src.
+     */
+    extraWidths?: number[];
     /** Compression quality (1-100). Default: inherits global */
     quality?: number;
     /** Blur placeholder settings for this image, or `false` to disable. Default: inherits global */
@@ -73,6 +80,7 @@ export interface ResolvedOptions {
 
 export interface ResolvedImageConfig {
     maxWidth: number | false;
+    extraWidths: number[];
     quality: number;
     formats: ImageFormat[];
     blur: ResolvedBlurOptions;
@@ -84,15 +92,25 @@ export interface OptimizedImageSource {
     type: string;
 }
 
-export interface OptimizedImage {
-    originalSrc: string;
-    src: string;
-    sources?: OptimizedImageSource[];
+export interface OptimizedImageVariant {
     width: number;
     height: number;
+    src: string;
+    sources?: OptimizedImageSource[];
     blurDataURL?: string;
     blurWidth?: number;
     blurHeight?: number;
+}
+
+/**
+ * `src`/`width`/`height`/`sources`/`blur*` mirror the default variant (the
+ * first one generated) so existing single-size lookups keep working; `variants`
+ * carries every width actually requested via <Image width=...> across the
+ * codebase, so the component can pick the closest match to what's rendered.
+ */
+export interface OptimizedImage extends OptimizedImageVariant {
+    originalSrc: string;
+    variants?: OptimizedImageVariant[];
 }
 
 export interface ManifestData {
@@ -176,6 +194,7 @@ export function resolveImageConfig(
     if (!override) {
         return {
             maxWidth: options.maxWidth,
+            extraWidths: [],
             quality: options.quality,
             formats: options.formats,
             blur: options.blur,
@@ -198,6 +217,7 @@ export function resolveImageConfig(
     const blur = override.blur !== undefined
         ? resolveBlurOptions(override.blur, options.blur)
         : options.blur;
+    const extraWidths = override.extraWidths ? [...override.extraWidths] : [];
 
-    return { maxWidth, quality, formats, blur };
+    return { maxWidth, extraWidths, quality, formats, blur };
 }

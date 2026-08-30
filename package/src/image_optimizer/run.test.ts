@@ -29,16 +29,56 @@ describe("run", () => {
         expect(merged["/images/only-scanned.png"]).toEqual({ blur: false });
     });
 
-    it("targetAndSiblingPaths returns primary path, siblings, and blur when enabled", () => {
-        const root = path.join("/tmp", "project");
+    it("mergeOverrides unions extraWidths instead of letting the configured override replace scanned widths", () => {
+        const scanned = {
+            "/images/hero.png": { extraWidths: [200] },
+        };
+        const configured = {
+            "/images/hero.png": { extraWidths: [1200], quality: 90 },
+        };
+
+        const merged = mergeOverrides(scanned, configured);
+
+        expect(merged["/images/hero.png"].extraWidths?.sort((a, b) => a - b)).toEqual([200, 1200]);
+        expect(merged["/images/hero.png"].quality).toBe(90);
+    });
+
+    it("mergeOverrides takes the configured extraWidths when the scanned override has none", () => {
+        const scanned = {
+            "/images/hero.png": { quality: 60 },
+        };
+        const configured = {
+            "/images/hero.png": { extraWidths: [1200] },
+        };
+
+        const merged = mergeOverrides(scanned, configured);
+
+        expect(merged["/images/hero.png"]).toEqual({ quality: 60, extraWidths: [1200] });
+    });
+
+    it("mergeOverrides keeps the scanned extraWidths when the configured override doesn't set any", () => {
+        const scanned = {
+            "/images/hero.png": { extraWidths: [200] },
+        };
+        const configured = {
+            "/images/hero.png": { quality: 90 },
+        };
+
+        const merged = mergeOverrides(scanned, configured);
+
+        expect(merged["/images/hero.png"]).toEqual({ extraWidths: [200], quality: 90 });
+    });
+
+    it("targetAndSiblingPaths returns primary path, siblings, and blur when enabled", async () => {
+        const root = await makeProject();
         const publicRoot = path.join(root, "public");
-        const file = path.join(publicRoot, "images", "hero.png");
+        const file = await writeFixturePng(path.join(publicRoot, "images"), "hero.png", 400, 300);
 
         const optionsMultiple = resolveOptions({
             formats: ["webp", "avif"],
             blur: true,
         });
-        const targetsMultiple = targetAndSiblingPaths(file, publicRoot, optionsMultiple, root);
+        const targetsMultiple = await targetAndSiblingPaths(file, publicRoot, optionsMultiple, root);
         expect(targetsMultiple).toEqual([
             path.join(root, "public", "generated", "images", "hero.webp"),
             path.join(root, "public", "generated", "images", "hero.avif"),
@@ -49,10 +89,49 @@ describe("run", () => {
             formats: false,
             blur: false,
         });
-        const targetsOriginal = targetAndSiblingPaths(file, publicRoot, optionsOriginal, root);
+        const targetsOriginal = await targetAndSiblingPaths(file, publicRoot, optionsOriginal, root);
         expect(targetsOriginal).toEqual([
             path.join(root, "public", "generated", "images", "hero.png"),
         ]);
+
+        await cleanup(root);
+    });
+
+    it("targetAndSiblingPaths uses the downscaled maxWidth as the default variant width", async () => {
+        const root = await makeProject();
+        const publicRoot = path.join(root, "public");
+        const file = await writeFixturePng(path.join(publicRoot, "images"), "wide.png", 2000, 1000);
+
+        const options = resolveOptions({ formats: ["webp"], blur: false, maxWidth: 800 });
+        const targets = await targetAndSiblingPaths(file, publicRoot, options, root);
+
+        expect(targets).toEqual([
+            path.join(root, "public", "generated", "images", "wide.webp"),
+        ]);
+
+        await cleanup(root);
+    });
+
+    it("targetAndSiblingPaths includes suffixed target files for each extraWidths variant", async () => {
+        const root = await makeProject();
+        const publicRoot = path.join(root, "public");
+        const file = await writeFixturePng(path.join(publicRoot, "images"), "multi-size.png", 1000, 500);
+
+        const options = resolveOptions({
+            formats: ["webp"],
+            blur: false,
+            overrides: {
+                "/images/multi-size.png": { extraWidths: [200, 1000] },
+            },
+        });
+
+        const targets = await targetAndSiblingPaths(file, publicRoot, options, root);
+        expect(targets).toEqual([
+            path.join(root, "public", "generated", "images", "multi-size.webp"),
+            path.join(root, "public", "generated", "images", "multi-size-200w.webp"),
+        ]);
+
+        await cleanup(root);
     });
 
     it("collectImages finds rasters recursively and skips svg, ico and missing dirs", async () => {

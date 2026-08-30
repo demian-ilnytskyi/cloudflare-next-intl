@@ -3,9 +3,27 @@ import NextImage, { getImageProps as nextGetImageProps } from "next/image";
 import type { ImageProps } from "next/image";
 import manifest from "virtual:cloudflare-next-intl-images-manifest";
 import { getImageBlurSvg } from "./blur_svg.js";
-import type { OptimizedImage } from "./types.js";
+import type { OptimizedImage, OptimizedImageVariant } from "./types.js";
 
 export type ManifestEntry = OptimizedImage;
+
+/**
+ * When an image was generated at multiple widths (because it's used at
+ * different sizes across the codebase), picks the variant whose width is
+ * closest to what this particular <Image> usage requested — preferring the
+ * smallest variant that is still >= the requested width, to avoid upscaling
+ * visible blur, and falling back to the largest available otherwise.
+ */
+function pickVariant(entry: ManifestEntry, requestedWidth: number | undefined): OptimizedImageVariant {
+    if (!requestedWidth || !entry.variants || entry.variants.length === 0) {
+        return entry;
+    }
+    const atLeast = entry.variants.filter((v) => v.width >= requestedWidth);
+    if (atLeast.length > 0) {
+        return atLeast.reduce((best, v) => (v.width < best.width ? v : best));
+    }
+    return entry.variants.reduce((best, v) => (v.width > best.width ? v : best));
+}
 
 const manifestData = manifest as { images?: Record<string, ManifestEntry> } | undefined;
 const images: Record<string, ManifestEntry> = (manifestData && typeof manifestData === "object" && manifestData.images)
@@ -59,26 +77,27 @@ function resolveProps(props: ImageProps): ImageProps {
 
     const entry = findEntry(src);
     if (entry) {
-        if (entry.src) {
+        const variant = pickVariant(entry, typeof props.width === "number" ? props.width : undefined);
+        if (variant.src) {
             if (typeof src === "string") {
-                src = entry.src;
+                src = variant.src;
             } else if (typeof src === "object" && src !== null && "src" in src) {
-                src = { ...src, src: entry.src };
+                src = { ...src, src: variant.src };
             } else {
-                src = entry.src;
+                src = variant.src;
             }
         }
-        if (!blurDataURL && props.placeholder === "blur" && entry.blurDataURL) {
+        if (!blurDataURL && props.placeholder === "blur" && variant.blurDataURL) {
             blurDataURL = getImageBlurSvg(
-                entry.blurDataURL,
-                entry.blurWidth,
-                entry.blurHeight,
+                variant.blurDataURL,
+                variant.blurWidth,
+                variant.blurHeight,
                 (props.style as React.CSSProperties | undefined)?.objectFit,
             );
         }
-        if (!width && !props.fill && entry.width) {
-            width = entry.width;
-            height = entry.height;
+        if (!width && !props.fill && variant.width) {
+            width = variant.width;
+            height = variant.height;
         }
     }
 
@@ -99,14 +118,17 @@ function resolveProps(props: ImageProps): ImageProps {
 export default function Image(props: ImageProps): React.JSX.Element {
     const resolved = resolveProps(props);
     const entry = findEntry(props.src);
-    const alternates = (entry?.sources ?? []).filter((source) => source.src !== entry?.src);
+    const variant = entry
+        ? pickVariant(entry, typeof props.width === "number" ? props.width : undefined)
+        : undefined;
+    const alternates = (variant?.sources ?? []).filter((source) => source.src !== variant?.src);
 
     if (alternates.length === 0) {
         return <NextImage {...resolved} />;
     }
 
     const { props: imgProps } = nextGetImageProps(resolved);
-    const primarySrc = entry?.src ?? String(imgProps.src);
+    const primarySrc = variant?.src ?? String(imgProps.src);
     const originalSrc = entry?.originalSrc;
 
     const onError: React.ReactEventHandler<HTMLImageElement> = (event) => {

@@ -83,6 +83,32 @@ describe("next_image_shim", () => {
         expect(img.src).toBe("/images/multi.png");
     });
 
+    it("picks the smallest variant that still covers the requested width", () => {
+        const { container } = render(<Image src="/images/sized.png" alt="sized" width={200} height={150} />);
+        const img = container.querySelector("img");
+        expect(img?.getAttribute("src")).toContain("sized-200w.webp");
+    });
+
+    it("picks the default (largest generated) variant when no width prop is given", () => {
+        const { container } = render(<Image src="/images/sized.png" alt="sized" />);
+        const img = container.querySelector("img");
+        expect(img?.getAttribute("src")).toContain("sized.webp");
+        expect(img?.getAttribute("src")).not.toContain("sized-200w");
+    });
+
+    it("falls back to the largest variant when the requested width exceeds every generated size", () => {
+        const { container } = render(<Image src="/images/sized.png" alt="sized" width={5000} height={3750} />);
+        const img = container.querySelector("img");
+        expect(img?.getAttribute("src")).toContain("sized.webp");
+    });
+
+    it("picks the closest larger variant when the requested width falls between two", () => {
+        const { container } = render(<Image src="/images/sized.png" alt="sized" width={500} height={375} />);
+        const img = container.querySelector("img");
+        expect(img?.getAttribute("src")).toContain("sized.webp");
+        expect(img?.getAttribute("src")).not.toContain("sized-200w");
+    });
+
     it("getImageProps resolves the manifest src the same way the component does", () => {
         const { props } = getImageProps({ src: "/images/hero.png", alt: "hero" });
         expect(String(props.src)).toContain("hero.webp");

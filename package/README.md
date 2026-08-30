@@ -256,7 +256,7 @@ export default defineConfig({
 ```
 
 ##### What `cloudflareNextIntl()` Does
-1. **Build-Time & Dev Image Optimizer (`imageOptimizer`)**: Automatically scans your image directories (`public/images`, `public/icons`), downscales oversized assets, produces sibling formats (`webp` by default; also supports `avif`, `png`, `jpeg`, `gif`, `tiff`, `heif`, `jp2`, `jxl`), generates 8px `.blur.webp` thumbnails with Next.js-matching SVG Gaussian blur placeholders, and provides transparent `<Image placeholder="blur" />` shimming via virtual modules. When more than one format is generated for an image, the shim renders a `<picture>` with one `<source>` per format — ordered exactly as configured — so the browser picks the best format it supports, with the original untouched file as an `onError` fallback if a generated asset fails to load.
+1. **Build-Time & Dev Image Optimizer (`imageOptimizer`)**: Automatically scans your image directories (`public/images`, `public/icons`), downscales oversized assets, produces sibling formats (`webp` by default; also supports `avif`, `png`, `jpeg`, `gif`, `tiff`, `heif`, `jp2`, `jxl`), generates 8px `.blur.webp` thumbnails with Next.js-matching SVG Gaussian blur placeholders, and provides transparent `<Image placeholder="blur" />` shimming via virtual modules. When more than one format is generated for an image, the shim renders a `<picture>` with one `<source>` per format — ordered exactly as configured — so the browser picks the best format it supports, with the original untouched file as an `onError` fallback if a generated asset fails to load. When the same image is used at different widths across the codebase, each size gets its own generated variant, and each `<Image>` usage automatically resolves to the closest matching size.
 2. **Locale File Bundling & Resolution (`localeFiles`)**: Resolves `@locale-file/*` to your `./messages` directory and transforms dynamic imports into `import.meta.glob('/messages/*.json', { eager: true })` for lightning-fast locale loading on Cloudflare Workers.
 3. **User-Agent Stub (`userAgentStub`)**: Prevents Next.js `user-agent` from importing `node:fs` during workerd runtime execution (which otherwise causes runtime 404 / 500 crashes in Workers proxy/middleware).
 4. **Cloudflare Workers Client Stub (`cfWorkersClientStub`)**: Stubs `cloudflare:workers` in client builds so shared modules can be referenced without client bundling errors.
@@ -309,6 +309,20 @@ import { Image } from "cloudflare-next-intl/image";
 ```
 
 Supported props: `formats` (array or `false`), `maxWidth` (number or `false`), `quality` (number), `blur` (`true`, `false`, or `{ size, quality, stdDeviation }`).
+
+##### Multi-Size Variants (Responsive Images)
+
+Every `<Image>` usage's own `width` prop is also scanned. If the same `src` is used at different widths across the codebase — a thumbnail and a hero, say — each distinct width gets its own generated variant instead of the sizes overwriting one another:
+
+```tsx
+// components/Thumbnail.tsx
+<Image src="/images/hero.png" width={200} height={150} alt="thumbnail" />
+
+// components/Hero.tsx
+<Image src="/images/hero.png" width={1200} height={900} alt="hero" />
+```
+
+This produces two sets of generated files (`hero.webp` at the default/full-resolution size and `hero-200w.webp` for the thumbnail), and each `<Image>` call automatically resolves to the closest generated size that is at least as large as its own `width` prop — no manual `srcset` configuration needed. A width larger than any generated variant falls back to the largest one available (never upscales). This is additive to `maxWidth`/`overrides`: an explicit `maxWidth` (via prop or `overrides`) still controls the *default* variant's size, while `width` usages add extra sizes alongside it.
 
 ##### Browser Format Negotiation
 

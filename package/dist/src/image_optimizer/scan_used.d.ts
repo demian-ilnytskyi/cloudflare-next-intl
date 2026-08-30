@@ -7,7 +7,11 @@ export declare function extractImageReferences(code: string): string[];
  * Scans JSX/TSX source for <Image> tags carrying per-image optimizer props
  * (formats / blur / quality / maxWidth) and turns them into override entries
  * keyed by the tag's own src, so settings can live next to usage instead of
- * only in the plugin's centralized `overrides` config.
+ * only in the plugin's centralized `overrides` config. Every tag's own
+ * `width` prop is also collected into `extraWidths`, merged across all usages
+ * of the same src, so the same image used at different sizes (a thumbnail and
+ * a hero, say) gets a separate generated variant for each size instead of one
+ * usage's width silently overwriting another's.
  */
 export declare function extractImageOverrides(code: string): Record<string, ImageOverrideOptions>;
 /**

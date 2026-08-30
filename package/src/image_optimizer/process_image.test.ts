@@ -147,6 +147,49 @@ describe("process_image", () => {
         await cleanup(root);
     });
 
+    it("processImage generates a separate variant per extraWidths entry, deduped against the default width", async () => {
+        const root = await makeTempDir();
+        const publicRoot = path.join(root, "public");
+        const file = await writeFixturePng(path.join(publicRoot, "images"), "multi-size.png", 1000, 500);
+
+        const result = await processImage(
+            file,
+            publicRoot,
+            resolveOptions({
+                formats: ["webp"],
+                overrides: {
+                    "/images/multi-size.png": { extraWidths: [200, 1000] },
+                },
+            }),
+            root,
+        );
+
+        expect(result.width).toBe(1000);
+        expect(result.src).toBe("/generated/images/multi-size.webp");
+        expect(result.variants).toHaveLength(2);
+
+        const thumb = result.variants?.find((v) => v.width === 200);
+        expect(thumb?.src).toBe("/generated/images/multi-size-200w.webp");
+
+        const genDir = path.join(publicRoot, "generated", "images");
+        expect(existsSync(path.join(genDir, "multi-size.webp"))).toBe(true);
+        expect(existsSync(path.join(genDir, "multi-size-200w.webp"))).toBe(true);
+        expect(existsSync(path.join(genDir, "multi-size-1000w.webp"))).toBe(false);
+
+        await cleanup(root);
+    });
+
+    it("processImage omits `variants` entirely when there's only one size", async () => {
+        const root = await makeTempDir();
+        const publicRoot = path.join(root, "public");
+        const file = await writeFixturePng(path.join(publicRoot, "images"), "single.png", 100, 100);
+
+        const result = await processImage(file, publicRoot, resolveOptions({ formats: ["webp"] }), root);
+
+        expect(result.variants).toBeUndefined();
+        await cleanup(root);
+    });
+
     it("falls back to jpeg mime for an unrecognized original extension", () => {
         expect(mimeTypeFor("original", "/images/icon.bmp")).toBe("image/jpeg");
     });
