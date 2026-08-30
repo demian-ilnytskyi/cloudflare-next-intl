@@ -3,11 +3,6 @@ import requireDbConfig from './require_config.js';
 import resolveConfigValue from './resolve_config_value.js';
 import { resolveEnv } from '../server/functions/geo.js';
 let pgModule;
-/**
- * Loads `pg` lazily, so an app that never touches the Postgres transport never
- * bundles it, and caches the module promise so concurrent callers share one
- * resolution instead of racing separate `import()` calls.
- */
 function loadPg() {
     pgModule ?? (pgModule = import('pg'));
     return pgModule;
@@ -25,13 +20,6 @@ async function resolveConnectionString(db, generate) {
         'to a connection string, or to a function returning one (e.g. reading a ' +
         'Hyperdrive binding off `env` or `getCloudflareContext().env`).');
 }
-/**
- * Runs `queryFn` on a Postgres client scoped to this single call: one
- * `connect()`, your callback, then a guaranteed `end()`. Each call gets its own
- * client, so concurrent renders in the same isolate can never share session
- * state (role, `request.jwt.claims`, an open transaction) with each other.
- * Hyperdrive pools the server-side connection behind this.
- */
 export async function withDbClient(config, queryFn) {
     const db = config.db;
     requireDbConfig(db);
@@ -67,7 +55,6 @@ export async function withDbClient(config, queryFn) {
                     ctx = context?.ctx;
                 }
                 catch {
-                    // Ignore context resolution errors
                 }
             }
         }
@@ -80,31 +67,11 @@ export async function withDbClient(config, queryFn) {
     }
     return result;
 }
-/**
- * No-op kept for backward compatibility. There is no cached connection state
- * to reset now that every {@link withDbClient} call owns its client.
- *
- * @deprecated Connection state is per-call; this does nothing.
- */
 export function resetConnectionState() {
-    // no cached state to reset
 }
-/**
- * Runs `fn` directly. Kept for backward compatibility: session state can no
- * longer leak between callers, so there is nothing left to serialize.
- *
- * @deprecated Clients are per-call now; no lock is needed.
- */
 export async function withSessionLock(fn) {
     return await fn();
 }
-/**
- * Opens a Postgres client the caller owns and must close with
- * {@link disconnectPostgres}. Prefer {@link withDbClient}, which closes the
- * client for you even when the callback throws.
- *
- * @deprecated Use {@link withDbClient} instead.
- */
 export async function connectToPostgres(config) {
     const db = config.db;
     requireDbConfig(db);
@@ -117,11 +84,6 @@ export async function connectToPostgres(config) {
     await client.connect();
     return client;
 }
-/**
- * Closes a client from {@link connectToPostgres}.
- *
- * @deprecated Use {@link withDbClient} instead.
- */
 export async function disconnectPostgres(client) {
     await client?.end().catch(() => undefined);
 }

@@ -14,9 +14,6 @@ import withRedirectQuery from '../preserve_redirect_query.js';
 import setCookie from '../../client/functions/set_cookie.js';
 import getCookie from '../../client/functions/get_cookie.js';
 import clearSessionAction from '../server/clear_session_action.js';
-// `null` default (instead of a `{ loading: true, ... }` stand-in) lets
-// `useAuthUser` distinguish "not wrapped in AuthUserProvider" (throw) from
-// "wrapped, still loading" (`loading: true`).
 export const AuthUserContext = createContext(null);
 function writeSessionCookie(sessionCookieName, idToken, maxAge) {
     setCookie({ name: sessionCookieName, value: idToken, maxAge });
@@ -33,24 +30,12 @@ function writeRefreshTokenCookie(refreshTokenCookieName, user, maxAge) {
 function clearRefreshTokenCookie(refreshTokenCookieName) {
     setCookie({ name: refreshTokenCookieName, value: '', maxAge: 0 });
 }
-// Mirrors the live SDK's `emailVerified` into a client-readable cookie so
-// the middleware can tell "the client already agrees with the session JWT's
-// claim" (skip the extra refresh) apart from "the client observed a change
-// this claim hasn't caught up to yet" (worth one refresh to confirm).
 function writeEmailVerifiedHintCookie(emailVerifiedHintCookieName, emailVerified, maxAge) {
     setCookie({ name: emailVerifiedHintCookieName, value: String(emailVerified), maxAge });
 }
 function clearAppCheckTokenCookie(appCheckTokenCookieName) {
     setCookie({ name: appCheckTokenCookieName, value: '', maxAge: 0 });
 }
-// Mirrors the live App Check token into a client-readable cookie so
-// `getAuthenticatedAppForUser` can forward it to `initializeServerApp` —
-// required whenever App Check enforcement is on for Auth, or every
-// server-side `getAuthUser()` call is rejected with
-// `auth/firebase-app-check-token-is-invalid`. Best-effort: App Check may not
-// be configured, or a token fetch can transiently fail (e.g. reCAPTCHA not
-// yet ready) — either case just leaves the cookie unset rather than blocking
-// session sync on it.
 async function writeAppCheckTokenCookie(appCheckTokenCookieName, maxAge) {
     try {
         const token = await getAppCheckToken();
@@ -65,10 +50,6 @@ async function clearSession(sessionCookieName, refreshTokenCookieName, emailVeri
     clearSessionCookie(sessionCookieName);
     clearRefreshTokenCookie(refreshTokenCookieName);
     clearAppCheckTokenCookie(appCheckTokenCookieName);
-    // Signed-out is not "unknown" — it's a confirmed non-verified state, so
-    // write 'false' explicitly rather than clearing (an absent hint means
-    // "no signal yet", which forces the middleware to refresh unnecessarily
-    // if a stale session cookie somehow still lingers).
     writeEmailVerifiedHintCookie(emailVerifiedHintCookieName, false, refreshTokenMaxAge);
     try {
         await clearSessionAction();
@@ -88,24 +69,6 @@ async function writeSession(user, sessionCookieName, maxAge, refreshTokenCookieN
     await writeAppCheckTokenCookie(appCheckTokenCookieName, appCheckTokenMaxAge);
     writeSessionCookie(sessionCookieName, idToken ?? await user.getIdToken(true), maxAge);
 }
-/**
- * Client-side auth-state provider for `firebase_auth`. Wrap your root layout
- * (or a client boundary below it) with this to make `useAuthUser()`
- * (`cloudflare-next-intl/useFirebaseAuthUser`, client variant) resolve
- * `{ user, loading }` from the live Firebase `onIdTokenChanged` listener,
- * and to get automatic session-cookie sync + redirect-on-sign-out/verify
- * behavior driven by `firebaseAuth.isAuthPath` / `whiteListPaths` /
- * `redirectAuthPath` / `verifyEmailPath` on your `RoutingConfig`.
- *
- * Requires `firebaseAuth` to be set on the config passed to `setIntlConfig`
- * — throws via {@link requireFirebaseAuthConfig} otherwise.
- *
- * @param initialUser Server-resolved user (e.g. from
- *   `useFirebaseAuthUser`'s `react-server` variant) to avoid a
- *   loading flash on first paint; pass `null`/omit if unavailable.
- * @example
- * <AuthUserProvider initialUser={initialUser}>{children}</AuthUserProvider>
- */
 export default function AuthUserProvider({ initialUser = null, children }) {
     const fa = config.firebaseAuth;
     requireFirebaseAuthConfig(fa);
@@ -124,59 +87,26 @@ export default function AuthUserProvider({ initialUser = null, children }) {
         user: initialUser,
         loading: initialUser === null,
     });
-    // The signed-in state the last successful cookie write left behind, so a
-    // plain token refresh (same state) does not trigger a needless re-render.
     const syncedSignedIn = useRef(undefined);
-    // Consecutive `onIdTokenChanged(null)` callbacks since the last confirmed
-    // user. A single null here can be a transient client-SDK hiccup (e.g. its
-    // token-refresh scheduling misbehaving under local clock skew) rather
-    // than a real sign-out — the server already proved the session valid via
-    // `initialUser`, so redirecting on the very first null caused a
-    // login-then-bounce-home flash whenever the two disagreed.
     const consecutiveNulls = useRef(0);
     const [confirmedSignedOut, setConfirmedSignedOut] = useState(initialUser === null);
-    // Whether `onSignIn`/`onSignOut` have already fired for the CURRENT
-    // signed-in/signed-out state — both seeded from `initialUser` so a
-    // callback observing the SAME state `initialUser` already established
-    // (server-resolved, not a fresh client-side transition) does not refire
-    // it. Reset on the opposite transition so the next real occurrence of
-    // this state fires again.
     const signInCallbackFired = useRef(initialUser !== null);
     const signOutCallbackFired = useRef(initialUser === null);
-    // Tracks the last-observed `emailVerified` value so `onEmailVerified`
-    // fires exactly once on the false→true edge, not on every later
-    // observation of an already-verified user (both `onIdTokenChanged` and
-    // `reloadUser` can be the first to observe the transition).
     const emailVerifiedRef = useRef(initialUser?.emailVerified ?? false);
     useEffect(() => {
         const { user, loading } = state;
         if (loading || isWhiteListed)
             return;
         if (!user) {
-            // Signed-out on an auth page is where they're supposed to be —
-            // only bounce a signed-out user away from a NON-auth page.
             if (!isAuthPage && confirmedSignedOut)
                 router.replace(withRedirectQuery(fa.redirectAuthPath, window.location.search));
         }
         else if (fa.verifyEmailPath && !user.emailVerified && pathname !== fa.verifyEmailPath) {
-            // Checked before the auth-page redirect below (mirrors
-            // `update_session.ts`'s same ordering): an unverified signed-in
-            // user must land on verifyEmailPath even if they navigated to
-            // an auth page like /login — homePath isn't reachable yet either.
             router.replace(withRedirectQuery(fa.verifyEmailPath, window.location.search));
         }
         else if (isAuthPage || (fa.verifyEmailPath && user.emailVerified && pathname === fa.verifyEmailPath)) {
-            // Mirrors the middleware's own signed-in-on-auth-page redirect
-            // (`update_session.ts`'s `isAuthPage` branch) — needed here too
-            // because a client-side navigation (e.g. a `<Link>`) to an auth
-            // page never re-runs the middleware, so without this the user
-            // would land on e.g. `/login` while already signed in and stay
-            // there until a hard refresh. A verified user reaching
-            // verifyEmailPath itself gets the same "go home" treatment —
-            // they're done here, same as the auth-page case.
             router.replace(withRedirectQuery(fa.homePath, window.location.search));
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state, pathname, isAuthPage, isWhiteListed, confirmedSignedOut]);
     useEffect(() => {
         let unsubscribe;
@@ -246,19 +176,6 @@ export default function AuthUserProvider({ initialUser = null, children }) {
                     }
                 }
                 const flipped = previous !== undefined && previous !== isSignedIn;
-                // `contradictsPage` infers "the server rendered this page for
-                // the opposite auth state, resync it" from the page's own
-                // auth/non-auth role. On a whitelisted path that inference is
-                // meaningless — the page renders identically signed-in or
-                // signed-out and neither guard ever redirects away from it —
-                // so a signed-out visitor on a non-auth whitelisted page
-                // (`isSignedIn === isAuthPage`, both false) matched on the
-                // first observation and refreshed. That refresh re-primes the
-                // router cache, re-firing every in-viewport `<Link>` prefetch,
-                // which lands back here and repeats: an unbounded refresh loop
-                // on exactly the public landing pages whitelisting exists for.
-                // A real `flipped` transition still refreshes, whitelisted or
-                // not — that one observed an actual state change.
                 const contradictsPage = !isWhiteListed && previous === undefined && isSignedIn === isAuthPage;
                 if (flipped || contradictsPage) {
                     router.refresh();
@@ -269,7 +186,6 @@ export default function AuthUserProvider({ initialUser = null, children }) {
             cancelled = true;
             unsubscribe?.();
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [router, isAuthPage, isWhiteListed, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge]);
     const reloadUser = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();
@@ -279,17 +195,6 @@ export default function AuthUserProvider({ initialUser = null, children }) {
         try {
             const { reload } = await getFirebaseAuthModule();
             await reload(user);
-            // `getIdToken(true)` can occasionally hand back a token that's
-            // no newer than the one already in the session cookie — a stale
-            // token caught mid-propagation right after `reload()`, rather
-            // than the fresh mint the caller asked for. Comparing `iat`
-            // (issued-at) against the existing cookie's token is a direct
-            // check that the token we're about to write is actually new;
-            // retry a few times if it isn't before giving up and writing
-            // whatever we got. The confirmed token is threaded into
-            // `writeSession` directly — letting it call `getIdToken(true)`
-            // again on its own could re-fetch and land back on a stale
-            // token, undoing this retry entirely.
             const previousIat = decodeJwtPayload(getCookie(sessionCookieName) ?? '')?.iat;
             let confirmedToken;
             if (previousIat !== undefined) {
@@ -340,15 +245,9 @@ export default function AuthUserProvider({ initialUser = null, children }) {
         }
         finally {
             await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge);
-            // Whitelisted paths opt out of every other auth redirect in this
-            // provider (see the effect above), so an explicit `logout()` from
-            // one must not bounce either — a page like a delete-account flow
-            // signs the user out as a STEP and still needs to render its own
-            // result afterwards.
             if (!isWhiteListed)
                 router.push(fa.redirectAuthPath);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fa.redirectAuthPath, sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, isWhiteListed]);
     return _jsx(AuthUserContext.Provider, { value: { ...state, reloadUser, sendVerificationEmail, logout }, children: children });
 }

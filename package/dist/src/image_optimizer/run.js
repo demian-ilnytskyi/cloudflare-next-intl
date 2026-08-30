@@ -66,11 +66,6 @@ export async function targetAndSiblingPaths(absolutePath, publicRoot, options, r
     }
     return result;
 }
-/**
- * Merges optimizer overrides scanned from <Image> JSX props with the plugin's
- * centralized `overrides` config, so settings can live at the usage site. An
- * explicit config override for a given src still wins over a scanned one.
- */
 export function mergeOverrides(scanned, configured) {
     const merged = { ...scanned };
     for (const [src, override] of Object.entries(configured)) {

@@ -44,10 +44,6 @@ export function mimeTypeFor(format, originalSrc) {
     }
     return MIME_BY_FORMAT[format];
 }
-/**
- * <picture> tries <source> tags in document order, so sources must follow the
- * user's own `formats` order (their priority) with "original" always last as fallback.
- */
 export function sortSources(sources, formats) {
     const priority = [...formats, "original"];
     return [...sources].sort((a, b) => priority.indexOf(a.format) - priority.indexOf(b.format));
@@ -64,7 +60,6 @@ export function toGeneratedPath(absolutePath, publicRoot, outDir, root) {
     const targetSrc = `/${path.join(outDirRelativePublic, relative).split(path.sep).join("/")}`;
     return { targetFile, targetSrc };
 }
-/** Suffixes a generated file/src path with `-{width}w` so multiple widths of the same image don't collide, e.g. hero.webp -> hero-400w.webp. The default (first/primary) width keeps the unsuffixed name for backward compatibility. */
 export function withWidthSuffix(pathStr, width, isDefault) {
     if (isDefault)
         return pathStr;
@@ -134,7 +129,6 @@ async function encodeFormat(targetFile, sourcePath, format, quality, targetWidth
     }
     await encoded.toFile(targetFile);
 }
-/** Resolves one requested width against the source dimensions: `undefined` means "use source size" (no resize), a number is clamped to not exceed the source width (never upscale). */
 function resolveTargetWidth(requestedWidth, sourceWidth) {
     if (requestedWidth === false)
         return undefined;

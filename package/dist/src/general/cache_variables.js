@@ -1,11 +1,6 @@
-// Caches for loaded translation objects and memoized translation functions.
 const loadedTranslations = new Map();
 const translationFunctionsCache = new Map();
-let currentLanguage = undefined; // Renamed 'language' to 'currentLanguage' for clarity
-/**
- * Sets the current locale.
- * @param locale The language to set.
- */
+let currentLanguage = undefined;
 export function setLocaleCache(locale) {
     currentLanguage = locale;
 }

@@ -16,11 +16,6 @@ const ERROR_CODE_TO_KEY = {
     'auth/invalid-action-code': 'invalidActionCode',
     'auth/user-token-expired': 'userTokenExpired',
 };
-/**
- * Resolves a Firebase auth error to a user-facing message. If the consumer's
- * locale messages have a `firebaseAuth` namespace with a matching key, that
- * translation is used; otherwise falls back to the bundled English default.
- */
 export default function firebaseAuthErrorMessage(locale, error) {
     const code = typeof error === 'object' && error !== null && 'code' in error
         ? String(error.code)
@@ -36,11 +31,7 @@ export default function firebaseAuthErrorMessage(locale, error) {
                 return translated;
         }
         catch {
-            // fall through to English default
         }
     }
-    // Unreachable: key is always either a value from ERROR_CODE_TO_KEY (all
-    // valid DEFAULT_MESSAGES_EN keys) or the literal 'unknown' fallback
-    // above, so DEFAULT_MESSAGES_EN[key] never misses.
     return DEFAULT_MESSAGES_EN[key] ?? DEFAULT_MESSAGES_EN.unknown;
 }

@@ -1,8 +1,3 @@
-/**
- * Throws a descriptive error instead of silently no-op'ing when the
- * `cookie_consent` submodule is used without `cookieConsent` set on the
- * `RoutingConfig` passed to `setIntlConfig`.
- */
 export default function requireCookieConsentConfig(value) {
     if (!value) {
         throw new Error('cloudflare-next-intl: `cookieConsent` is not set on your `RoutingConfig`. ' +

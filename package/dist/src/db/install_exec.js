@@ -1,17 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-/**
- * Copies one packaged SQL file (`cfni_exec.sql` itself, or its pgTAP test
- * file) to a target path in the consuming project, creating the target
- * directory if needed.
- *
- * When the target already exists with different content, this skips the
- * write and reports `'skipped-differs'` rather than overwriting a possibly
- * customized file — pass `force: true` to overwrite anyway.
- *
- * @param file Source (this package's copy) and target (the project's copy) paths.
- * @param force Overwrite an existing, differing target instead of skipping it.
- */
 export function installExecFile(file, force) {
     if (!existsSync(file.sourcePath)) {
         return {

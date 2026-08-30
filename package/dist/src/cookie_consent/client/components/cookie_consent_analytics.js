@@ -3,20 +3,7 @@ import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-run
 import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import useCookieConsent from '../use_cookie_consent.js';
-// Hoisted to module scope — calling `dynamic()` inside the component body
-// creates a brand-new component identity every render, forcing a
-// remount. Splitting into a separate chunk keeps `@microsoft/clarity`'s
-// import out of this module until `ClarityScript` is actually rendered.
 const ClarityScript = dynamic(() => import('./clarity_script.js'));
-/**
- * Renders whichever analytics/ads scripts have a resolved secret, gated on
- * consent: Google Consent Mode bootstrap always loads (defaults to
- * `denied`, only sends `update` once `consent` is decided); Cloudflare Web
- * Analytics beacon and Microsoft Clarity only load once `consent === true`.
- * Rendered automatically by `IntlProvider` when `cookieConsent.analytics`/
- * `getAnalytics` resolves at least one field and `autoWireAnalytics` isn't
- * `false` — render manually instead if you set `autoWireAnalytics: false`.
- */
 export default function CookieConsentAnalytics({ config }) {
     const { consent, requiresConsent } = useCookieConsent();
     const granted = consent === true || !requiresConsent;
@@ -37,11 +24,6 @@ export default function CookieConsentAnalytics({ config }) {
     const hasGoogle = Boolean(config.googleAnalyticsId || config.googleAdsId || config.googleAdSenseId);
     return (_jsxs(_Fragment, { children: [hasGoogle && (_jsx("script", { id: "cookie-consent-google-consent-mode", dangerouslySetInnerHTML: { __html: googleConsentModeBootstrapScript(config) } })), granted && config.cloudflareBeaconToken && (_jsx("script", { defer: true, src: "https://static.cloudflareinsights.com/beacon.min.js", "data-cf-beacon": config.cloudflareBeaconToken })), granted && config.clarityProjectId && _jsx(ClarityScript, { projectId: config.clarityProjectId })] }));
 }
-/**
- * Denies storage by default and loads the configured Google tags; the
- * effect above sends the `update` once consent is known. Only IDs present
- * in `config` are included.
- */
 export function googleConsentModeBootstrapScript(config) {
     const configCalls = [config.googleAnalyticsId, config.googleAdsId]
         .filter(Boolean)

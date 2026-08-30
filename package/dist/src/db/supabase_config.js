@@ -1,14 +1,4 @@
 import resolveConfigValue from './resolve_config_value.js';
-/**
- * Resolves the Supabase project URL and anon key, preferring explicit config
- * over the `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`
- * environment variables.
- *
- * @param supabase The `db.supabase` config block.
- * @returns The project URL and anon key to build a Supabase client from.
- * Values given as functions are resolved here.
- * @throws If neither config nor environment supplies a URL or an anon key.
- */
 export default async function resolveSupabaseEndpoint(supabase) {
     const url = (await resolveConfigValue(supabase.url)) ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!url) {

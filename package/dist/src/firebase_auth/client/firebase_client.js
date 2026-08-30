@@ -5,13 +5,6 @@ let cachedAppCheck;
 let cachedPerformance;
 const GRECAPTCHA_LOAD_TIMEOUT_MS = 15000;
 const GRECAPTCHA_POLL_INTERVAL_MS = 50;
-/**
- * Resolves once the reCAPTCHA script has defined `window.grecaptcha`. The
- * script tag `IntlHelperScript` renders is `async`, and
- * `initializeAppCheck` fetches a token immediately when
- * `isTokenAutoRefreshEnabled` is on, so the first `getToken` regularly runs
- * before the script has landed — this polls instead of failing outright.
- */
 function waitForGrecaptcha() {
     if (window.grecaptcha)
         return Promise.resolve(window.grecaptcha);
@@ -29,17 +22,6 @@ function waitForGrecaptcha() {
         }, GRECAPTCHA_POLL_INTERVAL_MS);
     });
 }
-/**
- * Faithful reimplementation of `ReCaptchaV3Provider`'s internal
- * widget-render + token-exchange flow (see `@firebase/app-check`'s
- * `initializeV3`/`queueWidgetRender`/`getToken$1`/`exchangeToken`), minus
- * its own internal `<script>` injection — that injection is what spawns the
- * worker documented on `useExplicitRecaptchaScript`. Relies on the script
- * tag `IntlHelperScript` renders, waiting for it rather than assuming it has
- * already loaded. Hits the same public `exchangeRecaptchaV3Token` REST
- * endpoint Firebase's own provider uses, so this stays correct even if
- * `@firebase/app-check` changes its internal script-loading strategy.
- */
 function createExplicitRecaptchaProvider(app, siteKey, CustomProvider) {
     let widgetReady;
     let widgetSucceeded = false;
@@ -74,9 +56,6 @@ function createExplicitRecaptchaProvider(app, siteKey, CustomProvider) {
                 });
             });
         })();
-        // Never memoize a rejection: a failed load (script still in flight,
-        // transient network error) must not permanently disable App Check for
-        // the rest of the page's lifetime.
         widgetReady = pending.catch(error => {
             widgetReady = undefined;
             throw error;
@@ -86,8 +65,6 @@ function createExplicitRecaptchaProvider(app, siteKey, CustomProvider) {
     return new CustomProvider({
         getToken: async () => {
             const { grecaptcha, widgetId } = await ensureWidget();
-            // `grecaptcha.execute()` rejects with `null` on failure, which
-            // surfaces as an unhelpful error — mirror Firebase's own remap.
             const recaptchaToken = await grecaptcha
                 .execute(widgetId, { action: 'fire_app_check' })
                 .catch(() => {
@@ -130,13 +107,6 @@ async function initializeFirebaseAppCheck(app, appCheckConfig) {
         isTokenAutoRefreshEnabled: appCheckConfig.isTokenAutoRefreshEnabled ?? true,
     });
 }
-/**
- * Current App Check token, or `undefined` if `appCheck` isn't configured or
- * hasn't initialized yet. Forces a refresh only when the cached token is
- * expired/near-expiry — mirrors `getToken`'s own semantics, just exposed
- * here so callers (e.g. `AuthUserProvider`'s session-cookie sync) don't need
- * to import `firebase/app-check` themselves.
- */
 const APP_CHECK_TOKEN_TIMEOUT_MS = 10000;
 export async function getAppCheckToken() {
     if (!cachedAppCheck)
@@ -156,13 +126,6 @@ export async function getAppCheckToken() {
 }
 let cached;
 let cachedPromise;
-/**
- * Lazily loads and initializes `firebase/app`/`firebase/auth` — a dynamic
- * import, not a static one, so consumers who never call a firebase_auth
- * export never pull these packages into their bundle or runtime at all.
- * Throws if `firebaseAuth` is missing from `RoutingConfig` (see
- * `require_config.ts`) instead of silently no-op'ing.
- */
 export async function getFirebaseAuthClient() {
     requireFirebaseAuthConfig(config.firebaseAuth);
     if (cached)
@@ -203,16 +166,13 @@ export async function getFirebaseAuthClient() {
     }
     return cachedPromise;
 }
-/** Synchronous read of the cached client, or `undefined` before the first `getFirebaseAuthClient()` resolves. */
 export function getFirebaseAuthClientSync() {
     return cached;
 }
-/** Synchronous read of the cached `FirebasePerformance` instance, or `undefined` if `performance` isn't enabled or hasn't initialized yet. */
 export function getFirebasePerformanceSync() {
     return cachedPerformance;
 }
 let cachedAuthModule;
-/** Memoized `import('firebase/auth')` — see {@link getFirebaseAuthClient} for why this is worth caching. */
 export function getFirebaseAuthModule() {
     if (!cachedAuthModule) {
         cachedAuthModule = import('firebase/auth');

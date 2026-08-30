@@ -1,12 +1,4 @@
 import UnsupportedSqlError from './unsupported_sql.js';
-/**
- * Reads a parsed value against the statement's positional parameters.
- *
- * @param value A placeholder reference or an inline literal.
- * @param params The statement's positional parameters, 1-indexed by `$n`.
- * @returns The JavaScript value to send to PostgREST.
- * @throws {UnsupportedSqlError} If a placeholder has no matching parameter.
- */
 export function resolveValue(value, params) {
     if (value.kind === 'literal')
         return value.value;
@@ -15,21 +7,6 @@ export function resolveValue(value, params) {
     }
     return params[value.index - 1];
 }
-/**
- * Applies a parsed `where` tree to a PostgREST query builder.
- *
- * A top-level `and` becomes one builder call per child, which is what
- * PostgREST already means by stacked filters. Anything with an `or` or `not`
- * in it has to travel as a single serialised filter string instead, because
- * that is the only way PostgREST expresses boolean structure.
- *
- * @param builder The query builder to apply filters to.
- * @param node The parsed `where` tree.
- * @param params The statement's positional parameters.
- * @returns The builder, for chaining.
- * @throws {UnsupportedSqlError} If a value cannot be carried by the filter
- * syntax the node requires.
- */
 export default function applyWhere(builder, node, params) {
     if (node.kind === 'and') {
         for (const child of node.children)

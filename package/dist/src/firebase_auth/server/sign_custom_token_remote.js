@@ -1,16 +1,3 @@
-/**
- * Signs the App Check custom token claims remotely via IAM Credentials'
- * `signJwt`, instead of locally with a service-account private key. Lets
- * `mintServerAppCheckToken` work under an org policy that enforces
- * `iam.disableServiceAccountKeyCreation` — that constraint blocks
- * `serviceAccounts.keys.create` only; it does not affect `signJwt`, which
- * signs using a key Google holds and never exports.
- *
- * The caller's OAuth identity (the refresh token) must carry
- * `roles/iam.serviceAccountTokenCreator` on `clientEmail` — grant it with:
- * `gcloud iam service-accounts add-iam-policy-binding <clientEmail>
- *   --member="user:<you>" --role="roles/iam.serviceAccountTokenCreator"`.
- */
 export default async function signCustomTokenRemote(clientEmail, claims, oauth) {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',

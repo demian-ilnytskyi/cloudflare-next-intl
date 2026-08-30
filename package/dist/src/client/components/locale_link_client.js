@@ -16,7 +16,6 @@ function ClientLocaleLinkComponent({ locale, className, ...rest }, ref) {
     const isDefaultLocale = locale === config.defaultLocale;
     const localePrefix = isDefaultLocale ? '' : `/${locale}`;
     const search = searchParams.toString();
-    // Fix for the root path to avoid a trailing slash like `/fr/`
     const newPathname = pathname === '/' && (localePrefix) ? '' : pathname;
     const href = `${localePrefix}${newPathname}${search ? `?${search}` : ''}${hash}`;
     function handleNavigate(e) {

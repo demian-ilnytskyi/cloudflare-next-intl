@@ -57,7 +57,6 @@ export function extractImageReferences(code) {
     }
     return Array.from(refs);
 }
-/** Merges one override into a map by src, unioning `extraWidths` instead of letting the later usage overwrite the earlier one. */
 function mergeOverrideInto(map, src, override) {
     const existing = map[src];
     const mergedWidths = existing?.extraWidths || override.extraWidths
@@ -103,16 +102,6 @@ function parseBlurAttr(raw) {
         blur.stdDeviation = Number(stdDeviation[1]);
     return Object.keys(blur).length > 0 ? blur : undefined;
 }
-/**
- * Scans JSX/TSX source for <Image> tags carrying per-image optimizer props
- * (formats / blur / quality / maxWidth) and turns them into override entries
- * keyed by the tag's own src, so settings can live next to usage instead of
- * only in the plugin's centralized `overrides` config. Every tag's own
- * `width` prop is also collected into `extraWidths`, merged across all usages
- * of the same src, so the same image used at different sizes (a thumbnail and
- * a hero, say) gets a separate generated variant for each size instead of one
- * usage's width silently overwriting another's.
- */
 export function extractImageOverrides(code) {
     const overrides = {};
     const tagPattern = /<Image\b([^>]*)\/?>/gs;
@@ -190,11 +179,6 @@ function resolvePublicSrc(ref) {
         relative = relative.slice("public/".length);
     return `/${relative}`;
 }
-/**
- * Scans project source for <Image> tags with per-image optimizer props
- * (formats / blur / quality / maxWidth) and returns them keyed by public src,
- * in the same shape as the plugin's `overrides` config option.
- */
 export async function collectUsedImageOverrides(root, publicDir = "public") {
     const codeFiles = await collectCodeFiles(root, publicDir);
     const overrides = {};
@@ -241,7 +225,6 @@ export async function collectUsedImages(root, publicDir = "public") {
             }
         }
         catch {
-            // does not exist, ignore
         }
     }
     return existing.sort();

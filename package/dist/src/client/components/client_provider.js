@@ -7,13 +7,6 @@ import config from "@intl-config";
 import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
 import installGlobalErrorOverride from "../../error_handling/install_global_error_override.js";
 export const LocaleContext = createContext(undefined);
-// Hoisted to module scope — calling `dynamic()` inside the component body
-// creates a brand-new component identity every render, forcing React to
-// unmount/remount `AuthUserProvider` on every render instead of reusing the
-// existing instance. That remount re-subscribes `onIdTokenChanged`, which
-// Firebase immediately replays with the current user, triggering a state
-// update (and a `getIdToken(true)` refresh) that causes another render —
-// an infinite loop of session-cookie writes, one per render.
 const AuthUserProvider = dynamic(() => import("../../firebase_auth/client/auth_user_provider.js"));
 const AutoFirebasePerformanceEvents = dynamic(() => import("../../firebase_auth/client/components/auto_firebase_performance_events.js"));
 const CookieConsentProvider = dynamic(() => import("../../cookie_consent/client/cookie_consent_provider.js"));
@@ -26,11 +19,6 @@ export default function LocationzationClientProvider({ language, messages, initi
     setMessageForLocaleCache(language, messages);
     installConsoleErrorOverride(config, true);
     installGlobalErrorOverride(config);
-    // `LocaleContext.Provider` stays the outermost element here — the
-    // client `AuthUserProvider` (and its descendants calling
-    // usePathname()/useLocale()) must render as a CHILD of it, not a
-    // sibling wrapping it, or those hooks would throw for running outside
-    // the provider.
     let providedChildren = children;
     if (config.firebaseAuth && !skipAuthProvider) {
         providedChildren = _jsxs(AuthUserProvider, { initialUser: initialAuthUser, children: [children, config.firebaseAuth.performance !== false && _jsx(AutoFirebasePerformanceEvents, {})] });

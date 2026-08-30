@@ -2,12 +2,6 @@
 import { useReportWebVitals } from 'next/web-vitals';
 import reportError from '../../../error_handling/report_error.js';
 import { getFirebaseAuthClient, getFirebasePerformanceSync } from '../firebase_client.js';
-/**
- * Records a Firebase Performance custom trace with a real duration, so
- * Firebase's own duration histograms/percentiles are meaningful. No-ops if
- * `firebaseAuth.performance` is disabled (`getFirebasePerformanceSync` never
- * resolves an instance).
- */
 async function recordFirebaseTrace(name, durationMs, attributes, metrics) {
     try {
         await getFirebaseAuthClient();
@@ -26,14 +20,6 @@ async function recordFirebaseTrace(name, durationMs, attributes, metrics) {
         });
     }
 }
-/**
- * Auto-rendered alongside `FirebaseAuthClientProvider` when
- * `firebaseAuth.performance` isn't `false` — records Firebase Performance
- * custom traces for Web Vitals metrics (`web_cls`, `web_fcp`, `web_fid`,
- * `web_lcp`, `web_ttfb`, `web_inp`), alongside Firebase Performance's own
- * automatic page-load/network traces. No-ops if `firebaseAuth.performance`
- * is disabled (`getFirebasePerformanceSync` never resolves an instance).
- */
 export default function AutoFirebasePerformanceEvents() {
     useReportWebVitals((metric) => {
         const value = Math.round(metric.name === 'CLS' ? metric.value * 1000 : metric.value);

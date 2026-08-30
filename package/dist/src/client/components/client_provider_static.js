@@ -7,14 +7,6 @@ import config from "@intl-config";
 import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
 import installGlobalErrorOverride from "../../error_handling/install_global_error_override.js";
 export const LocaleContext = createContext(undefined);
-// `output: 'export'`-safe: unlike `client_provider.tsx`, this file has no
-// import anywhere in it pointing at `firebase_auth/client/auth_user_provider`
-// (which itself pulls in the "use server" `clear_session_action`). Next's
-// server-actions build step registers a "use server" file the moment any
-// `import()` in the compiled module graph points to it, so removing the
-// import entirely — not just skipping its use at runtime — is what keeps
-// `output: 'export'` builds from failing. See `server_provider_static.tsx`
-// for the full explanation.
 const CookieConsentProvider = dynamic(() => import("../../cookie_consent/client/cookie_consent_provider.js"));
 const CookieConsentAnalytics = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_analytics.js"));
 const AutoAnalyticsEvents = dynamic(() => import("../../cookie_consent/client/components/auto_analytics_events.js"));

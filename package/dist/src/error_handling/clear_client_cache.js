@@ -13,6 +13,5 @@ export default async function clearClientCache() {
         }
     }
     catch {
-        // best-effort cleanup, ignore failures
     }
 }

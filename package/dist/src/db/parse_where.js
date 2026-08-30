@@ -25,20 +25,6 @@ const TS_QUERY_TYPES = {
     websearch_to_tsquery: 'websearch',
 };
 const CLAUSE_TERMINATORS = new Set(['order', 'limit', 'offset', 'returning', 'group', 'having', 'window', 'union', 'on']);
-/**
- * Parses the boolean expression after `where` into a tree the REST layer can
- * map onto PostgREST filters.
- *
- * Only column-versus-value comparisons are accepted: PostgREST filters address
- * one column against one value, so function calls, column-to-column
- * comparisons, and subqueries are rejected here rather than mistranslated.
- *
- * @param tokens The full token list of the statement.
- * @param start Index of the first token after `where`.
- * @returns The parsed tree and the index of the first unconsumed token.
- * @throws {UnsupportedSqlError} If the expression uses anything outside the
- * supported subset.
- */
 export default function parseWhere(tokens, start) {
     const parsed = parseOr(tokens, start);
     return parsed;

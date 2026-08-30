@@ -1,13 +1,6 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import NextImage, { getImageProps as nextGetImageProps } from "next/image";
 import { getImageBlurSvg } from "./blur_svg.js";
-/**
- * When an image was generated at multiple widths (because it's used at
- * different sizes across the codebase), picks the variant whose width is
- * closest to what this particular <Image> usage requested — preferring the
- * smallest variant that is still >= the requested width, to avoid upscaling
- * visible blur, and falling back to the largest available otherwise.
- */
 function pickVariant(entry, requestedWidth) {
     if (!requestedWidth || !entry.variants || entry.variants.length === 0) {
         return entry;
@@ -20,7 +13,7 @@ function pickVariant(entry, requestedWidth) {
 }
 let manifestData;
 try {
-    manifestData = (await import(/* @vite-ignore */ "virtual:cloudflare-next-intl-images-manifest")).default;
+    manifestData = (await import("virtual:cloudflare-next-intl-images-manifest")).default;
 }
 catch {
     manifestData = undefined;
@@ -55,7 +48,6 @@ function findEntry(srcVal) {
     }
     return undefined;
 }
-/** Swap the format extension of every URL in a generated srcset. */
 function retargetSrcSet(srcSet, fromSrc, toSrc) {
     if (!srcSet)
         return srcSet;

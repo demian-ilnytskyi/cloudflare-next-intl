@@ -8,12 +8,6 @@ import resolveAccessToken from './access_token.js';
 import runTransactionBatch from './transaction_batch.js';
 import inlineParams from './inline_params.js';
 const DEFAULT_ROLE = 'authenticated';
-/**
- * Resolves the user id for `withUserDb`, trying, in order: the explicit `uid`
- * argument, `db.getUserId()`, then the signed-in Firebase user. `uid` may be
- * `null` (as well as omitted) to mean "skip this source, try the next one" —
- * useful when the caller's own uid lookup can itself come back empty.
- */
 async function resolveUserId(config, uid) {
     if (uid)
         return uid;
@@ -31,13 +25,6 @@ async function resolveUserId(config, uid) {
     throw new Error('db: withUserDb could not resolve a user id. Pass one explicitly, set ' +
         '`db.getUserId`, or configure `firebaseAuth` so the signed-in Firebase uid is used.');
 }
-/**
- * Resolves the Postgres role for `withUserDb`'s session. When `firebaseAuth`
- * is configured and `db.authenticatedRoleClaim` isn't `false`, the signed-in
- * user's Firebase ID token claim (default field `'role'`) wins when present;
- * otherwise falls back to `db.authenticatedRole` (string or sync/async
- * function), then `DEFAULT_ROLE`.
- */
 async function resolveAuthenticatedRole(config, db) {
     const claimField = db.authenticatedRoleClaim;
     if (config.firebaseAuth && claimField !== false) {
@@ -55,18 +42,6 @@ async function resolveAuthenticatedRole(config, db) {
     }
     return DEFAULT_ROLE;
 }
-/**
- * Builds a Drizzle handle backed by PostgREST. `bearerToken` decides the role
- * Postgres sees: the anon key for public access, a user JWT for `withUserDb`.
- *
- * `.transaction()` on this handle runs atomically via `cfni_exec_batch` (see
- * {@link runTransaction}) — pg-proxy has no session to open a real
- * transaction over, so every statement the callback returns is queued and
- * sent as one PostgREST round trip instead. Because of that, the callback
- * must *build* its queries (`.toSQL()`), not `await`/execute them — a later
- * statement cannot read an earlier one's result the way it could inside a
- * real session, unlike connection-string mode's `.transaction()`.
- */
 async function supabaseDb(supabase, bearerToken) {
     const { drizzle } = await import('drizzle-orm/pg-proxy');
     const db = drizzle(createSupabaseTransport(supabase, bearerToken));
@@ -76,14 +51,6 @@ async function supabaseDb(supabase, bearerToken) {
         },
     });
 }
-/**
- * Wraps a live Drizzle postgres transaction handle with a `.transaction()`
- * override that mirrors the Supabase-mode batch API: `build` receives a
- * build-only proxy, must return an array of `.toSQL()` objects (same shape),
- * and this function executes each one sequentially on the real pg session,
- * collecting `ExecResult[]`. Both modes therefore share the identical
- * callback shape — callers never need to detect the transport themselves.
- */
 async function postgresDb(drizzleHandle, rawClient) {
     return Object.assign(drizzleHandle, {
         async transaction(build) {
@@ -91,15 +58,6 @@ async function postgresDb(drizzleHandle, rawClient) {
         },
     });
 }
-/**
- * Postgres-mode equivalent of `runTransaction`: calls `build` with a
- * build-only handle, then executes each returned query on the raw pg client
- * via an inline-parameterised `query()` call, wrapped in a real
- * `BEGIN`/`COMMIT` for atomicity, and returns `ExecResult[]`.
- *
- * The client is scoped to one `withDbClient` call, so no other caller can
- * interleave statements into this transaction.
- */
 async function runPostgresTransaction(rawClient, build) {
     const queries = await callBuild(build);
     await rawClient.query('begin');
@@ -118,14 +76,6 @@ async function runPostgresTransaction(rawClient, build) {
         throw error;
     }
 }
-/**
- * Builds a Drizzle handle with no working transport, for Supabase-mode
- * `db.transaction(...)` callbacks. Query builders' `.toSQL()` never touches
- * the session, so this is safe to hand out purely for building statements —
- * but `await`ing a query directly (instead of collecting its `.toSQL()`
- * output) throws immediately here instead of hanging or silently running
- * outside the batch.
- */
 async function buildOnlyDb() {
     const { drizzle } = await import('drizzle-orm/pg-proxy');
     return drizzle(() => {
@@ -135,12 +85,6 @@ async function buildOnlyDb() {
             'atomicity, which is exactly what `.transaction()` exists to prevent.');
     });
 }
-/**
- * Runs `build` against a fresh build-only handle, unwrapping pg-proxy's
- * `Failed query: ...` wrapper (with the real message on `.cause`) so a
- * caller who awaits a query instead of collecting `.toSQL()` sees the
- * build-only guidance directly, not the wrapper's generic text.
- */
 async function callBuild(build) {
     try {
         return await build(await buildOnlyDb());
@@ -152,19 +96,6 @@ async function callBuild(build) {
         throw error;
     }
 }
-/**
- * Runs a query as the **anonymous** role: no transaction, no role switch, no
- * user identity attached. Use this for data any visitor may read.
- *
- * @param fn Receives the Drizzle handle; return whatever the caller needs.
- * @param dbOverride A `db` block (`connectionString` or `supabase`) to use
- * for this call instead of `@intl-config`'s — the only thing a standalone
- * (non-Next.js) project needs to pass, since there is no `@intl-config` alias
- * to set up outside Next.js.
- * @returns Whatever `fn` resolves to.
- * @throws If `db` is not set (neither `dbOverride` nor `@intl-config`), or
- * the connection fails.
- */
 export async function withPublicDb(fn, dbOverride) {
     const config = await resolveDbConfig(dbOverride);
     const db = config.db;
@@ -177,7 +108,6 @@ export async function withPublicDb(fn, dbOverride) {
     return await withDbClient(config, async (client) => {
         const { drizzle } = await import('drizzle-orm/node-postgres');
         const drizzleHandle = drizzle(client);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return await fn(await postgresDb(drizzleHandle, client));
     });
 }
@@ -196,20 +126,6 @@ function injectUidComment(sql, userId) {
     }
     return sql;
 }
-/**
- * Runs a query as the **signed-in user**, with `request.jwt.claims` and the
- * authenticated role set on the session so RLS policies apply to their id.
- *
- * The session lives on a client scoped to this call and closed when it ends,
- * so the role and claims can never be observed by another caller.
- *
- * @param fn Receives the Drizzle handle
- * @param uid Overrides the user ID for authenticated calls
- * @param dbOverride A `db` block (`connectionString` or `supabase`) to use
- * for this call instead of `@intl-config`'s — the only thing a standalone
- * (non-Next.js) project needs to pass, since there is no `@intl-config` alias
- * to set up outside Next.js.
- */
 export async function withUserDb(fn, uid, dbOverride) {
     const config = await resolveDbConfig(dbOverride);
     const db = config.db;
@@ -242,7 +158,6 @@ export async function withUserDb(fn, uid, dbOverride) {
         const interceptingClient = new Proxy(client, {
             get(target, prop) {
                 if (prop === 'query') {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     return async (sql, ...args) => {
                         const text = typeof sql === 'string' ? sql : (typeof sql?.text === 'string' ? sql.text : '');
                         const isBegin = /^begin\b/i.test(text.trimStart());
@@ -293,11 +208,9 @@ export async function withUserDb(fn, uid, dbOverride) {
                                 inTransaction = true;
                             }
                         });
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         return target.query(injectUidComment(sql, userId), ...args);
                     };
                 }
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const value = target[prop];
                 return typeof value === 'function' ? value.bind(target) : value;
             }
@@ -317,10 +230,6 @@ export async function withUserDb(fn, uid, dbOverride) {
         }
     });
 }
-/**
- * Runs several statements atomically over `cfni_exec_batch`, backing
- * Supabase-mode `db.transaction()`.
- */
 async function runTransaction(supabase, bearerToken, build) {
     if (supabase.rawSql === false) {
         throw new Error('db: transaction() needs `cfni_exec_batch`, which runs through `cfni_exec` — both are ' +

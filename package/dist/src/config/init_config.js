@@ -1,13 +1,4 @@
 import { setStaleDeployPatterns } from '../error_handling/is_stale_deploy_error.js';
-// Every path this package compares against `request.nextUrl.pathname`
-// (always `/`-prefixed) must itself start with `/` — a missing leading
-// slash means `path === fa.verifyEmailPath` (and the same check for
-// `redirectAuthPath`/`homePath`) never matches, silently disabling that
-// redirect/exemption entirely (e.g. an infinite redirect loop on
-// `verifyEmailPath` because the page is never recognized as itself).
-// Auto-prepending `/` here fixes the common typo (`'login'` instead of
-// `'/login'`) at the source, for every consumer, instead of requiring each
-// one to notice and fix it themselves.
 const FIREBASE_AUTH_PATH_FIELDS = [
     'redirectAuthPath',
     'homePath',
@@ -37,27 +28,6 @@ function normalizeFirebaseAuthPaths(config) {
         return config;
     return { ...config, firebaseAuth: normalizedFa };
 }
-/**
- * Defines and type-checks your app's i18n routing config.
- *
- * Mostly an identity function at runtime — it exists primarily so
- * TypeScript infers `AppLocales`/`AppLocalePrefixMode` from the literal
- * config object you pass in, giving you autocomplete/type errors on
- * `locale` params elsewhere. The one runtime behavior: if `firebaseAuth` is
- * set, `redirectAuthPath`/`homePath`/`verifyEmailPath` are auto-corrected to
- * start with `/` (with a console warning) if you forgot it — see
- * `normalizeFirebaseAuthPaths` above for why that specific typo is worth
- * guarding against.
- *
- * Export the result from the file referenced by `@intl-config` (see your
- * `next.config`), e.g.:
- * ```ts
- * export default setIntlConfig({
- *   locales: ["en", "fr"] as const,
- *   defaultLocale: "en",
- * });
- * ```
- */
 export function setIntlConfig(config) {
     if (config.errorHandling?.staleDeployPatterns) {
         setStaleDeployPatterns(config.errorHandling.staleDeployPatterns);

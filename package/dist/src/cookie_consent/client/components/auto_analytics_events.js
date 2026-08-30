@@ -18,14 +18,6 @@ function gtagEvent(name, params) {
         return;
     w.gtag('event', name, params);
 }
-/**
- * Auto-rendered alongside `CookieConsentAnalytics` when Google Analytics/Ads
- * is configured — sends `screen_view` on route change and one
- * `gtag('event', ...)` per Web Vitals metric. Gated on consent the same way
- * as the other analytics scripts (no-ops until `gtag` exists on `window`).
- * See `CookieConsentRoutingConfig.autoAnalyticsEvents` to disable specific
- * events or customize `screen_name`.
- */
 export default function AutoAnalyticsEvents({ config }) {
     const { consent, requiresConsent } = useCookieConsent();
     const granted = consent === true || !requiresConsent;
@@ -39,7 +31,6 @@ export default function AutoAnalyticsEvents({ config }) {
         if (!isEnabled('screen_view'))
             return;
         gtagEvent('screen_view', { screen_name: screenName, page_path: path });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [path, screenName, granted]);
     useReportWebVitals((metric) => {
         if (!granted)

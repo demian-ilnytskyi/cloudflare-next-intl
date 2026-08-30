@@ -16,7 +16,6 @@ export async function writeManifest(manifestPath, entries) {
         current = await readFile(manifestPath, "utf8");
     }
     catch {
-        // file does not exist yet
     }
     if (current === rendered)
         return;

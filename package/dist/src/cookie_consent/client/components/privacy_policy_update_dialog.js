@@ -6,12 +6,6 @@ import DialogPortal from './dialog_portal.js';
 import { getLocaleCache } from '../../../general/cache_variables.js';
 import { defaultPrivacyPolicyUpdateText } from './default_dialog_text.js';
 import { defaultCookieDialogClassNames } from './default_dialog_styles.js';
-/**
- * "Privacy policy updated" banner. Auto-enabled only when
- * `cookieConsent.privacyPolicyDate` is set on the `RoutingConfig` — renders
- * `null` otherwise, or once acknowledged. Every visual aspect is overridable
- * via `classNames`/`styles` (per-slot) or `render` (full custom markup).
- */
 export default function PrivacyPolicyUpdateDialog({ message, link, privacyPolicyLinkText, showPrivacyPolicy, closeText, id = 'privacy-policy-update-dialog', classNames, styles, render, }) {
     const { privacyPolicyUpdated, acknowledgePrivacyPolicyUpdate, privacyPolicyPath, showPrivacyPolicy: showPrivacyPolicyCtx } = useCookieConsent();
     if (!privacyPolicyUpdated)

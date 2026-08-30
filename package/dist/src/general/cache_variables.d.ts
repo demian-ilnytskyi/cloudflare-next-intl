@@ -1,8 +1,4 @@
 import type { TranslationObject, TranslatorReturnType } from "../types/types.js";
-/**
- * Sets the current locale.
- * @param locale The language to set.
- */
 export declare function setLocaleCache(locale: string): void;
 export declare function setLocaleAsync(params: Promise<{
     locale: string;

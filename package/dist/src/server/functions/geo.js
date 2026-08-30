@@ -1,6 +1,4 @@
-/** Default request headers read to resolve the visitor's country, in order. */
 export const defaultCountryHeaderNames = ['x-cf-country', 'cf-ipcountry'];
-/** Default request headers read to resolve the visitor's timezone, in order. */
 export const defaultTimezoneHeaderNames = ['x-cf-timezone', 'cf-timezone'];
 function extractHeader(h, name) {
     if (typeof h.get === 'function') {
@@ -11,9 +9,6 @@ function extractHeader(h, name) {
     const val = rec[name] ?? rec[name.toLowerCase()];
     return (typeof val === 'string' && val.length > 0) ? val : undefined;
 }
-// Read lazily (and tolerantly): `@intl-config` may not be set at all in
-// standalone/unit usage of these helpers, and importing the config eagerly
-// would risk a cycle with a config module that itself imports from here.
 async function configuredGenerate() {
     try {
         const config = (await import('../../config/intl_config.js')).default;
@@ -31,16 +26,6 @@ function extractFromHeaderNames(h, headerNames) {
     }
     return undefined;
 }
-/**
- * Resolves the client's ISO 3166-1 alpha-2 country code (e.g. "US", "DE", "UA").
- *
- * Checks in order:
- * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
- * 2. Next.js request headers via `headers()` (`headerNames`, default
- *    `x-cf-country`, `cf-ipcountry`)
- * 3. `generate.ctx` or `generate.getCloudflareContext` or `cf.country` if passed
- * 4. `undefined` if outside request scope or unavailable
- */
 export async function getCountry(input, generate, headerNames) {
     const gen = generate ?? await configuredGenerate();
     const names = headerNames
@@ -70,7 +55,6 @@ export async function getCountry(input, generate, headerNames) {
             return country;
     }
     catch {
-        // Outside request scope / build time
     }
     if (gen?.ctx) {
         try {
@@ -81,7 +65,6 @@ export async function getCountry(input, generate, headerNames) {
             }
         }
         catch {
-            // Ignore context resolution errors
         }
     }
     if (gen?.getCloudflareContext) {
@@ -92,21 +75,10 @@ export async function getCountry(input, generate, headerNames) {
             }
         }
         catch {
-            // Ignore context resolution errors
         }
     }
     return undefined;
 }
-/**
- * Resolves the client's IANA timezone string (e.g. "America/New_York", "Europe/Kyiv", "UTC").
- *
- * Checks in order:
- * 1. Explicit `input` (Request, NextRequest, or Headers) if provided
- * 2. Next.js request headers via `headers()` (`headerNames`, default
- *    `x-cf-timezone`, `cf-timezone`)
- * 3. `generate.ctx` or `generate.getCloudflareContext` or `cf.timezone` if passed
- * 4. `fallback` (or `undefined`) if outside request scope or unavailable
- */
 export async function getTimezone(input, fallback, generate, headerNames) {
     const gen = generate ?? await configuredGenerate();
     const names = headerNames
@@ -136,7 +108,6 @@ export async function getTimezone(input, fallback, generate, headerNames) {
             return tz;
     }
     catch {
-        // Outside request scope
     }
     if (gen?.ctx) {
         try {
@@ -147,7 +118,6 @@ export async function getTimezone(input, fallback, generate, headerNames) {
             }
         }
         catch {
-            // Ignore context resolution errors
         }
     }
     if (gen?.getCloudflareContext) {
@@ -158,14 +128,10 @@ export async function getTimezone(input, fallback, generate, headerNames) {
             }
         }
         catch {
-            // Ignore context resolution errors
         }
     }
     return fallback;
 }
-/**
- * Resolves the Cloudflare environment bindings object from `generate.env` or `generate.getCloudflareContext`.
- */
 export async function resolveEnv(generate) {
     if (!generate)
         return undefined;

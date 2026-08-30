@@ -22,5 +22,4 @@ export interface CodegenPaths {
     force: boolean;
     skipExec: boolean;
 }
-/** Resolves every codegen path from flags, then env, then the documented defaults. */
 export default function resolveCodegenPaths(argv: readonly string[], env: Record<string, string | undefined>, cwd: string): CodegenPaths;

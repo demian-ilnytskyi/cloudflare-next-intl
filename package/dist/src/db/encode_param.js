@@ -1,12 +1,3 @@
-/**
- * Serialises a JS value to a Postgres literal, mirroring how `pg` sends
- * values over the wire so an inlined literal type-infers the same way a
- * bound parameter would.
- *
- * Used to substitute `$n` placeholders client-side in Supabase mode, where
- * `cfni_exec` takes a single already-complete statement — see
- * {@link inlineParams}.
- */
 export default function encodeParam(value) {
     if (value === null || value === undefined)
         return 'NULL';
@@ -31,7 +22,6 @@ export default function encodeParam(value) {
         return quoteLiteral(encodeArray(value));
     if (typeof value === 'string')
         return quoteLiteral(value);
-    // Plain objects (jsonb columns) — pg sends these JSON-stringified.
     return quoteLiteral(JSON.stringify(value));
 }
 const HEX_TABLE = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
@@ -48,7 +38,6 @@ function bytesToHex(bytes) {
     }
     return hex;
 }
-/** Encodes a JS array as a Postgres array literal body, e.g. `{1,2,"a,b"}`. */
 function encodeArray(value) {
     const items = value.map((item) => {
         if (item === null || item === undefined)

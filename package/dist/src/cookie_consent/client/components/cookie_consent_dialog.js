@@ -6,12 +6,6 @@ import DialogPortal from './dialog_portal.js';
 import { getLocaleCache } from '../../../general/cache_variables.js';
 import { defaultCookieConsentText } from './default_dialog_text.js';
 import { defaultCookieDialogClassNames } from './default_dialog_styles.js';
-/**
- * Cookie-consent banner. Renders `null` once `consent` is already decided.
- * Every visual aspect is overridable via `classNames`/`styles` (per-slot) or
- * `render` (full custom markup) — none of it is hardcoded to Tailwind or any
- * particular design system.
- */
 export default function CookieConsentDialog({ message, link, privacyPolicyLinkText, showPrivacyPolicy, acceptText, declineText, hideDecline = false, id = 'cookie-consent-dialog', classNames, styles, render, }) {
     const { consent, requiresConsent, isMounted, setConsent, privacyPolicyPath, showPrivacyPolicy: showPrivacyPolicyCtx } = useCookieConsent();
     if (!isMounted || !requiresConsent || consent !== null)
