@@ -56,4 +56,20 @@ describe('updateSession', () => {
         });
         await updateSession(req, NextResponse.next(), 'en');
     });
+
+    bench('valid session + verifyEmailPath configured, protected page (expiry + email_verified checks)', async () => {
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeTestRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: makeJwt(Date.now() / 1000 + 3600, { email_verified: true }) },
+        });
+        await updateSession(req, NextResponse.next(), 'en');
+    });
+
+    bench('valid session on verifyEmailPath, already verified (expiry + two email_verified checks)', async () => {
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeTestRequest('https://example.com/en/verify-email', {
+            cookies: { __fa_session__: makeJwt(Date.now() / 1000 + 3600, { email_verified: true }) },
+        });
+        await updateSession(req, NextResponse.next(), 'en');
+    });
 });
