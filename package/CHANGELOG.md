@@ -3,6 +3,48 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.8] - 2026-09-01
+
+### Added
+
+- **`cloudflare_fetch`**: `fetchWithCloudflareFallback`/`fetchText` — fetch a URL via the
+  Cloudflare Assets Service binding (`env.ASSETS`) when one is configured, falling back to
+  the global `fetch` (`cache: 'no-store'`) otherwise. Works under Next+OpenNext, Vinext, or a
+  plain Cloudflare Worker.
+- **`errors_board`**: a D1-backed error log — list/detail UI, status workflow (new/investigating/
+  resolved/muted), a Firebase-email access gate, and the server actions/repository behind it.
+  Import via `cloudflare-next-intl/errorsBoard` plus the individual client component exports.
+- **`db`**: `db.autoHyperdrive` — when `db.connectionString` is unset, `withPublicDb`/`withUserDb`
+  now try `env.HYPERDRIVE.connectionString` (via `generate.env`) before falling through to
+  `supabase`. Set `db.autoHyperdrive = false` to opt out.
+- **`cloudflare_email`**: `sendTransactionalEmail` — send via the Cloudflare Email Sending
+  binding when available, falling back to the REST API for local dev.
+- **`dynamic_pages_check`**: `checkDynamicPages` / `cfni-check-dynamic-pages` CLI — scans an
+  App Router `app/` directory and inserts a missing `export const dynamic = "force-dynamic"`
+  into pages that look request-dependent. Defaults to `mode: 'report'` (prints what it would
+  do without writing); pass `mode: 'fix'` to write, `mode: 'off'` to disable. A page with no
+  detected dynamic-API usage is left to Next's own inference rather than being forced static,
+  since a false negative there is safer than silently freezing a page that's dynamic through
+  means the text-based scan can't see.
+
+### Fixed
+
+- **`errors_board` list pagination could silently skip rows**: the `updated_at`-only cursor
+  dropped any row sharing the previous page's `updated_at` (common — errors are deduped by
+  fingerprint with `updated_at = Date.now()`, so ties happen on any burst of distinct errors in
+  the same millisecond). Pagination now uses a `(updated_at, id)` keyset cursor.
+- **`errors_board`'s status-change SQL nulled `resolved_at` on every non-resolve transition**
+  (e.g. muting an already-resolved error wiped its resolution timestamp) and referenced bare
+  `count`/`status` column names inside the upsert's `SET` list; both are now qualified/guarded
+  correctly.
+- **`errors_board`'s filter form dropped its resync keys**, so an uncontrolled `<select>`/
+  `<input>` could keep showing a stale flavour/search value after a soft navigation changed the
+  filters without unmounting the component.
+- **`dynamic_pages_check`'s import-boundary detection used a single lazy regex spanning the
+  whole file**, which could jump from an `import` keyword across unrelated code to a much later
+  semicolon (inside a string or object literal) and insert the export mid-statement. Replaced
+  with a line-by-line, brace-depth-aware scan of the leading import block.
+
 ## [0.9.6] - 2026-08-31
 
 ### Fixed
