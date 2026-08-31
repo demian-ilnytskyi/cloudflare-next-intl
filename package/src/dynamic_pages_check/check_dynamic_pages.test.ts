@@ -84,6 +84,17 @@ describe('checkDynamicPages', () => {
             expect(reports).toEqual([{ file: pageFile, action: 'would-add-force-dynamic' }]);
             expect(readFileSync(pageFile, 'utf8')).toBe(original);
         });
+
+        it('mode "fix" with real fs writes force-dynamic into the actual file', async () => {
+            mkdirSync(dir, { recursive: true });
+            const pageFile = join(dir, 'page.tsx');
+            writeFileSync(pageFile, 'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n', 'utf8');
+
+            const reports = await checkDynamicPages({ appDir: dir, mode: 'fix' });
+
+            expect(reports).toEqual([{ file: pageFile, action: 'added-force-dynamic' }]);
+            expect(readFileSync(pageFile, 'utf8')).toContain('export const dynamic = "force-dynamic";');
+        });
     });
 
     it('skips every file listed in `skip`, without reading or writing it', async () => {

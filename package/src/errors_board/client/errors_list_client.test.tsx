@@ -4,8 +4,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import ErrorsListClient from './errors_list_client.js';
 import type { ErrorRow } from '../server/errors_repository.js';
 
+let lastObserverCallback: IntersectionObserverCallback | undefined;
+
 class FakeIntersectionObserver {
-	constructor(private callback: IntersectionObserverCallback) {}
+	constructor(private callback: IntersectionObserverCallback) {
+		lastObserverCallback = callback;
+	}
 	observe(target: Element): void {
 		this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
 	}
@@ -199,6 +203,75 @@ describe('ErrorsListClient', () => {
 
 		resolveLoadErrors({ rows: [{ ...row, id: 2 }], nextCursor: null });
 		await vi.waitFor(() => expect(screen.getByText("You've reached the end.")).toBeInTheDocument());
+	});
+
+	it('bulk delete confirmation message pluralizes for more than one selected row', async () => {
+		const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+		const actions = makeActions();
+		render(
+			<ErrorsListClient
+				initialRows={[row, { ...row, id: 2 }]}
+				initialNextCursor={null}
+				filters={{ flavour: 'all', status: 'all', q: '' }}
+				actions={actions}
+				hrefFor={(id) => `/errors/${id}`}
+			/>,
+		);
+		fireEvent.click(screen.getAllByRole('checkbox')[0]);
+		fireEvent.click(screen.getByText('Delete selected'));
+		expect(confirmSpy).toHaveBeenCalledWith("Delete 2 errors? This can't be undone.");
+		await vi.waitFor(() => expect(actions.deleteErrors).toHaveBeenCalledWith([1, 2]));
+	});
+
+	it('clicking "Mark investigating" calls setErrorStatus with "investigating"', async () => {
+		const actions = makeActions();
+		render(
+			<ErrorsListClient
+				initialRows={[row]}
+				initialNextCursor={null}
+				filters={{ flavour: 'all', status: 'all', q: '' }}
+				actions={actions}
+				hrefFor={(id) => `/errors/${id}`}
+			/>,
+		);
+		fireEvent.click(screen.getAllByRole('checkbox')[1]);
+		fireEvent.click(screen.getByText('Mark investigating'));
+		await vi.waitFor(() => expect(actions.setErrorStatus).toHaveBeenCalledWith([1], 'investigating'));
+	});
+
+	it('clicking "Mute" calls setErrorStatus with "muted"', async () => {
+		const actions = makeActions();
+		render(
+			<ErrorsListClient
+				initialRows={[row]}
+				initialNextCursor={null}
+				filters={{ flavour: 'all', status: 'all', q: '' }}
+				actions={actions}
+				hrefFor={(id) => `/errors/${id}`}
+			/>,
+		);
+		fireEvent.click(screen.getAllByRole('checkbox')[1]);
+		fireEvent.click(screen.getByText('Mute'));
+		await vi.waitFor(() => expect(actions.setErrorStatus).toHaveBeenCalledWith([1], 'muted'));
+	});
+
+	it('ignores a stale intersection callback that fires after nextCursor has already become null', async () => {
+		const actions = makeActions();
+		actions.loadErrors.mockResolvedValue({ rows: [], nextCursor: null });
+		render(
+			<ErrorsListClient
+				initialRows={[row]}
+				initialNextCursor={'100:7'}
+				filters={{ flavour: 'all', status: 'all', q: '' }}
+				actions={actions}
+				hrefFor={(id) => `/errors/${id}`}
+			/>,
+		);
+		await vi.waitFor(() => expect(screen.getByText("You've reached the end.")).toBeInTheDocument());
+		expect(actions.loadErrors).toHaveBeenCalledTimes(1);
+
+		lastObserverCallback?.([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+		expect(actions.loadErrors).toHaveBeenCalledTimes(1);
 	});
 
 	it('unchecking a selected row removes it from the selection', () => {

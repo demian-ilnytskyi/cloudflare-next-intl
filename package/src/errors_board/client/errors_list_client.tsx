@@ -80,7 +80,6 @@ export default function ErrorsListClient({
 
 	async function handleBulkStatus(status: ErrorStatus): Promise<void> {
 		const ids = Array.from(selectedIds);
-		if (ids.length === 0) return;
 		setIsPending(true);
 		try {
 			await actions.setErrorStatus(ids, status);
@@ -92,7 +91,6 @@ export default function ErrorsListClient({
 
 	async function handleBulkDelete(): Promise<void> {
 		const ids = Array.from(selectedIds);
-		if (ids.length === 0) return;
 		if (!window.confirm(`Delete ${ids.length} error${ids.length === 1 ? '' : 's'}? This can't be undone.`)) return;
 		setIsPending(true);
 		try {
