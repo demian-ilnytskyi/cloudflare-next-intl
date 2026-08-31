@@ -7,5 +7,9 @@
  */
 export default function isWhitelisted(path: string, whiteListPaths: readonly string[] | undefined): boolean {
     if (!whiteListPaths) return false;
-    return whiteListPaths.some((entry) => path === entry || path.startsWith(`${entry}/`));
+    // `path.startsWith(entry) && path.charCodeAt(entry.length) === 47` (47 = '/')
+    // is equivalent to `path.startsWith(`${entry}/`)` but never allocates a new
+    // string per entry — this runs on every request whose path doesn't exactly
+    // match an early entry, i.e. most requests through the middleware.
+    return whiteListPaths.some((entry) => path === entry || (path.startsWith(entry) && path.charCodeAt(entry.length) === 47));
 }

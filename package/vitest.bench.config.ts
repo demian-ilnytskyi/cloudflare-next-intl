@@ -7,6 +7,7 @@ export default defineConfig({
         setupFiles: ['./vitest.setup.ts'],
         benchmark: {
             include: [
+                'src/db/*.bench.ts',
                 'src/server/components/helper_script.bench.ts',
                 'src/image_optimizer/*.bench.ts',
                 'src/config/middleware.bench.ts',

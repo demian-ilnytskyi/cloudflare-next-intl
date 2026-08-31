@@ -26,4 +26,12 @@ describe('isWhitelisted', () => {
     it('matches against any entry in a multi-entry list', () => {
         expect(isWhitelisted('/inflation/2024', ['/bonds', '/inflation', '/articles'])).toBe(true);
     });
+
+    it('does not match when path is a strict prefix of the entry itself (no boundary char)', () => {
+        expect(isWhitelisted('/bond', ['/bonds'])).toBe(false);
+    });
+
+    it('matches a single-character path segment right after the entry', () => {
+        expect(isWhitelisted('/bonds/a', ['/bonds'])).toBe(true);
+    });
 });
