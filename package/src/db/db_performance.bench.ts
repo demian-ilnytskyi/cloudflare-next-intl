@@ -83,6 +83,15 @@ describe('DB Module Branch Benchmarks', () => {
         bench('JSON Object encoding', () => { encodeParam({ a: 1, b: 'hello', c: [true, false] }); });
         bench('Array encoding', () => { encodeParam(['foo', 'bar', 'baz']); });
         bench('Uint8Array encoding', () => { encodeParam(new Uint8Array([1, 2, 3, 4, 255])); });
+        bench('Mixed realistic param batch', () => {
+            encodeParam('jane@example.com');
+            encodeParam(42);
+            encodeParam('active');
+            encodeParam(new Date('2026-01-01T00:00:00Z'));
+            encodeParam(null);
+            encodeParam(true);
+            encodeParam('another string value');
+        });
     });
 
     // 6. Composite type parsing
