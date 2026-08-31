@@ -252,6 +252,10 @@
     "./imageOptimizer": {
       "types": "./dist/src/image_optimizer/index.d.ts",
       "import": "./dist/src/image_optimizer/index.js"
+    },
+    "./errorsBoard": {
+      "types": "./dist/src/errors_board/server/index.d.ts",
+      "import": "./dist/src/errors_board/server/index.js"
     }
   },
   "scripts": {
