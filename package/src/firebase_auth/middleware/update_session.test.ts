@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextResponse } from 'next/server';
 import { makeTestRequest as makeRequest } from '../../test_utils/mock_next_server.js';
+import type * as DecodeJwtPayloadModule from '../decode_jwt_payload.js';
 
 const baseFa = {
     apiKey: 'test-api-key',
@@ -23,7 +24,7 @@ vi.mock('@intl-config', () => ({
 
 const decodeJwtPayloadSpy = vi.fn();
 vi.mock('../decode_jwt_payload.js', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('../decode_jwt_payload.js')>();
+    const actual = await importOriginal<typeof DecodeJwtPayloadModule>();
     decodeJwtPayloadSpy.mockImplementation(actual.default);
     return { default: decodeJwtPayloadSpy };
 });
