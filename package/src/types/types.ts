@@ -997,6 +997,15 @@ export interface DbRoutingConfig {
      */
     connectionString?: FallibleConfigValue<string>;
     /**
+     * When `true` (the default) and `connectionString` is unset, `withPublicDb`/
+     * `withUserDb` try `env.HYPERDRIVE.connectionString` (via `generate.env`)
+     * before falling through to `supabase`. Set `false` to disable this and
+     * go straight to `supabase` (or the "no connection string" error) instead
+     * — e.g. when a `HYPERDRIVE` binding exists in `wrangler.toml` for
+     * something else and should not be treated as this app's Postgres.
+     */
+    autoHyperdrive?: boolean;
+    /**
      * Whether the pooled client is closed once the last in-flight
      * `withPublicDb`/`withUserDb` call of the request finishes.
      *

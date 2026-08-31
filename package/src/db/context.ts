@@ -193,7 +193,7 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>, dbOverr
     const db = config.db;
     requireDbConfig(db);
     
-    const resolved = await resolveDbMode(db);
+    const resolved = await resolveDbMode(db, config.generate);
     
     if (resolved.mode === 'supabase') {
         const { anonKey } = await resolveSupabaseEndpoint(resolved.supabase);
@@ -243,7 +243,7 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
     const db = config.db;
     requireDbConfig(db);
 
-    const resolved = await resolveDbMode(db);
+    const resolved = await resolveDbMode(db, config.generate);
 
     if (resolved.mode === 'supabase') {
         const token = await resolveAccessToken(config);

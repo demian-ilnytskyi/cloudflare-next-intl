@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,7 +10,8 @@
     "cfni-db-codegen": "bin/db_codegen.mjs",
     "cfni-db-install-exec": "bin/db_install_exec.mjs",
     "cfni-image-optimizer": "bin/image_optimizer.mjs",
-    "optimize-images": "bin/image_optimizer.mjs"
+    "optimize-images": "bin/image_optimizer.mjs",
+    "cfni-check-dynamic-pages": "bin/check_dynamic_pages.mjs"
   },
   "files": [
     "dist",
@@ -213,6 +214,22 @@
       "types": "./dist/src/error_handling/use_stale_deploy_recovery.d.ts",
       "import": "./dist/src/error_handling/use_stale_deploy_recovery.js"
     },
+    "./fetchText": {
+      "types": "./dist/src/cloudflare_fetch/fetch_text.d.ts",
+      "import": "./dist/src/cloudflare_fetch/fetch_text.js"
+    },
+    "./fetchWithCloudflareFallback": {
+      "types": "./dist/src/cloudflare_fetch/fetch_with_fallback.d.ts",
+      "import": "./dist/src/cloudflare_fetch/fetch_with_fallback.js"
+    },
+    "./sendTransactionalEmail": {
+      "types": "./dist/src/cloudflare_email/send_transactional_email.d.ts",
+      "import": "./dist/src/cloudflare_email/send_transactional_email.js"
+    },
+    "./checkDynamicPages": {
+      "types": "./dist/src/dynamic_pages_check/index.d.ts",
+      "import": "./dist/src/dynamic_pages_check/index.js"
+    },
     "./db": {
       "types": "./dist/src/db/index.d.ts",
       "import": "./dist/src/db/index.js"
@@ -244,6 +261,30 @@
     "./imageOptimizer": {
       "types": "./dist/src/image_optimizer/index.d.ts",
       "import": "./dist/src/image_optimizer/index.js"
+    },
+    "./errorsBoard": {
+      "types": "./dist/src/errors_board/server/index.d.ts",
+      "import": "./dist/src/errors_board/server/index.js"
+    },
+    "./ErrorsStatStrip": {
+      "types": "./dist/src/errors_board/client/errors_stat_strip.d.ts",
+      "import": "./dist/src/errors_board/client/errors_stat_strip.js"
+    },
+    "./ErrorsFilterForm": {
+      "types": "./dist/src/errors_board/client/errors_filter_form.d.ts",
+      "import": "./dist/src/errors_board/client/errors_filter_form.js"
+    },
+    "./ErrorRowItem": {
+      "types": "./dist/src/errors_board/client/error_row.d.ts",
+      "import": "./dist/src/errors_board/client/error_row.js"
+    },
+    "./ErrorsListClient": {
+      "types": "./dist/src/errors_board/client/errors_list_client.d.ts",
+      "import": "./dist/src/errors_board/client/errors_list_client.js"
+    },
+    "./ErrorDetailView": {
+      "types": "./dist/src/errors_board/client/error_detail_view.d.ts",
+      "import": "./dist/src/errors_board/client/error_detail_view.js"
     }
   },
   "scripts": {

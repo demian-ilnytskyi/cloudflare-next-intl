@@ -1,5 +1,6 @@
-import type { DbRoutingConfig, SupabaseDbConfig } from '../types/types.js';
+import type { DbRoutingConfig, GenerateRoutingConfig, SupabaseDbConfig } from '../types/types.js';
 import resolveConfigValue from './resolve_config_value.js';
+import { resolveHyperdriveConnectionString } from './resolve_hyperdrive_connection_string.js';
 
 /** Which transport the `db` exports use for a given config. */
 export type DbMode = 'postgres' | 'supabase';
@@ -30,13 +31,25 @@ export type ResolvedDbMode =
  * string — it is never asked to resolve `db.connectionString` itself, so a
  * resolver given as a function runs exactly once per call here, not twice.
  *
+ * When `db.connectionString` is unset and `db.autoHyperdrive !== false`,
+ * `env.HYPERDRIVE.connectionString` (via `generate`) is tried next, before
+ * falling through to `supabase` — see {@link resolveHyperdriveConnectionString}.
+ *
  * @param db The `db` field off your routing config.
+ * @param generate Your routing config's `generate` block, used to resolve a
+ * Hyperdrive binding off `env` when `db.connectionString` is unset.
  * @returns The resolved mode, plus whichever of `connectionString`/`supabase`
  * that mode needs.
  */
-export default async function resolveDbMode(db: DbRoutingConfig): Promise<ResolvedDbMode> {
+export default async function resolveDbMode(db: DbRoutingConfig, generate?: GenerateRoutingConfig): Promise<ResolvedDbMode> {
     const connectionString = await resolveConfigValue(db.connectionString);
     if (connectionString) return { mode: 'postgres', connectionString };
+
+    if (db.autoHyperdrive !== false) {
+        const hyperdriveConnectionString = await resolveHyperdriveConnectionString(generate);
+        if (hyperdriveConnectionString) return { mode: 'postgres', connectionString: hyperdriveConnectionString };
+    }
+
     if (db.supabase) return { mode: 'supabase', supabase: db.supabase };
     return { mode: 'postgres', connectionString: undefined };
 }
