@@ -101,11 +101,10 @@ async function supabaseDb(supabase: SupabaseDbConfig, bearerToken: string): Prom
 async function postgresDb(
     drizzleHandle: NodePgDatabase<Record<string, never>>,
     rawClient: { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> },
-    setSessionState?: () => Promise<void>,
 ): Promise<DrizzleDb> {
     return Object.assign(drizzleHandle as unknown as DrizzleDb, {
         async transaction(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): Promise<ExecResult[]> {
-            return runPostgresTransaction(rawClient, build, setSessionState);
+            return runPostgresTransaction(rawClient, build);
         },
     });
 }
@@ -122,12 +121,10 @@ async function postgresDb(
 async function runPostgresTransaction(
     rawClient: { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> },
     build: (db: DrizzleDb) => Promise<Query[]> | Query[],
-    setSessionState?: () => Promise<void>,
 ): Promise<ExecResult[]> {
     const queries = await callBuild(build);
     await rawClient.query('begin');
     try {
-        if (setSessionState) await setSessionState();
         const results: ExecResult[] = [];
         for (const q of queries) {
             const statement = inlineParams(q.sql, q.params as unknown[]);
@@ -139,8 +136,6 @@ async function runPostgresTransaction(
     } catch (error) {
         await rawClient.query('rollback').catch(() => undefined);
         throw error;
-    } finally {
-        if (setSessionState) await rawClient.query('reset role').catch(() => undefined);
     }
 }
 
@@ -326,19 +321,20 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
         const { drizzle } = await import('drizzle-orm/node-postgres');
         const drizzleHandle = drizzle(interceptingClient) as unknown as NodePgDatabase<Record<string, never>>;
 
+        // Belt-and-suspenders: reset role before the connection returns to the pool.
+        // `set local role` already expires at commit/rollback, but an explicit reset
+        // guards against any edge case where the transaction did not cleanly end.
+        const resetRole = () => rawClient.query('reset role').catch(() => undefined);
+
         try {
             const result = await fn(await postgresDb(drizzleHandle, interceptingClient as unknown as { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> }));
             if (inTransaction) await rawClient.query('commit');
+            await resetRole();
             return result;
         } catch (err) {
             if (inTransaction) await rawClient.query('rollback').catch(() => undefined);
+            await resetRole();
             throw err;
-        } finally {
-            // Belt-and-suspenders: reset role before the connection returns to the pool.
-            // `set local role` already expires at commit/rollback, but an explicit reset
-            // matches the PR pattern and guards against any edge case where the
-            // transaction did not cleanly end.
-            await rawClient.query('reset role').catch(() => undefined);
         }
     });
 }

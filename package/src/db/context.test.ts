@@ -712,6 +712,52 @@ describe('withUserDb session-state race', () => {
         const calls = tx._clientQuery.mock.calls.map((c: unknown[]) => c[0]);
         expect(calls.filter((s: string) => s.startsWith('set local role')).length).toBeGreaterThan(0);
     });
+
+    it('surfaces the session-state failure even when the cleanup rollback also fails', async () => {
+        tx._clientQuery.mockImplementation(async (sql: string) => {
+            if (sql.startsWith('select set_config')) throw new Error('transient');
+            if (sql === 'rollback') throw new Error('rollback error');
+            return { rows: [], rowCount: 0 };
+        });
+
+        await expect(
+            withUserDb(async (db) => {
+                const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+                await client.query('select 1');
+                return 'ok';
+            }, 'uid-fail-rollback'),
+        ).rejects.toThrow('transient');
+    });
+
+    it('does not fail the call when the final `reset role` cleanup itself fails', async () => {
+        tx._clientQuery.mockImplementation(async (sql: string) => {
+            if (sql === 'reset role') throw new Error('connection already gone');
+            return { rows: [], rowCount: 0 };
+        });
+
+        await expect(
+            withUserDb(async (db) => {
+                const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+                await client.query('select 1');
+                return 'ok';
+            }, 'uid-reset-fail'),
+        ).resolves.toBe('ok');
+    });
+
+    it('surfaces the callback error when the outer rollback cleanup also fails', async () => {
+        tx._clientQuery.mockImplementation(async (sql: string) => {
+            if (sql === 'rollback') throw new Error('rollback error');
+            return { rows: [], rowCount: 0 };
+        });
+
+        await expect(
+            withUserDb(async (db) => {
+                const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+                await client.query('insert into users (id) values (1)');
+                throw new Error('callback failed');
+            }, 'uid-rollback-fail'),
+        ).rejects.toThrow('callback failed');
+    });
 });
 
 describe('withUserDb role safety', () => {
