@@ -53,13 +53,11 @@ describe('updateSession', () => {
         });
         await updateSession(req, NextResponse.next(), 'en');
 
-        // 2, not 3: one decode from the expiry check (`isJwtExpired`, out of
-        // scope for this memo — see update_session.ts), plus ONE memoized
-        // decode shared by both the email_verified === false gate and the
-        // later email_verified === true page-exit check, instead of one
-        // decode per check.
+        // 1: the expiry check, the email_verified === false gate, and the
+        // later email_verified === true page-exit check all share the single
+        // per-request memoized decode for this token.
         const callsOnThisToken = decodeJwtPayloadSpy.mock.calls.filter(([t]) => t === token);
-        expect(callsOnThisToken.length).toBe(2);
+        expect(callsOnThisToken.length).toBe(1);
     });
 
     it('returns baseResponse untouched when firebaseAuth is not configured', async () => {
@@ -1501,5 +1499,53 @@ describe('refreshIdToken skipCache option', () => {
         expect(fakeCache.match).not.toHaveBeenCalled();
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(result).toEqual({ status: 'refreshed', idToken: liveToken, refreshToken: 'new-refresh-token' });
+    });
+});
+
+describe('updateSession: JWT decode memoization', () => {
+    beforeEach(() => {
+        currentConfig = { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: { ...baseFa } };
+        decodeJwtPayloadSpy.mockClear();
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('decodes the session token only once for a protected page when verifyEmailPath is configured', async () => {
+        currentConfig = {
+            locales: ['en', 'de'],
+            defaultLocale: 'en',
+            firebaseAuth: { ...baseFa, verifyEmailPath: '/verify-email' },
+        };
+        const { default: updateSession } = await import('./update_session.js');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: token },
+        });
+
+        await updateSession(req, NextResponse.next(), 'en');
+
+        const callsOnThisToken = decodeJwtPayloadSpy.mock.calls.filter(([t]) => t === token);
+        expect(callsOnThisToken.length).toBe(1);
+    });
+
+    it('decodes the session token only once on verifyEmailPath for an already-verified session', async () => {
+        currentConfig = {
+            locales: ['en', 'de'],
+            defaultLocale: 'en',
+            firebaseAuth: { ...baseFa, verifyEmailPath: '/verify-email' },
+        };
+        const { default: updateSession } = await import('./update_session.js');
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
+        const req = makeRequest('https://example.com/en/verify-email', {
+            cookies: { __fa_session__: token },
+        });
+
+        const response = await updateSession(req, NextResponse.next(), 'en');
+
+        expect(response.headers.get('location')).toBeTruthy();
+        const callsOnThisToken = decodeJwtPayloadSpy.mock.calls.filter(([t]) => t === token);
+        expect(callsOnThisToken.length).toBe(1);
     });
 });

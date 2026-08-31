@@ -72,9 +72,12 @@ export function isIdTokenExpired(token: string): boolean {
     return isJwtExpired(token);
 }
 
-function isJwtExpired(token: string): boolean {
-    const decoded = decodeJwtPayload(token);
+function isTokenExpired(decoded: ReturnType<typeof decodeJwtPayload>): boolean {
     return !decoded?.exp || decoded.exp * 1000 - CLOCK_SKEW_MARGIN_MS <= Date.now();
+}
+
+function isJwtExpired(token: string): boolean {
+    return isTokenExpired(decodeJwtPayload(token));
 }
 
 // Refreshing an ID token is a real network round-trip to Google on the
@@ -378,7 +381,7 @@ export default async function updateSession(
     // cookies) then bounces them straight back, producing a login flash.
     let refreshWasTransientFailure = false;
 
-    if (token && isJwtExpired(token)) {
+    if (token && isTokenExpired(decodeTokenOnce(token))) {
         token = undefined;
     }
 
