@@ -15,17 +15,24 @@ export default function ErrorsListClient({
 	hrefFor,
 }: {
 	initialRows: ErrorRow[];
-	initialNextCursor: number | null;
+	initialNextCursor: string | null;
 	filters: Filters;
 	actions: ErrorsActions;
 	hrefFor: (id: number) => string;
 }): Component {
 	const [rows, setRows] = useState<ErrorRow[]>(initialRows);
-	const [nextCursor, setNextCursor] = useState<number | null>(initialNextCursor);
+	const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 	const [isPending, setIsPending] = useState(false);
 	const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+	// Mirrors the latest render's values so `loadMore` (and the
+	// IntersectionObserver effect that closes over it) can stay referentially
+	// stable across renders instead of tearing the observer down and
+	// recreating it every time `isLoadingMore`/`nextCursor`/`filters` change.
+	const latestRef = useRef({ isLoadingMore, nextCursor, filters, actions });
+	latestRef.current = { isLoadingMore, nextCursor, filters, actions };
 
 	useEffect(() => {
 		setRows(initialRows);
@@ -33,6 +40,7 @@ export default function ErrorsListClient({
 	}, [initialRows, initialNextCursor]);
 
 	const loadMore = useCallback(() => {
+		const { isLoadingMore, nextCursor, filters, actions } = latestRef.current;
 		if (isLoadingMore || nextCursor === null) return;
 		setIsLoadingMore(true);
 		void actions
@@ -42,7 +50,7 @@ export default function ErrorsListClient({
 				setNextCursor(result.nextCursor);
 			})
 			.finally(() => setIsLoadingMore(false));
-	}, [isLoadingMore, nextCursor, filters, actions]);
+	}, []);
 
 	useEffect(() => {
 		const sentinel = sentinelRef.current;

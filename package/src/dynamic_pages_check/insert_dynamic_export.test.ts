@@ -17,4 +17,17 @@ describe('insertDynamicExport', () => {
         expect(result).toContain('export const dynamic = "force-dynamic";');
         expect(result.indexOf('export const dynamic')).toBeLessThan(result.indexOf('export default function Page'));
     });
+
+    it('inserts after a multi-line (brace-spanning) import statement', () => {
+        const source = `import {\n    foo,\n    bar,\n} from "./stuff";\n\nexport default function Page() {}\n`;
+        const result = insertDynamicExport(source, 'force-dynamic');
+        expect(result.indexOf('export const dynamic')).toBeGreaterThan(result.indexOf('} from "./stuff";'));
+        expect(result.indexOf('export const dynamic')).toBeLessThan(result.indexOf('export default function Page'));
+    });
+
+    it('does not let a semicolon inside a later string/object jump the insertion point past unrelated code', () => {
+        const source = `import Link from "next/link";\n\nconst CONFIG = { a: 1 };\nconst LABEL = "value;withSemicolon";\n\nexport default function Page() {}\n`;
+        const result = insertDynamicExport(source, 'force-dynamic');
+        expect(result.indexOf('export const dynamic')).toBeLessThan(result.indexOf('const CONFIG'));
+    });
 });

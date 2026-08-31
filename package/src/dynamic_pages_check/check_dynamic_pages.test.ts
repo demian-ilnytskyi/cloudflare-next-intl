@@ -28,18 +28,11 @@ describe('checkDynamicPages', () => {
         expect(io.findPageFiles).not.toHaveBeenCalled();
     });
 
-    it('mode "report" never writes, and reports "would-add-force-static" for a static-looking page', async () => {
+    it('reports "no-dynamic-usage-detected" (and never writes) for a static-looking page, in any mode', async () => {
         const { io, written } = makeIo({ '/app/page.tsx': 'export default function Page() {}' });
-        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'report' }, io);
-        expect(reports).toEqual([{ file: '/app/page.tsx', action: 'would-add-force-static' }]);
-        expect(written).toEqual({});
-    });
-
-    it('mode "fix" writes force-static into a page with no dynamic-API usage', async () => {
-        const { io, written } = makeIo({ '/app/page.tsx': 'export default function Page() {}\n' });
         const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'fix' }, io);
-        expect(reports).toEqual([{ file: '/app/page.tsx', action: 'added-force-static' }]);
-        expect(written['/app/page.tsx']).toContain('export const dynamic = "force-static";');
+        expect(reports).toEqual([{ file: '/app/page.tsx', action: 'no-dynamic-usage-detected' }]);
+        expect(written).toEqual({});
     });
 
     it('mode "fix" writes force-dynamic into a page that uses cookies()', async () => {
@@ -80,22 +73,23 @@ describe('checkDynamicPages', () => {
             expect(reports).toEqual([]);
         });
 
-        it('defaults to mode "fix" and actually reads/writes real files when no mode is given', async () => {
+        it('defaults to mode "report" and never writes real files when no mode is given', async () => {
             mkdirSync(dir, { recursive: true });
             const pageFile = join(dir, 'page.tsx');
-            writeFileSync(pageFile, 'export default function Page() {}\n', 'utf8');
+            const original = 'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n';
+            writeFileSync(pageFile, original, 'utf8');
 
             const reports = await checkDynamicPages({ appDir: dir });
 
-            expect(reports).toEqual([{ file: pageFile, action: 'added-force-static' }]);
-            expect(readFileSync(pageFile, 'utf8')).toContain('export const dynamic = "force-static";');
+            expect(reports).toEqual([{ file: pageFile, action: 'would-add-force-dynamic' }]);
+            expect(readFileSync(pageFile, 'utf8')).toBe(original);
         });
     });
 
     it('skips every file listed in `skip`, without reading or writing it', async () => {
         const { io, written } = makeIo({
             '/app/errors/page.tsx': 'export default function Page() {}',
-            '/app/page.tsx': 'export default function Page() {}',
+            '/app/page.tsx': 'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n',
         });
         const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'fix', skip: ['/app/errors/page.tsx'] }, io);
         expect(reports).toEqual(expect.arrayContaining([{ file: '/app/errors/page.tsx', action: 'skipped' }]));

@@ -11,7 +11,7 @@ function argValue(name) {
 }
 
 const appDir = resolve(argValue('app-dir') ?? process.env.CFNI_DYNAMIC_PAGES_APP_DIR ?? 'src/app');
-const mode = argValue('mode') ?? process.env.CFNI_DYNAMIC_PAGES_MODE ?? 'fix';
+const mode = argValue('mode') ?? process.env.CFNI_DYNAMIC_PAGES_MODE ?? 'report';
 const skipRaw = argValue('skip') ?? process.env.CFNI_DYNAMIC_PAGES_SKIP ?? '';
 const skip = skipRaw.split(',').map((s) => s.trim()).filter(Boolean).map((s) => resolve(s));
 

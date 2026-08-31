@@ -1,3 +1,4 @@
+import { revalidatePath } from 'next/cache';
 import {
     type D1DatabaseLike,
     type ErrorsListResult,
@@ -11,7 +12,7 @@ import {
 } from './errors_repository.js';
 
 export interface ErrorsActions {
-    loadErrors(rawParams: { flavour?: string; status?: string; q?: string; cursor?: number | null }): Promise<ErrorsListResult>;
+    loadErrors(rawParams: { flavour?: string; status?: string; q?: string; cursor?: string | null }): Promise<ErrorsListResult>;
     setErrorStatus(ids: number[], status: string): Promise<void>;
     deleteErrors(ids: number[]): Promise<void>;
     deleteAllResolved(): Promise<void>;
@@ -62,7 +63,6 @@ export function createErrorsActions(options: ErrorsActionsOptions): ErrorsAction
             const boundedIds = boundErrorIds(ids);
             const db = await options.getDb();
             await setErrorsStatus(db, boundedIds, status);
-            const { revalidatePath } = await import('next/cache');
             revalidatePath(listPath);
         },
 
@@ -71,7 +71,6 @@ export function createErrorsActions(options: ErrorsActionsOptions): ErrorsAction
             const boundedIds = boundErrorIds(ids);
             const db = await options.getDb();
             await deleteErrorsByIds(db, boundedIds);
-            const { revalidatePath } = await import('next/cache');
             revalidatePath(listPath);
         },
 
@@ -79,7 +78,6 @@ export function createErrorsActions(options: ErrorsActionsOptions): ErrorsAction
             await options.requireAccess();
             const db = await options.getDb();
             await deleteAllResolvedErrors(db);
-            const { revalidatePath } = await import('next/cache');
             revalidatePath(listPath);
         },
     };

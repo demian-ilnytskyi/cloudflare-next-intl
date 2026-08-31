@@ -6,6 +6,8 @@ export {
     isErrorStatus,
     parseErrorsListFilters,
     boundErrorIds,
+    encodeCursor,
+    ensureSchema,
     computeFingerprint,
     recordError,
     listErrors,

@@ -2,6 +2,8 @@ import { fetchWithCloudflareFallback } from './fetch_with_fallback.js';
 import reportError, { type ReportErrorConfig } from '../error_handling/report_error.js';
 import type { GenerateRoutingConfig } from '../types/types.js';
 
+const MAX_ERROR_BODY_LENGTH = 500;
+
 /**
  * Full parity with `portfolio/src/shared/repositories/site_fetch_repository.ts`'s
  * `fetchTextData`: fetches `input` (via `fetchWithCloudflareFallback`),
@@ -21,7 +23,8 @@ export async function fetchText(
     try {
         const response = await fetchWithCloudflareFallback(input, init, config?.generate);
         if (!response.ok) {
-            throw new Error((await response.text()) || `HTTP ${response.status}`);
+            const body = (await response.text()).slice(0, MAX_ERROR_BODY_LENGTH);
+            throw new Error(body || `HTTP ${response.status}`);
         }
         return await response.text();
     } catch (error) {

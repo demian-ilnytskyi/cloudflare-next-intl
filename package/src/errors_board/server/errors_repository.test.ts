@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { isErrorStatus, parseErrorsListFilters, boundErrorIds, ERROR_STATUSES } from './errors_repository.js';
+import { isErrorStatus, parseErrorsListFilters, boundErrorIds, encodeCursor, ERROR_STATUSES } from './errors_repository.js';
 
 describe('isErrorStatus', () => {
     it('accepts every known status', () => {
@@ -15,17 +15,17 @@ describe('parseErrorsListFilters', () => {
         expect(parseErrorsListFilters({})).toEqual({ flavour: 'all', status: 'all', q: '', cursor: null });
     });
     it('passes through valid values', () => {
-        expect(parseErrorsListFilters({ flavour: 'prod', status: 'new', q: 'timeout', cursor: 123 }))
-            .toEqual({ flavour: 'prod', status: 'new', q: 'timeout', cursor: 123 });
+        expect(parseErrorsListFilters({ flavour: 'prod', status: 'new', q: 'timeout', cursor: encodeCursor(123, 45) }))
+            .toEqual({ flavour: 'prod', status: 'new', q: 'timeout', cursor: encodeCursor(123, 45) });
     });
     it('falls back to "all" for an invalid status rather than throwing', () => {
         expect(parseErrorsListFilters({ status: 'bogus' }).status).toBe('all');
     });
-    it('coerces a string cursor to a number', () => {
-        expect(parseErrorsListFilters({ cursor: '456' }).cursor).toBe(456);
+    it('rejects a malformed cursor back to null', () => {
+        expect(parseErrorsListFilters({ cursor: 'not-a-cursor' }).cursor).toBeNull();
     });
     it('rejects a negative cursor back to null', () => {
-        expect(parseErrorsListFilters({ cursor: -1 }).cursor).toBeNull();
+        expect(parseErrorsListFilters({ cursor: encodeCursor(-1, 1) }).cursor).toBeNull();
     });
 });
 
@@ -57,6 +57,7 @@ import {
     deleteErrorsByIds,
     deleteAllResolvedErrors,
     truncate,
+    encodeCursor,
     type D1DatabaseLike,
     type D1PreparedStatementLike,
 } from './errors_repository.js';
@@ -176,14 +177,21 @@ describe('recordError', () => {
 });
 
 describe('listErrors', () => {
-    it('binds the flavour, status, search, and cursor filters into the WHERE clause', async () => {
+    it('binds the flavour, status, search, and keyset cursor filters into the WHERE clause', async () => {
         const db = createFakeD1({ all: [] });
-        await listErrors(db, { flavour: 'prod', status: 'new', q: 'timeout', cursor: 100 });
+        await listErrors(db, { flavour: 'prod', status: 'new', q: 'timeout', cursor: encodeCursor(100, 7) });
         const listCall = db.calls.find((c) => c.sql.startsWith('SELECT * FROM errors'));
         expect(listCall!.sql).toContain('flavour = ?');
         expect(listCall!.sql).toContain('status = ?');
-        expect(listCall!.sql).toContain('updated_at < ?');
-        expect(listCall!.bindings).toEqual(expect.arrayContaining(['prod', 'new', 100]));
+        expect(listCall!.sql).toContain('updated_at < ? OR (updated_at = ? AND id < ?)');
+        expect(listCall!.bindings).toEqual(expect.arrayContaining(['prod', 'new', 100, 100, 7]));
+    });
+
+    it('ignores a malformed cursor rather than binding garbage into the query', async () => {
+        const db = createFakeD1({ all: [] });
+        await listErrors(db, { flavour: 'all', status: 'all', q: '', cursor: 'garbage' });
+        const listCall = db.calls.find((c) => c.sql.startsWith('SELECT * FROM errors'));
+        expect(listCall!.sql).not.toContain('updated_at <');
     });
 
     it('excludes muted rows when status is "all"', async () => {
@@ -198,7 +206,7 @@ describe('listErrors', () => {
         const db = createFakeD1({ all: rows });
         const result = await listErrors(db, { flavour: 'all', status: 'all', q: '', cursor: null });
         expect(result.rows).toHaveLength(50);
-        expect(result.nextCursor).toBe(rows[49].updated_at);
+        expect(result.nextCursor).toBe(encodeCursor(rows[49].updated_at, rows[49].id));
     });
 
     it('treats an undefined results field as an empty page', async () => {
@@ -261,6 +269,13 @@ describe('setErrorsStatus', () => {
         expect(updateCall!.bindings.slice(0, 2)).toEqual(['resolved', 'resolved']);
         expect(updateCall!.bindings).toContain(1);
         expect(updateCall!.bindings).toContain(2);
+    });
+
+    it('leaves resolved_at untouched (not nulled) when moving to a non-resolved status', async () => {
+        const db = createFakeD1();
+        await setErrorsStatus(db, [1], 'muted');
+        const updateCall = db.calls.find((c) => c.sql.startsWith('UPDATE errors'));
+        expect(updateCall!.sql).toContain('THEN ? ELSE resolved_at END');
     });
 });
 

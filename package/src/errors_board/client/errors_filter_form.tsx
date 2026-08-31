@@ -17,7 +17,7 @@ export default function ErrorsFilterForm({
             <input type="hidden" name="status" value={filters.status} />
             <label className="flex flex-col gap-1">
                 <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Flavour</span>
-                <select name="flavour" defaultValue={filters.flavour} className={FIELD_CLASS}>
+                <select key={filters.flavour} name="flavour" defaultValue={filters.flavour} className={FIELD_CLASS}>
                     <option value="all">All flavours</option>
                     {flavours.map((flavour) => (
                         <option key={flavour} value={flavour}>
@@ -29,6 +29,7 @@ export default function ErrorsFilterForm({
             <label className="flex min-w-48 flex-1 flex-col gap-1">
                 <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Search</span>
                 <input
+                    key={filters.q}
                     type="text"
                     name="q"
                     placeholder="Message, caller, or user email"

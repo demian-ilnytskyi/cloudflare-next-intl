@@ -16,9 +16,12 @@ export interface ErrorsAccessOptions {
  * `actions.ts`.
  */
 export function createRequireErrorsAccess(options: ErrorsAccessOptions): () => Promise<void> {
-    const isAllowed = typeof options.allowedEmails === 'function'
-        ? options.allowedEmails
-        : (email: string | null) => (options.allowedEmails as readonly string[]).includes(email ?? '');
+    const allowedEmailsLower = Array.isArray(options.allowedEmails)
+        ? new Set(options.allowedEmails.map((email) => email.toLowerCase()))
+        : null;
+    const isAllowed = allowedEmailsLower
+        ? (email: string | null) => allowedEmailsLower.has((email ?? '').toLowerCase())
+        : (options.allowedEmails as (email: string | null) => boolean);
 
     return async function requireErrorsAccess(): Promise<void> {
         const { user } = await getAuthUser();

@@ -54,12 +54,13 @@ export interface ErrorsListFilters {
     flavour: string;
     status: ErrorStatus | 'all';
     q: string;
-    cursor: number | null;
+    /** Opaque `"<updated_at>:<id>"` keyset cursor — see {@link encodeCursor}/{@link decodeCursor}. */
+    cursor: string | null;
 }
 
 export interface ErrorsListResult {
     rows: ErrorRow[];
-    nextCursor: number | null;
+    nextCursor: string | null;
 }
 
 export interface ErrorsBoardResult extends ErrorsListResult {
@@ -71,16 +72,29 @@ export function isErrorStatus(value: string): value is ErrorStatus {
     return (ERROR_STATUSES as readonly string[]).includes(value);
 }
 
+/** Encodes a keyset cursor position as the opaque string `listErrors`/`loadErrorsBoard` accept back. */
+export function encodeCursor(updatedAt: number, id: number): string {
+    return `${updatedAt}:${id}`;
+}
+
+/** Decodes a cursor produced by {@link encodeCursor}. Returns `null` for anything malformed rather than throwing. */
+function decodeCursor(raw: string): { updatedAt: number; id: number } | null {
+    const [updatedAtPart, idPart] = raw.split(':');
+    const updatedAt = Number(updatedAtPart);
+    const id = Number(idPart);
+    if (!Number.isInteger(updatedAt) || !Number.isInteger(id) || updatedAt < 0 || id < 0) return null;
+    return { updatedAt, id };
+}
+
 /** Never throws — every field falls back to a safe default instead of rejecting a malformed caller-supplied param bag. */
 export function parseErrorsListFilters(raw: {
     flavour?: string;
     status?: string;
     q?: string;
-    cursor?: number | string | null;
+    cursor?: string | null;
 }): ErrorsListFilters {
     const status = raw.status === 'all' || (raw.status && isErrorStatus(raw.status)) ? (raw.status as ErrorStatus | 'all') : 'all';
-    const cursorNumber = raw.cursor === null || raw.cursor === undefined ? null : Number(raw.cursor);
-    const cursor = cursorNumber !== null && Number.isInteger(cursorNumber) && cursorNumber >= 0 ? cursorNumber : null;
+    const cursor = raw.cursor && decodeCursor(raw.cursor) ? raw.cursor : null;
     return {
         flavour: raw.flavour ?? 'all',
         status,
@@ -132,7 +146,15 @@ const CREATE_INDEXES_SQL = [
 
 const schemaReadyByDb = new WeakMap<D1DatabaseLike, Promise<void>>();
 
-function ensureSchema(db: D1DatabaseLike): Promise<void> {
+/**
+ * Runs the `CREATE TABLE`/`CREATE INDEX IF NOT EXISTS` batch once per `db`
+ * instance (memoized in `schemaReadyByDb`) and every repository function
+ * awaits it before its own query. Call this once yourself — e.g. from a
+ * startup hook, or a `wrangler d1 migrations` script — to move that first
+ * `batch()` off the request that happens to hit it first; the automatic
+ * call below still runs (cheaply, via the memoized promise) if you don't.
+ */
+export function ensureSchema(db: D1DatabaseLike): Promise<void> {
     const existing = schemaReadyByDb.get(db);
     if (existing) return existing;
     const ready = db
@@ -166,12 +188,12 @@ export async function recordError(db: D1DatabaseLike, input: RecordErrorInput): 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (fingerprint) DO UPDATE SET
                updated_at   = excluded.updated_at,
-               count        = count + 1,
+               count        = errors.count + 1,
                stack        = excluded.stack,
                params       = excluded.params,
                user_email   = excluded.user_email,
-               reopen_count = CASE WHEN status = 'resolved' THEN reopen_count + 1 ELSE reopen_count END,
-               status       = CASE WHEN status = 'resolved' THEN 'new' ELSE status END`,
+               reopen_count = CASE WHEN errors.status = 'resolved' THEN errors.reopen_count + 1 ELSE errors.reopen_count END,
+               status       = CASE WHEN errors.status = 'resolved' THEN 'new' ELSE errors.status END`,
         )
         .bind(fingerprint, now, now, input.flavour, input.caller, message, stack, params, input.isClient ? 1 : 0, input.userEmail)
         .run();
@@ -197,8 +219,11 @@ function buildListQuery(filters: ErrorsListFilters): { sql: string; bindings: un
         bindings.push(like, like, like);
     }
     if (filters.cursor !== null) {
-        conditions.push('updated_at < ?');
-        bindings.push(filters.cursor);
+        const decoded = decodeCursor(filters.cursor);
+        if (decoded) {
+            conditions.push('(updated_at < ? OR (updated_at = ? AND id < ?))');
+            bindings.push(decoded.updatedAt, decoded.updatedAt, decoded.id);
+        }
     }
 
     bindings.push(ERRORS_PAGE_SIZE + 1);
@@ -208,7 +233,8 @@ function buildListQuery(filters: ErrorsListFilters): { sql: string; bindings: un
 function paginate(rows: ErrorRow[]): ErrorsListResult {
     const hasMore = rows.length > ERRORS_PAGE_SIZE;
     const page = hasMore ? rows.slice(0, ERRORS_PAGE_SIZE) : rows;
-    return { rows: page, nextCursor: hasMore ? page[page.length - 1].updated_at : null };
+    const last = page[page.length - 1];
+    return { rows: page, nextCursor: hasMore && last ? encodeCursor(last.updated_at, last.id) : null };
 }
 
 export async function listErrors(db: D1DatabaseLike, filters: ErrorsListFilters): Promise<ErrorsListResult> {
@@ -259,7 +285,7 @@ export async function setErrorsStatus(db: D1DatabaseLike, ids: number[], status:
         .prepare(
             `UPDATE errors
                 SET status      = ?,
-                    resolved_at = CASE WHEN ? = 'resolved' THEN ? ELSE NULL END
+                    resolved_at = CASE WHEN ? = 'resolved' THEN ? ELSE resolved_at END
               WHERE id IN (${placeholders})`,
         )
         .bind(status, status, Date.now(), ...boundedIds)

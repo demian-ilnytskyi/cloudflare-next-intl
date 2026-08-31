@@ -9,7 +9,12 @@ export type DynamicPagesCheckMode = 'off' | 'report' | 'fix';
 export interface CheckDynamicPagesOptions {
     /** Root directory to scan recursively for `page.*`/`route.*` files — typically your Next.js `app/` directory. */
     appDir: string;
-    /** Defaults to `'fix'`. */
+    /**
+     * Defaults to `'report'`. The codemod's import-boundary detection is a
+     * text heuristic, not a real parser, so `'fix'` can misplace the
+     * inserted export on an unusual file; opt in explicitly once you've
+     * reviewed a `'report'` run's output.
+     */
     mode?: DynamicPagesCheckMode;
     /** File paths (as returned by `findPageFiles` — i.e. joined with `appDir`) to leave completely alone: not read, not written, not reported as anything but `'skipped'`. */
     skip?: readonly string[];
@@ -17,7 +22,7 @@ export interface CheckDynamicPagesOptions {
 
 export interface CheckDynamicPagesReport {
     file: string;
-    action: 'added-force-static' | 'added-force-dynamic' | 'would-add-force-static' | 'would-add-force-dynamic' | 'already-declared' | 'skipped';
+    action: 'added-force-dynamic' | 'would-add-force-dynamic' | 'already-declared' | 'no-dynamic-usage-detected' | 'skipped';
 }
 
 export interface CheckDynamicPagesIo {
@@ -30,7 +35,7 @@ export async function checkDynamicPages(
     options: CheckDynamicPagesOptions,
     io: CheckDynamicPagesIo = {},
 ): Promise<CheckDynamicPagesReport[]> {
-    const mode = options.mode ?? 'fix';
+    const mode = options.mode ?? 'report';
     if (mode === 'off') return [];
 
     const findPageFiles = io.findPageFiles ?? findPageFilesImpl;
@@ -51,13 +56,21 @@ export async function checkDynamicPages(
             reports.push({ file, action: 'already-declared' });
             continue;
         }
+        // A page with no detected dynamic-API usage is left to Next's own
+        // static/dynamic inference — inserting `force-static` here would be
+        // an unsafe default (a page can be dynamic through means this
+        // regex-based scan doesn't see), whereas doing nothing never turns
+        // a working dynamic page into a stale, build-time-frozen one.
+        if (detection.detectedDynamicApis.length === 0) {
+            reports.push({ file, action: 'no-dynamic-usage-detected' });
+            continue;
+        }
 
-        const value = detection.detectedDynamicApis.length === 0 ? 'force-static' : 'force-dynamic';
         if (mode === 'fix') {
-            writeFile(file, insertDynamicExport(source, value));
-            reports.push({ file, action: value === 'force-static' ? 'added-force-static' : 'added-force-dynamic' });
+            writeFile(file, insertDynamicExport(source, 'force-dynamic'));
+            reports.push({ file, action: 'added-force-dynamic' });
         } else {
-            reports.push({ file, action: value === 'force-static' ? 'would-add-force-static' : 'would-add-force-dynamic' });
+            reports.push({ file, action: 'would-add-force-dynamic' });
         }
     }
     return reports;

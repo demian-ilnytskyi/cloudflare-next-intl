@@ -181,20 +181,20 @@ describe('ErrorsListClient', () => {
 
 	it('auto-loads more rows via the intersection observer, showing a loading indicator meanwhile', async () => {
 		const actions = makeActions();
-		let resolveLoadErrors!: (value: { rows: ErrorRow[]; nextCursor: number | null }) => void;
+		let resolveLoadErrors!: (value: { rows: ErrorRow[]; nextCursor: string | null }) => void;
 		actions.loadErrors.mockReturnValue(new Promise((resolve) => { resolveLoadErrors = resolve; }));
 
 		render(
 			<ErrorsListClient
 				initialRows={[row]}
-				initialNextCursor={100}
+				initialNextCursor={'100:7'}
 				filters={{ flavour: 'all', status: 'all', q: '' }}
 				actions={actions}
 				hrefFor={(id) => `/errors/${id}`}
 			/>,
 		);
 
-		expect(actions.loadErrors).toHaveBeenCalledWith({ flavour: 'all', status: 'all', q: '', cursor: 100 });
+		expect(actions.loadErrors).toHaveBeenCalledWith({ flavour: 'all', status: 'all', q: '', cursor: '100:7' });
 		await vi.waitFor(() => expect(screen.getByText('Loading more…')).toBeInTheDocument());
 
 		resolveLoadErrors({ rows: [{ ...row, id: 2 }], nextCursor: null });
