@@ -1,16 +1,16 @@
-import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables";
-import { getMessage } from "../functions/server";
-import type { TranslationObject } from "../../types/types";
+import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
+import { getMessage } from "../functions/server.js";
+import type { TranslationObject } from "../../types/types.js";
 import dynamic from "next/dynamic";
-import { localesSet } from "../../config/middleware";
-import config from "../../config/intl_config";
-import type { CookieConsentAnalyticsConfig } from "../../types/types";
-import resolveRequiresConsent from "../../cookie_consent/gdpr_countries";
-import installConsoleErrorOverride from "../../error_handling/install_console_error_override";
-import reportError from "../../error_handling/report_error";
+import { localesSet } from "../../config/middleware.js";
+import config from "../../config/intl_config.js";
+import type { CookieConsentAnalyticsConfig } from "../../types/types.js";
+import resolveRequiresConsent from "../../cookie_consent/gdpr_countries.js";
+import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
+import reportError from "../../error_handling/report_error.js";
 
 const LocationzationClientProvider = dynamic(
-    () => import("../../client/components/client_provider_static"),
+    () => import("../../client/components/client_provider_static.js"),
 );
 
 /**

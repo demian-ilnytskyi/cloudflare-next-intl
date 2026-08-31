@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { iAlternatesLinks, languages } from './metadata';
+import { iAlternatesLinks, languages } from './metadata.js';
 
 describe('languages', () => {
     it('builds per-locale URLs plus x-default', () => {
@@ -49,7 +49,7 @@ describe('iAlternatesLinks', () => {
     it('returns undefined and logs on internal error', async () => {
         vi.resetModules();
         vi.doMock('@intl-config', () => ({ default: { locales: null, defaultLocale: 'en' } }));
-        const { iAlternatesLinks: brokenAlternatesLinks } = await import('./metadata');
+        const { iAlternatesLinks: brokenAlternatesLinks } = await import('./metadata.js');
         const result = brokenAlternatesLinks({ url: 'https://example.com', locale: 'en' });
         expect(result).toBeUndefined();
         expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[alternatesLinks] Error:'));

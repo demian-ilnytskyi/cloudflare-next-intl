@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import resolveDbMode from './resolve_mode';
+import resolveDbMode from './resolve_mode.js';
 
 describe('resolveDbMode', () => {
     it('picks postgres for a connection string', async () => {

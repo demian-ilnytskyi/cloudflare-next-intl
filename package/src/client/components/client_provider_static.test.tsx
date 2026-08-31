@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { useContext, useEffect, useState } from 'react';
-import { LocaleContext } from './client_provider_static';
+import { LocaleContext } from './client_provider_static.js';
 
 vi.mock('../../general/cache_variables', () => ({
     setLocaleCache: vi.fn(),
@@ -74,8 +74,8 @@ describe('LocationzationClientProvider (static)', () => {
     });
 
     it('provides language/messages via context to children', async () => {
-        const { setLocaleCache, setMessageForLocaleCache } = await import('../../general/cache_variables');
-        const { default: LocationzationClientProvider } = await import('./client_provider_static');
+        const { setLocaleCache, setMessageForLocaleCache } = await import('../../general/cache_variables.js');
+        const { default: LocationzationClientProvider } = await import('./client_provider_static.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }}>
                 <Consumer />
@@ -88,7 +88,7 @@ describe('LocationzationClientProvider (static)', () => {
 
     it('renders children directly (no CookieConsentProvider) when cookieConsent is unconfigured', async () => {
         currentConfig = {};
-        const { default: LocationzationClientProvider } = await import('./client_provider_static');
+        const { default: LocationzationClientProvider } = await import('./client_provider_static.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }}>
                 <span>child</span>
@@ -100,7 +100,7 @@ describe('LocationzationClientProvider (static)', () => {
 
     it('wraps children in CookieConsentProvider when cookieConsent is configured, without analytics when no analytics resolve', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider_static');
+        const { default: LocationzationClientProvider } = await import('./client_provider_static.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }}>
                 <span>child</span>
@@ -113,7 +113,7 @@ describe('LocationzationClientProvider (static)', () => {
 
     it('renders CookieConsentAnalytics when analyticsConfig resolves', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider_static');
+        const { default: LocationzationClientProvider } = await import('./client_provider_static.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }} analyticsConfig={{ googleAnalyticsId: 'G-XXX' }}>
                 <span>child</span>
@@ -124,7 +124,7 @@ describe('LocationzationClientProvider (static)', () => {
 
     it('passes requiresConsent through to CookieConsentProvider, defaulting to true', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider_static');
+        const { default: LocationzationClientProvider } = await import('./client_provider_static.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }}>
                 <span>child</span>
@@ -135,7 +135,7 @@ describe('LocationzationClientProvider (static)', () => {
 
     it('passes requiresConsent=false through to CookieConsentProvider', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider_static');
+        const { default: LocationzationClientProvider } = await import('./client_provider_static.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }} requiresConsent={false}>
                 <span>child</span>
@@ -146,7 +146,7 @@ describe('LocationzationClientProvider (static)', () => {
 
     it('auto-wires CookieConsentDialog and PrivacyPolicyUpdateDialog by default when cookieConsent is configured', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider_static');
+        const { default: LocationzationClientProvider } = await import('./client_provider_static.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }}>
                 <span>child</span>
@@ -158,7 +158,7 @@ describe('LocationzationClientProvider (static)', () => {
 
     it('does not render the auto-wired dialogs when autoWireDialogs is false', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider_static');
+        const { default: LocationzationClientProvider } = await import('./client_provider_static.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }} autoWireDialogs={false}>
                 <span>child</span>
@@ -171,7 +171,7 @@ describe('LocationzationClientProvider (static)', () => {
 
     it('forwards dialogProps/updateDialogProps to the auto-wired dialogs', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider_static');
+        const { default: LocationzationClientProvider } = await import('./client_provider_static.js');
         render(
             <LocationzationClientProvider
                 language="en"

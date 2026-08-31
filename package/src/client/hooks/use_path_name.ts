@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname as nextUsePathname } from "next/navigation"
-import { useLocale } from "./client_hooks";
+import { useLocale } from "./client_hooks.js";
 
 /**
  * Client hook: like `next/navigation`'s `usePathname`, but with the locale

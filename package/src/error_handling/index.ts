@@ -1,18 +1,18 @@
-export { default as withErrorHandling } from './with_error_handling';
-export type { WithErrorHandlingOptions } from './with_error_handling';
-export { default as reportError } from './report_error';
-export type { ReportErrorConfig } from './report_error';
-export { default as installConsoleErrorOverride } from './install_console_error_override';
-export { default as installGlobalErrorOverride } from './install_global_error_override';
-export { default as stringifyUnknown } from './stringify_unknown';
-export { default as formatErrorMessage } from './format_error_message';
-export { defaultIgnoredConsoleErrors } from './default_ignored_console_errors';
+export { default as withErrorHandling } from './with_error_handling.js';
+export type { WithErrorHandlingOptions } from './with_error_handling.js';
+export { default as reportError } from './report_error.js';
+export type { ReportErrorConfig } from './report_error.js';
+export { default as installConsoleErrorOverride } from './install_console_error_override.js';
+export { default as installGlobalErrorOverride } from './install_global_error_override.js';
+export { default as stringifyUnknown } from './stringify_unknown.js';
+export { default as formatErrorMessage } from './format_error_message.js';
+export { defaultIgnoredConsoleErrors } from './default_ignored_console_errors.js';
 export {
     default as isStaleDeployError,
     defaultStaleDeployPatterns,
     setStaleDeployPatterns,
     getStaleDeployPatterns,
-} from './is_stale_deploy_error';
-export { default as clearClientCache } from './clear_client_cache';
-export { default as useStaleDeployRecovery, shouldRecoverFromStaleDeploy } from './use_stale_deploy_recovery';
-export type { ErrorHandlingParams, ErrorHandlingRoutingConfig } from '../types/types';
+} from './is_stale_deploy_error.js';
+export { default as clearClientCache } from './clear_client_cache.js';
+export { default as useStaleDeployRecovery, shouldRecoverFromStaleDeploy } from './use_stale_deploy_recovery.js';
+export type { ErrorHandlingParams, ErrorHandlingRoutingConfig } from '../types/types.js';

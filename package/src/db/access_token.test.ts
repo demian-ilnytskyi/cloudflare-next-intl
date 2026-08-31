@@ -7,7 +7,7 @@ const { getAuthUser, getIdToken } = vi.hoisted(() => {
 });
 vi.mock('../firebase_auth/server/use_auth_user_server', () => ({ getAuthUser }));
 
-import resolveAccessToken from './access_token';
+import resolveAccessToken from './access_token.js';
 
 const base = { locales: ['en'] as const, defaultLocale: 'en' };
 

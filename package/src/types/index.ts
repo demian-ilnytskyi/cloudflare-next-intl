@@ -18,4 +18,4 @@ export type {
     DbRoutingConfig,
     SupabaseDbConfig,
     ConfigValue,
-} from './types';
+} from './types.js';

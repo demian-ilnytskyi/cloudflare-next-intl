@@ -1,4 +1,4 @@
-import type { FallibleConfigValue } from '../types/types';
+import type { FallibleConfigValue } from '../types/types.js';
 
 /**
  * Resolves a config value that may have been supplied directly or as a

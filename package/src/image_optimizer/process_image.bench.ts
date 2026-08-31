@@ -75,3 +75,24 @@ describe("processImage: blur enabled vs disabled overhead", () => {
         await processImage(photoJpg, root, resolveOptions({ formats: ["webp"], blur: false }), root);
     });
 });
+
+describe("processImage: format fan-out", () => {
+    bench("1 format (webp)", async () => {
+        await processImage(photoJpg, root, resolveOptions({ formats: ["webp"] }), root);
+    });
+    bench("3 formats (avif, webp, png)", async () => {
+        await processImage(photoJpg, root, resolveOptions({ formats: ["avif", "webp", "png"] }), root);
+    });
+});
+
+describe("processImage: width fan-out", () => {
+    bench("default width only", async () => {
+        await processImage(largePng, root, resolveOptions({ formats: ["webp"] }), root);
+    });
+    bench("default + 3 extra widths", async () => {
+        await processImage(largePng, root, resolveOptions({
+            formats: ["webp"],
+            overrides: { "/large.png": { extraWidths: [400, 800, 1200] } },
+        }), root);
+    });
+});

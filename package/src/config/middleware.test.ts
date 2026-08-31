@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextResponse } from 'next/server';
-import intlMiddleware from './middleware';
-import { makeTestRequest as makeRequest } from '../test_utils/mock_next_server';
+import intlMiddleware from './middleware.js';
+import { makeTestRequest as makeRequest } from '../test_utils/mock_next_server.js';
 
 describe('intlMiddleware', () => {
     beforeEach(() => {
@@ -193,7 +193,7 @@ describe('intlMiddleware with firebaseAuth configured', () => {
         });
         vi.doMock('../firebase_auth/middleware/update_session', () => ({ default: updateFirebaseAuthSession }));
 
-        const { default: intlMiddlewareWithAuth } = await import('./middleware');
+        const { default: intlMiddlewareWithAuth } = await import('./middleware.js');
         const req = makeRequest('https://example.com/en/dashboard');
         const res = await intlMiddlewareWithAuth(req);
 
@@ -212,7 +212,7 @@ describe('intlMiddleware with firebaseAuth configured', () => {
         const updateFirebaseAuthSession = vi.fn(async (_request: unknown, response: NextResponse) => response);
         vi.doMock('../firebase_auth/middleware/update_session', () => ({ default: updateFirebaseAuthSession }));
 
-        const { default: intlMiddlewareWithAuth } = await import('./middleware');
+        const { default: intlMiddlewareWithAuth } = await import('./middleware.js');
         const req = makeRequest('https://example.com/about', { headers: { 'accept-language': 'de' } });
         await intlMiddlewareWithAuth(req);
 
@@ -230,7 +230,7 @@ describe('intlMiddleware with firebaseAuth configured', () => {
         const updateFirebaseAuthSession = vi.fn(async (_request: unknown, response: NextResponse) => response);
         vi.doMock('../firebase_auth/middleware/update_session', () => ({ default: updateFirebaseAuthSession }));
 
-        const { default: intlMiddlewareWithAuth } = await import('./middleware');
+        const { default: intlMiddlewareWithAuth } = await import('./middleware.js');
         const req = makeRequest('https://example.com/en/dashboard');
         await intlMiddlewareWithAuth(req);
 
@@ -252,7 +252,7 @@ describe('intlMiddleware with firebaseAuth configured', () => {
         });
         vi.doMock('../firebase_auth/middleware/update_session', () => ({ default: updateFirebaseAuthSession }));
 
-        const { default: intlMiddlewareWithAuth } = await import('./middleware');
+        const { default: intlMiddlewareWithAuth } = await import('./middleware.js');
         const req = makeRequest('https://example.com/en/dashboard');
         await intlMiddlewareWithAuth(req);
 
@@ -276,7 +276,7 @@ describe('intlMiddleware with firebaseAuth configured', () => {
         });
         vi.doMock('../firebase_auth/middleware/update_session', () => ({ default: updateFirebaseAuthSession }));
 
-        const { default: intlMiddlewareWithAuth } = await import('./middleware');
+        const { default: intlMiddlewareWithAuth } = await import('./middleware.js');
         // Default-locale URL with no locale prefix takes the rewrite (not
         // redirect) path, so `rewriteUrl` is set when `rebuildResponse` runs.
         const req = makeRequest('https://example.com/dashboard');

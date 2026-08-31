@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import requireCookieConsentConfig from './require_config';
-import type { CookieConsentRoutingConfig } from '../types/types';
+import requireCookieConsentConfig from './require_config.js';
+import type { CookieConsentRoutingConfig } from '../types/types.js';
 
 describe('requireCookieConsentConfig', () => {
     it('throws when cookieConsent config is undefined', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors';
+import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors.js';
 
 describe('defaultIgnoredConsoleErrors', () => {
     it('includes the Firebase Auth error codes this package translates in auth_actions.ts', () => {
@@ -24,7 +24,7 @@ describe('defaultIgnoredConsoleErrors', () => {
         try {
             process.env.NODE_ENV = 'development';
             vi.resetModules();
-            const { defaultIgnoredConsoleErrors: devErrors } = await import('./default_ignored_console_errors');
+            const { defaultIgnoredConsoleErrors: devErrors } = await import('./default_ignored_console_errors.js');
             expect(devErrors).toContain(
                 'A DurableObjectNamespace in the config referenced the class "DOQueueHandler", but no such Durable Object class is exported from the worker. Please make sure the class name matches,',
             );

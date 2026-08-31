@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import setCookie from './set_cookie';
+import setCookie from './set_cookie.js';
 
 describe('setCookie', () => {
     bench('writes a cookie with the default maxAge', () => {

@@ -3,6 +3,112 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.0] - 2026-08-31
+
+_Consolidates everything from 0.8.62 through the pre-release 0.9.1/0.9.2 iterations below into
+one release — none of those intermediate version numbers were ever published to npm (registry
+tops out at 0.8.61), so they're folded into this single 0.9.0 entry rather than kept as
+separately-published steps._
+
+### Fixed
+
+- **Firebase packages declared as `peerDependencies`, not `dependencies`**: `@firebase/app`,
+  `@firebase/auth`, `@firebase/app-check`, and `@firebase/performance` (initially introduced as
+  hard dependencies further down this entry) are peer dependencies with widened `0.x`/`1.x`
+  ranges, matching what `@firebase/auth`/`@firebase/app-check` already require of `@firebase/app`
+  themselves. As hard dependencies pinned to narrow ranges (`^0.15.0`, `^0.11.0`), any consumer
+  who also installs `firebase` directly — the normal case for anyone using `firebaseAuth` — could
+  end up with a second, incompatible copy of `@firebase/app` once their own `firebase` version
+  shipped a newer scoped release (e.g. `firebase@12.15.0`+ ships `@firebase/app@0.15.0`+,
+  `firebase@12.17.0`+ ships `0.16.0`, outside the old `^0.15.0` range). `@firebase/app` keeps its
+  registry (`_apps`, `_components`) as module-level state, so two copies means two independent
+  registries: the consumer's own `initializeApp()`/`getApps()` calls become invisible to this
+  package's `getFirebaseAuthClient()`, which then silently initializes a second Firebase app
+  instead of reusing theirs — auth state stops being shared between the two. Peer dependencies
+  dedupe against whatever `firebase`/`@firebase/*` version the consumer already has installed,
+  closing that gap. No change for consumers whose installed `@firebase/*` versions already
+  satisfy `0.x`/`1.x` (i.e. almost everyone) — npm resolves the peer against their existing
+  copies with no new install and no manual `package.json` edit required.
+
+### Performance
+
+- **`isWhitelisted`: allocation-free prefix check**: replaced a template-literal
+  (`` `${entry}/` ``) allocation-based prefix comparison with character-code boundary
+  checks, avoiding a temporary string allocation per candidate on every call. No baseline bench artifact
+  survived from before this change (lost to a concurrent process sharing the same scratch
+  directory), so no before/after comparison is reported here — see current numbers below.
+- **`decodeJwtPayload`: skip the signature segment, callback-free base64url decode**:
+  replaced `token.split('.')[1]` + a regex `.replace()` with a callback with
+  `split('.', 2)` and two plain `.replace()` calls, avoiding decoding/allocating the
+  (unused) signature segment and the per-match callback overhead. Benchmarked against the
+  original across two independent before/after run pairs on the realistic RS256-length
+  signature case; consistently faster with no regression on the realistic-payload-size
+  case. **Candidate kept.**
+- **`updateSession`: complete the per-request JWT decode memoization**: a concurrent
+  process had already landed a partial memoization (`decodedTokenCache`/`decodeTokenOnce`)
+  covering 5 of 6 `decodeJwtPayload` call sites. This change folds in the last remaining
+  site (the expiry check) via a new `isTokenExpired(decoded)` helper routed through the
+  existing cache, so a given token is decoded at most once per `updateSession` call. New
+  regression tests pin decode-call-count at exactly 1 (previously 2) for both: (a) a
+  protected page with `verifyEmailPath` configured, and (b) an already-verified session on
+  `verifyEmailPath` — both scenarios were decoding twice before this fix, not three times
+  as originally assumed; 5 of 6 call sites were already deduped by the pre-existing
+  partial memoization. No output/behavior change; `isIdTokenExpired`'s external signature
+  is unchanged.
+
+Bench comparisons below are vs. `$SCRATCH/bench-baseline.json` where that artifact still
+existed at the time of the relevant task; it was lost mid-plan (overwritten by an
+unrelated concurrent process sharing the same scratch directory) before `isWhitelisted`'s
+before-state could be captured, so that case has no historical comparison — only current
+`$SCRATCH/bench-final.json` numbers are reported for it.
+
+| Case | Before (mean, ms) | After (mean, ms) | Change |
+|---|---|---|---|
+| `isWhitelisted: long list` — no match (scans every entry) | n/a (baseline lost) | 0.000144 | n/a |
+| `isWhitelisted: long list` — prefix match (last entry) | n/a (baseline lost) | 0.000506 | n/a |
+| `decodeJwtPayload: realistic RS256-length signature` | 0.000665 | 0.000647 | ~2.8% faster |
+| `updateSession` — protected page, verifyEmailPath configured (expiry + email_verified checks) | 0.018368 | 0.017182 | ~6.5% faster |
+| `updateSession` — already-verified session on verifyEmailPath (expiry + two email_verified checks) | 0.021317 | 0.027637 | within noise (see below) |
+
+The two `updateSession` cases' decode-call-count went from 2 calls to 1 call per unique
+token (not 3→1). The timing win from removing one already-cheap decode call
+(~1 base64 decode + a couple of regex execs) is small relative to this bench harness's
+noise floor (single-digit-microsecond ops, ±2-6% RME); the second case's apparent
+regression is attributable to run-to-run bench noise, not the code change, since it does
+strictly fewer decodes than before, never more. The correctness win — exactly-once decode
+per token per request — is the primary deliverable of that change.
+- Cut the installed dependency footprint from **398 MB to 243 MB** replacing the `firebase`
+  umbrella with the four scoped `@firebase/*` entry points the package actually imports —
+  every Firebase import was already `import type` or a dynamic `import()`, so this only
+  changed the module specifiers. Declared as `peerDependencies` (see Fixed, above), not
+  bundled — no install-size change for consumers who don't use `firebaseAuth`.
+- **Image optimizer: single decode, parallel encodes**: `processImage` now reads and decodes the
+  source file once per image instead of once per encoded format/width, and encodes sibling
+  formats and extra-width variants concurrently instead of sequentially. The blur placeholder is
+  now written directly from the already-encoded primary buffer instead of a second sharp
+  encode/decode pass (this changes `*.blur.webp` bytes; all other generated file bytes are
+  unchanged for identical inputs). Format fan-out overhead (1 format vs. 3) dropped from 5.15x to
+  2.19x; width fan-out overhead (default width vs. default + 3 extra widths) dropped from 2.70x to
+  1.52x.
+- **Image optimizer: bounded-concurrency file pool in `run()`**: images across a directory are now
+  processed with a small worker pool (`mapWithConcurrency`) instead of one at a time. A 12-photo
+  end-to-end run dropped from a ~1027ms mean to ~286ms on an 8-core machine.
+- Measured `avif`/`webp` `effort` and JPEG `mozjpeg` vs. baseline against a synthetic photo-like
+  fixture to decide whether to change any encoder default (bar: >25% faster for <5% larger
+  output). Nothing cleared it — `webp`/`avif` effort 0 is much faster but 7-11% larger; baseline
+  JPEG is faster than `mozjpeg` but 64% larger; the `mitchell` resize kernel is not even faster
+  than the default `lanczos3`. No encoder defaults changed; `effort` is now available as an
+  opt-in per the option below.
+
+### Added
+
+- **`concurrency` plugin option**: number of images processed in parallel during `run()`.
+  Default: cpu count, clamped to 1-8.
+- **`effort` plugin option (global and per-image `overrides`)**: encoder effort (0-9) passed
+  through to `avif`/`webp`/`png`/`heif`/`jxl` encoding. Default: `undefined`, meaning each
+  format's own sharp default — existing behavior and output bytes are unchanged unless set.
+  Not scanned from `<Image>` JSX props; set it via `overrides` or the global option.
+
 ## [0.8.61] - 2026-08-30
 
 ### Added

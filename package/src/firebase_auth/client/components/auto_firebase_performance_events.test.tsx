@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import * as React from 'react';
-import AutoFirebasePerformanceEvents from './auto_firebase_performance_events';
+import AutoFirebasePerformanceEvents from './auto_firebase_performance_events.js';
 
 let performanceInstance: object | undefined = {};
 
@@ -21,7 +21,7 @@ vi.mock('../firebase_client', () => ({
 
 const record = vi.fn();
 const trace = vi.fn(() => ({ record }));
-vi.mock('firebase/performance', () => ({
+vi.mock('@firebase/performance', () => ({
     trace: (...args: unknown[]) => trace(...args),
 }));
 

@@ -13,7 +13,7 @@ export function getImageBlurSvg(
     blurWidth?: number,
     blurHeight?: number,
     objectFit?: string,
-    stdDeviation: number = 20,
+    stdDeviation = 20,
 ): string {
     const std = stdDeviation;
     const viewBox = blurWidth && blurHeight

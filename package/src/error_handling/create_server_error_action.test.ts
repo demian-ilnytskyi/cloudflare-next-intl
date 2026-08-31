@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import createServerErrorAction from './create_server_error_action';
+import createServerErrorAction from './create_server_error_action.js';
 
 const headerValues = new Map<string, string>();
 vi.mock('next/headers', () => ({

@@ -57,6 +57,12 @@ const eslintConfig = [
     },
   },
   {
+    files: ["**/*.test.{js,jsx,ts,tsx}", "**/*.bench.{js,jsx,ts,tsx}", "**/*.perf.test.{js,jsx,ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-empty-function": "off",
+    },
+  },
+  {
     // Ignore specified files/folders from linting
     ignores: [
       ".next/",       // Next.js build output directory

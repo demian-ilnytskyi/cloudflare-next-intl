@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { useContext, useEffect, useState } from 'react';
-import { LocaleContext } from './client_provider';
+import { LocaleContext } from './client_provider.js';
 
 vi.mock('../../general/cache_variables', () => ({
     setLocaleCache: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock('next/dynamic', () => ({
 
 let authProviderMountCount = 0;
 vi.mock('../../firebase_auth/client/auth_user_provider', () => ({
-    default: ({ children }: { children: React.ReactNode }) => {
+    default: function MockAuthUserProvider({ children }: { children: React.ReactNode }) {
         useEffect(() => {
             authProviderMountCount += 1;
         }, []);
@@ -79,8 +79,8 @@ describe('LocationzationClientProvider', () => {
     });
 
     it('provides language/messages via context to children', async () => {
-        const { setLocaleCache, setMessageForLocaleCache } = await import('../../general/cache_variables');
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { setLocaleCache, setMessageForLocaleCache } = await import('../../general/cache_variables.js');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }}>
                 <Consumer />
@@ -93,7 +93,7 @@ describe('LocationzationClientProvider', () => {
 
     it('wraps children in the client AuthUserProvider when firebaseAuth is configured', async () => {
         currentConfig = { firebaseAuth: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }} initialAuthUser={null}>
                 <span>child</span>
@@ -115,7 +115,7 @@ describe('LocationzationClientProvider', () => {
     // module scope so the same component reference survives re-renders.
     it('does not remount AuthUserProvider when LocationzationClientProvider re-renders (regression)', async () => {
         currentConfig = { firebaseAuth: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         const { rerender } = render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }} initialAuthUser={null}>
                 <span>child</span>
@@ -136,7 +136,7 @@ describe('LocationzationClientProvider', () => {
 
     it('does not wrap children in AuthUserProvider when skipAuthProvider is true, even with firebaseAuth configured', async () => {
         currentConfig = { firebaseAuth: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }} initialAuthUser={null} skipAuthProvider>
                 <span>child</span>
@@ -148,7 +148,7 @@ describe('LocationzationClientProvider', () => {
 
     it('wraps children in CookieConsentProvider when cookieConsent is configured, without analytics when no analytics resolve', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }}>
                 <span>child</span>
@@ -161,7 +161,7 @@ describe('LocationzationClientProvider', () => {
 
     it('renders CookieConsentAnalytics when analyticsConfig resolve', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }} analyticsConfig={{ googleAnalyticsId: 'G-XXX' }}>
                 <span>child</span>
@@ -172,7 +172,7 @@ describe('LocationzationClientProvider', () => {
 
     it('nests AuthUserProvider inside CookieConsentProvider when both are configured', async () => {
         currentConfig = { firebaseAuth: {}, cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }}>
                 <span>child</span>
@@ -186,7 +186,7 @@ describe('LocationzationClientProvider', () => {
 
     it('passes requiresConsent through to CookieConsentProvider, defaulting to true', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }}>
                 <span>child</span>
@@ -197,7 +197,7 @@ describe('LocationzationClientProvider', () => {
 
     it('passes requiresConsent=false through to CookieConsentProvider', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }} requiresConsent={false}>
                 <span>child</span>
@@ -208,7 +208,7 @@ describe('LocationzationClientProvider', () => {
 
     it('auto-wires CookieConsentDialog and PrivacyPolicyUpdateDialog by default when cookieConsent is configured', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }}>
                 <span>child</span>
@@ -220,7 +220,7 @@ describe('LocationzationClientProvider', () => {
 
     it('does not render the auto-wired dialogs when autoWireDialogs is false', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }} autoWireDialogs={false}>
                 <span>child</span>
@@ -233,7 +233,7 @@ describe('LocationzationClientProvider', () => {
 
     it('forwards dialogProps/updateDialogProps to the auto-wired dialogs', async () => {
         currentConfig = { cookieConsent: {} };
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider
                 language="en"
@@ -249,7 +249,7 @@ describe('LocationzationClientProvider', () => {
 
     it('does not render the auto-wired dialogs when cookieConsent is unconfigured', async () => {
         currentConfig = {};
-        const { default: LocationzationClientProvider } = await import('./client_provider');
+        const { default: LocationzationClientProvider } = await import('./client_provider.js');
         render(
             <LocationzationClientProvider language="en" messages={{ Common: {} }}>
                 <span>child</span>

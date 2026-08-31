@@ -24,8 +24,13 @@ const EMAIL_VERIFIED_RE = /"email_verified":(true|false)/;
  */
 export default function decodeJwtPayload(token: string): { exp?: number; iat?: number; email_verified?: boolean } | null {
     try {
-        const payload = token.split('.')[1];
-        const json = atob(payload.replace(/[-_]/g, (c) => c === '-' ? '+' : '/'));
+        // `split('.', 2)` stops after the second segment instead of also
+        // scanning/copying the (here, unused) signature segment; two plain
+        // `.replace()` calls avoid a per-match callback function versus one
+        // `.replace(/[-_]/g, fn)` — both are behaviorally identical to the
+        // previous implementation (see decode_jwt_payload.test.ts), only cheaper.
+        const payload = token.split('.', 2)[1];
+        const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
         const exp = EXP_RE.exec(json);
         const iat = IAT_RE.exec(json);
         const emailVerified = EMAIL_VERIFIED_RE.exec(json);

@@ -53,7 +53,7 @@ export { eq, and, or, asc, desc, gte, gt, lte, lt, isNull, isNotNull, count, sum
 export function excluded<T extends Table>(table: T): { [K in keyof T["_"]["columns"]]: SQL } {
     const cols = getTableColumns(table);
     const tableName = getTableName(table);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     return new Proxy(cols, {
         get(_, prop: string) {
             const col = cols[prop];
@@ -65,8 +65,7 @@ export function excluded<T extends Table>(table: T): { [K in keyof T["_"]["colum
             }
             return sql.raw(`excluded.${col.name}`);
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any;
+    }) as unknown as { [K in keyof T["_"]["columns"]]: SQL };
 }
 
 /**

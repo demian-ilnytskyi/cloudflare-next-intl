@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_OPTIONS, resolveOptions } from "./types.js";
-import { collectImages, mergeOverrides, run, targetAndSiblingPaths } from "./run.js";
+import { resolveOptions } from "./types.js";
+import { collectImages, mapWithConcurrency, mergeOverrides, run, targetAndSiblingPaths } from "./run.js";
 import { cleanup, makeTempDir, writeFixturePng } from "../test_utils/image_optimizer_test_helpers.js";
 
 async function makeProject(): Promise<string> {
@@ -190,8 +190,8 @@ describe("run", () => {
     it("run scans only referenced code images when onlyUsed is true", async () => {
         const root = await makeProject();
         await mkdir(path.join(root, "src"), { recursive: true });
-        const usedPng = await writeFixturePng(path.join(root, "public", "images"), "used.png", 40, 40);
-        const unusedPng = await writeFixturePng(path.join(root, "public", "images"), "unused.png", 40, 40);
+        await writeFixturePng(path.join(root, "public", "images"), "used.png", 40, 40);
+        await writeFixturePng(path.join(root, "public", "images"), "unused.png", 40, 40);
 
         await writeFile(
             path.join(root, "src", "App.tsx"),
@@ -291,5 +291,44 @@ describe("run", () => {
         expect(entries[0].width).toBe(80);
         expect(entries[0].height).toBe(60);
         await cleanup(root);
+    });
+});
+
+describe("mapWithConcurrency", () => {
+    it("returns results in input order", async () => {
+        const delays = [30, 5, 20, 1];
+        const result = await mapWithConcurrency(delays, 2, async (ms, i) => {
+            await new Promise((resolve) => setTimeout(resolve, ms));
+            return i;
+        });
+        expect(result).toEqual([0, 1, 2, 3]);
+    });
+
+    it("never runs more than `limit` workers at once", async () => {
+        let active = 0;
+        let peak = 0;
+        await mapWithConcurrency([1, 2, 3, 4, 5, 6], 2, async () => {
+            active += 1;
+            peak = Math.max(peak, active);
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            active -= 1;
+        });
+        expect(peak).toBe(2);
+    });
+
+    it("treats a limit below 1 as serial", async () => {
+        let peak = 0;
+        let active = 0;
+        await mapWithConcurrency([1, 2, 3], 0, async () => {
+            active += 1;
+            peak = Math.max(peak, active);
+            await new Promise((resolve) => setTimeout(resolve, 1));
+            active -= 1;
+        });
+        expect(peak).toBe(1);
+    });
+
+    it("handles an empty list", async () => {
+        expect(await mapWithConcurrency([], 4, async () => 1)).toEqual([]);
     });
 });

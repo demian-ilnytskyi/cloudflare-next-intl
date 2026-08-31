@@ -1,4 +1,4 @@
-import config from "../../config/intl_config";
+import config from "../../config/intl_config.js";
 
 /**
  * Generates the `[locale]` route params for every configured locale — pass

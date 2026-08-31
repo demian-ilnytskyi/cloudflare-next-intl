@@ -1,5 +1,5 @@
-import type { User } from 'firebase/auth';
-import { getAuthenticatedAppForUser } from './firebase_server';
+import type { User } from '@firebase/auth';
+import { getAuthenticatedAppForUser } from './firebase_server.js';
 
 /**
  * Resolves the current request's authenticated Firebase user.

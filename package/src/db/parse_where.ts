@@ -1,5 +1,5 @@
-import type { SqlToken } from './sql_tokens';
-import UnsupportedSqlError from './unsupported_sql';
+import type { SqlToken } from './sql_tokens.js';
+import UnsupportedSqlError from './unsupported_sql.js';
 
 /** A value in a parsed clause: a `$n` placeholder or an inline literal. */
 export type SqlValue =
@@ -122,95 +122,100 @@ function parseComparison(tokens: SqlToken[], start: number): WhereParse {
     index = column.next;
 
     const token = tokens[index];
-    if (isWord(token, 'is')) {
-        index++;
-        let negated = false;
-        if (isWord(tokens[index], 'not')) {
-            negated = true;
-            index++;
+
+    if (token?.kind === 'punct') {
+        if (token.value === '@@') {
+            const call = tokens[index + 1];
+            if (call?.kind !== 'word' || !(call.value in TS_QUERY_TYPES)) {
+                throw new UnsupportedSqlError(`full-text search via "${describe(call)}"`);
+            }
+            if (!isPunct(tokens[index + 2], '(')) throw new UnsupportedSqlError('malformed text-search call');
+            let cursor = index + 3;
+            let config: string | undefined;
+            const first = readValue(tokens, cursor);
+            cursor = first.next;
+            let query = first.value;
+            if (isPunct(tokens[cursor], ',')) {
+                if (first.value.kind !== 'literal' || typeof first.value.value !== 'string') {
+                    throw new UnsupportedSqlError('non-literal text-search configuration');
+                }
+                config = first.value.value;
+                const second = readValue(tokens, cursor + 1);
+                query = second.value;
+                cursor = second.next;
+            }
+            if (!isPunct(tokens[cursor], ')')) throw new UnsupportedSqlError('unterminated text-search call');
+            const node: WhereNode = { kind: 'textSearch', column: column.name, value: query };
+            const type = TS_QUERY_TYPES[call.value];
+            if (type) node.type = type;
+            if (config) node.config = config;
+            return { node, next: cursor + 1 };
         }
-        if (isWord(tokens[index], 'distinct') && isWord(tokens[index + 1], 'from')) {
-            const value = readValue(tokens, index + 2);
-            const comp: WhereNode = {
-                kind: 'compare',
-                column: column.name,
-                operator: 'isDistinct',
-                value: value.value,
-            };
+
+        const operator = OPERATORS[token.value];
+        if (operator) {
+            const value = readValue(tokens, index + 1);
             return {
-                node: negated ? { kind: 'not', child: comp } : comp,
+                node: { kind: 'compare', column: column.name, operator, value: value.value },
                 next: value.next,
             };
         }
-        if (!isWord(tokens[index], 'null')) throw new UnsupportedSqlError('`is` against a non-null value');
-        return { node: { kind: 'is', column: column.name, negated }, next: index + 1 };
-    }
-
-    let notIn = false;
-    if (isWord(token, 'not') && isWord(tokens[index + 1], 'in')) {
-        notIn = true;
-        index += 2;
-    } else if (isWord(token, 'in')) {
-        index++;
-    }
-    if (notIn || isWord(token, 'in')) {
-        if (!isPunct(tokens[index], '(')) throw new UnsupportedSqlError('`in` without a value list');
-        index++;
-        const values: SqlValue[] = [];
-        for (;;) {
-            const value = readValue(tokens, index);
-            values.push(value.value);
-            index = value.next;
-            if (isPunct(tokens[index], ',')) {
+    } else if (token?.kind === 'word') {
+        if (token.value === 'is') {
+            index++;
+            let negated = false;
+            if (isWord(tokens[index], 'not')) {
+                negated = true;
                 index++;
-                continue;
             }
-            break;
-        }
-        if (!isPunct(tokens[index], ')')) throw new UnsupportedSqlError('unterminated `in` value list');
-        return { node: { kind: 'in', column: column.name, values, negated: notIn }, next: index + 1 };
-    }
-
-    if (isPunct(token, '@@')) {
-        const call = tokens[index + 1];
-        if (call?.kind !== 'word' || !(call.value in TS_QUERY_TYPES)) {
-            throw new UnsupportedSqlError(`full-text search via "${describe(call)}"`);
-        }
-        if (!isPunct(tokens[index + 2], '(')) throw new UnsupportedSqlError('malformed text-search call');
-        let cursor = index + 3;
-        let config: string | undefined;
-        const first = readValue(tokens, cursor);
-        cursor = first.next;
-        let query = first.value;
-        if (isPunct(tokens[cursor], ',')) {
-            if (first.value.kind !== 'literal' || typeof first.value.value !== 'string') {
-                throw new UnsupportedSqlError('non-literal text-search configuration');
+            if (isWord(tokens[index], 'distinct') && isWord(tokens[index + 1], 'from')) {
+                const value = readValue(tokens, index + 2);
+                const comp: WhereNode = {
+                    kind: 'compare',
+                    column: column.name,
+                    operator: 'isDistinct',
+                    value: value.value,
+                };
+                return {
+                    node: negated ? { kind: 'not', child: comp } : comp,
+                    next: value.next,
+                };
             }
-            config = first.value.value;
-            const second = readValue(tokens, cursor + 1);
-            query = second.value;
-            cursor = second.next;
+            if (!isWord(tokens[index], 'null')) throw new UnsupportedSqlError('`is` against a non-null value');
+            return { node: { kind: 'is', column: column.name, negated }, next: index + 1 };
         }
-        if (!isPunct(tokens[cursor], ')')) throw new UnsupportedSqlError('unterminated text-search call');
-        const node: WhereNode = { kind: 'textSearch', column: column.name, value: query };
-        const type = TS_QUERY_TYPES[call.value];
-        if (type) node.type = type;
-        if (config) node.config = config;
-        return { node, next: cursor + 1 };
-    }
 
-    if (isWord(token, 'like') || isWord(token, 'ilike')) {
-        const operator = (token as { value: string }).value as 'like' | 'ilike';
-        const value = readValue(tokens, index + 1);
-        return { node: { kind: 'compare', column: column.name, operator, value: value.value }, next: value.next };
-    }
+        let notIn = false;
+        let cursor = index;
+        if (token.value === 'not' && isWord(tokens[index + 1], 'in')) {
+            notIn = true;
+            cursor = index + 2;
+        } else if (token.value === 'in') {
+            cursor = index + 1;
+        }
+        if (notIn || token.value === 'in') {
+            if (!isPunct(tokens[cursor], '(')) throw new UnsupportedSqlError('`in` without a value list');
+            cursor++;
+            const values: SqlValue[] = [];
+            for (;;) {
+                const value = readValue(tokens, cursor);
+                values.push(value.value);
+                cursor = value.next;
+                if (isPunct(tokens[cursor], ',')) {
+                    cursor++;
+                    continue;
+                }
+                break;
+            }
+            if (!isPunct(tokens[cursor], ')')) throw new UnsupportedSqlError('unterminated `in` value list');
+            return { node: { kind: 'in', column: column.name, values, negated: notIn }, next: cursor + 1 };
+        }
 
-    if (token?.kind === 'punct' && OPERATORS[token.value]) {
-        const value = readValue(tokens, index + 1);
-        return {
-            node: { kind: 'compare', column: column.name, operator: OPERATORS[token.value]!, value: value.value },
-            next: value.next,
-        };
+        if (token.value === 'like' || token.value === 'ilike') {
+            const operator = token.value;
+            const value = readValue(tokens, index + 1);
+            return { node: { kind: 'compare', column: column.name, operator, value: value.value }, next: value.next };
+        }
     }
 
     throw new UnsupportedSqlError(`unsupported operator in where near "${describe(token)}"`);

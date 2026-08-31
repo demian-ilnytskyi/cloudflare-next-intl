@@ -24,7 +24,7 @@ const MAX_CACHE_SIZE = 500;
  */
 export default function tokenizeSql(sql: string): SqlToken[] {
     const cached = TOKEN_CACHE.get(sql);
-    if (cached) return cached.slice();
+    if (cached) return cached;
 
     const tokens: SqlToken[] = [];
     let i = 0;
@@ -141,7 +141,7 @@ export default function tokenizeSql(sql: string): SqlToken[] {
     if (TOKEN_CACHE.size >= MAX_CACHE_SIZE) TOKEN_CACHE.clear();
     TOKEN_CACHE.set(sql, tokens);
 
-    return tokens.slice();
+    return tokens;
 }
 
 function readDelimited(sql: string, from: number, delimiter: string): [string, number] {

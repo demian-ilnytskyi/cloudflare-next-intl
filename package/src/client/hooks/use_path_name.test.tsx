@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import usePathname from './use_path_name';
-import { LocaleContext } from '../components/client_provider';
+import usePathname from './use_path_name.js';
+import { LocaleContext } from '../components/client_provider.js';
 import type { ReactNode } from 'react';
 
 vi.mock('next/navigation', () => ({

@@ -72,6 +72,30 @@ inside this package).
   `v8 ignore` pragmas to production source to force a number up without
   that proof; a wrong claim can mask a real untested bug.
 
+## Package size restrictions
+
+- Never move a package out of `dependencies` (e.g. to `peerDependencies`,
+  `devDependencies`, or `optionalDependencies`) as a size-optimization move —
+  dependency placement is fixed; optimize elsewhere (tarball contents, dead
+  code, duplicate build output).
+- Never remove `README.md` or `llms.txt` from the `files` field or the
+  published tarball to reduce package size — both must always ship.
+- **Do** cut install weight by swapping an umbrella package for the scoped
+  entry points actually used (`firebase` → `@firebase/{app,auth,app-check,performance}`,
+  which cut this package's install size from 398MB to 243MB) — this keeps the
+  dependency in `dependencies`, so it is not a placement move.
+- Deleting a dependency as "dead code" is also allowed in principle, but
+  verify with more than a shallow grep first: check for dynamic
+  `import(...)` calls (often inside a guarded/lazy function), not just
+  static `import`/`require` statements. `@supabase/supabase-js` in this
+  package looked unused to a naive search but is loaded via exactly such a
+  guarded dynamic import at `src/db/rest_client.ts:56` — it is a real,
+  correctly-isolated dependency and must not be removed.
+- `npm run check:size` enforces the swaps that do land — it fails the build
+  if a banned heavy package reappears in `dependencies` or if
+  `README.md`/`llms.txt` leave the `files` field. Add to `BANNED` in
+  `package/scripts/check_size.mjs` whenever a swap like the above lands.
+
 ## Documentation
 
 - Every subpath/module gets a short "how to enable / isolation rules /

@@ -43,7 +43,7 @@ import {
 	between,
 	not,
 	exists,
-} from './helpers';
+} from './helpers.js';
 
 const sample = pgTable('sample', {
 	isin: varchar().primaryKey(),

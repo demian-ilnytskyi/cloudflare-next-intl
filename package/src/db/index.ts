@@ -3,6 +3,10 @@
  * `cloudflare-next-intl/db`. Enable it by setting `db` on your `RoutingConfig`;
  * every export here throws a descriptive error if that config is missing.
  *
+ * Usable outside Next.js too — pass a `db` block directly as the last
+ * argument to {@link withPublicDb}/{@link withUserDb} instead of configuring
+ * `@intl-config`, e.g. from Firebase Functions or any plain TS project.
+ *
  * Pick a wrapper by who is allowed to see the rows:
  * - {@link withPublicDb} — anonymous role, for data any visitor may read.
  * - {@link withUserDb} — the signed-in user, with RLS applied to their id.
@@ -36,7 +40,7 @@
  * Generic Drizzle SQL helpers (`excluded`, `onConflictSet`, `ago`, …) live in
  * the separate `cloudflare-next-intl/dbHelpers` entry point.
  */
-export { withPublicDb, withUserDb } from './context';
-export type { DrizzleDb, TransactionResult } from './context';
-export { withDbClient, connectToPostgres, disconnectPostgres, resetConnectionState } from './connection';
-export type { DbRoutingConfig } from '../types/types';
+export { withPublicDb, withUserDb } from './context.js';
+export type { DrizzleDb, TransactionResult } from './context.js';
+export { withDbClient, connectToPostgres, disconnectPostgres, resetConnectionState } from './connection.js';
+export type { DbRoutingConfig } from '../types/types.js';

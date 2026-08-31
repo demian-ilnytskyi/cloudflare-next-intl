@@ -6,8 +6,15 @@ export default defineConfig({
         environment: 'jsdom',
         setupFiles: ['./vitest.setup.ts'],
         benchmark: {
-            include: ['src/server/components/helper_script.bench.ts'],
-            outputJson: '/private/tmp/claude-501/-Volumes-External-own-projects-cloudflare-next-intl/5816d729-594e-4dc8-b38e-1378f1a159bd/scratchpad/bres.json',
+            include: [
+                'src/db/*.bench.ts',
+                'src/server/components/helper_script.bench.ts',
+                'src/image_optimizer/*.bench.ts',
+                'src/config/middleware.bench.ts',
+                'src/server/functions/get_user_locale.bench.ts',
+                'src/firebase_auth/**/*.bench.ts',
+            ],
+            outputJson: process.env.BENCH_JSON ?? './bench-result.json',
         },
     },
     resolve: {

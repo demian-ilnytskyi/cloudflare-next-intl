@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import { Sun, Moon } from './icons';
+import { Sun, Moon } from './icons.js';
 
 describe('theme icons', () => {
     it('renders Sun with the given className', () => {

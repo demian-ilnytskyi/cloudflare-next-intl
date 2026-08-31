@@ -1,4 +1,4 @@
-import encodeParam from './encode_param';
+import encodeParam from './encode_param.js';
 
 /**
  * Substitutes `$1`, `$2`, … placeholders in a generated statement with
@@ -123,11 +123,40 @@ function findQuotedIdentifierEnd(statement: string, from: number): number {
     return statement.length;
 }
 
+// Lookup table for dollar-quote tag continuation characters (A-Z, a-z, 0-9, _),
+// built once at module load so the scan below is a single array read instead
+// of a chain of range comparisons.
+const DOLLAR_TAG_CONTINUE_CHAR = new Uint8Array(128);
+for (let c = 65; c <= 90; c++) DOLLAR_TAG_CONTINUE_CHAR[c] = 1; // A-Z
+for (let c = 97; c <= 122; c++) DOLLAR_TAG_CONTINUE_CHAR[c] = 1; // a-z
+for (let c = 48; c <= 57; c++) DOLLAR_TAG_CONTINUE_CHAR[c] = 1; // 0-9
+DOLLAR_TAG_CONTINUE_CHAR[95] = 1; // _
+
 function findDollarQuoteEnd(statement: string, from: number): number {
-    const tagMatch = /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/.exec(statement.slice(from));
-    if (!tagMatch) return from + 1;
-    const tag = tagMatch[0];
-    const bodyStart = from + tag.length;
-    const closeIndex = statement.indexOf(tag, bodyStart);
-    return closeIndex === -1 ? statement.length : closeIndex + tag.length;
+    const len = statement.length;
+    let i = from + 1;
+    const first = statement.charCodeAt(i);
+    let valid = first === 36;
+
+    if (valid) {
+        i++; // empty tag: $$
+    } else if ((first >= 65 && first <= 90) || (first >= 97 && first <= 122) || first === 95) {
+        i++;
+        while (i < len) {
+            const c = statement.charCodeAt(i);
+            if (c < 128 && DOLLAR_TAG_CONTINUE_CHAR[c] === 1) i++;
+            else break;
+        }
+        valid = statement.charCodeAt(i) === 36;
+        // Consume the closing '$' when the tag is valid; incrementing past a
+        // non-'$' character here is harmless because the !valid check below
+        // returns before `i` is used again.
+        i++;
+    }
+
+    if (!valid) return from + 1; // '$' is not starting a valid, closed dollar-quote tag
+
+    const tag = statement.slice(from, i);
+    const closeIndex = statement.indexOf(tag, i);
+    return closeIndex === -1 ? len : closeIndex + tag.length;
 }

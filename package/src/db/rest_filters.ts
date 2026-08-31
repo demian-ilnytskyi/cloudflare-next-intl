@@ -1,5 +1,5 @@
-import type { CompareOperator, SqlValue, WhereNode } from './parse_where';
-import UnsupportedSqlError from './unsupported_sql';
+import type { CompareOperator, SqlValue, WhereNode } from './parse_where.js';
+import UnsupportedSqlError from './unsupported_sql.js';
 
 /**
  * The subset of `@supabase/postgrest-js`'s filter methods this module calls,

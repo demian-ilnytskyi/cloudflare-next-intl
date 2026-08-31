@@ -1,5 +1,5 @@
-import type { DbRoutingConfig, SupabaseDbConfig } from '../types/types';
-import resolveConfigValue from './resolve_config_value';
+import type { DbRoutingConfig, SupabaseDbConfig } from '../types/types.js';
+import resolveConfigValue from './resolve_config_value.js';
 
 /** Which transport the `db` exports use for a given config. */
 export type DbMode = 'postgres' | 'supabase';

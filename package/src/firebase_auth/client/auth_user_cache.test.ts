@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { setAuthUserCache, getAuthUserCache, isAuthUserLoadingCache } from './auth_user_cache';
+import { setAuthUserCache, getAuthUserCache, isAuthUserLoadingCache } from './auth_user_cache.js';
 
 describe('auth_user_cache', () => {
     beforeEach(() => {
@@ -8,7 +8,7 @@ describe('auth_user_cache', () => {
 
     it('starts as loading with no cached user before any set call', async () => {
         vi.resetModules();
-        const mod = await import('./auth_user_cache');
+        const mod = await import('./auth_user_cache.js');
         expect(mod.isAuthUserLoadingCache()).toBe(true);
         expect(mod.getAuthUserCache()).toBeNull();
     });

@@ -1,8 +1,8 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import useStaleDeployRecovery, { shouldRecoverFromStaleDeploy, isRecentBuild } from './use_stale_deploy_recovery';
-import * as clearClientCacheModule from './clear_client_cache';
+import useStaleDeployRecovery, { shouldRecoverFromStaleDeploy, isRecentBuild } from './use_stale_deploy_recovery.js';
+import * as clearClientCacheModule from './clear_client_cache.js';
 
 const staleError = new Error('The connection to the page was unexpectedly closed');
 const chunkError = new Error('Loading chunk 42 failed');
@@ -450,7 +450,7 @@ describe('useStaleDeployRecovery', () => {
         expect(reloadMock).toHaveBeenCalledTimes(1);
     });
 
-    it('returns false during SSR when window is undefined', () => {
+    it('returns false during SSR when window is undefined', async () => {
         const originalWindow = global.window;
         try {
             // @ts-expect-error test SSR window undefinition
@@ -460,7 +460,7 @@ describe('useStaleDeployRecovery', () => {
                 result = useStaleDeployRecovery(staleError);
                 return null;
             }
-            const { renderToString } = require('react-dom/server');
+            const { renderToString } = await import('react-dom/server');
             renderToString(React.createElement(SsrComponent));
             expect(result).toBe(false);
         } finally {

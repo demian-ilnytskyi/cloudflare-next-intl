@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { getTranslationsImpl } from './general_functions';
+import { getTranslationsImpl } from './general_functions.js';
 
 const shallowMessages = { common: { hello: 'Hello' } };
 const deepMessages = { a: { b: { c: { d: { e: { hello: 'Deeply nested hello' } } } } } };

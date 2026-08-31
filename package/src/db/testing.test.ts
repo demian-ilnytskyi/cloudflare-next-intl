@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { makeFakeDb, rowsResult, executeResult } from './testing';
+import { makeFakeDb, rowsResult, executeResult } from './testing.js';
 
 describe('FakeDrizzleDb', () => {
     it('resolves select() to the next queued rows result', async () => {

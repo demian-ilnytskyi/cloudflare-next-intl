@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_MESSAGES_EN } from './default_messages.en';
+import { DEFAULT_MESSAGES_EN } from './default_messages.en.js';
 
 describe('DEFAULT_MESSAGES_EN', () => {
     it('has a message for every known firebase auth error key', () => {

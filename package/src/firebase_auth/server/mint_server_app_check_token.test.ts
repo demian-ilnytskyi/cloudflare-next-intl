@@ -42,7 +42,7 @@ describe('mintServerAppCheckToken', () => {
     });
 
     it('returns undefined when clientEmail/appId are missing, or neither privateKey nor the OAuth triple is set', async () => {
-        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
+        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token.js');
         expect(await mintServerAppCheckToken('proj', 'key', undefined)).toBeUndefined();
         expect(await mintServerAppCheckToken('proj', 'key', {})).toBeUndefined();
         expect(await mintServerAppCheckToken('proj', 'key', { clientEmail: 'a@b.com' })).toBeUndefined();
@@ -56,7 +56,7 @@ describe('mintServerAppCheckToken', () => {
 
     it('signs a custom JWT and exchanges it for an App Check token', async () => {
         fetchMock.mockResolvedValue({ ok: true, json: async () => ({ token: 'ac-token' }) });
-        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
+        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token.js');
         const result = await mintServerAppCheckToken('proj', 'key', {
             clientEmail: 'sa@proj.iam.gserviceaccount.com',
             privateKey: 'line1\\nline2',
@@ -77,7 +77,7 @@ describe('mintServerAppCheckToken', () => {
 
     it('signs remotely via the OAuth triple when privateKey is absent', async () => {
         fetchMock.mockResolvedValue({ ok: true, json: async () => ({ token: 'ac-token' }) });
-        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
+        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token.js');
         const result = await mintServerAppCheckToken('proj', 'key', {
             clientEmail: 'sa@proj.iam.gserviceaccount.com',
             oauthClientId: 'oauth-id',
@@ -100,7 +100,7 @@ describe('mintServerAppCheckToken', () => {
 
     it('prefers privateKey over the OAuth triple when both are set', async () => {
         fetchMock.mockResolvedValue({ ok: true, json: async () => ({ token: 'ac-token' }) });
-        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
+        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token.js');
         await mintServerAppCheckToken('proj', 'key', {
             clientEmail: 'sa@proj.iam.gserviceaccount.com',
             privateKey: 'line1\\nline2',
@@ -115,7 +115,7 @@ describe('mintServerAppCheckToken', () => {
 
     it('returns undefined and reports when the remote signer throws', async () => {
         signCustomTokenRemote.mockRejectedValueOnce(new Error('signJwt failed'));
-        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
+        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token.js');
         const result = await mintServerAppCheckToken('proj', 'key', {
             clientEmail: 'sa@proj.iam.gserviceaccount.com',
             oauthClientId: 'oauth-id',
@@ -130,7 +130,7 @@ describe('mintServerAppCheckToken', () => {
 
     it('returns undefined and reports when the exchange responds non-ok', async () => {
         fetchMock.mockResolvedValue({ ok: false, status: 400, text: async () => 'bad request' });
-        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
+        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token.js');
         const result = await mintServerAppCheckToken('proj', 'key', {
             clientEmail: 'sa@proj.iam.gserviceaccount.com',
             privateKey: 'pk',
@@ -142,7 +142,7 @@ describe('mintServerAppCheckToken', () => {
 
     it('returns undefined and reports when signing/fetch throws', async () => {
         fetchMock.mockRejectedValue(new Error('network down'));
-        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token');
+        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token.js');
         const result = await mintServerAppCheckToken('proj', 'key', {
             clientEmail: 'sa@proj.iam.gserviceaccount.com',
             privateKey: 'pk',

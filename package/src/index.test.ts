@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import * as root from './index';
+import * as root from './index.js';
 
 describe('package root barrel', () => {
     it('does not re-export the db module', () => {

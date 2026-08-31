@@ -2,13 +2,13 @@ import dynamic from 'next/dynamic';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import config from '@intl-config';
-import requireFirebaseAuthConfig from '../require_config';
-import { getAuthenticatedAppForUser } from './firebase_server';
-import withRedirectQuery from '../preserve_redirect_query';
-import isWhitelisted from '../is_whitelisted';
-import type { SerializedAuthUser } from '../types';
+import requireFirebaseAuthConfig from '../require_config.js';
+import { getAuthenticatedAppForUser } from './firebase_server.js';
+import withRedirectQuery from '../preserve_redirect_query.js';
+import isWhitelisted from '../is_whitelisted.js';
+import type { SerializedAuthUser } from '../types.js';
 
-const AuthUserProvider = dynamic(() => import('../client/auth_user_provider'));
+const AuthUserProvider = dynamic(() => import('../client/auth_user_provider.js'));
 
 /**
  * Resolves the signed-in user from the session cookie and performs the
@@ -65,7 +65,7 @@ export async function resolveAuthUserAndRedirect(): Promise<SerializedAuthUser |
  */
 export default async function AuthUserServerProvider({ children }: {
     children: React.ReactNode;
-}) {
+}): Promise<React.JSX.Element> {
     const initialUser = await resolveAuthUserAndRedirect();
     return <AuthUserProvider initialUser={initialUser}>
         {children}

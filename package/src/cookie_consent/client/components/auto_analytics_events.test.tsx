@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import * as React from 'react';
-import AutoAnalyticsEvents from './auto_analytics_events';
+import AutoAnalyticsEvents from './auto_analytics_events.js';
 
 let consent: boolean | null = null;
 let requiresConsent = true;

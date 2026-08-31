@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import resolveCodegenPaths from './codegen_paths';
+import resolveCodegenPaths from './codegen_paths.js';
 
 const cwd = '/app';
 

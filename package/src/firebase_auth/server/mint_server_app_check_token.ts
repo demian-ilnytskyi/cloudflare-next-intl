@@ -1,7 +1,7 @@
 import config from '@intl-config';
-import type { FirebaseAppCheckConfig } from '../../types/types';
-import reportError from '../../error_handling/report_error';
-import signCustomTokenRemote from './sign_custom_token_remote';
+import type { FirebaseAppCheckConfig } from '../../types/types.js';
+import reportError from '../../error_handling/report_error.js';
+import signCustomTokenRemote from './sign_custom_token_remote.js';
 
 // Matches `firebase-admin`'s own `AppCheckTokenGenerator.createCustomToken`
 // exactly (`token-generator.js`) — this specific audience (the App Check

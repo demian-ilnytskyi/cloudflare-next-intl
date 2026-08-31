@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { bench, describe, vi } from 'vitest';
 import { NextResponse } from 'next/server';
-import { makeTestRequest } from '../../test_utils/mock_next_server';
+import { makeTestRequest } from '../../test_utils/mock_next_server.js';
 
 const baseFa = {
     apiKey: 'bench-api-key',
@@ -26,7 +26,7 @@ function makeJwt(exp: number, claims: Record<string, unknown> = {}): string {
 
 describe('updateSession', () => {
     bench('valid, unexpired session cookie: isJwtExpired parse + pass-through', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeTestRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: makeJwt(Date.now() / 1000 + 3600) },
         });
@@ -34,7 +34,7 @@ describe('updateSession', () => {
     });
 
     bench('malformed session cookie: isJwtExpired parse failure path', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeTestRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: 'not.valid.jwt' },
         });
@@ -42,9 +42,33 @@ describe('updateSession', () => {
     });
 
     bench('valid session, unverified email: decodeJwtPayload + verifyEmailPath redirect', async () => {
-        const { default: updateSession } = await import('./update_session');
+        const { default: updateSession } = await import('./update_session.js');
         const req = makeTestRequest('https://example.com/en/dashboard', {
             cookies: { __fa_session__: makeJwt(Date.now() / 1000 + 3600, { email_verified: false }) },
+        });
+        await updateSession(req, NextResponse.next(), 'en');
+    });
+
+    bench('verified user on verifyEmailPath: decodeJwtPayload gate + page-exit check, same token', async () => {
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeTestRequest('https://example.com/en/verify-email', {
+            cookies: { __fa_session__: makeJwt(Date.now() / 1000 + 3600, { email_verified: true }) },
+        });
+        await updateSession(req, NextResponse.next(), 'en');
+    });
+
+    bench('valid session + verifyEmailPath configured, protected page (expiry + email_verified checks)', async () => {
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeTestRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_session__: makeJwt(Date.now() / 1000 + 3600, { email_verified: true }) },
+        });
+        await updateSession(req, NextResponse.next(), 'en');
+    });
+
+    bench('valid session on verifyEmailPath, already verified (expiry + two email_verified checks)', async () => {
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeTestRequest('https://example.com/en/verify-email', {
+            cookies: { __fa_session__: makeJwt(Date.now() / 1000 + 3600, { email_verified: true }) },
         });
         await updateSession(req, NextResponse.next(), 'en');
     });

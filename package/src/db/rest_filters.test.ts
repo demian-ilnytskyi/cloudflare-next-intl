@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import applyWhere, { resolveValue, type FilterTarget } from './rest_filters';
-import type { WhereNode } from './parse_where';
-import UnsupportedSqlError from './unsupported_sql';
+import applyWhere, { resolveValue, type FilterTarget } from './rest_filters.js';
+import type { WhereNode } from './parse_where.js';
+import UnsupportedSqlError from './unsupported_sql.js';
 
 function recorder(): { calls: string[]; builder: FilterTarget } {
     const calls: string[] = [];

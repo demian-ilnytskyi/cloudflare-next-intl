@@ -1,4 +1,5 @@
 import { bench, describe } from 'vitest';
+import type { TranslatorReturnType } from '../types/types.js';
 import {
     setLocaleCache,
     getLocaleCache,
@@ -6,7 +7,7 @@ import {
     getMessageCache,
     setTranslationCache,
     getTranslationCache,
-} from './cache_variables';
+} from './cache_variables.js';
 
 describe('cache_variables', () => {
     bench('setLocaleCache + getLocaleCache round-trip', () => {
@@ -26,7 +27,7 @@ describe('cache_variables', () => {
     bench('setTranslationCache + getTranslationCache hit', () => {
         const fn = (k: string) => k;
         (fn as unknown as { raw: (k: string) => string }).raw = (k: string) => k;
-        setTranslationCache('en-common', fn as unknown as import('../types/types').TranslatorReturnType);
+        setTranslationCache('en-common', fn as unknown as TranslatorReturnType);
         getTranslationCache('en-common');
     });
 });

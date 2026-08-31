@@ -28,11 +28,11 @@ const initializeServerApp = vi.fn(() => ({ name: 'perf-server-app' }));
 const authStateReady = vi.fn(async () => {});
 const getAuth = vi.fn(() => ({ authStateReady, currentUser: { uid: 'perf-user' } }));
 
-vi.mock('firebase/app', () => ({
+vi.mock('@firebase/app', () => ({
     initializeApp: (...args: unknown[]) => initializeApp(...args),
     initializeServerApp: (...args: unknown[]) => initializeServerApp(...args),
 }));
-vi.mock('firebase/auth', () => ({
+vi.mock('@firebase/auth', () => ({
     getAuth: (...args: unknown[]) => getAuth(...args),
 }));
 
@@ -47,7 +47,7 @@ afterEach(() => {
 
 describe('getAuthenticatedAppForUser SSR cost', () => {
     it('calls initializeApp exactly once across multiple calls within the same module scope', async () => {
-        const { getAuthenticatedAppForUser } = await import('./firebase_server');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
 
         await getAuthenticatedAppForUser();
         await getAuthenticatedAppForUser();

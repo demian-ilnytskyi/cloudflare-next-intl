@@ -2,12 +2,12 @@
 
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import config from '../../config/intl_config';
-import requireCookieConsentConfig from '../require_config';
-import getCookie from '../../client/functions/get_cookie';
-import setCookie from '../../client/functions/set_cookie';
-import { cookieConsentCookieKey, privacyPolicyDateCookieKey } from '../../config/cookie_key';
-import type { ConsentValue, CookieConsentContextType } from '../types';
+import config from '../../config/intl_config.js';
+import requireCookieConsentConfig from '../require_config.js';
+import getCookie from '../../client/functions/get_cookie.js';
+import setCookie from '../../client/functions/set_cookie.js';
+import { cookieConsentCookieKey, privacyPolicyDateCookieKey } from '../../config/cookie_key.js';
+import type { ConsentValue, CookieConsentContextType } from '../types.js';
 
 export const CookieConsentContext = createContext<CookieConsentContextType | null>(null);
 
@@ -64,7 +64,7 @@ export default function CookieConsentProvider({ requiresConsent = true, children
             privacyPolicyPath: cc.privacyPolicyPath ?? '/privacy-policy',
             showPrivacyPolicy: cc.showPrivacyPolicy ?? true,
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, []);
 
     const [consent, setConsentState] = useState<ConsentValue>(null);
@@ -97,8 +97,7 @@ export default function CookieConsentProvider({ requiresConsent = true, children
 
         const storedDate = new Date(storedDateRaw);
         setPrivacyPolicyUpdated(!Number.isNaN(storedDate.getTime()) && storedDate < policyDate);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [consentCookieName, dateCookieName, maxAge, policyDate]);
 
     // `value: null` stores the literal string `'null'` (rather than clearing
     // the cookie) so the mount effect above can tell "explicitly reset" apart
@@ -112,14 +111,12 @@ export default function CookieConsentProvider({ requiresConsent = true, children
         }
         setConsentState(value);
         setPrivacyPolicyUpdated(false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [consentCookieName, dateCookieName, maxAge, policyDate]);
 
     const acknowledgePrivacyPolicyUpdate = useCallback(() => {
         if (policyDate) setCookie({ name: dateCookieName, value: policyDate.toISOString(), maxAge });
         setPrivacyPolicyUpdated(false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [dateCookieName, maxAge, policyDate]);
 
     // Visiting the privacy-policy page itself counts as having seen the
     // update — auto-acknowledge instead of also showing the banner there.

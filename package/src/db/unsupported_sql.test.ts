@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import UnsupportedSqlError from './unsupported_sql';
+import UnsupportedSqlError from './unsupported_sql.js';
 
 describe('UnsupportedSqlError', () => {
     it('names the offending construct in the message', () => {

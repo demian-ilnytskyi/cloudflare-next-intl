@@ -45,6 +45,36 @@ All `src/**/index.ts` barrels (no branch logic); `src/types/types.ts` +
 `.d.ts` files (type-only); `src/general/get_layout_states.ts` (100%
 commented-out dead code); `src/test_utils/**` (fixtures, not product code).
 
+## Lint: no `eslint-disable` outside test/bench files
+
+`package/eslint.config.mts`'s only sanctioned per-file-glob rule relaxation is
+`@typescript-eslint/no-empty-function: "off"` for
+`**/*.test.{ts,tsx}` / `**/*.bench.{ts,tsx}` / `**/*.perf.test.{ts,tsx}`
+(legitimate noop test/bench stubs). Everything else:
+
+- **Never add a new `eslint-disable` comment to a non-test/bench source
+  file.** Fix the root cause instead — e.g. a `typeof import(...)` type
+  position becomes a top-level `import type * as X from '...'` + `typeof X`;
+  a Proxy/mock needing loose typing gets a narrow local interface or
+  `as unknown as <ExactShape>` instead of `any`.
+- **Never blanket-disable a whole rule via a new `files: [...]` override in
+  `eslint.config.mts`** to make warnings disappear (e.g. turning off
+  `no-explicit-any` repo-wide for tests) — a prior attempt at this was
+  reverted; fix each `any` at its call site (type mocked Vite/Rollup plugin
+  hooks — `resolveId`/`load`/`transform`/`configResolved` — with a small
+  local function-signature type instead of casting through `any`).
+- A pre-existing disable is only justified when there's genuinely no
+  type-safe alternative — e.g. `error_handling/stringify_unknown.ts`'s
+  `no-control-regex` disable, needed because the regex must match a literal
+  `\x1b` ANSI escape control character. Confirm with a human before removing
+  one of these; don't assume every disable is removable.
+- The CI quality-gate script (`package_ci_build_and_test.yml`'s ESLint step)
+  greps the `stylish` output for the literal words `error`/`warning` —
+  **its own summary line ("✖ N problems (0 errors, M warnings)") always
+  matches**, so ANY warning at all currently fails the gate, not just
+  errors. Until that script is fixed upstream, "0 errors" is not enough —
+  drive the real warning count to 0 too.
+
 ## Mocking conventions
 
 - `next/headers`'s `cookies()`, `next/navigation`'s

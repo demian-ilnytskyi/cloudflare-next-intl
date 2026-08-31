@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import isStaleDeployError from './is_stale_deploy_error';
-import clearClientCache from './clear_client_cache';
+import isStaleDeployError from './is_stale_deploy_error.js';
+import clearClientCache from './clear_client_cache.js';
 
 const RECOVERY_RELOAD_KEY = 'stale-deploy-recovery-reloaded';
 const BUILD_ID_KEY = 'buildId';
@@ -80,23 +80,24 @@ export default function useStaleDeployRecovery(
     delayMs = 5000,
 ): boolean {
     const [recovering] = useState(() => canRecover(error));
+    const [initialOnRecover] = useState(() => onRecover);
+    const [initialDelayMs] = useState(() => delayMs);
 
     useEffect(() => {
         if (!recovering) return;
 
         const buildId = currentBuildId();
         const timeout = setTimeout(() => {
-            Promise.all([onRecover?.().catch(() => undefined), clearClientCache().catch(() => undefined)])
+            Promise.all([initialOnRecover?.().catch(() => undefined), clearClientCache().catch(() => undefined)])
                 .finally(() => {
                     try {
                         sessionStorage.setItem(RECOVERY_RELOAD_KEY, buildId);
                     } catch { /* storage unavailable */ }
                     window.location.reload();
                 });
-        }, delayMs);
+        }, initialDelayMs);
         return () => clearTimeout(timeout);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [recovering]);
+    }, [recovering, initialOnRecover, initialDelayMs]);
 
     return recovering;
 }

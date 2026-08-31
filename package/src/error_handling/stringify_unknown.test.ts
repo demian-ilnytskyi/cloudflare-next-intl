@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import stringifyUnknown from './stringify_unknown';
+import stringifyUnknown from './stringify_unknown.js';
 
 describe('stringifyUnknown', () => {
     afterEach(() => {

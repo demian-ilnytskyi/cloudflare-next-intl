@@ -1,7 +1,7 @@
-import type { SupabaseDbConfig } from '../types/types';
-import createRestClient from './rest_client';
-import inlineParams from './inline_params';
-import { parseExecResult, describeFailure, type ExecResult, type SupabaseRpcError } from './supabase_transport';
+import type { SupabaseDbConfig } from '../types/types.js';
+import createRestClient from './rest_client.js';
+import inlineParams from './inline_params.js';
+import { parseExecResult, describeFailure, type ExecResult, type SupabaseRpcError } from './supabase_transport.js';
 
 /**
  * Fixed, unlike `cfni_exec`'s `execFunction` — `cfni_exec_batch` ships in the

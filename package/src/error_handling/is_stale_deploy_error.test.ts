@@ -3,7 +3,7 @@ import isStaleDeployError, {
     defaultStaleDeployPatterns,
     getStaleDeployPatterns,
     setStaleDeployPatterns,
-} from './is_stale_deploy_error';
+} from './is_stale_deploy_error.js';
 
 describe('isStaleDeployError', () => {
     afterEach(() => {

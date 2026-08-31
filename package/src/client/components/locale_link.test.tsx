@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import LocaleLink from './locale_link';
+import LocaleLink from './locale_link.js';
 
 vi.mock('../hooks/use_path_name', () => ({ default: () => '/about' }));
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('') }));

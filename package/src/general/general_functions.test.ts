@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getTranslationsImpl } from './general_functions';
-import { setTranslationCache } from './cache_variables';
-import type { TranslationObject } from '../types/types';
+import { getTranslationsImpl } from './general_functions.js';
+import { setTranslationCache } from './cache_variables.js';
+import type { TranslationObject } from '../types/types.js';
 
 vi.mock('./cache_variables', () => ({
     setTranslationCache: vi.fn(),

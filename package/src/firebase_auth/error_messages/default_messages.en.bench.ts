@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { DEFAULT_MESSAGES_EN } from './default_messages.en';
+import { DEFAULT_MESSAGES_EN } from './default_messages.en.js';
 
 describe('DEFAULT_MESSAGES_EN', () => {
     bench('reads a known key from the message map', () => {

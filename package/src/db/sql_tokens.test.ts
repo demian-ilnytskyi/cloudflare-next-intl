@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import tokenizeSql from './sql_tokens';
+import tokenizeSql from './sql_tokens.js';
 
 describe('tokenizeSql', () => {
     it('tokenizes a drizzle-shaped select', () => {
@@ -103,6 +103,12 @@ describe('tokenizeSql', () => {
             tokenizeSql(`select ${i}`);
         }
     });
+
+    it('returns the same array reference for a cached statement', () => {
+        const first = tokenizeSql('select "x" from "t" where "id" = $1');
+        const second = tokenizeSql('select "x" from "t" where "id" = $1');
+        expect(second).toBe(first);
+    });
 });
 
 
@@ -110,11 +116,5 @@ describe('tokenizer cache and whitespace', () => {
     it('skips form feed and vertical tab whitespace', () => {
         expect(tokenizeSql('select\f1')).toEqual(tokenizeSql('select 1'));
         expect(tokenizeSql('select\v1')).toEqual(tokenizeSql('select 1'));
-    });
-
-    it('returns a fresh array per call so callers cannot corrupt the cache', () => {
-        const first = tokenizeSql('select "x" from "t"');
-        first.push({ kind: 'punct', value: 'X' });
-        expect(tokenizeSql('select "x" from "t"').at(-1)).not.toEqual({ kind: 'punct', value: 'X' });
     });
 });

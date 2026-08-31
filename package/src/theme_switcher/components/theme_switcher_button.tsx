@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isDarkCookieKey } from "../../config/cookie_key";
-import setCookie from "../../client/functions/set_cookie";
+import { isDarkCookieKey } from "../../config/cookie_key.js";
+import setCookie from "../../client/functions/set_cookie.js";
 
 
 export default function ThemeSwticherButton({

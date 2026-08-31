@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import ThemeSwticher from './theme_switcher';
+import ThemeSwticher from './theme_switcher.js';
 
 vi.mock('../../client/functions/set_cookie', () => ({ default: () => {} }));
 

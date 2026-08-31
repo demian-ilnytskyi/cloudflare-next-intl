@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import reportError, { consoleOverrideState } from './report_error';
+import reportError, { consoleOverrideState } from './report_error.js';
 
 describe('reportError', () => {
     const originalConsoleError = console.error;
@@ -12,7 +12,7 @@ describe('reportError', () => {
     it('reports via console.error(formattedMessage) by default', async () => {
         vi.resetModules();
         console.error = vi.fn();
-        const { default: freshReportError } = await import('./report_error');
+        const { default: freshReportError } = await import('./report_error.js');
         const error = new Error('boom');
         await freshReportError(undefined, { error, classOrMethodName: 'foo' });
         expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[foo] Error: Error: boom'));
@@ -28,7 +28,7 @@ describe('reportError', () => {
     it('calls both onError AND logs to console by default — onError does not replace the console log', async () => {
         vi.resetModules();
         console.error = vi.fn();
-        const { default: freshReportError } = await import('./report_error');
+        const { default: freshReportError } = await import('./report_error.js');
         const onError = vi.fn();
         const error = new Error('boom');
         await freshReportError({ errorHandling: { onError } }, { error, classOrMethodName: 'foo' });
@@ -39,7 +39,7 @@ describe('reportError', () => {
     it('skips the console log when logToConsole is false, but still calls onError', async () => {
         vi.resetModules();
         console.error = vi.fn();
-        const { default: freshReportError } = await import('./report_error');
+        const { default: freshReportError } = await import('./report_error.js');
         const onError = vi.fn();
         await freshReportError({ errorHandling: { onError, logToConsole: false } }, { error: new Error('boom'), classOrMethodName: 'foo' });
         expect(onError).toHaveBeenCalled();
@@ -49,7 +49,7 @@ describe('reportError', () => {
     it('skips its own console.error call (both the always-on log and the onError-threw fallback) when consoleOverrideState.active is true — the console override already logged the raw call itself', async () => {
         vi.resetModules();
         console.error = vi.fn();
-        const { default: freshReportError, consoleOverrideState: freshState } = await import('./report_error');
+        const { default: freshReportError, consoleOverrideState: freshState } = await import('./report_error.js');
         freshState.active = true;
         const onError = vi.fn(() => { throw new Error('reporter broke'); });
         await freshReportError({ errorHandling: { onError } }, { error: new Error('boom'), classOrMethodName: 'foo' });
@@ -66,7 +66,7 @@ describe('reportError', () => {
     it('falls back to console.error(formattedMessage) when onError itself throws', async () => {
         vi.resetModules();
         console.error = vi.fn();
-        const { default: freshReportError } = await import('./report_error');
+        const { default: freshReportError } = await import('./report_error.js');
         const onError = vi.fn(() => { throw new Error('reporter broke'); });
         const params = { error: new Error('boom'), classOrMethodName: 'foo' };
         await freshReportError({ errorHandling: { onError } }, params);

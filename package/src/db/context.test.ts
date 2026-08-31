@@ -34,7 +34,7 @@ vi.mock('../firebase_auth/server/use_auth_user_server', () => ({ getAuthUser }))
 vi.mock('../config/intl_config', () => ({ default: config }));
 vi.mock('./transaction_batch', () => ({ default: runTransactionBatch }));
 
-import { withPublicDb, withUserDb } from './context';
+import { withPublicDb, withUserDb } from './context.js';
 
 beforeEach(() => {
     tx._clientQuery.mockClear();
@@ -723,6 +723,6 @@ describe('withUserDb role safety', () => {
 
         const calls = tx._clientQuery.mock.calls.map((c: unknown[]) => c[0]);
         const setRole = calls.find((s: string) => typeof s === 'string' && s.startsWith('set role'));
-        expect(setRole).toBe('set role "x\"\" ; set role \"\"postgres"');
+        expect(setRole).toBe('set role "x"" ; set role ""postgres"');
     });
 });

@@ -40,8 +40,8 @@ export default function isStaleDeployError(
 
     const message = (error.message || '').toLowerCase();
     const list = patterns ? patterns.map((p) => p.toLowerCase()) : activeLowercasedPatterns;
-    for (let i = 0; i < list.length; i++) {
-        if (message.includes(list[i])) {
+    for (const pattern of list) {
+        if (message.includes(pattern)) {
             return true;
         }
     }

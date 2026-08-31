@@ -1,12 +1,12 @@
 'use client';
 
-import useCookieConsent from '../use_cookie_consent';
-import DefaultPrivacyPolicyLink from './default_privacy_policy_link';
-import DialogPortal from './dialog_portal';
-import { getLocaleCache } from '../../../general/cache_variables';
-import { defaultPrivacyPolicyUpdateText } from './default_dialog_text';
-import { defaultCookieDialogClassNames } from './default_dialog_styles';
-import type { CookieDialogClassNames, CookieDialogStyles } from '../../types';
+import useCookieConsent from '../use_cookie_consent.js';
+import DefaultPrivacyPolicyLink from './default_privacy_policy_link.js';
+import DialogPortal from './dialog_portal.js';
+import { getLocaleCache } from '../../../general/cache_variables.js';
+import { defaultPrivacyPolicyUpdateText } from './default_dialog_text.js';
+import { defaultCookieDialogClassNames } from './default_dialog_styles.js';
+import type { CookieDialogClassNames, CookieDialogStyles } from '../../types.js';
 
 export interface PrivacyPolicyUpdateDialogProps {
     message?: React.ReactNode;

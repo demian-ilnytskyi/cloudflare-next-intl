@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { buildIdAsset } from './build_id_asset';
+import { buildIdAsset } from './build_id_asset.js';
+
+interface GenerateBundleContext { environment?: { name: string }; emitFile: (asset: unknown) => void }
+function callGenerateBundle(plugin: ReturnType<typeof buildIdAsset>, context: GenerateBundleContext): void {
+    (plugin.generateBundle as (this: GenerateBundleContext) => void).call(context);
+}
 
 describe('buildIdAsset', () => {
     const originalEnv = process.env;
@@ -31,7 +36,7 @@ describe('buildIdAsset', () => {
             emitFile,
         };
 
-        (plugin.generateBundle as any).call(context);
+        callGenerateBundle(plugin, context);
         expect(emitFile).not.toHaveBeenCalled();
     });
 
@@ -44,7 +49,7 @@ describe('buildIdAsset', () => {
             emitFile,
         };
 
-        (plugin.generateBundle as any).call(context);
+        callGenerateBundle(plugin, context);
         expect(emitFile).not.toHaveBeenCalled();
     });
 
@@ -57,7 +62,7 @@ describe('buildIdAsset', () => {
             emitFile,
         };
 
-        (plugin.generateBundle as any).call(context);
+        callGenerateBundle(plugin, context);
         expect(emitFile).not.toHaveBeenCalled();
     });
 
@@ -71,7 +76,7 @@ describe('buildIdAsset', () => {
             emitFile,
         };
 
-        (plugin.generateBundle as any).call(context);
+        callGenerateBundle(plugin, context);
         expect(emitFile).toHaveBeenCalledWith({
             type: 'asset',
             fileName: 'BUILD_ID',
@@ -89,7 +94,7 @@ describe('buildIdAsset', () => {
             emitFile,
         };
 
-        (plugin.generateBundle as any).call(context);
+        callGenerateBundle(plugin, context);
         expect(emitFile).toHaveBeenCalledWith({
             type: 'asset',
             fileName: 'CUSTOM_BUILD_ID',

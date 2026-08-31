@@ -1,4 +1,4 @@
-export default {
+const mockImagesManifest = {
     images: {
         "/images/hero.png": {
             originalSrc: "/images/hero.png",
@@ -51,3 +51,5 @@ export default {
         },
     },
 };
+
+export default mockImagesManifest;

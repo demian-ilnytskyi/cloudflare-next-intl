@@ -1,6 +1,6 @@
 import { bench, describe } from 'vitest';
-import resolveRequiresConsent, { defaultGdprCountries } from './gdpr_countries';
-import type { CookieConsentGetCloudflareContext } from '../types/types';
+import resolveRequiresConsent, { defaultGdprCountries } from './gdpr_countries.js';
+import type { CookieConsentGetCloudflareContext } from '../types/types.js';
 
 const fakeGetCloudflareContext: CookieConsentGetCloudflareContext = ((options?: { async?: boolean }) => {
     const context = { cf: { country: 'DE' } };

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import PrivacyPolicyUpdateDialog from './privacy_policy_update_dialog';
+import PrivacyPolicyUpdateDialog from './privacy_policy_update_dialog.js';
 
 const acknowledgePrivacyPolicyUpdate = vi.fn();
 let privacyPolicyUpdated = false;

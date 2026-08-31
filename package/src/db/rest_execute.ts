@@ -1,7 +1,7 @@
-import type { ParsedStatement, Projection } from './parse_statement';
-import type { RestClient, RestQueryBuilder, RestQueryResult } from './rest_client';
-import applyWhere, { resolveValue } from './rest_filters';
-import UnsupportedSqlError from './unsupported_sql';
+import type { ParsedStatement, Projection } from './parse_statement.js';
+import type { RestClient, RestQueryBuilder, RestQueryResult } from './rest_client.js';
+import applyWhere, { resolveValue } from './rest_filters.js';
+import UnsupportedSqlError from './unsupported_sql.js';
 
 /**
  * Runs a parsed statement through PostgREST and reshapes the response into the

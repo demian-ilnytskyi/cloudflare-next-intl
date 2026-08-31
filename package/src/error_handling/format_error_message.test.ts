@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import formatErrorMessage from './format_error_message';
+import formatErrorMessage from './format_error_message.js';
 
 describe('formatErrorMessage', () => {
     it('formats a plain Error with classOrMethodName', () => {

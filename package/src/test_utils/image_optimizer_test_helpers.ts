@@ -1,4 +1,5 @@
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import sharp from "sharp";
@@ -51,4 +52,25 @@ export async function writeFixtureJpg(
         .jpeg()
         .toFile(target);
     return target;
+}
+
+export async function hashDir(dir: string, exclude?: RegExp): Promise<Record<string, string>> {
+    const result: Record<string, string> = {};
+
+    async function walk(current: string): Promise<void> {
+        const items = await readdir(current, { withFileTypes: true });
+        for (const item of items) {
+            const full = path.join(current, item.name);
+            if (item.isDirectory()) {
+                await walk(full);
+                continue;
+            }
+            const key = path.relative(dir, full).split(path.sep).join("/");
+            if (exclude?.test(key)) continue;
+            result[key] = createHash("sha256").update(await readFile(full)).digest("hex");
+        }
+    }
+
+    await walk(dir);
+    return Object.fromEntries(Object.keys(result).sort().map((k) => [k, result[k]]));
 }

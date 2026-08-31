@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import dbEslintConfig from './eslint_config';
+import dbEslintConfig from './eslint_config.js';
 
 const [flatConfig] = dbEslintConfig;
 

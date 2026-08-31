@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import decodeJwtPayload from './decode_jwt_payload';
+import decodeJwtPayload from './decode_jwt_payload.js';
 
 function makeJwt(payload: Record<string, unknown>): string {
     const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
@@ -36,5 +36,17 @@ describe('decodeJwtPayload', () => {
 
     bench('malformed token (parse failure path)', () => {
         decodeJwtPayload(malformedToken);
+    });
+});
+
+// Real Firebase ID tokens are RS256-signed: a ~342-character base64url
+// signature segment. `split('.')` must scan/copy all of it to build the
+// (unused) third array element; `split('.', 2)` does not.
+const realisticSignature = 'a'.repeat(342);
+const realisticJwt = `${realisticToken.split('.').slice(0, 2).join('.')}.${realisticSignature}`;
+
+describe('decodeJwtPayload: realistic RS256-length signature', () => {
+    bench('valid token, ~342-char signature segment', () => {
+        decodeJwtPayload(realisticJwt);
     });
 });

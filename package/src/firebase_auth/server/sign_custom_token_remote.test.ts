@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import signCustomTokenRemote from './sign_custom_token_remote';
+import signCustomTokenRemote from './sign_custom_token_remote.js';
 
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);

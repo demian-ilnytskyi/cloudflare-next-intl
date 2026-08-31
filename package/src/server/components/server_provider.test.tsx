@@ -75,20 +75,20 @@ describe('LocationzationProvider', () => {
 
 
     it('renders children through the client provider when messages are provided', async () => {
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(await screen.findByText('child')).toBeInTheDocument();
     });
 
     it('loads messages via getMessage when none are provided', async () => {
-        const { getMessage } = await import('../functions/server');
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { getMessage } = await import('../functions/server.js');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', children: <span>child</span> }));
         expect(getMessage).toHaveBeenCalledWith('en');
     });
 
     it('calls notFound() for an unconfigured locale', async () => {
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         await expect(
             LocationzationProvider({ language: 'zz', children: <span>child</span> }),
         ).rejects.toThrow();
@@ -97,8 +97,8 @@ describe('LocationzationProvider', () => {
     it('resolves the auth user and passes it to the client provider when firebaseAuth is configured', async () => {
         firebaseAuthValue = {};
         vi.resetModules();
-        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider');
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider.js');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, staticSafe: false, children: <span>child</span> }));
         expect(resolveAuthUserAndRedirect).toHaveBeenCalled();
         const authProvider = await screen.findByTestId('auth-provider');
@@ -110,8 +110,8 @@ describe('LocationzationProvider', () => {
         firebaseAuthValue = { autoWireClientProvider: false };
         vi.resetModules();
         vi.clearAllMocks();
-        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider');
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider.js');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(resolveAuthUserAndRedirect).not.toHaveBeenCalled();
         expect(screen.queryByTestId('auth-provider')).not.toBeInTheDocument();
@@ -121,7 +121,7 @@ describe('LocationzationProvider', () => {
     it('wraps children in CookieConsentProvider and passes resolved static analytics config when cookieConsent.analytics is configured', async () => {
         cookieConsentValue = { analytics: { googleAnalyticsId: 'G-XXX' } };
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         const provider = await screen.findByTestId('cookie-consent-provider');
         expect(provider).toHaveTextContent('child');
@@ -132,7 +132,7 @@ describe('LocationzationProvider', () => {
         const getAnalytics = vi.fn(async () => ({ googleAdsId: 'AW-YYY' }));
         cookieConsentValue = { analytics: { googleAnalyticsId: 'G-XXX' }, getAnalytics };
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(getAnalytics).toHaveBeenCalled();
         expect(await screen.findByTestId('cookie-consent-analytics')).toHaveTextContent('AW-YYY');
@@ -145,7 +145,7 @@ describe('LocationzationProvider', () => {
         cookieConsentValue = { getAnalytics };
         errorHandlingValue = { onError };
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(getAnalytics).toHaveBeenCalled();
         expect(onError).toHaveBeenCalledWith(expect.objectContaining({ error: boom, classOrMethodName: 'getAnalytics' }));
@@ -156,8 +156,8 @@ describe('LocationzationProvider', () => {
     it('does not call resolveAuthUserAndRedirect when staticSafe is omitted (defaults to true)', async () => {
         firebaseAuthValue = {};
         vi.resetModules();
-        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider');
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider.js');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(resolveAuthUserAndRedirect).not.toHaveBeenCalled();
         expect(await screen.findByText('child')).toBeInTheDocument();
@@ -166,8 +166,8 @@ describe('LocationzationProvider', () => {
     it('does not call resolveAuthUserAndRedirect when staticSafe is true', async () => {
         firebaseAuthValue = {};
         vi.resetModules();
-        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider');
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { resolveAuthUserAndRedirect } = await import('../../firebase_auth/server/auth_user_server_provider.js');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, staticSafe: true, children: <span>child</span> }));
         expect(resolveAuthUserAndRedirect).not.toHaveBeenCalled();
         expect(await screen.findByText('child')).toBeInTheDocument();
@@ -177,7 +177,7 @@ describe('LocationzationProvider', () => {
         firebaseAuthValue = { middlewareEnabled: false };
         vi.resetModules();
         const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, staticSafe: true, children: <span>child</span> }));
         expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('staticSafe: true'));
         warnSpy.mockRestore();
@@ -187,7 +187,7 @@ describe('LocationzationProvider', () => {
         firebaseAuthValue = {};
         vi.resetModules();
         const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, staticSafe: true, children: <span>child</span> }));
         expect(warnSpy).not.toHaveBeenCalled();
         warnSpy.mockRestore();
@@ -197,7 +197,7 @@ describe('LocationzationProvider', () => {
         const getAnalytics = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
         cookieConsentValue = { getAnalytics, autoWireAnalytics: false };
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(getAnalytics).not.toHaveBeenCalled();
         await screen.findByTestId('cookie-consent-provider');
@@ -207,7 +207,7 @@ describe('LocationzationProvider', () => {
     it('renders CookieConsentProvider without analytics when cookieConsent has no analytics configured', async () => {
         cookieConsentValue = {};
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         await screen.findByTestId('cookie-consent-provider');
         expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
@@ -217,7 +217,7 @@ describe('LocationzationProvider', () => {
         cookieConsentValue = {};
         generateValue = { getCloudflareContext: () => ({ cf: { country: 'DE' } }) };
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'true');
     });
@@ -228,7 +228,7 @@ describe('LocationzationProvider', () => {
         };
         generateValue = { getCloudflareContext: () => ({ cf: { country: 'DE' } }) };
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'false');
     });
@@ -236,14 +236,14 @@ describe('LocationzationProvider', () => {
     it('defaults requiresConsent to true when neither getCountryCode nor getCloudflareContext is set', async () => {
         cookieConsentValue = {};
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'true');
     });
 
     it('defaults requiresConsent to true when cookieConsent is not configured at all', async () => {
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(screen.queryByTestId('cookie-consent-provider')).not.toBeInTheDocument();
         expect(await screen.findByText('child')).toBeInTheDocument();
@@ -255,7 +255,7 @@ describe('LocationzationProvider', () => {
         const getAnalytics = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
         cookieConsentValue = { getAnalytics };
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(getAnalytics).not.toHaveBeenCalled();
         expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
@@ -268,7 +268,7 @@ describe('LocationzationProvider', () => {
         const getAnalytics = vi.fn(async () => ({ googleAnalyticsId: 'G-XXX' }));
         cookieConsentValue = { getAnalytics, enableAnalyticsInDevMode: true };
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(getAnalytics).toHaveBeenCalled();
         expect(await screen.findByTestId('cookie-consent-analytics')).toHaveTextContent('G-XXX');
@@ -278,7 +278,7 @@ describe('LocationzationProvider', () => {
     it('auto-wires the dialogs by default when cookieConsent is configured', async () => {
         cookieConsentValue = {};
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(await screen.findByTestId('cookie-consent-dialog')).toBeInTheDocument();
         expect(await screen.findByTestId('privacy-policy-update-dialog')).toBeInTheDocument();
@@ -287,7 +287,7 @@ describe('LocationzationProvider', () => {
     it('does not render the auto-wired dialogs when autoWireDialogs is false', async () => {
         cookieConsentValue = { autoWireDialogs: false };
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         await screen.findByTestId('cookie-consent-provider');
         expect(screen.queryByTestId('cookie-consent-dialog')).not.toBeInTheDocument();
@@ -297,7 +297,7 @@ describe('LocationzationProvider', () => {
     it('forwards dialogProps/updateDialogProps to the auto-wired dialogs', async () => {
         cookieConsentValue = { dialogProps: { acceptText: 'Yes' }, updateDialogProps: { closeText: 'Close' } };
         vi.resetModules();
-        const { default: LocationzationProvider } = await import('./server_provider');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(await screen.findByTestId('cookie-consent-dialog')).toHaveAttribute('data-props', JSON.stringify({ acceptText: 'Yes' }));
         expect(await screen.findByTestId('privacy-policy-update-dialog')).toHaveAttribute('data-props', JSON.stringify({ closeText: 'Close' }));

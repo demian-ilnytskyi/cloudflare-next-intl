@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import generateIntlSitemap from './intl_sitemap';
-import type { IntlSitemap } from '../types/types';
+import generateIntlSitemap from './intl_sitemap.js';
+import type { IntlSitemap } from '../types/types.js';
 
 describe('generateIntlSitemap', () => {
     it('generates one sitemap entry per locale per route, sorted by URL', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import resolveConfigValue from './resolve_config_value';
+import resolveConfigValue from './resolve_config_value.js';
 
 describe('resolveConfigValue', () => {
     it('returns a direct value unchanged', async () => {

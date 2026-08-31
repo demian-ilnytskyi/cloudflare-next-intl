@@ -9,7 +9,7 @@ describe('installConsoleErrorOverride perf characteristics', () => {
 
     it('throttles a render-loop burst that logs the same error repeatedly', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         console.error = vi.fn();
         install({ errorHandling: { overrideConsoleError: true, onError } });
@@ -22,7 +22,7 @@ describe('installConsoleErrorOverride perf characteristics', () => {
 
     it('the ignore-list check is a plain substring scan, not re-stringifying already-string messages', async () => {
         vi.resetModules();
-        const { default: install } = await import('./install_console_error_override');
+        const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
         console.error = vi.fn();
         install({ errorHandling: { overrideConsoleError: true, onError, ignoreConsoleErrors: ['auth/wrong-password'] } });

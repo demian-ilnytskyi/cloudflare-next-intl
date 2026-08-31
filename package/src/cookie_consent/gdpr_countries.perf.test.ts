@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import resolveRequiresConsent from './gdpr_countries';
+import resolveRequiresConsent from './gdpr_countries.js';
 
 describe('resolveRequiresConsent perf characteristics', () => {
     it('does not call the country getter at all when country-based gating is off', async () => {

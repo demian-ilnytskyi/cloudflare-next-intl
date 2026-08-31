@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { existsSync } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import { DEFAULT_BLUR_OPTIONS, DEFAULT_OPTIONS, resolveOptions } from "./types.js";
+import { DEFAULT_BLUR_OPTIONS, resolveOptions } from "./types.js";
 import { makeBlurDataURL, mimeTypeFor, processImage, toGeneratedPath, toPublicSrc } from "./process_image.js";
 import { cleanup, makeTempDir, writeFixtureJpg, writeFixturePng } from "../test_utils/image_optimizer_test_helpers.js";
 
@@ -261,7 +261,8 @@ describe("process_image", () => {
         const root = await makeTempDir();
         const file = await writeFixturePng(root, "tall.png", 50, 100);
 
-        const blur = await makeBlurDataURL(file, 50, 100, DEFAULT_BLUR_OPTIONS);
+        const buffer = await readFile(file);
+        const blur = await makeBlurDataURL(buffer, file, 50, 100, DEFAULT_BLUR_OPTIONS);
 
         expect(blur.blurDataURL.startsWith("data:image/webp;base64,")).toBe(true);
         expect(blur.blurWidth).toBe(4);
@@ -269,4 +270,39 @@ describe("process_image", () => {
         expect(existsSync(path.join(root, "tall.blur.webp"))).toBe(true);
         await cleanup(root);
     });
+
+    it("passes effort through to effort-capable encoders", async () => {
+        const dir = await makeTempDir();
+        const source = await writeFixturePng(path.join(dir, "public", "images"), "e.png", 400, 300);
+        const options = resolveOptions({
+            formats: ["avif", "webp", "png"],
+            effort: 1,
+            outDir: "public/generated",
+        });
+        const result = await processImage(source, path.join(dir, "public"), options, dir);
+        expect(result.sources?.length).toBe(3);
+        await cleanup(dir);
+    });
+
+    it.each(["heif", "jxl"] as const)(
+        "passes effort through to %s (skips assertion if this libvips build lacks support)",
+        async (format) => {
+            const root = await makeTempDir();
+            const publicRoot = path.join(root, "public");
+            const file = await writeFixturePng(path.join(publicRoot, "images"), `${format}-effort-src.png`, 40, 20);
+
+            try {
+                const result = await processImage(
+                    file,
+                    publicRoot,
+                    resolveOptions({ formats: [format], effort: 1 }),
+                    root,
+                );
+                expect(result.src).toBe(`/generated/images/${format}-effort-src.${format}`);
+            } catch (error) {
+                expect(String(error)).toMatch(new RegExp(format, "i"));
+            }
+            await cleanup(root);
+        },
+    );
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import resolveSupabaseEndpoint from './supabase_config';
+import resolveSupabaseEndpoint from './supabase_config.js';
 
 const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const originalKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

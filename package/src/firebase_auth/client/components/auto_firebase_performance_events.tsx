@@ -1,8 +1,8 @@
 'use client';
 
 import { useReportWebVitals } from 'next/web-vitals';
-import reportError from '../../../error_handling/report_error';
-import { getFirebaseAuthClient, getFirebasePerformanceSync } from '../firebase_client';
+import reportError from '../../../error_handling/report_error.js';
+import { getFirebaseAuthClient, getFirebasePerformanceSync } from '../firebase_client.js';
 
 interface WebVitalMetric {
     name: 'CLS' | 'FCP' | 'FID' | 'LCP' | 'TTFB' | 'INP';
@@ -27,7 +27,7 @@ async function recordFirebaseTrace(
         await getFirebaseAuthClient();
         const performance = getFirebasePerformanceSync();
         if (!performance) return;
-        const { trace } = await import('firebase/performance');
+        const { trace } = await import('@firebase/performance');
         const duration = Math.max(Math.round(durationMs), 1);
         trace(performance, name).record(Date.now() - duration, duration, { attributes, metrics });
     } catch (error) {

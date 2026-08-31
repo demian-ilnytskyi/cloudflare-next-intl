@@ -1,16 +1,16 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Query } from 'drizzle-orm';
-import type { DbRoutingConfig, SupabaseDbConfig } from '../types/types';
-import config from '../config/intl_config';
-import requireDbConfig from './require_config';
-import { withDbClient } from './connection';
-import resolveDbMode from './resolve_mode';
-import resolveSupabaseEndpoint from './supabase_config';
-import createSupabaseTransport from './supabase_transport';
-import resolveAccessToken from './access_token';
-import runTransactionBatch, { type BatchQuery } from './transaction_batch';
-import type { ExecResult } from './supabase_transport';
-import inlineParams from './inline_params';
+import type { DbRoutingConfig, SupabaseDbConfig } from '../types/types.js';
+import requireDbConfig from './require_config.js';
+import { withDbClient, type DbConfig } from './connection.js';
+import resolveDbConfig from './resolve_db_config.js';
+import resolveDbMode from './resolve_mode.js';
+import resolveSupabaseEndpoint from './supabase_config.js';
+import createSupabaseTransport from './supabase_transport.js';
+import resolveAccessToken from './access_token.js';
+import runTransactionBatch, { type BatchQuery } from './transaction_batch.js';
+import type { ExecResult } from './supabase_transport.js';
+import inlineParams from './inline_params.js';
 
 /**
  * The Drizzle handle passed to `withPublicDb`/`withUserDb` callbacks. Use it
@@ -27,14 +27,14 @@ const DEFAULT_ROLE = 'authenticated';
  * `null` (as well as omitted) to mean "skip this source, try the next one" —
  * useful when the caller's own uid lookup can itself come back empty.
  */
-async function resolveUserId(uid?: string | null): Promise<string> {
+async function resolveUserId(config: DbConfig, uid?: string | null): Promise<string> {
     if (uid) return uid;
     const db = config.db;
     requireDbConfig(db);
     const fromConfig = await db.getUserId?.();
     if (fromConfig) return fromConfig;
     if (config.firebaseAuth) {
-        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server');
+        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server.js');
         const { user } = await getAuthUser();
         if (user?.uid) return user.uid;
     }
@@ -51,10 +51,10 @@ async function resolveUserId(uid?: string | null): Promise<string> {
  * otherwise falls back to `db.authenticatedRole` (string or sync/async
  * function), then `DEFAULT_ROLE`.
  */
-async function resolveAuthenticatedRole(db: DbRoutingConfig): Promise<string> {
+async function resolveAuthenticatedRole(config: DbConfig, db: DbRoutingConfig): Promise<string> {
     const claimField = db.authenticatedRoleClaim;
     if (config.firebaseAuth && claimField !== false) {
-        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server');
+        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server.js');
         const { user } = await getAuthUser();
         if (user && typeof user.getIdTokenResult === 'function') {
             const { claims } = await user.getIdTokenResult();
@@ -177,10 +177,16 @@ async function callBuild(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): 
  * user identity attached. Use this for data any visitor may read.
  *
  * @param fn Receives the Drizzle handle; return whatever the caller needs.
+ * @param dbOverride A `db` block (`connectionString` or `supabase`) to use
+ * for this call instead of `@intl-config`'s — the only thing a standalone
+ * (non-Next.js) project needs to pass, since there is no `@intl-config` alias
+ * to set up outside Next.js.
  * @returns Whatever `fn` resolves to.
- * @throws If `db` is not set on your `RoutingConfig`, or the connection fails.
+ * @throws If `db` is not set (neither `dbOverride` nor `@intl-config`), or
+ * the connection fails.
  */
-export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promise<T> {
+export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>, dbOverride?: DbRoutingConfig): Promise<T> {
+    const config = await resolveDbConfig(dbOverride);
     const db = config.db;
     requireDbConfig(db);
     
@@ -195,8 +201,7 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>): Promis
         const { drizzle } = await import('drizzle-orm/node-postgres');
         const drizzleHandle = drizzle(client) as unknown as NodePgDatabase<Record<string, never>>;
         
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return await fn(await postgresDb(drizzleHandle, client as any));
+        return await fn(await postgresDb(drizzleHandle, client));
     });
 }
 
@@ -216,6 +221,11 @@ function injectUidComment(sql: unknown, userId: string): unknown {
     return sql;
 }
 
+function isSelectOnly(sql: unknown): boolean {
+    const text = typeof sql === 'string' ? sql : (sql as { text?: unknown })?.text;
+    return typeof text === 'string' && /^(select|with)\b/i.test(text.trimStart());
+}
+
 /**
  * Runs a query as the **signed-in user**, with `request.jwt.claims` and the
  * authenticated role set on the session so RLS policies apply to their id.
@@ -225,20 +235,25 @@ function injectUidComment(sql: unknown, userId: string): unknown {
  *
  * @param fn Receives the Drizzle handle
  * @param uid Overrides the user ID for authenticated calls
+ * @param dbOverride A `db` block (`connectionString` or `supabase`) to use
+ * for this call instead of `@intl-config`'s — the only thing a standalone
+ * (non-Next.js) project needs to pass, since there is no `@intl-config` alias
+ * to set up outside Next.js.
  */
-export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: string | null): Promise<T> {
+export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: string | null, dbOverride?: DbRoutingConfig): Promise<T> {
+    const config = await resolveDbConfig(dbOverride);
     const db = config.db;
     requireDbConfig(db);
-    
+
     const resolved = await resolveDbMode(db);
-    
+
     if (resolved.mode === 'supabase') {
         const token = await resolveAccessToken(config);
         return fn(await supabaseDb(resolved.supabase, token));
     }
-    
-    const userId = await resolveUserId(uid);
-    const role = await resolveAuthenticatedRole(db);
+
+    const userId = await resolveUserId(config, uid);
+    const role = await resolveAuthenticatedRole(config, db);
     
     return await withDbClient(config, async (client) => {
         const rawClient = client as unknown as { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }> };
@@ -246,11 +261,6 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
         const setSessionState = async () => {
             await rawClient.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: userId })]);
             await rawClient.query(`set role "${role.replace(/"/g, '""')}"`);
-        };
-
-        const isSelectOnly = (sql: unknown): boolean => {
-            const text = typeof sql === 'string' ? sql : (sql as { text?: unknown })?.text;
-            return typeof text === 'string' && /^(select|with)\b/i.test(text.trimStart());
         };
 
         let inTransaction = false;
@@ -265,9 +275,8 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
         const interceptingClient = new Proxy(client, {
             get(target, prop) {
                 if (prop === 'query') {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    return async (sql: any, ...args: any[]) => {
-                        const text = typeof sql === 'string' ? sql : (typeof (sql as any)?.text === 'string' ? (sql as any).text : '');
+                    return async (sql: string | { text?: unknown }, ...args: unknown[]) => {
+                        const text = typeof sql === 'string' ? sql : (typeof sql?.text === 'string' ? sql.text : '');
                         const isBegin = /^begin\b/i.test(text.trimStart());
                         const isCommitOrRollback = /^(commit|rollback)\b/i.test(text.trimStart());
 
@@ -317,12 +326,11 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
                             }
                         });
 
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        return (target as any).query(injectUidComment(sql, userId), ...args);
+                        const targetClient = target as unknown as { query: (...queryArgs: unknown[]) => unknown };
+                        return targetClient.query(injectUidComment(sql, userId), ...args);
                     };
                 }
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const value = (target as any)[prop];
+                const value = (target as unknown as Record<PropertyKey, unknown>)[prop];
                 return typeof value === 'function' ? value.bind(target) : value;
             }
         });
@@ -342,7 +350,7 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
 }
 
 /** One statement's `{rows, rowCount}` result from a Supabase-mode `db.transaction()` batch. */
-export type { ExecResult as TransactionResult } from './supabase_transport';
+export type { ExecResult as TransactionResult } from './supabase_transport.js';
 
 /**
  * Runs several statements atomically over `cfni_exec_batch`, backing

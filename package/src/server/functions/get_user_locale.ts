@@ -1,7 +1,7 @@
 import { cache } from "react";
-import config from "../../config/intl_config";
-import { localesSet } from "../../config/middleware";
-import reportError from "../../error_handling/report_error";
+import config from "../../config/intl_config.js";
+import { localesSet } from "../../config/middleware.js";
+import reportError from "../../error_handling/report_error.js";
 
 export const languageDetecotr = cache(languageDetecotrImpl);
 

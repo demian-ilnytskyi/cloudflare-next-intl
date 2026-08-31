@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { userAgentStubPlugin, USER_AGENT_STUB_ID, USER_AGENT_STUB_CODE } from "./user_agent_stub.js";
 
+type ResolveIdFn = (id: string) => string | undefined;
+type LoadFn = (id: string) => string | undefined;
+
 describe("userAgentStubPlugin", () => {
     it("has correct plugin metadata", () => {
         const plugin = userAgentStubPlugin();
@@ -10,7 +13,7 @@ describe("userAgentStubPlugin", () => {
 
     it("resolves next/dist/server/web/spec-extension/user-agent", () => {
         const plugin = userAgentStubPlugin();
-        const resolveId = plugin.resolveId as any;
+        const resolveId = plugin.resolveId as ResolveIdFn;
 
         expect(resolveId("next/dist/server/web/spec-extension/user-agent")).toBe(USER_AGENT_STUB_ID);
         expect(resolveId("node_modules/next/dist/server/web/spec-extension/user-agent")).toBe(USER_AGENT_STUB_ID);
@@ -19,7 +22,7 @@ describe("userAgentStubPlugin", () => {
 
     it("loads virtual user-agent stub module code", () => {
         const plugin = userAgentStubPlugin();
-        const load = plugin.load as any;
+        const load = plugin.load as LoadFn;
 
         expect(load(USER_AGENT_STUB_ID)).toBe(USER_AGENT_STUB_CODE);
         expect(load("other-module")).toBeUndefined();

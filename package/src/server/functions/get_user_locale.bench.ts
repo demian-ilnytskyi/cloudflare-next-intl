@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { languageDetecotr } from './get_user_locale';
+import { languageDetecotr } from './get_user_locale.js';
 
 describe('languageDetecotr', () => {
     bench('single locale header', () => {

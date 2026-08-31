@@ -1,16 +1,18 @@
-import type { FirebaseApp } from 'firebase/app';
-import type { User } from 'firebase/auth';
+import type { FirebaseApp } from '@firebase/app';
+import type * as FirebaseAppModule from '@firebase/app';
+import type { User } from '@firebase/auth';
+import type * as FirebaseAuthModule from '@firebase/auth';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import config from '@intl-config';
-import requireFirebaseAuthConfig from '../require_config';
-import { defaultAppCheckTokenCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName, isIdTokenExpired, refreshIdToken, sessionCookieOptions } from '../middleware/update_session';
-import reportError from '../../error_handling/report_error';
-import mintServerAppCheckToken from './mint_server_app_check_token';
+import requireFirebaseAuthConfig from '../require_config.js';
+import { defaultAppCheckTokenCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName, isIdTokenExpired, refreshIdToken, sessionCookieOptions } from '../middleware/update_session.js';
+import reportError from '../../error_handling/report_error.js';
+import mintServerAppCheckToken from './mint_server_app_check_token.js';
 
 let baseAppReady: Promise<FirebaseApp> | undefined;
-let firebaseAppModuleReady: Promise<typeof import('firebase/app')> | undefined;
-let firebaseAuthModuleReady: Promise<typeof import('firebase/auth')> | undefined;
+let firebaseAppModuleReady: Promise<typeof FirebaseAppModule> | undefined;
+let firebaseAuthModuleReady: Promise<typeof FirebaseAuthModule> | undefined;
 
 /**
  * Writes a freshly-minted session/refresh pair back to the cookie jar so the
@@ -107,8 +109,8 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
     // with `currentUser === null`. So a null user (not a throw) is the signal
     // to drop the bad token and mint a replacement from the refresh cookie.
     const attempt = async (idToken: string) => {
-        firebaseAppModuleReady ??= import('firebase/app');
-        firebaseAuthModuleReady ??= import('firebase/auth');
+        firebaseAppModuleReady ??= import('@firebase/app');
+        firebaseAuthModuleReady ??= import('@firebase/auth');
         const { initializeApp, initializeServerApp } = await firebaseAppModuleReady;
         const { getAuth } = await firebaseAuthModuleReady;
 

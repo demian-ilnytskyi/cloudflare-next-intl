@@ -1,4 +1,4 @@
-import type { CookieDialogClassNames } from '../../types';
+import type { CookieDialogClassNames } from '../../types.js';
 
 export const defaultCookieDialogClassNames: CookieDialogClassNames = {
     root: 'fixed bottom-0 w-full bg-cyan-50 dark:bg-cyan-950 text-gray-800 dark:text-gray-200 z-[2147483647] flex flex-col sm:flex-row sm:justify-between items-center gap-3 sticky border-t border-t-gray-600 dark:border-t-gray-400 rounded-t-2xl px-4 py-3',

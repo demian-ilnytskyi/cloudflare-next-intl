@@ -3,8 +3,8 @@
 import { usePathname } from 'next/navigation';
 import { useReportWebVitals } from 'next/web-vitals';
 import { useEffect } from 'react';
-import useCookieConsent from '../use_cookie_consent';
-import type { AutoAnalyticsEventName, AutoAnalyticsEventsConfig } from '../../../types/types';
+import useCookieConsent from '../use_cookie_consent.js';
+import type { AutoAnalyticsEventName, AutoAnalyticsEventsConfig } from '../../../types/types.js';
 
 interface WebVitalMetric {
     name: 'CLS' | 'FCP' | 'FID' | 'LCP' | 'TTFB' | 'INP';
@@ -51,10 +51,9 @@ export default function AutoAnalyticsEvents({ config }: { config?: AutoAnalytics
 
     useEffect(() => {
         if (!granted) return;
-        if (!isEnabled('screen_view')) return;
+        if (!(!enabledEvents || enabledEvents.includes('screen_view'))) return;
         gtagEvent('screen_view', { screen_name: screenName, page_path: path });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [path, screenName, granted]);
+    }, [path, screenName, granted, enabledEvents]);
 
     useReportWebVitals((metric: WebVitalMetric) => {
         if (!granted) return;

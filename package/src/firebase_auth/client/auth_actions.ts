@@ -1,10 +1,10 @@
 'use client';
 
 import config from '@intl-config';
-import requireFirebaseAuthConfig from '../require_config';
-import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client';
-import firebaseAuthErrorMessage from '../error_messages/firebase_auth_error_helper';
-import type { AuthActionCodeSettings, AuthActionMessages, AuthFormState } from '../types';
+import requireFirebaseAuthConfig from '../require_config.js';
+import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client.js';
+import firebaseAuthErrorMessage from '../error_messages/firebase_auth_error_helper.js';
+import type { AuthActionCodeSettings, AuthActionMessages, AuthFormState } from '../types.js';
 
 function readCredentials(formData: FormData) {
     return {
@@ -27,7 +27,7 @@ function readCredentials(formData: FormData) {
  * const [state, action] = useActionState(createLoginAction(locale, messages), {});
  * <form action={action}>...</form>
  */
-export function createLoginAction(locale: string, messages: AuthActionMessages) {
+export function createLoginAction(locale: string, _messages: AuthActionMessages) {
     return async function loginAction(
         _prevState: AuthFormState,
         formData: FormData,

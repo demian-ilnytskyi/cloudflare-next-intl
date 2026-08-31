@@ -17,7 +17,7 @@ action from the consumer — nothing to render, call, or wire up.
 Disable with an explicit `performance: false` on `firebaseAuth`. The check is
 `fa.performance !== false`, so omitting the field means enabled; it is also
 skipped when `window` is undefined, keeping the browser-only SDK out of
-SSR/RSC. In either case `import('firebase/performance')` is never evaluated.
+SSR/RSC. In either case `import('@firebase/performance')` is never evaluated.
 
 `AutoFirebasePerformanceEvents` is auto-rendered and auto-tracks Web Vitals,
 SPA route-change duration, long tasks, and slow non-fetch resource loads as

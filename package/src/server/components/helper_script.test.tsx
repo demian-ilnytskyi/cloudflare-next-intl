@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import HelperScript from './helper_script';
+import HelperScript from './helper_script.js';
 
 vi.mock('../../client/components/client_helper_script', () => ({ default: () => null }));
 
@@ -20,7 +20,7 @@ describe('HelperScript', () => {
     it('omits the build-id script in dev', async () => {
         vi.resetModules();
         vi.stubEnv('NODE_ENV', 'development');
-        const { default: DevHelperScript } = await import('./helper_script');
+        const { default: DevHelperScript } = await import('./helper_script.js');
         const { container: root } = render(<DevHelperScript />);
         expect(root.querySelector('#build-id-script')).toBeNull();
         expect(root.querySelector('#intl-app-state-checker')).not.toBeNull();
@@ -51,7 +51,7 @@ describe('HelperScript', () => {
     it('omits the stale-deploy early-catch script in dev', async () => {
         vi.resetModules();
         vi.stubEnv('NODE_ENV', 'development');
-        const { default: DevHelperScript } = await import('./helper_script');
+        const { default: DevHelperScript } = await import('./helper_script.js');
         const { container: root } = render(<DevHelperScript />);
         expect(root.querySelector('#stale-deploy-early-catch')).toBeNull();
         vi.unstubAllEnvs();
@@ -67,7 +67,7 @@ describe('HelperScript', () => {
         const reload = vi.fn();
         Object.defineProperty(window, 'location', { value: { reload }, writable: true });
 
-        // eslint-disable-next-line no-new-func
+         
         new Function(source)();
         window.dispatchEvent(new ErrorEvent('error', { message: 'Failed to fetch dynamically imported module: x.js' }));
         expect(reload).toHaveBeenCalledTimes(1);
@@ -92,7 +92,7 @@ describe('HelperScript', () => {
         const reload = vi.fn();
         Object.defineProperty(window, 'location', { value: { reload }, writable: true });
 
-        // eslint-disable-next-line no-new-func
+         
         new Function(source)();
         // A single stale deploy commonly throws several near-simultaneous chunk
         // failures; a same-tick burst must still only trigger one reload().
@@ -119,7 +119,7 @@ describe('HelperScript', () => {
         });
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-        // eslint-disable-next-line no-new-func
+         
         new Function(source)();
         window.dispatchEvent(new ErrorEvent('error', { message: 'Failed to fetch dynamically imported module: x.js' }));
         window.dispatchEvent(new ErrorEvent('error', { message: 'Failed to fetch dynamically imported module: y.js' }));
@@ -142,7 +142,7 @@ describe('HelperScript', () => {
         const reload = vi.fn();
         Object.defineProperty(window, 'location', { value: { reload }, writable: true });
 
-        // eslint-disable-next-line no-new-func
+         
         new Function(source)();
         window.dispatchEvent(new ErrorEvent('error', { message: 'TypeError: cannot read property of null' }));
         expect(reload).not.toHaveBeenCalled();
@@ -160,7 +160,7 @@ describe('HelperScript', () => {
         const reload = vi.fn();
         Object.defineProperty(window, 'location', { value: { reload }, writable: true });
 
-        // eslint-disable-next-line no-new-func
+         
         new Function(source)();
         const event = new Event('unhandledrejection') as PromiseRejectionEvent & { reason: unknown };
         Object.defineProperty(event, 'reason', { value: new Error('Loading chunk 4 failed') });
@@ -188,7 +188,7 @@ describe('HelperScript', () => {
                 firebaseAuth: { appCheck: { recaptchaV3SiteKey: 'site-key' } },
             },
         }));
-        const { default: AppCheckHelperScript } = await import('./helper_script');
+        const { default: AppCheckHelperScript } = await import('./helper_script.js');
         render(<AppCheckHelperScript />);
         expect(recaptchaScript()).not.toBeNull();
         recaptchaScript()?.remove();
@@ -205,7 +205,7 @@ describe('HelperScript', () => {
                 },
             },
         }));
-        const { default: LegacyHelperScript } = await import('./helper_script');
+        const { default: LegacyHelperScript } = await import('./helper_script.js');
         render(<LegacyHelperScript />);
         expect(recaptchaScript()).toBeNull();
         vi.doUnmock('../../config/intl_config');

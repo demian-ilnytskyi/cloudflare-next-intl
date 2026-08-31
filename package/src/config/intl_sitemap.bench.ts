@@ -1,6 +1,6 @@
 import { bench, describe } from 'vitest';
-import generateIntlSitemap from './intl_sitemap';
-import type { IntlSitemap } from '../types/types';
+import generateIntlSitemap from './intl_sitemap.js';
+import type { IntlSitemap } from '../types/types.js';
 
 const smallRoutes: IntlSitemap[] = [
     { link: '/about', lastModified: '2024-01-01' },

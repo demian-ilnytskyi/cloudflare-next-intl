@@ -1,15 +1,31 @@
 import { bench, describe } from 'vitest';
-import tokenizeSql from './sql_tokens';
-import parseStatement from './parse_statement';
-import inlineParams from './inline_params';
-import encodeParam from './encode_param';
-import parseWhere from './parse_where';
-import parseComposite from './parse_composite';
-import buildRestFilters from './rest_filters';
-import resolveRawSql from './resolve_raw_sql';
-import { parseExecResult } from './supabase_transport';
-import { excluded, onConflictSet } from './helpers';
+import tokenizeSql from './sql_tokens.js';
+import parseStatement from './parse_statement.js';
+import inlineParams from './inline_params.js';
+import encodeParam from './encode_param.js';
+import parseWhere from './parse_where.js';
+import parseComposite from './parse_composite.js';
+import buildRestFilters, { type FilterTarget } from './rest_filters.js';
+import resolveRawSql from './resolve_raw_sql.js';
+import { parseExecResult } from './supabase_transport.js';
+import { excluded, onConflictSet } from './helpers.js';
 import { pgTable, text, integer, timestamp } from 'drizzle-orm/pg-core';
+import executeRest from './rest_execute.js';
+import type { RestClient } from './rest_client.js';
+
+function stubRestClient(data: unknown) {
+    const builder: Record<string, unknown> = {};
+    const proxy = new Proxy(builder, {
+        get(_target, method: string) {
+            if (method === 'then') {
+                return (onfulfilled: (value: unknown) => unknown) =>
+                    Promise.resolve(onfulfilled({ data, error: null, count: Array.isArray(data) ? data.length : null }));
+            }
+            return () => proxy;
+        },
+    });
+    return { from: () => proxy, rpc: () => proxy } as unknown as RestClient;
+}
 
 describe('DB Module Branch Benchmarks', () => {
     const complexSql = 'SELECT id, name, email, created_at FROM users WHERE status = $1 AND age >= $2 AND role IN ($3, $4) ORDER BY created_at DESC LIMIT $5 OFFSET $6';
@@ -32,7 +48,7 @@ describe('DB Module Branch Benchmarks', () => {
         gte: () => mockTarget,
         in: () => mockTarget,
         or: () => mockTarget,
-    } as any;
+    } as unknown as FilterTarget;
 
     const sampleWhereTree = {
         kind: 'and' as const,
@@ -62,9 +78,9 @@ describe('DB Module Branch Benchmarks', () => {
     // 3. Where Clause parser
     describe('parseWhere', () => {
         const tokens = tokenizeSql(complexSql);
-        // "WHERE status = $1 AND age >= $2 AND role IN ($3, $4)" starts after WHERE token (index 8)
+        // "status = $1 AND age >= $2 AND role IN ($3, $4)" starts at token index 11 (WHERE token is at index 10)
         bench('Where clause parsing', () => {
-            parseWhere(tokens, 9);
+            parseWhere(tokens, 11);
         });
     });
 
@@ -83,6 +99,15 @@ describe('DB Module Branch Benchmarks', () => {
         bench('JSON Object encoding', () => { encodeParam({ a: 1, b: 'hello', c: [true, false] }); });
         bench('Array encoding', () => { encodeParam(['foo', 'bar', 'baz']); });
         bench('Uint8Array encoding', () => { encodeParam(new Uint8Array([1, 2, 3, 4, 255])); });
+        bench('Mixed realistic param batch', () => {
+            encodeParam('jane@example.com');
+            encodeParam(42);
+            encodeParam('active');
+            encodeParam(new Date('2026-01-01T00:00:00Z'));
+            encodeParam(null);
+            encodeParam(true);
+            encodeParam('another string value');
+        });
     });
 
     // 6. Composite type parsing
@@ -114,8 +139,8 @@ describe('DB Module Branch Benchmarks', () => {
     describe('helpers', () => {
         const exUsers = excluded(usersTable);
         bench('excluded column lookup', () => {
-            const _a = exUsers.name;
-            const _b = exUsers.email;
+            void exUsers.name;
+            void exUsers.email;
         });
 
         bench('onConflictSet generation', () => {
@@ -127,6 +152,41 @@ describe('DB Module Branch Benchmarks', () => {
     describe('resolveRawSql', () => {
         bench('Next.config lookup', () => {
             resolveRawSql('/Volumes/External/own_projects/cloudflare-next-intl');
+        });
+    });
+
+    // 11. executeRest
+    describe('executeRest', () => {
+        const selectClient = stubRestClient([
+            { id: 1, name: 'a', email: 'a@x.com' },
+            { id: 2, name: 'b', email: 'b@x.com' },
+            { id: 3, name: 'c', email: 'c@x.com' },
+        ]);
+        const selectStatement = {
+            kind: 'select' as const,
+            table: 'users',
+            projection: [{ column: 'id' }, { column: 'name' }, { column: 'email' }],
+            orderBy: [],
+        };
+
+        const insertClient = stubRestClient([{ id: 7 }]);
+        const insertStatement = {
+            kind: 'insert' as const,
+            table: 'users',
+            columns: ['name', 'email'],
+            rows: [
+                [{ kind: 'literal' as const, value: 'John Doe' }, { kind: 'literal' as const, value: 'john@example.com' }],
+                [{ kind: 'literal' as const, value: 'Jane Doe' }, { kind: 'literal' as const, value: 'jane@example.com' }],
+            ],
+            returning: [{ column: 'id' }],
+        };
+
+        bench('Select with 3-row result', async () => {
+            await executeRest(selectClient, selectStatement, []);
+        });
+
+        bench('Insert with 2 rows', async () => {
+            await executeRest(insertClient, insertStatement, []);
         });
     });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import getCookie from './get_cookie';
+import getCookie from './get_cookie.js';
 
 describe('getCookie', () => {
     beforeEach(() => {

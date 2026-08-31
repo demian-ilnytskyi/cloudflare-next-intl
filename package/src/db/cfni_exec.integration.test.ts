@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Client } from 'pg';
-import parseComposite from './parse_composite';
-import inlineParams from './inline_params';
+import parseComposite from './parse_composite.js';
+import inlineParams from './inline_params.js';
 
 /**
  * Runs `supabase/cfni_exec.sql` against a real Postgres and drives it
