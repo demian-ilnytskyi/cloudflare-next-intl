@@ -221,6 +221,11 @@ function injectUidComment(sql: unknown, userId: string): unknown {
     return sql;
 }
 
+function isSelectOnly(sql: unknown): boolean {
+    const text = typeof sql === 'string' ? sql : (sql as { text?: unknown })?.text;
+    return typeof text === 'string' && /^(select|with)\b/i.test(text.trimStart());
+}
+
 /**
  * Runs a query as the **signed-in user**, with `request.jwt.claims` and the
  * authenticated role set on the session so RLS policies apply to their id.
@@ -256,11 +261,6 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
         const setSessionState = async () => {
             await rawClient.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: userId })]);
             await rawClient.query(`set role "${role.replace(/"/g, '""')}"`);
-        };
-
-        const isSelectOnly = (sql: unknown): boolean => {
-            const text = typeof sql === 'string' ? sql : (sql as { text?: unknown })?.text;
-            return typeof text === 'string' && /^(select|with)\b/i.test(text.trimStart());
         };
 
         let inTransaction = false;
