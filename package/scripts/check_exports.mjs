@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,17 +15,52 @@ function targets(entry) {
   return [];
 }
 
+/**
+ * Two classes of import failure are expected here and NOT real breakage,
+ * because plain `node --experimental` `import()` (no bundler) can never
+ * satisfy them the way a real consumer's build does:
+ *
+ * - `next/*` bare specifiers (e.g. `next/navigation`, `next/dynamic`):
+ *   Next.js ships no `exports` map, so Node's ESM resolver — unlike
+ *   Webpack/Turbopack, and unlike CommonJS `require` — refuses to guess the
+ *   `.js` extension for an extensionless bare-specifier subpath. Real
+ *   consumer apps always go through Next's own bundler, which resolves
+ *   these fine; this script's bare-Node harness cannot.
+ * - `@intl-config`: an intentional virtual alias every consuming app must
+ *   point at its own `RoutingConfig` file via tsconfig paths / bundler
+ *   alias (see `src/config/intl_config.ts` and the README "Setup" step 2)
+ *   — it is never a real, installable module, so it can never resolve
+ *   outside a consumer's own aliased build.
+ *
+ * Anything else — a missing dist file, a broken relative import, a syntax
+ * error — still fails the check below.
+ */
+function isExpectedConsumerContextFailure(error) {
+  const message = String(error.message ?? '');
+  if (error.code === 'ERR_MODULE_NOT_FOUND' && /[\\/]node_modules[\\/]next[\\/]/.test(message)) return true;
+  if (error.code === 'ERR_INVALID_MODULE_SPECIFIER' && message.includes('@intl-config')) return true;
+  return false;
+}
+
 const failures = [];
+const skipped = [];
 let checked = 0;
 
 for (const [subpath, entry] of Object.entries(pkg.exports ?? {})) {
   for (const target of targets(entry)) {
     checked++;
-    const url = pathToFileURL(resolve(root, target)).href;
+    const file = resolve(root, target);
+    if (!existsSync(file)) {
+      failures.push({ subpath, target, code: 'ENOENT', message: 'dist file does not exist — did the build run?' });
+      continue;
+    }
+    const url = pathToFileURL(file).href;
     try {
       await import(url);
     } catch (error) {
-      failures.push({ subpath, target, code: error.code ?? 'ERROR', message: String(error.message).split('\n')[0] });
+      const record = { subpath, target, code: error.code ?? 'ERROR', message: String(error.message).split('\n')[0] };
+      if (isExpectedConsumerContextFailure(error)) skipped.push(record);
+      else failures.push(record);
     }
   }
 }
@@ -38,4 +73,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`OK: all ${checked} export targets import cleanly`);
+console.log(
+  `OK: ${checked - skipped.length}/${checked} export targets import cleanly` +
+    (skipped.length > 0 ? ` (${skipped.length} skipped — require a consumer app's bundler/alias, see script comment)` : ''),
+);
