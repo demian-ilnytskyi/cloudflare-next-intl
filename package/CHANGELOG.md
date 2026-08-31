@@ -3,6 +3,30 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.6] - 2026-08-31
+
+### Fixed
+
+- **`withUserDb` (postgres/connection-string mode) could leak session state across Hyperdrive connection-pool reuse**:
+  `set_config('request.jwt.claims', …)` was called with `is_local = false`
+  (session-scoped) and `set role` was used instead of `set local role`
+  (also session-scoped). Both settings survived `COMMIT`/`ROLLBACK` and
+  could be observed by a later request that reused the same pooled
+  connection. Fixed by switching to `set_config(…, true)` (transaction-local)
+  and `set local role` so both settings expire automatically at transaction
+  end. An explicit `RESET ROLE` is now also issued in a `finally` block as
+  belt-and-suspenders before the connection returns to the pool.
+
+- **`withUserDb` `.transaction()` callback (postgres mode) ran without RLS identity**:
+  `runPostgresTransaction` opened its own `BEGIN`/`COMMIT` directly on
+  `rawClient` but never called `setSessionState`, so `request.jwt.claims`
+  and the authenticated role were never set inside that transaction — RLS
+  policies saw no user identity. `setSessionState` is now threaded into
+  `runPostgresTransaction` and called immediately after `BEGIN`.
+
+- **Dead `isSelectOnly` helper removed** after the proxy simplification left
+  it with no call sites.
+
 ## [0.9.5] - 2026-08-31
 
 ### Fixed

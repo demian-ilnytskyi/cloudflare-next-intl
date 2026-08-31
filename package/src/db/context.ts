@@ -98,10 +98,14 @@ async function supabaseDb(supabase: SupabaseDbConfig, bearerToken: string): Prom
  * collecting `ExecResult[]`. Both modes therefore share the identical
  * callback shape — callers never need to detect the transport themselves.
  */
-async function postgresDb(drizzleHandle: NodePgDatabase<Record<string, never>>, rawClient: { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> }): Promise<DrizzleDb> {
+async function postgresDb(
+    drizzleHandle: NodePgDatabase<Record<string, never>>,
+    rawClient: { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> },
+    setSessionState?: () => Promise<void>,
+): Promise<DrizzleDb> {
     return Object.assign(drizzleHandle as unknown as DrizzleDb, {
         async transaction(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): Promise<ExecResult[]> {
-            return runPostgresTransaction(rawClient, build);
+            return runPostgresTransaction(rawClient, build, setSessionState);
         },
     });
 }
@@ -118,10 +122,12 @@ async function postgresDb(drizzleHandle: NodePgDatabase<Record<string, never>>, 
 async function runPostgresTransaction(
     rawClient: { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> },
     build: (db: DrizzleDb) => Promise<Query[]> | Query[],
+    setSessionState?: () => Promise<void>,
 ): Promise<ExecResult[]> {
     const queries = await callBuild(build);
     await rawClient.query('begin');
     try {
+        if (setSessionState) await setSessionState();
         const results: ExecResult[] = [];
         for (const q of queries) {
             const statement = inlineParams(q.sql, q.params as unknown[]);
@@ -133,6 +139,8 @@ async function runPostgresTransaction(
     } catch (error) {
         await rawClient.query('rollback').catch(() => undefined);
         throw error;
+    } finally {
+        if (setSessionState) await rawClient.query('reset role').catch(() => undefined);
     }
 }
 
@@ -202,7 +210,7 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>, dbOverr
         const drizzleHandle = drizzle(client) as unknown as NodePgDatabase<Record<string, never>>;
         
         return await fn(await postgresDb(drizzleHandle, client));
-    });
+    }); // no setSessionState — public role, no identity needed
 }
 
 function injectUidComment(sql: unknown, userId: string): unknown {
@@ -219,11 +227,6 @@ function injectUidComment(sql: unknown, userId: string): unknown {
         }
     }
     return sql;
-}
-
-function isSelectOnly(sql: unknown): boolean {
-    const text = typeof sql === 'string' ? sql : (sql as { text?: unknown })?.text;
-    return typeof text === 'string' && /^(select|with)\b/i.test(text.trimStart());
 }
 
 /**
@@ -259,17 +262,23 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
         const rawClient = client as unknown as { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }> };
 
         const setSessionState = async () => {
-            await rawClient.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: userId })]);
-            await rawClient.query(`set role "${role.replace(/"/g, '""')}"`);
+            await rawClient.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: userId })]);
+            await rawClient.query(`set local role "${role.replace(/"/g, '""')}"`);
         };
 
         let inTransaction = false;
-        let sessionStateSet = false;
         let gate: Promise<unknown> = Promise.resolve();
         const serialize = <R>(op: () => Promise<R>): Promise<R> => {
             const run = gate.then(op, op);
             gate = run.catch(() => undefined);
             return run;
+        };
+
+        const beginWithIdentity = async () => {
+            if (inTransaction) return;
+            await rawClient.query('begin');
+            inTransaction = true;
+            await setSessionState();
         };
 
         const interceptingClient = new Proxy(client, {
@@ -282,15 +291,7 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
 
                         if (isBegin) {
                             return await serialize(async () => {
-                                if (!sessionStateSet) {
-                                    await rawClient.query('begin');
-                                    inTransaction = true;
-                                    await setSessionState();
-                                    sessionStateSet = true;
-                                } else if (!inTransaction) {
-                                    await rawClient.query('begin');
-                                    inTransaction = true;
-                                }
+                                await beginWithIdentity();
                                 return { rows: [], rowCount: 0 };
                             });
                         }
@@ -306,25 +307,7 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
                             });
                         }
 
-                        await serialize(async () => {
-                            if (!sessionStateSet) {
-                                if (isSelectOnly(sql)) {
-                                    await rawClient.query('begin');
-                                    inTransaction = true;
-                                    await setSessionState();
-                                    await rawClient.query('commit');
-                                    inTransaction = false;
-                                } else {
-                                    await rawClient.query('begin');
-                                    inTransaction = true;
-                                    await setSessionState();
-                                }
-                                sessionStateSet = true;
-                            } else if (!inTransaction && !isSelectOnly(sql)) {
-                                await rawClient.query('begin');
-                                inTransaction = true;
-                            }
-                        });
+                        await serialize(beginWithIdentity);
 
                         const targetClient = target as unknown as { query: (...queryArgs: unknown[]) => unknown };
                         return targetClient.query(injectUidComment(sql, userId), ...args);
@@ -339,12 +322,18 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
         const drizzleHandle = drizzle(interceptingClient) as unknown as NodePgDatabase<Record<string, never>>;
 
         try {
-            const result = await fn(await postgresDb(drizzleHandle, interceptingClient as unknown as { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> }));
+            const result = await fn(await postgresDb(drizzleHandle, interceptingClient as unknown as { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> }, setSessionState));
             if (inTransaction) await rawClient.query('commit');
             return result;
         } catch (err) {
             if (inTransaction) await rawClient.query('rollback').catch(() => undefined);
             throw err;
+        } finally {
+            // Belt-and-suspenders: reset role before the connection returns to the pool.
+            // `set local role` already expires at commit/rollback, but an explicit reset
+            // matches the PR pattern and guards against any edge case where the
+            // transaction did not cleanly end.
+            await rawClient.query('reset role').catch(() => undefined);
         }
     });
 }
