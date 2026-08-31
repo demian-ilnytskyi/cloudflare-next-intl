@@ -54,7 +54,7 @@ export async function writeFixtureJpg(
     return target;
 }
 
-export async function hashDir(dir: string): Promise<Record<string, string>> {
+export async function hashDir(dir: string, exclude?: RegExp): Promise<Record<string, string>> {
     const result: Record<string, string> = {};
 
     async function walk(current: string): Promise<void> {
@@ -66,6 +66,7 @@ export async function hashDir(dir: string): Promise<Record<string, string>> {
                 continue;
             }
             const key = path.relative(dir, full).split(path.sep).join("/");
+            if (exclude?.test(key)) continue;
             result[key] = createHash("sha256").update(await readFile(full)).digest("hex");
         }
     }

@@ -49,9 +49,11 @@ describe("generated output is byte-stable", () => {
     });
 
     it("matches the recorded output snapshot", async () => {
+        // avif bytes vary by CPU arch (aom SIMD path), so they're excluded here;
+        // cross-run determinism is still covered by the test above.
         const root = await buildFixtureRoot();
         await run(root, fixtureOptions(), path.join(root, ".cache", "manifest.json"));
-        const hashes = await hashDir(path.join(root, "public", "generated"));
+        const hashes = await hashDir(path.join(root, "public", "generated"), /\.avif$/);
         expect(hashes).toMatchSnapshot();
     });
 });

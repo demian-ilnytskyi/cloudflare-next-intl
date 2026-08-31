@@ -3,19 +3,14 @@
 exports[`generated output is byte-stable > matches the recorded output snapshot 1`] = `
 {
   "images.json": "2210dc41182d533cf642d67586e37a77025d7788911f6bcbe0ec9e8a74cbd756",
-  "images/flat.avif": "614eefd33d5733060aff754ffca983100cc5b2a8664c220b039cb691e770602d",
   "images/flat.blur.webp": "b1c115dfee8e2d9260acb80a384c73aa84b0d5cd8edda582a629dcccb68981f9",
   "images/flat.webp": "efd0c2d3a9e43442a3f82698b62ce2b909bc69a5114ee1c142e331c02f54e58d",
-  "images/photo-400w.avif": "9ca954dc97e9202d0ace52420d661366f20fd6de6465448258bde1aa1f357557",
   "images/photo-400w.blur.webp": "922c68bf4564cd38954eeddaa69aed5e8afcff72c437a07d3119b7e0a10a58bc",
   "images/photo-400w.webp": "9de02b6b4be94be1cddb622ebfb912bb4fb486d8b84ddabf0be9616c2d27aaca",
-  "images/photo-800w.avif": "6fbe48ab2448ad3f61f8e7e4adc89a65acc8fd53219b8d495f4de2136b7fb63b",
   "images/photo-800w.blur.webp": "922c68bf4564cd38954eeddaa69aed5e8afcff72c437a07d3119b7e0a10a58bc",
   "images/photo-800w.webp": "30e6779ce4f3e249a178185f7665113e47a2d519bcaf868e0dbd61e27ba3e3c6",
-  "images/photo.avif": "4468ca7db35621a23a5a3ef79214059a9e98ccabf967592310d1050882dfdee0",
   "images/photo.blur.webp": "922c68bf4564cd38954eeddaa69aed5e8afcff72c437a07d3119b7e0a10a58bc",
   "images/photo.webp": "7dcdef0c3fe15fc620fb6505f550291f7ca3c1456737d05a2fa9c02455d19505",
-  "images/tall.avif": "43136292f37bb5766a02e3a202c88bc45f8894685306acc9ffc5b404112c32da",
   "images/tall.blur.webp": "31e4ac5a7b878c12d49de59ebd0b14588a8fab0c36e71f902fe8730be5b01bdc",
   "images/tall.webp": "dfe884c5b08169e7a43417d855420e6fd0cd739e1817d01ef06a82b9562c9a30",
 }
