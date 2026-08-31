@@ -10,7 +10,8 @@
     "cfni-db-codegen": "bin/db_codegen.mjs",
     "cfni-db-install-exec": "bin/db_install_exec.mjs",
     "cfni-image-optimizer": "bin/image_optimizer.mjs",
-    "optimize-images": "bin/image_optimizer.mjs"
+    "optimize-images": "bin/image_optimizer.mjs",
+    "cfni-check-dynamic-pages": "bin/check_dynamic_pages.mjs"
   },
   "files": [
     "dist",
@@ -224,6 +225,10 @@
     "./sendTransactionalEmail": {
       "types": "./dist/src/cloudflare_email/send_transactional_email.d.ts",
       "import": "./dist/src/cloudflare_email/send_transactional_email.js"
+    },
+    "./checkDynamicPages": {
+      "types": "./dist/src/dynamic_pages_check/index.d.ts",
+      "import": "./dist/src/dynamic_pages_check/index.js"
     },
     "./db": {
       "types": "./dist/src/db/index.d.ts",

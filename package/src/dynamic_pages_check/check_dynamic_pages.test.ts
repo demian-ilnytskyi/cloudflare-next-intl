@@ -57,6 +57,19 @@ describe('checkDynamicPages', () => {
         expect(written).toEqual({});
     });
 
+    it('mode "report" reports "would-add-force-dynamic" for a page that uses cookies()', async () => {
+        const { io } = makeIo({
+            '/app/errors/page.tsx': 'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n',
+        });
+        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'report' }, io);
+        expect(reports).toEqual([{ file: '/app/errors/page.tsx', action: 'would-add-force-dynamic' }]);
+    });
+
+    it('uses real fs/findPageFiles when no io overrides are given', async () => {
+        const reports = await checkDynamicPages({ appDir: '/definitely-does-not-exist-xyz', mode: 'report' });
+        expect(reports).toEqual([]);
+    });
+
     it('skips every file listed in `skip`, without reading or writing it', async () => {
         const { io, written } = makeIo({
             '/app/errors/page.tsx': 'export default function Page() {}',
