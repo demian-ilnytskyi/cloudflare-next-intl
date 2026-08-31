@@ -10,6 +10,22 @@ import resolveRawSql from './resolve_raw_sql.js';
 import { parseExecResult } from './supabase_transport.js';
 import { excluded, onConflictSet } from './helpers.js';
 import { pgTable, text, integer, timestamp } from 'drizzle-orm/pg-core';
+import executeRest from './rest_execute.js';
+import type { RestClient } from './rest_client.js';
+
+function stubRestClient(data: unknown) {
+    const builder: Record<string, unknown> = {};
+    const proxy = new Proxy(builder, {
+        get(_target, method: string) {
+            if (method === 'then') {
+                return (onfulfilled: (value: unknown) => unknown) =>
+                    Promise.resolve(onfulfilled({ data, error: null, count: Array.isArray(data) ? data.length : null }));
+            }
+            return () => proxy;
+        },
+    });
+    return { from: () => proxy, rpc: () => proxy } as unknown as RestClient;
+}
 
 describe('DB Module Branch Benchmarks', () => {
     const complexSql = 'SELECT id, name, email, created_at FROM users WHERE status = $1 AND age >= $2 AND role IN ($3, $4) ORDER BY created_at DESC LIMIT $5 OFFSET $6';
@@ -136,6 +152,41 @@ describe('DB Module Branch Benchmarks', () => {
     describe('resolveRawSql', () => {
         bench('Next.config lookup', () => {
             resolveRawSql('/Volumes/External/own_projects/cloudflare-next-intl');
+        });
+    });
+
+    // 11. executeRest
+    describe('executeRest', () => {
+        const selectClient = stubRestClient([
+            { id: 1, name: 'a', email: 'a@x.com' },
+            { id: 2, name: 'b', email: 'b@x.com' },
+            { id: 3, name: 'c', email: 'c@x.com' },
+        ]);
+        const selectStatement = {
+            kind: 'select' as const,
+            table: 'users',
+            projection: [{ column: 'id' }, { column: 'name' }, { column: 'email' }],
+            orderBy: [],
+        };
+
+        const insertClient = stubRestClient([{ id: 7 }]);
+        const insertStatement = {
+            kind: 'insert' as const,
+            table: 'users',
+            columns: ['name', 'email'],
+            rows: [
+                [{ kind: 'literal' as const, value: 'John Doe' }, { kind: 'literal' as const, value: 'john@example.com' }],
+                [{ kind: 'literal' as const, value: 'Jane Doe' }, { kind: 'literal' as const, value: 'jane@example.com' }],
+            ],
+            returning: [{ column: 'id' }],
+        };
+
+        bench('Select with 3-row result', async () => {
+            await executeRest(selectClient, selectStatement, []);
+        });
+
+        bench('Insert with 2 rows', async () => {
+            await executeRest(insertClient, insertStatement, []);
         });
     });
 });
