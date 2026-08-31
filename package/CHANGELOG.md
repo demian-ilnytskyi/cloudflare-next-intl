@@ -3,6 +3,20 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.11] - 2026-09-01
+
+### Fixed
+
+- **`withPublicDb` Postgres/Hyperdrive transport now sets `anon` role**: previously
+  the connection-string path ran as whatever Postgres user the Hyperdrive binding
+  authenticated with (typically a superuser), while the Supabase REST path ran as
+  `anon`. This meant RLS policies applied asymmetrically depending on which
+  transport was active. `withPublicDb` now issues `SET LOCAL ROLE anon` before
+  handing the client to your callback, so both transports are subject to identical
+  RLS rules. Callers that previously relied on the implicit superuser access in the
+  Hyperdrive path should switch to `withUserDb` (for user-scoped writes) or a
+  `SECURITY DEFINER` function (for trusted pre-auth writes).
+
 ## [0.9.10] - 2026-09-01
 
 ### Added

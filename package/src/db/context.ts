@@ -203,9 +203,17 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>, dbOverr
     return await withDbClient(config, async (client) => {
         const { drizzle } = await import('drizzle-orm/node-postgres');
         const drizzleHandle = drizzle(client) as unknown as NodePgDatabase<Record<string, never>>;
-        
+
+        // Mirror the Supabase-transport anon-key behaviour: drop to the `anon`
+        // role for the duration of this statement so RLS applies identically on
+        // both transports.  The connection-string user (often a superuser) is
+        // temporarily downgraded; it is reset by `discard all` in
+        // resetSessionState when the client is reused, or simply discarded with
+        // the client when the request ends.
+        await client.query(`set local role anon`);
+
         return await fn(await postgresDb(drizzleHandle, client));
-    }); // no setSessionState — public role, no identity needed
+    });
 }
 
 function injectUidComment(sql: unknown, userId: string): unknown {

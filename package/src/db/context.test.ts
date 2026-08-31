@@ -60,6 +60,11 @@ describe('withPublicDb', () => {
         expect(withDbClient).toHaveBeenCalledTimes(1);
     });
 
+    it('sets "anon" role before executing the callback in Postgres mode', async () => {
+        await withPublicDb(async () => 'ok');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role anon');
+    });
+
     it('throws when db config is missing', async () => {
         config.db = undefined;
         await expect(withPublicDb(async () => 1)).rejects.toThrow(/`db` is not set/);
@@ -477,6 +482,7 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
     it('withPublicDb: executes arrays perfectly matching PG responses', async () => {
         tx._clientQuery
             .mockResolvedValueOnce(makeQueryResult([]))
+            .mockResolvedValueOnce(makeQueryResult([]))
             .mockResolvedValueOnce(makeQueryResult([['row1'], ['row2']]))
             .mockResolvedValueOnce(makeQueryResult([]));
 
@@ -488,7 +494,7 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
 
         expect(result).toEqual([{ rows: [['row1'], ['row2']], rowCount: 2 }]);
         const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
-        expect(calls).toEqual(['begin', 'select id from t', 'commit']);
+        expect(calls).toEqual(['set local role anon', 'begin', 'select id from t', 'commit']);
     });
 
     it('the build callback in postgres mode also receives a build-only handle that throws on execute', async () => {

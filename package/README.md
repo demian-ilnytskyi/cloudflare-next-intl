@@ -940,9 +940,11 @@ allowed to see the rows; call `.transaction(...)` on the handle either one
 hands your callback when a write needs more than one statement to succeed or
 fail together (see [Multi-statement transactions](#multi-statement-transactions-dbtransaction) above):
 
-- `withPublicDb(fn, dbOverride?)` — runs `fn` as the anonymous role: a pooled
-  connection with no transaction/role switch in connection-string mode, or the
-  anon key as the PostgREST bearer token in Supabase mode. No user id is
+- `withPublicDb(fn, dbOverride?)` — runs `fn` as the `anon` Postgres role.
+  In connection-string mode (Hyperdrive) the connection-string user is
+  temporarily downgraded to `anon` via `SET LOCAL ROLE anon` before your
+  callback executes, so RLS policies apply identically to the Supabase-mode
+  path (where the anon key is the PostgREST bearer token). No user id is
   attached either way, so RLS policies that test `auth.jwt()->>'sub'` will
   deny access — use `withUserDb` for user-owned rows.
 - `withUserDb(fn, uid?, dbOverride?)` — runs `fn` as the signed-in user. In
