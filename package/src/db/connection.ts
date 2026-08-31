@@ -4,7 +4,7 @@ import type { DbRoutingConfig, ErrorHandlingRoutingConfig, FirebaseAuthRoutingCo
 import reportError from '../error_handling/report_error.js';
 import requireDbConfig from './require_config.js';
 import resolveConfigValue from './resolve_config_value.js';
-import { resolveEnv } from '../server/functions/geo.js';
+import { resolveHyperdriveConnectionString } from './resolve_hyperdrive_connection_string.js';
 
 const BENIGN_DISCONNECT_PATTERN = /(connection terminated|connection closed|socket closed|unexpected eof)/i;
 
@@ -37,10 +37,9 @@ async function resolveConnectionString(db: DbRoutingConfig, generate?: GenerateR
     const configured = await resolveConfigValue(db.connectionString);
     if (configured) return configured;
 
-    const env = await resolveEnv(generate);
-    const hyperdriveConn = (env?.HYPERDRIVE as { connectionString?: string } | undefined)?.connectionString;
-    if (hyperdriveConn && hyperdriveConn !== 'postgresql://user:pass@localhost:5432/db') {
-        return hyperdriveConn;
+    if (db.autoHyperdrive !== false) {
+        const hyperdriveConn = await resolveHyperdriveConnectionString(generate);
+        if (hyperdriveConn) return hyperdriveConn;
     }
 
     throw new Error(
