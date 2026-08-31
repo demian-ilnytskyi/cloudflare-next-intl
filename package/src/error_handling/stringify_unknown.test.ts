@@ -84,4 +84,31 @@ describe('stringifyUnknown', () => {
         const alwaysReturnsFunction = () => alwaysReturnsFunction;
         expect(stringifyUnknown(alwaysReturnsFunction, true)).toBe('[Function]');
     });
+
+    it('never calls a React-internal tagged reference (e.g. a temporary/client reference React substitutes for a value that could not cross the RSC boundary) — calling it is guaranteed to throw by design', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const temporaryReference = Object.defineProperties(
+            function unreachable() {
+                throw new Error('Attempted to call a temporary Client Reference from the server but it is on the client.');
+            },
+            { $$typeof: { value: Symbol.for('react.temporary.reference') } },
+        );
+
+        const result = stringifyUnknown(temporaryReference);
+
+        expect(result).toBe('[React internal reference could not be resolved to a value]');
+        expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('never calls a React-internal tagged reference nested inside the resolution loop', () => {
+        const temporaryReference = Object.defineProperties(
+            function unreachable() {
+                throw new Error('must not be called');
+            },
+            { $$typeof: { value: Symbol.for('react.temporary.reference') } },
+        );
+        const lazyWrapper = () => temporaryReference;
+
+        expect(stringifyUnknown(lazyWrapper)).toBe('[React internal reference could not be resolved to a value]');
+    });
 });

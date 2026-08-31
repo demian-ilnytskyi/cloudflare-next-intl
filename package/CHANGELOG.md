@@ -3,6 +3,32 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.4] - 2026-08-31
+
+### Fixed
+
+- **`stringifyUnknown` could crash a client error report with "Attempted to call a temporary Client Reference..." instead of reporting the real error**:
+  its `resolveFunctionError` helper unconditionally calls any function-typed
+  `error` value, to unwrap the "lazy error thunk" pattern (`() => new
+  Error(...)`). Under React Server Components, a render error that fails to
+  serialize across the server→client boundary intact can arrive at client
+  code (e.g. an error-boundary's `error` prop, `global-error.tsx`) as one of
+  React's own internally-tagged references (a temporary/client/server
+  reference — all carry a `$$typeof` marker, same as a React element) instead
+  of a real `Error`. Calling one of these is guaranteed to throw by design —
+  it exists to be rendered or passed through, never invoked — so
+  `resolveFunctionError` calling it produced exactly this crash, masking
+  whatever the *original* render error actually was. `stringifyUnknown` now
+  detects any function carrying a `$$typeof` property before attempting to
+  call it and returns a plain placeholder string instead, leaving genuine
+  lazy-error-thunk functions (ordinary functions, no `$$typeof`) unaffected.
+  Confirmed via a real Firefox-only repro against a live vinext (RSC-over-Vite)
+  dev server: the crash traced to `reportClientError` receiving exactly this
+  kind of tagged reference as its `error` argument, with the underlying
+  render failure being unrelated to this package (a `useId()` call inside a
+  consumer component evaluated outside a real render pass by the framework's
+  own internal static-analysis probe).
+
 ## [0.9.3] - 2026-08-31
 
 ### Fixed
