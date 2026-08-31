@@ -26,5 +26,11 @@ export {
     type ErrorsListResult,
     type ErrorsBoardResult,
 } from './errors_repository.js';
-export { createRequireErrorsAccess, type ErrorsAccessOptions } from './gate.js';
+export {
+    createRequireErrorsAccess,
+    createPasswordErrorsAccess,
+    type ErrorsAccessOptions,
+    type PasswordErrorsAccessOptions,
+    type PasswordErrorsAccess,
+} from './gate.js';
 export { createErrorsActions, type ErrorsActions, type ErrorsActionsOptions } from './actions_factory.js';

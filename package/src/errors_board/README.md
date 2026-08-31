@@ -12,6 +12,11 @@ import these pieces. Everything below is copy-paste-able.
 
 ## 1. Gate (`app/errors/gate.ts`)
 
+Two gate flavours ship with the board — pick one:
+
+**Firebase-email allowlist** — for an app that already has Firebase Auth
+sign-in wired up:
+
 ```ts
 import { createRequireErrorsAccess } from 'cloudflare-next-intl/errorsBoard';
 
@@ -21,6 +26,24 @@ export const requireErrorsAccess = createRequireErrorsAccess({
     // allowedEmails: (email) => email?.endsWith('@codinghouse.biz') ?? false,
 });
 ```
+
+**Shared password** — for an app with no per-user sign-in at all (the
+`allowedEmails` gate above is unsatisfiable there — `getAuthUser()` never
+resolves a user, so nobody could ever get in):
+
+```ts
+import { createPasswordErrorsAccess } from 'cloudflare-next-intl/errorsBoard';
+
+export const errorsAccess = createPasswordErrorsAccess({
+    password: process.env.ERRORS_PAGE_PASSWORD!,
+});
+```
+
+`createPasswordErrorsAccess` returns `{ hasAccess, requireAccess,
+verifyPassword, setAuthCookie }` — `requireAccess` slots into
+`createErrorsActions`/the pages below exactly like the Firebase gate's
+return value; `hasAccess`/`verifyPassword`/`setAuthCookie` back a login
+screen (see step 3b).
 
 ## 2. Actions (`app/errors/actions.ts`)
 
@@ -37,8 +60,16 @@ export const { loadErrors, setErrorStatus, deleteErrors, deleteAllResolved } = c
         if (!db) throw new Error('ERRORS_DB binding is not available');
         return db;
     },
-    requireAccess: requireErrorsAccess,
+    requireAccess: requireErrorsAccess, // or `errorsAccess.requireAccess` for the password gate
 });
+
+// Password gate only — the login action lives alongside the others since
+// it's the one action that runs *before* access is granted:
+export async function login(password: string): Promise<boolean> {
+    if (!(await errorsAccess.verifyPassword(password))) return false;
+    await errorsAccess.setAuthCookie();
+    return true;
+}
 ```
 
 ## 3. List page (`app/errors/page.tsx`)
@@ -81,6 +112,27 @@ export default async function ErrorsPage({ searchParams }: { searchParams: Promi
     );
 }
 ```
+
+### 3b. With the password gate instead
+
+Swap the `await requireErrorsAccess()` line for a branch that renders the
+login screen when access hasn't been granted yet:
+
+```tsx
+import { errorsAccess, login } from './actions'; // or wherever you export them
+import ErrorsLoginForm from 'cloudflare-next-intl/ErrorsLoginForm';
+
+// ...inside the page component, in place of `await requireErrorsAccess();`:
+if (!(await errorsAccess.hasAccess())) {
+    return <ErrorsLoginForm login={login} onSuccess={() => { /* e.g. router.refresh() from a client wrapper, or redirect() */ }} />;
+}
+```
+
+`ErrorsLoginForm` is a client component; a Server Component page can render
+it directly, but `onSuccess` needs a client-side effect (`router.refresh()`)
+to actually re-render past the gate after the cookie is set — the
+reference implementation wraps the whole login flow in a small client
+component for that reason.
 
 ## 4. Detail page (`app/errors/[id]/page.tsx`)
 
@@ -131,12 +183,13 @@ async function onError(params) {
 
 - `server/errors_repository.ts` — D1 schema + CRUD; no `@cloudflare/workers-types`
   dependency (a local `D1DatabaseLike` duck type).
-- `server/gate.ts` — `createRequireErrorsAccess`, built on this package's
-  own `getFirebaseAuthUser`.
+- `server/gate.ts` — `createRequireErrorsAccess` (built on this package's
+  own `getFirebaseAuthUser`) and `createPasswordErrorsAccess` (a
+  shared-secret cookie, for apps with no per-user sign-in at all).
 - `server/actions_factory.ts` — `createErrorsActions`, the four server
   actions the client components call.
 - `shared/error_ui_helpers.ts` — status labels/colors, relative/local time
   formatting (native `Intl`, no `luxon`), request-context parsing.
-- `client/*.tsx` — the five components above, each taking its data and
-  action functions as props rather than importing anything by a fixed
-  path, so the whole board can be mounted at any route.
+- `client/*.tsx` — the six components above (`ErrorsLoginForm` included),
+  each taking its data and action functions as props rather than importing
+  anything by a fixed path, so the whole board can be mounted at any route.

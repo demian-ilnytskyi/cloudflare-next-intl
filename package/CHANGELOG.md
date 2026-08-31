@@ -3,6 +3,18 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.9] - 2026-09-01
+
+### Added
+
+- **`errors_board`**: `createPasswordErrorsAccess` — a shared-password cookie gate
+  (`hasAccess`/`requireAccess`/`verifyPassword`/`setAuthCookie`), for apps with no
+  per-user Firebase sign-in flow at all — `createRequireErrorsAccess`'s
+  `allowedEmails` check is unsatisfiable there (`getAuthUser()` never resolves a
+  user), which would otherwise lock every admin out of their own error log.
+  `ErrorsLoginForm` (new client export, `cloudflare-next-intl/ErrorsLoginForm`)
+  is the login screen that pairs with it.
+
 ## [0.9.8] - 2026-09-01
 
 ### Added
