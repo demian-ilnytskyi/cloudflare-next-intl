@@ -3,6 +3,19 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.1] - 2026-08-31
+
+### Fixed
+
+- **`sharp` dependency range too narrow to dedupe**: widened from `^0.34.5` to `^0.34.5 || ^0.35.0`.
+  Pinned below `0.35.x`, this package's own `sharp` copy could never dedupe with a consumer's
+  other dependencies (e.g. `next`, `miniflare`) that resolve to `sharp@0.35.x`, leaving two
+  separate native `sharp`/`libvips` binaries installed side by side. On macOS this manifested as
+  an Objective-C runtime warning (`Class ... is implemented in both ... libvips-cpp.*.dylib`) from
+  the duplicate native libraries at process start. `sharp` is only used at build time in this
+  package (image optimizer script / Vite plugin, never bundled into the served app), so widening
+  the range is safe and lets npm dedupe to a single installed copy.
+
 ## [0.9.0] - 2026-08-31
 
 _Consolidates everything from 0.8.62 through the pre-release 0.9.1/0.9.2 iterations below into
