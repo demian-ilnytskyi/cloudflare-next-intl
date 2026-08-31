@@ -3,7 +3,7 @@
 import type { TranslationObject } from "../../types/types.js";
 import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
 import { createContext, useMemo } from "react";
-import dynamic from "next/dynamic";
+import dynamic from "next/dynamic.js";
 import config from "@intl-config";
 import type { CookieConsentAnalyticsConfig, AutoAnalyticsEventsConfig } from "../../types/types.js";
 import type { CookieConsentDialogProps } from "../../cookie_consent/client/components/cookie_consent_dialog.js";

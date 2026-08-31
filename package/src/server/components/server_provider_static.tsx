@@ -1,7 +1,7 @@
 import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
 import { getMessage } from "../functions/server.js";
 import type { TranslationObject } from "../../types/types.js";
-import dynamic from "next/dynamic";
+import dynamic from "next/dynamic.js";
 import { localesSet } from "../../config/middleware.js";
 import config from "../../config/intl_config.js";
 import type { CookieConsentAnalyticsConfig } from "../../types/types.js";
@@ -62,7 +62,7 @@ const LocationzationClientProvider = dynamic(
  */
 export default async function LocationzationProvider({ language, messages, children }: { language: string, messages?: TranslationObject, children: React.ReactNode }): Promise<Component> {
     if (!localesSet.has(language)) {
-        const { notFound } = await import("next/navigation");
+        const { notFound } = await import("next/navigation.js");
         notFound();
     }
 

@@ -11,7 +11,7 @@ import stringifyUnknown from './stringify_unknown.js';
  */
 async function resolveRequestContext(): Promise<{ path?: string; userAgent?: string; referer?: string }> {
     try {
-        const { headers } = await import('next/headers');
+        const { headers } = await import('next/headers.js');
         const headerList = await headers();
         return {
             path: headerList.get('x-pathname') ?? undefined,

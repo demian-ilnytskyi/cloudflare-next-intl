@@ -20,12 +20,6 @@ function targets(entry) {
  * because plain `node --experimental` `import()` (no bundler) can never
  * satisfy them the way a real consumer's build does:
  *
- * - `next/*` bare specifiers (e.g. `next/navigation`, `next/dynamic`):
- *   Next.js ships no `exports` map, so Node's ESM resolver — unlike
- *   Webpack/Turbopack, and unlike CommonJS `require` — refuses to guess the
- *   `.js` extension for an extensionless bare-specifier subpath. Real
- *   consumer apps always go through Next's own bundler, which resolves
- *   these fine; this script's bare-Node harness cannot.
  * - `@intl-config`: an intentional virtual alias every consuming app must
  *   point at its own `RoutingConfig` file via tsconfig paths / bundler
  *   alias (see `src/config/intl_config.ts` and the README "Setup" step 2)
@@ -37,7 +31,6 @@ function targets(entry) {
  */
 function isExpectedConsumerContextFailure(error) {
   const message = String(error.message ?? '');
-  if (error.code === 'ERR_MODULE_NOT_FOUND' && /[\\/]node_modules[\\/]next[\\/]/.test(message)) return true;
   if (error.code === 'ERR_INVALID_MODULE_SPECIFIER' && message.includes('@intl-config')) return true;
   return false;
 }

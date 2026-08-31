@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.9.7
+
+### Fixed
+
+- All internal `next/*` imports are now fully specified (`next/image.js`, `next/dynamic.js`, `next/headers.js`, `next/navigation.js`, `next/server.js`, `next/link.js`). This package is `"type": "module"` while Next.js publishes no `exports` map, so Node's ESM resolver refused to guess the `.js` extension for an extensionless bare subpath. Consumers whose test runner resolved this package as an external ESM dependency (e.g. Vitest without inlining) failed with `Cannot find module '.../node_modules/next/image' ... Did you mean to import "next/image.js"?`. Next's bundler explicitly aliases the fully specified form, so app builds are unaffected.
+
+### Note for consumers
+
+`@intl-config` remains a bundler-only virtual alias and cannot be resolved by Node for an externalized dependency. If your test runner resolves `cloudflare-next-intl` as external, inline it so your alias applies:
+
+```ts
+// vitest.config.ts
+export default defineConfig({
+    resolve: { alias: { '@intl-config': path.resolve(__dirname, 'src/i18n/intl_config') } },
+    test: {
+        server: { deps: { inline: ['cloudflare-next-intl'] } },
+    },
+});
+```
+
 ## 0.8.59
 
 ### Fixed

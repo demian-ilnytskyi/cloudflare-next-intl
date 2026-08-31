@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server.js';
 import config from '@intl-config';
 import decodeJwtPayload from '../decode_jwt_payload.js';
 import isWhitelisted from '../is_whitelisted.js';

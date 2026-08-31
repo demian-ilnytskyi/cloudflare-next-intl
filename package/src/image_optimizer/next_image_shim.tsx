@@ -1,6 +1,6 @@
 import React from "react";
-import NextImage, { getImageProps as nextGetImageProps } from "next/image";
-import type { ImageProps } from "next/image";
+import NextImage, { getImageProps as nextGetImageProps } from "next/image.js";
+import type { ImageProps } from "next/image.js";
 import { getImageBlurSvg } from "./blur_svg.js";
 import { ImgWithFallback } from "./img_with_fallback.js";
 import type { OptimizedImage, OptimizedImageVariant } from "./types.js";

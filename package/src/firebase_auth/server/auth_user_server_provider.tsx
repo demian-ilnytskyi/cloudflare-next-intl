@@ -1,6 +1,6 @@
-import dynamic from 'next/dynamic';
-import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import dynamic from 'next/dynamic.js';
+import { headers } from 'next/headers.js';
+import { redirect } from 'next/navigation.js';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config.js';
 import { getAuthenticatedAppForUser } from './firebase_server.js';

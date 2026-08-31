@@ -1,6 +1,6 @@
 'use client';
 
-import NextLink from 'next/link';
+import NextLink from 'next/link.js';
 import config from '../../../config/intl_config.js';
 import { getLocaleCache } from '../../../general/cache_variables.js';
 

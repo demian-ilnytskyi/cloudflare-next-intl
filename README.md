@@ -65,6 +65,50 @@ See [`example/`](example) for a full working Next.js app using the package.
 
 ---
 
+## Testing Setup (Vitest / Jest)
+
+This package resolves your app's routing config through the bare `@intl-config`
+specifier. It is a **virtual alias**, not a real module — your bundler supplies
+it. Next.js does this via the alias you configure, but a test runner needs the
+same mapping, plus one extra step.
+
+Point the alias at your config file **and inline the package**:
+
+```ts
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+import path from "node:path";
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      "@intl-config": path.resolve(__dirname, "src/i18n/intl_config"),
+    },
+  },
+  test: {
+    // Required. Vite's `resolve.alias` does NOT apply to an externalized
+    // dependency — Node resolves it directly and rejects `@intl-config` with
+    // `Invalid module "@intl-config" is not a valid package name`. Inlining
+    // routes the package through Vite so the alias above reaches it.
+    server: { deps: { inline: ["cloudflare-next-intl"] } },
+  },
+});
+```
+
+Without `deps.inline`, any test that transitively imports this package fails to
+collect. Symptoms:
+
+| Error | Cause |
+| --- | --- |
+| `Invalid module "@intl-config" is not a valid package name` | Package not inlined, so the alias never applies. |
+| `Cannot find module '.../node_modules/next/image'` | Older versions (< 0.9.7) shipped extensionless `next/*` imports. Upgrade. |
+
+If your tests render components, also make sure `react`, `react-dom` and `next`
+resolve to a single copy — a linked or duplicated install causes
+`Cannot read properties of null (reading 'useContext')`.
+
+---
+
 ## Package Exports
 
 | Subpath | Purpose |

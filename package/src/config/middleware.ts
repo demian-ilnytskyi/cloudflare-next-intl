@@ -1,5 +1,5 @@
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server.js';
+import { NextResponse } from 'next/server.js';
 import { languageDetecotr } from '../server/functions/get_user_locale.js';
 import type { CookieAttributes, MiddlewareCustomHandler } from '../types/types.js';
 import config from './intl_config.js';

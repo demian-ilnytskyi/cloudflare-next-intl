@@ -1,4 +1,4 @@
-import type { NextResponse } from 'next/server';
+import type { NextResponse } from 'next/server.js';
 import type { Languages } from 'next/dist/lib/metadata/types/alternative-urls-types';
 import type { Videos } from 'next/dist/lib/metadata/types/metadata-types';
 import type { CookieConsentDialogProps } from '../cookie_consent/client/components/cookie_consent_dialog.js';

@@ -2,7 +2,7 @@ import type { FirebaseApp } from '@firebase/app';
 import type * as FirebaseAppModule from '@firebase/app';
 import type { User } from '@firebase/auth';
 import type * as FirebaseAuthModule from '@firebase/auth';
-import { cookies } from 'next/headers';
+import { cookies } from 'next/headers.js';
 import { cache } from 'react';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config.js';

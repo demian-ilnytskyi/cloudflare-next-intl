@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation.js';
 import config from '../../config/intl_config.js';
 import requireCookieConsentConfig from '../require_config.js';
 import getCookie from '../../client/functions/get_cookie.js';

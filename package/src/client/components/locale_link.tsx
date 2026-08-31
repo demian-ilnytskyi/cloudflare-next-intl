@@ -1,6 +1,6 @@
 
 
-import { type LinkProps } from 'next/link';
+import { type LinkProps } from 'next/link.js';
 import {
     forwardRef,
     Suspense,

@@ -1,4 +1,4 @@
-import LinkComponent, { type LinkProps } from 'next/link';
+import LinkComponent, { type LinkProps } from 'next/link.js';
 import {
     forwardRef,
     type ComponentProps,

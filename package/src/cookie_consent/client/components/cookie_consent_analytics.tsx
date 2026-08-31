@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import dynamic from 'next/dynamic';
+import dynamic from 'next/dynamic.js';
 import useCookieConsent from '../use_cookie_consent.js';
 import type { CookieConsentAnalyticsConfig } from '../../../types/types.js';
 

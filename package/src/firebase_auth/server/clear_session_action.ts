@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies } from "next/headers.js";
 import config from "@intl-config";
 import { defaultRefreshTokenCookieName, defaultSessionCookieName } from "../middleware/update_session.js";
 

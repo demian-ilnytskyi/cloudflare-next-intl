@@ -6,7 +6,7 @@ import { getLocaleCache, getMessageCache, getTranslationCache, setLocaleCache, s
 import { cache } from "react";
 import { localesSet } from "../../config/middleware.js";
 import reportError from "../../error_handling/report_error.js";
-import type * as NextHeadersModule from "next/headers";
+import type * as NextHeadersModule from "next/headers.js";
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -33,7 +33,7 @@ async function iGetMessage(locale: string): Promise<TranslationObject> {
             setMessageForLocaleCache(locale, messages);
         } catch {
             if (!localesSet.has(locale)) {
-                const { notFound } = await import("next/navigation");
+                const { notFound } = await import("next/navigation.js");
                 notFound();
                 return {};
             }
@@ -118,7 +118,7 @@ async function iGetLocale(): Promise<string> {
         // This ensures it's loaded only on the server where cookies are accessible,
         // preventing client-side import errors and reducing bundle size.
         if (!nextHeadersModule) {
-            nextHeadersModule = await import("next/headers");
+            nextHeadersModule = await import("next/headers.js");
         }
         const cookieStore = await nextHeadersModule.cookies();
         const localeCookie = cookieStore.get(localeCookieName);

@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation.js';
 import { useReportWebVitals } from 'next/web-vitals';
 import { useEffect } from 'react';
 import useCookieConsent from '../use_cookie_consent.js';

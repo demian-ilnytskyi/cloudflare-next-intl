@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation.js';
 import usePathname from '../../client/hooks/use_path_name.js';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config.js';

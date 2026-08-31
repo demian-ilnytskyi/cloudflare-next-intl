@@ -10,7 +10,7 @@ import config from '../../config/intl_config.js';
 import usePathname from '../hooks/use_path_name.js';
 import { localeCookieName } from '../../config/cookie_key.js';
 import setCookie from '../functions/set_cookie.js';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation.js';
 import type { LocaleLinkProps } from './locale_link.js';
 
 

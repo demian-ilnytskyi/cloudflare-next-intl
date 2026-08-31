@@ -73,7 +73,7 @@ export async function getCountry(
     }
 
     try {
-        const { headers } = await import('next/headers');
+        const { headers } = await import('next/headers.js');
         const h = await headers();
         const country = extractFromHeaderNames(h, names);
         if (country) return country;
@@ -142,7 +142,7 @@ export async function getTimezone(
     }
 
     try {
-        const { headers } = await import('next/headers');
+        const { headers } = await import('next/headers.js');
         const h = await headers();
         const tz = extractFromHeaderNames(h, names);
         if (tz) return tz;
