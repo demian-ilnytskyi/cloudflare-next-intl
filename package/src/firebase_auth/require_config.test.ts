@@ -40,6 +40,12 @@ function walk(dir: string): string[] {
 }
 
 describe('firebase_auth dependency surface', () => {
+    // @firebase/* must stay peerDependencies, not dependencies — a bundled copy
+    // would resolve independently of the consumer's own `firebase` install and
+    // silently create a second, untracked Firebase app (see the doc comment on
+    // getFirebaseAuthClient in client/firebase_client.ts for why). If this test
+    // is failing because you added @firebase/* back to `dependencies`, that's
+    // very likely a regression, not a fix — see CHANGELOG.md 0.9.0.
     it('peers on the scoped @firebase entry points, not the firebase umbrella, so consumers share a single instance', () => {
         const pkg = JSON.parse(
             readFileSync(resolve(here, '../../package.json'), 'utf8'),

@@ -210,6 +210,16 @@ let cachedPromise: Promise<{ app: FirebaseApp; auth: Auth }> | undefined;
  * export never pull these packages into their bundle or runtime at all.
  * Throws if `firebaseAuth` is missing from `RoutingConfig` (see
  * `require_config.ts`) instead of silently no-op'ing.
+ *
+ * `getApps().length ? getApp() : initializeApp(...)` below only reuses the
+ * consumer's own Firebase app if `@firebase/app` resolves to the SAME module
+ * instance the consumer's `initializeApp()` call ran against — `_apps` is
+ * module-level state inside `@firebase/app`, not a global. That's why
+ * `@firebase/app`/`@firebase/auth`/`@firebase/app-check`/`@firebase/performance`
+ * are declared as `peerDependencies` (see package.json), never as regular
+ * `dependencies`: a bundled copy resolved independently of the consumer's own
+ * `firebase` install would silently `initializeApp()` a second, untracked app
+ * here instead of joining theirs, and auth state would stop being shared.
  */
 export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth: Auth }> {
     requireFirebaseAuthConfig(config.firebaseAuth);

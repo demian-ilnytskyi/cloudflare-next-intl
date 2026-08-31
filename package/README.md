@@ -456,6 +456,17 @@ export async function generateMetadata({ params }) {
 Set `firebaseAuth` on your `RoutingConfig` to enable — `IntlProvider` then
 auto-wires `AuthUserProvider` and server-side `getAuthUser` session validation.
 
+Requires `firebase` (or the scoped `@firebase/app` + `@firebase/auth` +
+`@firebase/app-check` + `@firebase/performance` packages) as a **peer**
+dependency — `npm install firebase` if you don't already have it. Declared as
+a peer, not a bundled dependency, so your own `firebase` install is the one
+and only copy that gets used: `@firebase/app` keeps its app registry
+(`getApps()`/`initializeApp()`) as module-level state, so a second, separately
+installed copy would silently initialize its own untracked Firebase app
+instead of joining yours. All `firebase_auth*` subpaths load their Firebase
+imports lazily (dynamic `import()`), so nothing is pulled in — installed or
+bundled — for apps that never set `firebaseAuth`.
+
 Features include:
 - `whiteListPaths`: Array of paths exempt from auth redirects (matches exact path or path-segment prefix, e.g. `/bonds` matches `/bonds/some-slug`).
 - `actionLinkPath`: Pinned route for handling Firebase action links (e.g. `/auth/action`), prioritized during cross-origin action link redirects.

@@ -37,6 +37,14 @@ other subpath can be used.
 
 ## `firebaseAuth*` subpaths (require `firebaseAuth` set on your `RoutingConfig`)
 
+`@firebase/app`/`@firebase/auth`/`@firebase/app-check`/`@firebase/performance` are
+**peerDependencies** (install `firebase`, not the scoped packages directly, unless
+you already do) — never add them as a hard dependency of this package or a
+consumer's own package. `@firebase/app` holds its app registry as module-level
+state, so a second, independently-resolved copy silently starts its own untracked
+registry instead of joining the consumer's `getApps()`/`initializeApp()` — auth
+state then isn't shared. Peer resolution guarantees one shared copy instead.
+
 - `./firebaseAuthClient` — lazy Firebase client SDK getter.
 - `./firebaseAuthClientProvider` — `AuthUserProvider`: client auth-state provider (session cookie sync, auth-page redirects).
 - `./firebaseAuthServerProvider` — server-side equivalent provider (not used by the default auto-wiring path — see its doc comment).

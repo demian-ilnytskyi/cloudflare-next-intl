@@ -3,7 +3,32 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.9.1] - 2026-08-31
+## [0.9.0] - 2026-08-31
+
+_Consolidates everything from 0.8.62 through the pre-release 0.9.1/0.9.2 iterations below into
+one release — none of those intermediate version numbers were ever published to npm (registry
+tops out at 0.8.61), so they're folded into this single 0.9.0 entry rather than kept as
+separately-published steps._
+
+### Fixed
+
+- **Firebase packages declared as `peerDependencies`, not `dependencies`**: `@firebase/app`,
+  `@firebase/auth`, `@firebase/app-check`, and `@firebase/performance` (initially introduced as
+  hard dependencies further down this entry) are peer dependencies with widened `0.x`/`1.x`
+  ranges, matching what `@firebase/auth`/`@firebase/app-check` already require of `@firebase/app`
+  themselves. As hard dependencies pinned to narrow ranges (`^0.15.0`, `^0.11.0`), any consumer
+  who also installs `firebase` directly — the normal case for anyone using `firebaseAuth` — could
+  end up with a second, incompatible copy of `@firebase/app` once their own `firebase` version
+  shipped a newer scoped release (e.g. `firebase@12.15.0`+ ships `@firebase/app@0.15.0`+,
+  `firebase@12.17.0`+ ships `0.16.0`, outside the old `^0.15.0` range). `@firebase/app` keeps its
+  registry (`_apps`, `_components`) as module-level state, so two copies means two independent
+  registries: the consumer's own `initializeApp()`/`getApps()` calls become invisible to this
+  package's `getFirebaseAuthClient()`, which then silently initializes a second Firebase app
+  instead of reusing theirs — auth state stops being shared between the two. Peer dependencies
+  dedupe against whatever `firebase`/`@firebase/*` version the consumer already has installed,
+  closing that gap. No change for consumers whose installed `@firebase/*` versions already
+  satisfy `0.x`/`1.x` (i.e. almost everyone) — npm resolves the peer against their existing
+  copies with no new install and no manual `package.json` edit required.
 
 ### Performance
 
@@ -52,11 +77,11 @@ noise floor (single-digit-microsecond ops, ±2-6% RME); the second case's appare
 regression is attributable to run-to-run bench noise, not the code change, since it does
 strictly fewer decodes than before, never more. The correctness win — exactly-once decode
 per token per request — is the primary deliverable of that change.
-
-## [0.9.0] - 2026-08-30
-
-### Performance
-
+- Cut the installed dependency footprint from **398 MB to 243 MB** replacing the `firebase`
+  umbrella with the four scoped `@firebase/*` entry points the package actually imports —
+  every Firebase import was already `import type` or a dynamic `import()`, so this only
+  changed the module specifiers. Declared as `peerDependencies` (see Fixed, above), not
+  bundled — no install-size change for consumers who don't use `firebaseAuth`.
 - **Image optimizer: single decode, parallel encodes**: `processImage` now reads and decodes the
   source file once per image instead of once per encoded format/width, and encodes sibling
   formats and extra-width variants concurrently instead of sequentially. The blur placeholder is
@@ -83,17 +108,6 @@ per token per request — is the primary deliverable of that change.
   through to `avif`/`webp`/`png`/`heif`/`jxl` encoding. Default: `undefined`, meaning each
   format's own sharp default — existing behavior and output bytes are unchanged unless set.
   Not scanned from `<Image>` JSX props; set it via `overrides` or the global option.
-
-## [0.8.62] - 2026-08-30
-
-### Performance
-
-- Cut the installed dependency footprint from **398 MB to 243 MB** with no
-  change to the public API. Replaced the `firebase` umbrella with the four
-  scoped `@firebase/*` entry points the package actually imports — every
-  Firebase import was already `import type` or a dynamic `import()`, so
-  this only changes the module specifiers and the declared dependency.
-  Consumers get this by upgrading; no code changes required.
 
 ## [0.8.61] - 2026-08-30
 
