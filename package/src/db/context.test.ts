@@ -74,13 +74,13 @@ describe('withUserDb', () => {
             return 'ok';
         }, 'uid-1');
         expect(tx._clientQuery).toHaveBeenCalledWith(
-            `select set_config('request.jwt.claims', $1, false)`,
+            `select set_config('request.jwt.claims', $1, true)`,
             [JSON.stringify({ sub: 'uid-1' })],
         );
-        expect(tx._clientQuery).toHaveBeenCalledWith('set role "authenticated"');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role "authenticated"');
     });
 
-    it('runs a lone select-only query in its own short-lived begin/commit, then commits the outer call cleanly', async () => {
+    it('runs a lone select-only query inside a transaction with identity set, then commits', async () => {
         tx._clientQuery.mockResolvedValue({ rows: [], rowCount: 0 });
         await withUserDb(async (db) => {
             const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
@@ -90,10 +90,11 @@ describe('withUserDb', () => {
         const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
         expect(calls).toEqual([
             'begin',
-            `select set_config('request.jwt.claims', $1, false)`,
-            'set role "authenticated"',
-            'commit',
+            `select set_config('request.jwt.claims', $1, true)`,
+            'set local role "authenticated"',
             '/* uid:uid-1 */ select * from users',
+            'commit',
+            'reset role',
         ]);
     });
 
@@ -110,11 +111,12 @@ describe('withUserDb', () => {
         const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
         expect(calls).toEqual([
             'begin',
-            `select set_config('request.jwt.claims', $1, false)`,
-            'set role "authenticated"',
+            `select set_config('request.jwt.claims', $1, true)`,
+            'set local role "authenticated"',
             'insert into users (id) values (1)',
             '/* uid:uid-1 */ select * from users',
             'commit',
+            'reset role',
         ]);
     });
 
@@ -192,7 +194,7 @@ describe('withUserDb', () => {
             if (client) await client.query('select 1');
             return 'ok';
         }, 'uid-1');
-        expect(tx._clientQuery).toHaveBeenCalledWith('set role "custom_role"');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role "custom_role"');
     });
 
     it('uses the firebase id token role claim over authenticatedRole when both are present', async () => {
@@ -207,7 +209,7 @@ describe('withUserDb', () => {
             if (client) await client.query('select 1');
             return 'ok';
         }, 'firebase-uid');
-        expect(tx._clientQuery).toHaveBeenCalledWith('set role "claim_role"');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role "claim_role"');
     });
 
     it('reads the role from a custom authenticatedRoleClaim field name', async () => {
@@ -222,7 +224,7 @@ describe('withUserDb', () => {
             if (client) await client.query('select 1');
             return 'ok';
         }, 'firebase-uid');
-        expect(tx._clientQuery).toHaveBeenCalledWith('set role "custom_claim_role"');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role "custom_claim_role"');
     });
 
     it('falls back to authenticatedRole when authenticatedRoleClaim is false, even with firebaseAuth configured', async () => {
@@ -237,7 +239,7 @@ describe('withUserDb', () => {
             if (client) await client.query('select 1');
             return 'ok';
         }, 'firebase-uid');
-        expect(tx._clientQuery).toHaveBeenCalledWith('set role "fallback_role"');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role "fallback_role"');
         expect(getAuthUser).not.toHaveBeenCalled();
     });
 
@@ -253,7 +255,7 @@ describe('withUserDb', () => {
             if (client) await client.query('select 1');
             return 'ok';
         }, 'firebase-uid');
-        expect(tx._clientQuery).toHaveBeenCalledWith('set role "fallback_role"');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role "fallback_role"');
     });
 
     it('falls back to authenticatedRole when the claim value is not a string', async () => {
@@ -268,7 +270,7 @@ describe('withUserDb', () => {
             if (client) await client.query('select 1');
             return 'ok';
         }, 'firebase-uid');
-        expect(tx._clientQuery).toHaveBeenCalledWith('set role "fallback_role"');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role "fallback_role"');
     });
 
     it('supports an async function for authenticatedRole', async () => {
@@ -280,7 +282,7 @@ describe('withUserDb', () => {
             return 'ok';
         }, 'uid-1');
         expect(authenticatedRole).toHaveBeenCalled();
-        expect(tx._clientQuery).toHaveBeenCalledWith('set role "async_role"');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role "async_role"');
     });
 
     it('defaults to the "authenticated" role when nothing is configured', async () => {
@@ -289,7 +291,7 @@ describe('withUserDb', () => {
             if (client) await client.query('select 1');
             return 'ok';
         }, 'uid-1');
-        expect(tx._clientQuery).toHaveBeenCalledWith('set role "authenticated"');
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role "authenticated"');
     });
 
     it('throws when firebase auth user is missing', async () => {
@@ -463,11 +465,12 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
         const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
         expect(calls).toEqual([
             'begin',
-            `select set_config('request.jwt.claims', $1, false)`,
-            'set role "authenticated"',
+            `select set_config('request.jwt.claims', $1, true)`,
+            'set local role "authenticated"',
             '/* uid:uid-1 */ select id from t where id = 1',
             "insert into t (val) values ('x')",
             'commit',
+            'reset role',
         ]);
     });
 
@@ -535,7 +538,7 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
         'uid-1');
 
         const calls = tx._clientQuery.mock.calls.map((c) => c[0] as string);
-        expect(calls).toHaveLength(6);
+        expect(calls).toHaveLength(7); // begin, set_config, set local role, q1, q2, commit, reset role
         expect(calls[3]).toContain('42');
         expect(calls[4]).toContain("'hello'");
     });
@@ -610,10 +613,11 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
         const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
         expect(calls).toEqual([
             'begin',
-            `select set_config('request.jwt.claims', $1, false)`,
-            'set role "authenticated"',
+            `select set_config('request.jwt.claims', $1, true)`,
+            'set local role "authenticated"',
             'insert into items (id) values (1)',
             'commit',
+            'reset role',
         ]);
     });
 
@@ -627,7 +631,8 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
             }
         }, 'uid-1');
         const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
-        expect(calls).toEqual([]);
+        // no transaction opened → only the finally reset role fires
+        expect(calls).toEqual(['reset role']);
     });
 
     it('intercepts explicit begin if session already initialized', async () => {
@@ -641,18 +646,21 @@ describe('db.transaction() in Postgres/Hyperdrive mode — execution logic wrapp
             }
         }, 'uid-1');
         const calls = tx._clientQuery.mock.calls.map((c) => c[0]);
+        // select 1 opens begin+identity; second begin is a no-op (already in tx);
+        // the outer finally commits and resets role.
         expect(calls).toEqual([
             'begin',
-            `select set_config('request.jwt.claims', $1, false)`,
-            'set role "authenticated"',
-            'commit',
+            `select set_config('request.jwt.claims', $1, true)`,
+            'set local role "authenticated"',
             '/* uid:uid-1 */ select 1',
-            'begin',
             'commit',
+            'reset role',
         ]);
     });
 
     it('handles function and non-function property access on client proxy', async () => {
+        // Ensure the mock returns a real promise so the finally reset role .catch() works
+        tx._clientQuery.mockResolvedValue({ rows: [], rowCount: 0 });
         await withUserDb(async (db) => {
             const client = (db as unknown as { client: { foo: string; otherMethod: () => void } }).client;
             expect(client.foo).toBeUndefined();
@@ -679,7 +687,7 @@ describe('withUserDb session-state race', () => {
             return 'ok';
         }, 'uid-race');
 
-        const setRoleAt = order.findIndex((s) => s.startsWith('set role'));
+        const setRoleAt = order.findIndex((s) => s.startsWith('set local role'));
         const select2At = order.findIndex((s) => s.includes('select 2'));
         expect(select2At).toBeGreaterThan(setRoleAt);
     });
@@ -702,7 +710,7 @@ describe('withUserDb session-state race', () => {
         }, 'uid-fail');
 
         const calls = tx._clientQuery.mock.calls.map((c: unknown[]) => c[0]);
-        expect(calls.filter((s: string) => s.startsWith('set role')).length).toBeGreaterThan(0);
+        expect(calls.filter((s: string) => s.startsWith('set local role')).length).toBeGreaterThan(0);
     });
 });
 
@@ -722,7 +730,7 @@ describe('withUserDb role safety', () => {
         }, 'uid-inj');
 
         const calls = tx._clientQuery.mock.calls.map((c: unknown[]) => c[0]);
-        const setRole = calls.find((s: string) => typeof s === 'string' && s.startsWith('set role'));
-        expect(setRole).toBe('set role "x"" ; set role ""postgres"');
+        const setRole = calls.find((s: string) => typeof s === 'string' && s.startsWith('set local role'));
+        expect(setRole).toBe('set local role "x"" ; set role ""postgres"');
     });
 });

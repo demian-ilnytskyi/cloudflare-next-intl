@@ -277,8 +277,13 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
         const beginWithIdentity = async () => {
             if (inTransaction) return;
             await rawClient.query('begin');
+            try {
+                await setSessionState();
+            } catch (error) {
+                await rawClient.query('rollback').catch(() => undefined);
+                throw error;
+            }
             inTransaction = true;
-            await setSessionState();
         };
 
         const interceptingClient = new Proxy(client, {
@@ -322,7 +327,7 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: str
         const drizzleHandle = drizzle(interceptingClient) as unknown as NodePgDatabase<Record<string, never>>;
 
         try {
-            const result = await fn(await postgresDb(drizzleHandle, interceptingClient as unknown as { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> }, setSessionState));
+            const result = await fn(await postgresDb(drizzleHandle, interceptingClient as unknown as { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> }));
             if (inTransaction) await rawClient.query('commit');
             return result;
         } catch (err) {
