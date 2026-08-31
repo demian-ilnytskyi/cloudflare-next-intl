@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/cache.js', () => ({ revalidatePath: vi.fn() }));
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath } from 'next/cache.js';
 import { createErrorsActions } from './actions_factory.js';
 
 describe('createErrorsActions', () => {

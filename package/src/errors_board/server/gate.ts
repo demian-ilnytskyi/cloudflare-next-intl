@@ -31,7 +31,7 @@ export function createRequireErrorsAccess(options: ErrorsAccessOptions): () => P
             await options.onDenied();
             return;
         }
-        const { notFound } = await import('next/navigation');
+        const { notFound } = await import('next/navigation.js');
         notFound();
     };
 }
@@ -86,7 +86,7 @@ export function createPasswordErrorsAccess(options: PasswordErrorsAccessOptions)
     }
 
     async function hasAccess(): Promise<boolean> {
-        const { cookies } = await import('next/headers');
+        const { cookies } = await import('next/headers.js');
         const store = await cookies();
         const value = store.get(cookieName)?.value;
         if (!value) return false;
@@ -101,14 +101,14 @@ export function createPasswordErrorsAccess(options: PasswordErrorsAccessOptions)
                 await options.onDenied();
                 return;
             }
-            const { notFound } = await import('next/navigation');
+            const { notFound } = await import('next/navigation.js');
             notFound();
         },
         async verifyPassword(password: string): Promise<boolean> {
             return password === options.password;
         },
         async setAuthCookie(): Promise<void> {
-            const { cookies } = await import('next/headers');
+            const { cookies } = await import('next/headers.js');
             const store = await cookies();
             store.set(cookieName, await expectedCookieValue(), {
                 httpOnly: true,

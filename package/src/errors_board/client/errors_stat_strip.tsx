@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from 'next/link.js';
 import type { ErrorStatus } from '../server/errors_repository.js';
 
 const STAT_CONFIG: { status: ErrorStatus | 'all'; label: string; dotClass: string }[] = [
