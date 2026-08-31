@@ -274,3 +274,45 @@ describe('deprecated compatibility exports', () => {
         await expect(disconnectPostgres()).resolves.toBeUndefined();
     });
 });
+
+describe('withDbClient inherited session state', () => {
+    it('discards inherited session state before running the callback', async () => {
+        const fn = vi.fn(async () => {
+            expect(query).toHaveBeenCalledWith('discard all');
+            return 'ok';
+        });
+        await expect(withDbClient(pgConfig, fn)).resolves.toBe('ok');
+        expect(query).toHaveBeenCalledWith('discard all');
+    });
+
+    it('falls back to `reset role` when `discard all` is rejected by the pooler', async () => {
+        query.mockRejectedValueOnce(new Error('DISCARD ALL cannot run inside a transaction block'));
+        await withDbClient(pgConfig, vi.fn().mockResolvedValue(undefined));
+        expect(query).toHaveBeenNthCalledWith(1, 'discard all');
+        expect(query).toHaveBeenNthCalledWith(2, 'reset role');
+    });
+
+    it('still runs the callback when both resets fail', async () => {
+        query.mockRejectedValueOnce(new Error('nope')).mockRejectedValueOnce(new Error('nope'));
+        const fn = vi.fn().mockResolvedValue('ran');
+        await expect(withDbClient(pgConfig, fn)).resolves.toBe('ran');
+        expect(fn).toHaveBeenCalled();
+    });
+
+    it('does not report a failed reset as a connect error', async () => {
+        query.mockRejectedValueOnce(new Error('nope')).mockRejectedValueOnce(new Error('nope'));
+        await withDbClient(pgConfig, vi.fn().mockResolvedValue(undefined));
+        expect(reportErrorMock).not.toHaveBeenCalled();
+    });
+
+    it('closes the client even when the resets fail', async () => {
+        query.mockRejectedValueOnce(new Error('nope')).mockRejectedValueOnce(new Error('nope'));
+        await withDbClient(pgConfig, vi.fn().mockResolvedValue(undefined));
+        expect(end).toHaveBeenCalledTimes(1);
+    });
+
+    it('discards inherited session state in connectToPostgres too', async () => {
+        await connectToPostgres(pgConfig);
+        expect(query).toHaveBeenCalledWith('discard all');
+    });
+});

@@ -57,6 +57,25 @@ async function resolveConnectionString(db: DbRoutingConfig, generate?: GenerateR
  * state (role, `request.jwt.claims`, an open transaction) with each other.
  * Hyperdrive pools the server-side connection behind this.
  */
+/**
+ * Drops any session state a pooled connection may have inherited (role,
+ * `set_config` GUCs like `request.jwt.claims`, prepared statements, an open
+ * transaction) before the caller uses it. Behind a pooler in transaction mode
+ * the server-side connection outlives a request, so state left by another
+ * deployment or service would otherwise leak into this one — a public read
+ * running as `authenticated` fails with 42501.
+ *
+ * Failures are ignored: a connection that cannot be reset is left to fail (or
+ * succeed) on the caller's own query rather than here.
+ */
+async function resetSessionState(client: Client): Promise<void> {
+    try {
+        await client.query('discard all');
+    } catch {
+        await client.query('reset role').catch(() => undefined);
+    }
+}
+
 export async function withDbClient<T>(
     config: DbConfig,
     queryFn: (client: Client) => Promise<T>
@@ -75,6 +94,7 @@ export async function withDbClient<T>(
         try {
             await client.connect();
             connected = true;
+            await resetSessionState(client);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error ?? '');
             if (!BENIGN_DISCONNECT_PATTERN.test(message)) {
@@ -154,6 +174,7 @@ export async function connectToPostgres(config: DbConfig): Promise<Client> {
         );
     });
     await client.connect();
+    await resetSessionState(client);
     return client;
 }
 
