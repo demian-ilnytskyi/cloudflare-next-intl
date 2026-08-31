@@ -1,4 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { checkDynamicPages } from './check_dynamic_pages.js';
 
 const APP_DIR = '/app';
@@ -65,9 +68,28 @@ describe('checkDynamicPages', () => {
         expect(reports).toEqual([{ file: '/app/errors/page.tsx', action: 'would-add-force-dynamic' }]);
     });
 
-    it('uses real fs/findPageFiles when no io overrides are given', async () => {
-        const reports = await checkDynamicPages({ appDir: '/definitely-does-not-exist-xyz', mode: 'report' });
-        expect(reports).toEqual([]);
+    describe('with real fs (no io overrides)', () => {
+        let dir: string;
+        beforeEach(() => {
+            dir = mkdtempSync(join(tmpdir(), 'cfni-check-dynamic-pages-'));
+        });
+        afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+        it('returns an empty report for a directory with no page/route files', async () => {
+            const reports = await checkDynamicPages({ appDir: '/definitely-does-not-exist-xyz', mode: 'report' });
+            expect(reports).toEqual([]);
+        });
+
+        it('defaults to mode "fix" and actually reads/writes real files when no mode is given', async () => {
+            mkdirSync(dir, { recursive: true });
+            const pageFile = join(dir, 'page.tsx');
+            writeFileSync(pageFile, 'export default function Page() {}\n', 'utf8');
+
+            const reports = await checkDynamicPages({ appDir: dir });
+
+            expect(reports).toEqual([{ file: pageFile, action: 'added-force-static' }]);
+            expect(readFileSync(pageFile, 'utf8')).toContain('export const dynamic = "force-static";');
+        });
     });
 
     it('skips every file listed in `skip`, without reading or writing it', async () => {

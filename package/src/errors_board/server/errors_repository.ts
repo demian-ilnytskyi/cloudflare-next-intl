@@ -201,9 +201,8 @@ function buildListQuery(filters: ErrorsListFilters): { sql: string; bindings: un
         bindings.push(filters.cursor);
     }
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     bindings.push(ERRORS_PAGE_SIZE + 1);
-    return { sql: `SELECT * FROM errors ${where} ORDER BY updated_at DESC, id DESC LIMIT ?`, bindings };
+    return { sql: `SELECT * FROM errors WHERE ${conditions.join(' AND ')} ORDER BY updated_at DESC, id DESC LIMIT ?`, bindings };
 }
 
 function paginate(rows: ErrorRow[]): ErrorsListResult {

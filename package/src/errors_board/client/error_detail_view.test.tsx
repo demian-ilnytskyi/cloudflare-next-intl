@@ -43,4 +43,53 @@ describe('ErrorDetailView', () => {
         await vi.waitFor(() => expect(actions.deleteErrors).toHaveBeenCalledWith([42]));
         expect(onDeleted).toHaveBeenCalledTimes(1);
     });
+
+    it('does not delete when the confirmation is cancelled', () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(false);
+        const actions = makeActions();
+        const onDeleted = vi.fn();
+        render(<ErrorDetailView row={row} actions={actions} onDeleted={onDeleted} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Delete error' }));
+        expect(actions.deleteErrors).not.toHaveBeenCalled();
+        expect(onDeleted).not.toHaveBeenCalled();
+    });
+
+    it('shows "Server" when is_client is 0, hides stack/params, and shows fallback user text', () => {
+        const serverRow: ErrorRow = { ...row, is_client: 0, stack: null, params: null, user_email: null };
+        render(<ErrorDetailView row={serverRow} actions={makeActions()} onDeleted={vi.fn()} />);
+        expect(screen.getByText('Server')).toBeInTheDocument();
+        expect(screen.getByText('Unknown / not signed in')).toBeInTheDocument();
+        expect(screen.queryByText('Stack trace')).not.toBeInTheDocument();
+        expect(screen.queryByText('Params')).not.toBeInTheDocument();
+    });
+
+    it('shows singular regression wording for reopen_count of 1', () => {
+        render(<ErrorDetailView row={{ ...row, reopen_count: 1 }} actions={makeActions()} onDeleted={vi.fn()} />);
+        expect(screen.getByText('Came back 1 time after being resolved')).toBeInTheDocument();
+    });
+
+    it('shows plural regression wording for reopen_count greater than 1', () => {
+        render(<ErrorDetailView row={{ ...row, reopen_count: 2 }} actions={makeActions()} onDeleted={vi.fn()} />);
+        expect(screen.getByText('Came back 2 times after being resolved')).toBeInTheDocument();
+    });
+
+    it('shows "Resolved" details when resolved_at is set', () => {
+        render(<ErrorDetailView row={{ ...row, resolved_at: 5000 }} actions={makeActions()} onDeleted={vi.fn()} />);
+        expect(screen.getAllByText('Resolved').length).toBeGreaterThan(0);
+    });
+
+    it('shows request-context fields (path, referrer, user agent) parsed from params', () => {
+        const params = JSON.stringify({ requestContext: { path: '/checkout', referer: 'https://ref.example.com', userAgent: 'test-agent' } });
+        render(<ErrorDetailView row={{ ...row, params }} actions={makeActions()} onDeleted={vi.fn()} />);
+        expect(screen.getByText('/checkout')).toBeInTheDocument();
+        expect(screen.getByText('https://ref.example.com')).toBeInTheDocument();
+        expect(screen.getByText('test-agent')).toBeInTheDocument();
+        expect(screen.getByText('Params')).toBeInTheDocument();
+    });
+
+    it('disables the current status button and keeps others enabled', () => {
+        render(<ErrorDetailView row={row} actions={makeActions()} onDeleted={vi.fn()} />);
+        expect(screen.getByRole('button', { name: 'New' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Resolved' })).toBeEnabled();
+    });
 });

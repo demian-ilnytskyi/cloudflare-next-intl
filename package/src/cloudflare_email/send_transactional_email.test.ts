@@ -91,6 +91,17 @@ describe('sendTransactionalEmail', () => {
         );
     });
 
+    it('returns "unavailable" when the env vars are entirely unset (not just empty)', async () => {
+        vi.mocked(resolveEmailBinding).mockResolvedValue(null);
+        delete process.env.CLOUDFLARE_ACCOUNT_ID;
+        delete process.env.CLOUDFLARE_EMAIL_TOKEN;
+
+        const outcome = await sendTransactionalEmail(message, baseOptions, 'test.send');
+
+        expect(outcome).toBe('unavailable');
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
     it('reports and returns "failed" when the binding throws — never throws itself', async () => {
         vi.mocked(resolveEmailBinding).mockResolvedValue({ send: vi.fn(async () => { throw new Error('boom'); }) });
         const outcome = await sendTransactionalEmail(message, baseOptions, 'test.send');
