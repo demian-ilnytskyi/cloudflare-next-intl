@@ -62,9 +62,9 @@ describe('DB Module Branch Benchmarks', () => {
     // 3. Where Clause parser
     describe('parseWhere', () => {
         const tokens = tokenizeSql(complexSql);
-        // "WHERE status = $1 AND age >= $2 AND role IN ($3, $4)" starts after WHERE token (index 8)
+        // "status = $1 AND age >= $2 AND role IN ($3, $4)" starts at token index 11 (WHERE token is at index 10)
         bench('Where clause parsing', () => {
-            parseWhere(tokens, 9);
+            parseWhere(tokens, 11);
         });
     });
 
