@@ -213,6 +213,14 @@
       "types": "./dist/src/error_handling/use_stale_deploy_recovery.d.ts",
       "import": "./dist/src/error_handling/use_stale_deploy_recovery.js"
     },
+    "./fetchText": {
+      "types": "./dist/src/cloudflare_fetch/fetch_text.d.ts",
+      "import": "./dist/src/cloudflare_fetch/fetch_text.js"
+    },
+    "./fetchWithCloudflareFallback": {
+      "types": "./dist/src/cloudflare_fetch/fetch_with_fallback.d.ts",
+      "import": "./dist/src/cloudflare_fetch/fetch_with_fallback.js"
+    },
     "./db": {
       "types": "./dist/src/db/index.d.ts",
       "import": "./dist/src/db/index.js"
