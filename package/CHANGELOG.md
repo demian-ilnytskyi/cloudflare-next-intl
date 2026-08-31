@@ -7,9 +7,9 @@ All notable changes to this package are documented here. Format follows
 
 ### Performance
 
-- **`isWhitelisted`: allocation-free prefix check**: replaced a `string.slice`/`substring`
-  allocation-based prefix comparison with character-code boundary checks, avoiding a
-  temporary string allocation per candidate on every call. No baseline bench artifact
+- **`isWhitelisted`: allocation-free prefix check**: replaced a template-literal
+  (`` `${entry}/` ``) allocation-based prefix comparison with character-code boundary
+  checks, avoiding a temporary string allocation per candidate on every call. No baseline bench artifact
   survived from before this change (lost to a concurrent process sharing the same scratch
   directory), so no before/after comparison is reported here — see current numbers below.
 - **`decodeJwtPayload`: skip the signature segment, callback-free base64url decode**:
@@ -27,7 +27,7 @@ All notable changes to this package are documented here. Format follows
   regression tests pin decode-call-count at exactly 1 (previously 2) for both: (a) a
   protected page with `verifyEmailPath` configured, and (b) an already-verified session on
   `verifyEmailPath` — both scenarios were decoding twice before this fix, not three times
-  as originally assumed; 4 of 5 other call sites were already deduped by the pre-existing
+  as originally assumed; 5 of 6 call sites were already deduped by the pre-existing
   partial memoization. No output/behavior change; `isIdTokenExpired`'s external signature
   is unchanged.
 

@@ -1544,7 +1544,8 @@ describe('updateSession: JWT decode memoization', () => {
 
         const response = await updateSession(req, NextResponse.next(), 'en');
 
-        expect(response.headers.get('location')).toBeTruthy();
+        expect(response.status).toBe(307);
+        expect(response.headers.get('location')).toBe('https://example.com/');
         const callsOnThisToken = decodeJwtPayloadSpy.mock.calls.filter(([t]) => t === token);
         expect(callsOnThisToken.length).toBe(1);
     });
