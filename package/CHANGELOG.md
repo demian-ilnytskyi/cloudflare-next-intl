@@ -3,6 +3,23 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.2] - 2026-08-31
+
+### Fixed
+
+- **`<Image>` crashed under RSC: "Attempted to call a temporary Client Reference from the server but it is on the client"**:
+  the multi-format `<picture>` path attached an `onError` handler directly to a plain `<img>`
+  rendered from the shim, but the shim module had no `"use client"` directive. Under React
+  Server Components, an event handler like `onError` can only exist in a Client Component — attaching
+  one from a Server Component produces exactly this error, surfacing at runtime the moment an image
+  used more than one output format (e.g. `formats: ["avif", "webp"]`). Fixed by extracting the
+  `<img onError>` element into a new client-only subcomponent (`ImgWithFallback`, `"use client"`),
+  so only that leaf is a client boundary — the rest of `<Image>`, including the single-format
+  passthrough via `next/image` and the `<picture>` wrapper itself, remains server-renderable as
+  before. Marking the whole shim `"use client"` instead was considered and rejected — it would have
+  forced every `<Image>` usage in a consuming app into a client boundary, adding unnecessary
+  hydration cost to pages that don't otherwise need any client JS.
+
 ## [0.9.1] - 2026-08-31
 
 ### Fixed

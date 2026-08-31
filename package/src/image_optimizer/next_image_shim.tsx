@@ -2,6 +2,7 @@ import React from "react";
 import NextImage, { getImageProps as nextGetImageProps } from "next/image";
 import type { ImageProps } from "next/image";
 import { getImageBlurSvg } from "./blur_svg.js";
+import { ImgWithFallback } from "./img_with_fallback.js";
 import type { OptimizedImage, OptimizedImageVariant } from "./types.js";
 
 export type ManifestEntry = OptimizedImage;
@@ -135,14 +136,6 @@ export default function Image(props: ImageProps): React.JSX.Element {
     const primarySrc = variant?.src ?? String(imgProps.src);
     const originalSrc = entry?.originalSrc;
 
-    const onError: React.ReactEventHandler<HTMLImageElement> = (event) => {
-        const img = event.currentTarget;
-        if (originalSrc && img.src !== originalSrc && !img.src.endsWith(originalSrc)) {
-            img.srcset = "";
-            img.src = originalSrc;
-        }
-    };
-
     return (
         <picture>
             {alternates.map((source) => (
@@ -157,7 +150,7 @@ export default function Image(props: ImageProps): React.JSX.Element {
                     }
                 />
             ))}
-            <img {...imgProps} alt={imgProps.alt ?? ""} onError={onError} />
+            <ImgWithFallback {...imgProps} alt={imgProps.alt ?? ""} originalSrc={originalSrc} />
         </picture>
     );
 }
