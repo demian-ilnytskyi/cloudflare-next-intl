@@ -3,6 +3,20 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.5] - 2026-08-31
+
+### Fixed
+
+- **`cloudflare-next-intl/image` fetched `virtual:cloudflare-next-intl-images-manifest` as a real URL in the browser, failing with a CORS error**:
+  `next_image_shim.tsx` imported the manifest with a `/* @vite-ignore */`
+  comment on a static string literal. That comment tells Vite's
+  import-analysis to skip resolving the specifier, so the image optimizer
+  plugin's `resolveId`/`load` hooks never ran for it — Rollup shipped the
+  literal `"virtual:cloudflare-next-intl-images-manifest"` string straight
+  into the client bundle, and the browser tried to fetch it as a script at
+  runtime. Removed the comment (unneeded for a literal specifier) so the
+  manifest is inlined at build time as intended.
+
 ## [0.9.4] - 2026-08-31
 
 ### Fixed

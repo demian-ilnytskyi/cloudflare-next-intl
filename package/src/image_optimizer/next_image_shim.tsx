@@ -27,7 +27,7 @@ function pickVariant(entry: ManifestEntry, requestedWidth: number | undefined): 
 
 let manifestData: { images?: Record<string, ManifestEntry> } | undefined;
 try {
-    manifestData = (await import(/* @vite-ignore */ "virtual:cloudflare-next-intl-images-manifest")).default;
+    manifestData = (await import("virtual:cloudflare-next-intl-images-manifest")).default;
 } catch {
     manifestData = undefined;
 }
