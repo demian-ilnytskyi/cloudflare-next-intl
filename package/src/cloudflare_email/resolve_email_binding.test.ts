@@ -24,4 +24,9 @@ describe('resolveEmailBinding', () => {
         const binding = await resolveEmailBinding({}, 'NOTIFICATIONS_EMAIL');
         expect(binding?.send).toBe(send);
     });
+
+    it('returns null when the candidate has no send function', async () => {
+        vi.mocked(resolveEnv).mockResolvedValue({ EMAIL: { send: 'not-a-function' } });
+        expect(await resolveEmailBinding({})).toBeNull();
+    });
 });

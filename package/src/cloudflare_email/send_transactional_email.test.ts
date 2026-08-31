@@ -78,6 +78,19 @@ describe('sendTransactionalEmail', () => {
         expect(reportError).toHaveBeenCalledTimes(1);
     });
 
+    it('sends over REST using restAccountId/restToken options instead of env vars', async () => {
+        vi.mocked(resolveEmailBinding).mockResolvedValue(null);
+        vi.mocked(globalThis.fetch).mockResolvedValue(new Response(null, { status: 200 }));
+
+        const outcome = await sendTransactionalEmail(message, { ...baseOptions, restAccountId: 'opt-acct', restToken: 'opt-tok' }, 'test.send');
+
+        expect(outcome).toBe('sent');
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+            'https://api.cloudflare.com/client/v4/accounts/opt-acct/email/sending/send',
+            expect.objectContaining({ method: 'POST' }),
+        );
+    });
+
     it('reports and returns "failed" when the binding throws — never throws itself', async () => {
         vi.mocked(resolveEmailBinding).mockResolvedValue({ send: vi.fn(async () => { throw new Error('boom'); }) });
         const outcome = await sendTransactionalEmail(message, baseOptions, 'test.send');

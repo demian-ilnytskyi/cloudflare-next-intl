@@ -45,4 +45,11 @@ describe('fetchText', () => {
         expect(result).toBeNull();
         expect(reportError).toHaveBeenCalledTimes(1);
     });
+
+    it('passes config.generate through to fetchWithCloudflareFallback when config is provided', async () => {
+        vi.mocked(fetchWithCloudflareFallback).mockResolvedValue(new Response('hello', { status: 200 }));
+        const generate = {};
+        await fetchText('https://example.com/a.txt', {}, { generate }, 'test.fetchText');
+        expect(fetchWithCloudflareFallback).toHaveBeenCalledWith('https://example.com/a.txt', {}, generate);
+    });
 });
