@@ -4,13 +4,17 @@ Scans your `app/` directory for `page.*`/`route.*` files and, for every one
 that doesn't already declare its own `export const dynamic`, inserts
 `"force-dynamic"` when the file looks request-dependent (`cookies()`,
 `headers()`, a `searchParams` prop, `unstable_noStore()`, `connection()`, or
-a `no-store`/`revalidate: 0` fetch). A file with none of those signals is
-left to Next's own static/dynamic inference — inserting `force-static` on
-"no signal found" would be an unsafe default, since a page can be dynamic
-through means this regex-based scan doesn't see; leaving it alone never
-turns a working dynamic page into a stale, build-time-frozen one. A file
-that already has its own `export const dynamic` is always left alone, in
-every mode — this never overrides an explicit choice.
+a `no-store`/`revalidate: 0` fetch). A file with none of those signals is,
+by default (`target: 'next'`), left to Next's own static/dynamic inference
+— inserting `force-static` there would be an unsafe default, since a page
+can be dynamic through means this regex-based scan doesn't see; leaving it
+alone never turns a working dynamic page into a stale, build-time-frozen
+one. Pass `target: 'vinext'` if you're on vinext instead of real Next.js:
+vinext does **not** do that inference — a page with no explicit `dynamic`
+export is never prerendered, dynamic-API usage or not — so `force-static`
+on "no signal found" is the correct default there, not an unsafe one. A
+file that already has its own `export const dynamic` is always left alone,
+in every mode and target — this never overrides an explicit choice.
 
 This is a **text-based heuristic**, not a real parser: good enough for the
 common cases, but read what it inserted rather than trusting it blindly on
@@ -30,6 +34,14 @@ Three modes (`--mode=` / `CFNI_DYNAMIC_PAGES_MODE`):
   heuristic and can misplace the insertion on an unusual file.
 - `fix` — writes the missing export into each qualifying file.
 - `off` — the global disable switch; does not scan at all.
+
+On vinext, also pass `--target=vinext` (`CFNI_DYNAMIC_PAGES_TARGET`) — see
+above for why the default (`next`) would otherwise leave your genuinely
+static pages un-prerendered:
+
+```bash
+cfni-check-dynamic-pages --mode=fix --target=vinext
+```
 
 Exempt specific files with `--skip=` (comma-separated) /
 `CFNI_DYNAMIC_PAGES_SKIP` — e.g. a page you already know is fine as-is and

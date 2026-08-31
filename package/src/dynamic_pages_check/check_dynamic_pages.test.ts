@@ -53,6 +53,29 @@ describe('checkDynamicPages', () => {
         expect(written).toEqual({});
     });
 
+    it('target "vinext" writes force-static (not left alone) for a static-looking page', async () => {
+        const { io, written } = makeIo({ '/app/page.tsx': 'export default function Page() {}' });
+        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'fix', target: 'vinext' }, io);
+        expect(reports).toEqual([{ file: '/app/page.tsx', action: 'added-force-static' }]);
+        expect(written['/app/page.tsx']).toContain('export const dynamic = "force-static";');
+    });
+
+    it('target "vinext" in report mode reports "would-add-force-static" and writes nothing', async () => {
+        const { io, written } = makeIo({ '/app/page.tsx': 'export default function Page() {}' });
+        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext' }, io);
+        expect(reports).toEqual([{ file: '/app/page.tsx', action: 'would-add-force-static' }]);
+        expect(written).toEqual({});
+    });
+
+    it('target "vinext" still writes force-dynamic (not force-static) for a page with dynamic-API usage', async () => {
+        const { io, written } = makeIo({
+            '/app/errors/page.tsx': 'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n',
+        });
+        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'fix', target: 'vinext' }, io);
+        expect(reports).toEqual([{ file: '/app/errors/page.tsx', action: 'added-force-dynamic' }]);
+        expect(written['/app/errors/page.tsx']).toContain('export const dynamic = "force-dynamic";');
+    });
+
     it('mode "report" reports "would-add-force-dynamic" for a page that uses cookies()', async () => {
         const { io } = makeIo({
             '/app/errors/page.tsx': 'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n',

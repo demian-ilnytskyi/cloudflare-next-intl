@@ -16,13 +16,24 @@ export interface CheckDynamicPagesOptions {
      * reviewed a `'report'` run's output.
      */
     mode?: DynamicPagesCheckMode;
+    /**
+     * Defaults to `'next'`. On real Next.js, a page with no detected
+     * dynamic-API usage is left untouched — Next infers static/dynamic on
+     * its own, so inserting `force-static` there would be an unsafe
+     * default (a page can be dynamic through means this text-based scan
+     * doesn't see). **vinext doesn't do that inference**: a page with no
+     * explicit `dynamic` export is never prerendered, regardless of
+     * whether it actually uses any dynamic API. Pass `'vinext'` to restore
+     * `force-static` insertion on "no signal detected" for that runtime.
+     */
+    target?: 'next' | 'vinext';
     /** File paths (as returned by `findPageFiles` — i.e. joined with `appDir`) to leave completely alone: not read, not written, not reported as anything but `'skipped'`. */
     skip?: readonly string[];
 }
 
 export interface CheckDynamicPagesReport {
     file: string;
-    action: 'added-force-dynamic' | 'would-add-force-dynamic' | 'already-declared' | 'no-dynamic-usage-detected' | 'skipped';
+    action: 'added-force-dynamic' | 'would-add-force-dynamic' | 'added-force-static' | 'would-add-force-static' | 'already-declared' | 'no-dynamic-usage-detected' | 'skipped';
 }
 
 export interface CheckDynamicPagesIo {
@@ -37,6 +48,7 @@ export async function checkDynamicPages(
 ): Promise<CheckDynamicPagesReport[]> {
     const mode = options.mode ?? 'report';
     if (mode === 'off') return [];
+    const target = options.target ?? 'next';
 
     const findPageFiles = io.findPageFiles ?? findPageFilesImpl;
     const readFile = io.readFile ?? ((file: string) => readFileSync(file, 'utf8'));
@@ -56,13 +68,22 @@ export async function checkDynamicPages(
             reports.push({ file, action: 'already-declared' });
             continue;
         }
-        // A page with no detected dynamic-API usage is left to Next's own
-        // static/dynamic inference — inserting `force-static` here would be
-        // an unsafe default (a page can be dynamic through means this
-        // regex-based scan doesn't see), whereas doing nothing never turns
-        // a working dynamic page into a stale, build-time-frozen one.
         if (detection.detectedDynamicApis.length === 0) {
-            reports.push({ file, action: 'no-dynamic-usage-detected' });
+            // On real Next.js, leave it to Next's own static/dynamic
+            // inference — a false negative here just means Next decides
+            // instead of us. On vinext, no explicit export means "never
+            // prerendered" regardless of usage, so `force-static` is the
+            // correct default there, not an unsafe one.
+            if (target !== 'vinext') {
+                reports.push({ file, action: 'no-dynamic-usage-detected' });
+                continue;
+            }
+            if (mode === 'fix') {
+                writeFile(file, insertDynamicExport(source, 'force-static'));
+                reports.push({ file, action: 'added-force-static' });
+            } else {
+                reports.push({ file, action: 'would-add-force-static' });
+            }
             continue;
         }
 

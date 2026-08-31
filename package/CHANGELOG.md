@@ -3,6 +3,18 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.10] - 2026-09-01
+
+### Added
+
+- **`dynamic_pages_check`**: `target: 'vinext'` option. The default
+  (`target: 'next'`) leaves a page with no detected dynamic-API usage
+  untouched, since real Next.js infers static/dynamic on its own — but
+  vinext does not do that inference: a page with no explicit `dynamic`
+  export is never prerendered regardless of usage. `target: 'vinext'`
+  restores `force-static` insertion for that case, which the `next` default
+  deliberately avoids (see `0.9.8`'s changelog entry).
+
 ## [0.9.9] - 2026-09-01
 
 ### Added
@@ -14,6 +26,20 @@ All notable changes to this package are documented here. Format follows
   user), which would otherwise lock every admin out of their own error log.
   `ErrorsLoginForm` (new client export, `cloudflare-next-intl/ErrorsLoginForm`)
   is the login screen that pairs with it.
+
+### Fixed
+
+- **`errors_board`'s new files broke `check:exports` / plain-Node ESM resolution**:
+  `actions_factory.ts` (`from 'next/cache'`) and `errors_stat_strip.tsx`
+  (`from 'next/link'`) used bare `next/*` subpath specifiers instead of this
+  package's established `.js`-extension convention. Next ships no
+  `package.json` `"exports"` map, so a bare subpath resolves fine under
+  bundlers (webpack/Turbopack/Vite) and CJS `require()`'s extension-guessing
+  fallback, but fails Node's native ESM resolver outright — which is exactly
+  what `check:exports` (and any plain-Node consumer) hits. `gate.ts`'s
+  dynamic `import('next/navigation')`/`import('next/headers')` had the same
+  gap. All four now use the `.js`-suffixed form used everywhere else in the
+  package.
 
 ## [0.9.8] - 2026-09-01
 
