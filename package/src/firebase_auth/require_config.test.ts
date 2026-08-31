@@ -40,16 +40,22 @@ function walk(dir: string): string[] {
 }
 
 describe('firebase_auth dependency surface', () => {
-    it('depends on the scoped @firebase entry points, not the firebase umbrella', () => {
+    it('peers on the scoped @firebase entry points, not the firebase umbrella, so consumers share a single instance', () => {
         const pkg = JSON.parse(
             readFileSync(resolve(here, '../../package.json'), 'utf8'),
-        ) as { dependencies?: Record<string, string> };
+        ) as { dependencies?: Record<string, string>; peerDependencies?: Record<string, string> };
         const deps = pkg.dependencies ?? {};
+        const peers = pkg.peerDependencies ?? {};
         expect(deps['firebase']).toBeUndefined();
-        expect(deps['@firebase/app']).toBeDefined();
-        expect(deps['@firebase/auth']).toBeDefined();
-        expect(deps['@firebase/app-check']).toBeDefined();
-        expect(deps['@firebase/performance']).toBeDefined();
+        expect(peers['firebase']).toBeUndefined();
+        expect(deps['@firebase/app']).toBeUndefined();
+        expect(deps['@firebase/auth']).toBeUndefined();
+        expect(deps['@firebase/app-check']).toBeUndefined();
+        expect(deps['@firebase/performance']).toBeUndefined();
+        expect(peers['@firebase/app']).toBeDefined();
+        expect(peers['@firebase/auth']).toBeDefined();
+        expect(peers['@firebase/app-check']).toBeDefined();
+        expect(peers['@firebase/performance']).toBeDefined();
     });
 
     it('imports no bare "firebase/*" specifier anywhere in src', () => {
