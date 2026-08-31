@@ -62,6 +62,36 @@ describe("next_image_shim", () => {
         expect(img?.getAttribute("src")).toContain("multi.avif");
     });
 
+    it("defaults the <picture> path's <img> to lazy loading and auto fetchPriority", () => {
+        const { container } = render(<Image src="/images/multi.png" alt="multi" />);
+        const img = container.querySelector("img");
+        expect(img?.getAttribute("loading")).toBe("lazy");
+        expect(img?.getAttribute("fetchpriority")).toBe("auto");
+    });
+
+    it("sets eager loading and high fetchPriority when priority is set on the <picture> path", () => {
+        const { container } = render(<Image src="/images/multi.png" alt="multi" priority />);
+        const img = container.querySelector("img");
+        expect(img?.getAttribute("loading")).toBe("eager");
+        expect(img?.getAttribute("fetchpriority")).toBe("high");
+    });
+
+    it("passes sizes through to both <source> and <img> on the <picture> path", () => {
+        const { container } = render(
+            <Image src="/images/multi.png" alt="multi" sizes="(max-width: 600px) 100vw, 50vw" />,
+        );
+        const source = container.querySelector("source");
+        const img = container.querySelector("img");
+        expect(source?.getAttribute("sizes")).toBe("(max-width: 600px) 100vw, 50vw");
+        expect(img?.getAttribute("sizes")).toBe("(max-width: 600px) 100vw, 50vw");
+    });
+
+    it("passes className through on the <picture> path's <img>", () => {
+        const { container } = render(<Image src="/images/multi.png" alt="multi" className="rounded" />);
+        const img = container.querySelector("img");
+        expect(img?.getAttribute("class")).toBe("rounded");
+    });
+
     it("falls back the <img> src to the manifest's originalSrc on a load error", () => {
         const { container } = render(<Image src="/images/multi.png" alt="multi" />);
         const img = container.querySelector("img") as HTMLImageElement;

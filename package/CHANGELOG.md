@@ -3,6 +3,27 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.3] - 2026-08-31
+
+### Fixed
+
+- **`<Image>` still crashed under RSC with `next/image` polyfills that mark their whole module `"use client"`**:
+  0.9.2 moved the `onError` handler into its own client subcomponent, but the multi-format
+  `<picture>` path still called `next/image`'s `getImageProps` directly (`nextGetImageProps(resolved)`)
+  to compute `srcSet`/`sizes`. Under Next.js itself this is a normal function call, but some
+  `next/image` polyfills — vinext's, built on `@unpic/react`, being the one that surfaced this —
+  put `"use client"` at the top of their *entire* image module, making every export (including
+  `getImageProps`) a client reference. Calling a client reference as a plain function from
+  non-client code is exactly what produced "Attempted to call a temporary Client Reference from
+  the server but it is on the client." Fixed by no longer calling `getImageProps` at all for the
+  `<picture>` path: each generated source is already a concrete, pre-generated static asset (no
+  Next.js loader or responsive-breakpoint logic applies to it), so a plain `<img>`/`<source>` built
+  directly from the resolved props is sufficient — removing the dependency on `next/image`'s own
+  functions entirely for this path. The single-format passthrough (`<NextImage {...resolved} />`)
+  and the standalone exported `getImageProps` utility are unaffected — the former is plain JSX
+  (fine to render even if `NextImage` itself is a client reference), the latter is a
+  documented `next/image`-equivalent API for consumers to call themselves.
+
 ## [0.9.2] - 2026-08-31
 
 ### Fixed

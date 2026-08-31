@@ -63,14 +63,42 @@ function findEntry(srcVal: unknown): ManifestEntry | undefined {
     return undefined;
 }
 
-/** Swap the format extension of every URL in a generated srcset. */
-function retargetSrcSet(srcSet: string, fromSrc: string, toSrc: string): string {
-    if (!srcSet) return srcSet;
-    const fromEncoded = encodeURIComponent(fromSrc);
-    const toEncoded = encodeURIComponent(toSrc);
-    return srcSet
-        .split(fromEncoded).join(toEncoded)
-        .split(fromSrc).join(toSrc);
+/**
+ * Builds plain <img> attributes for the <picture> path without touching
+ * `next/image`'s own `getImageProps` — that function is a synchronous call
+ * (not JSX), and some `next/image` polyfills (e.g. vinext's, built on
+ * @unpic/react) mark their entire module "use client", making every export a
+ * client reference that can't be invoked directly from non-client code. Since
+ * each variant here is already a concrete, pre-generated static asset (no
+ * Next.js loader/responsive-breakpoint logic applies), a plain <img> is all
+ * that's needed — no `srcSet`/`sizes` computation required beyond passing the
+ * caller's own `sizes` straight through.
+ */
+function toPlainImgAttrs(resolved: ImageProps, src: string): React.ImgHTMLAttributes<HTMLImageElement> {
+    const {
+        src: _src, alt, width, height, fill: _fill, loader: _loader, quality: _quality,
+        preload: _preload, priority, placeholder: _placeholder, blurDataURL: _blurDataURL,
+        unoptimized: _unoptimized, overrideSrc: _overrideSrc, onLoadingComplete: _onLoadingComplete,
+        layout: _layout, objectFit: _objectFit, objectPosition: _objectPosition,
+        lazyBoundary: _lazyBoundary, lazyRoot: _lazyRoot, loading, style, className, sizes,
+        ...rest
+    } = resolved as ImageProps & Record<string, unknown>;
+    void _src; void _fill; void _loader; void _quality; void _preload; void _placeholder;
+    void _blurDataURL; void _unoptimized; void _overrideSrc; void _onLoadingComplete;
+    void _layout; void _objectFit; void _objectPosition; void _lazyBoundary; void _lazyRoot;
+
+    return {
+        ...(rest as React.ImgHTMLAttributes<HTMLImageElement>),
+        src,
+        alt: alt ?? "",
+        width: width as number | undefined,
+        height: height as number | undefined,
+        className: className as string | undefined,
+        style: style as React.CSSProperties | undefined,
+        sizes: sizes as string | undefined,
+        loading: priority ? "eager" : (loading as React.ImgHTMLAttributes<HTMLImageElement>["loading"] ?? "lazy"),
+        fetchPriority: priority ? "high" : "auto",
+    };
 }
 
 function resolveProps(props: ImageProps): ImageProps {
@@ -132,9 +160,9 @@ export default function Image(props: ImageProps): React.JSX.Element {
         return <NextImage {...resolved} />;
     }
 
-    const { props: imgProps } = nextGetImageProps(resolved);
-    const primarySrc = variant?.src ?? String(imgProps.src);
+    const primarySrc = variant?.src ?? String(resolved.src);
     const originalSrc = entry?.originalSrc;
+    const imgProps = toPlainImgAttrs(resolved, primarySrc);
 
     return (
         <picture>
@@ -143,14 +171,10 @@ export default function Image(props: ImageProps): React.JSX.Element {
                     key={source.src}
                     type={source.type}
                     sizes={imgProps.sizes}
-                    srcSet={
-                        imgProps.srcSet
-                            ? retargetSrcSet(imgProps.srcSet, primarySrc, source.src)
-                            : source.src
-                    }
+                    srcSet={source.src}
                 />
             ))}
-            <ImgWithFallback {...imgProps} alt={imgProps.alt ?? ""} originalSrc={originalSrc} />
+            <ImgWithFallback {...imgProps} originalSrc={originalSrc} />
         </picture>
     );
 }
