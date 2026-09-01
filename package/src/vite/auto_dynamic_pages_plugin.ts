@@ -34,6 +34,7 @@ export function autoDynamicPagesPlugin(options: AutoDynamicPagesPluginOptions = 
         enforce: "pre",
         async configResolved(config) {
             if (ran) return;
+            if (config.command !== "build") return;
             ran = true;
 
             const root = config.root || process.cwd();

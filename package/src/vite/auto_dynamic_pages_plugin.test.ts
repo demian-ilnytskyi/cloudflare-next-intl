@@ -21,12 +21,24 @@ describe("autoDynamicPagesPlugin", () => {
 
         const plugin = autoDynamicPagesPlugin();
         // @ts-expect-error Mock Vite configResolved hook call
-        await plugin.configResolved?.({ root: TEST_DIR });
+        await plugin.configResolved?.({ root: TEST_DIR, command: "build" });
         // @ts-expect-error Idempotency check: second invocation returns early
-        await plugin.configResolved?.({ root: TEST_DIR });
+        await plugin.configResolved?.({ root: TEST_DIR, command: "build" });
 
         const content = readFileSync(pagePath, "utf8");
         expect(content).toContain('export const dynamic = "force-static";');
+    });
+
+    it("does nothing during dev (command: 'serve')", async () => {
+        const pagePath = resolve(TEST_DIR, "src/app/[locale]/page.tsx");
+        const original = `export default function Page() { return <div>Hello</div>; }\n`;
+        writeFileSync(pagePath, original, "utf8");
+
+        const plugin = autoDynamicPagesPlugin();
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({ root: TEST_DIR, command: "serve" });
+
+        expect(readFileSync(pagePath, "utf8")).toBe(original);
     });
 
     it("supports fallback to app/ directory if src/app does not exist", async () => {
@@ -37,7 +49,7 @@ describe("autoDynamicPagesPlugin", () => {
 
         const plugin = autoDynamicPagesPlugin();
         // @ts-expect-error Mock Vite configResolved hook call
-        await plugin.configResolved?.({ root: TEST_DIR });
+        await plugin.configResolved?.({ root: TEST_DIR, command: "build" });
 
         const content = readFileSync(pagePath, "utf8");
         expect(content).toContain('export const dynamic = "force-static";');
@@ -53,7 +65,7 @@ describe("autoDynamicPagesPlugin", () => {
             target: "vinext",
         });
         // @ts-expect-error Mock Vite configResolved hook call
-        await plugin.configResolved?.({});
+        await plugin.configResolved?.({ command: "build" });
 
         const content = readFileSync(pagePath, "utf8");
         expect(content).toContain('export const dynamic = "force-static";');
@@ -68,7 +80,7 @@ describe("autoDynamicPagesPlugin", () => {
 
         const plugin = autoDynamicPagesPlugin({ syncErrorReportingAuthUser: true });
         // @ts-expect-error Mock Vite configResolved hook call
-        await plugin.configResolved?.({ root: TEST_DIR });
+        await plugin.configResolved?.({ root: TEST_DIR, command: "build" });
 
         expect(spy).toHaveBeenCalledWith(
             expect.objectContaining({ syncErrorReportingAuthUser: true }),
@@ -81,7 +93,7 @@ describe("autoDynamicPagesPlugin", () => {
             appDir: resolve(TEST_DIR, "non_existent_app_dir"),
         });
         // @ts-expect-error Mock Vite configResolved hook call
-        await plugin.configResolved?.({ root: TEST_DIR });
+        await plugin.configResolved?.({ root: TEST_DIR, command: "build" });
     });
 
     it("handles error in checkDynamicPages gracefully", async () => {
@@ -93,7 +105,7 @@ describe("autoDynamicPagesPlugin", () => {
             appDir: resolve(TEST_DIR, "src/app"),
         });
         // @ts-expect-error Mock Vite configResolved hook call
-        await plugin.configResolved?.({ root: TEST_DIR });
+        await plugin.configResolved?.({ root: TEST_DIR, command: "build" });
         expect(consoleWarnSpy).toHaveBeenCalledWith(
             "[cloudflare-next-intl] autoDynamicPages check error:",
             expect.any(Error)
@@ -108,12 +120,12 @@ describe("autoDynamicPagesPlugin", () => {
 
         const plugin = autoDynamicPagesPlugin();
         // @ts-expect-error Mock Vite configResolved hook call
-        await plugin.configResolved?.({ root: TEST_DIR });
+        await plugin.configResolved?.({ root: TEST_DIR, command: "build" });
     });
 
     it("falls back to process.cwd() when config.root is empty", async () => {
         const plugin = autoDynamicPagesPlugin();
         // @ts-expect-error Mock Vite configResolved hook call
-        await plugin.configResolved?.({});
+        await plugin.configResolved?.({ command: "build" });
     });
 });
