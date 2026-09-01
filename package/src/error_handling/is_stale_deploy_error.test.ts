@@ -16,6 +16,15 @@ describe('isStaleDeployError', () => {
             'dynamically imported module',
             'failed to fetch',
             'loading css chunk',
+            'connection closed',
+            'rsc payload',
+            'minified react error #412',
+            'the above error occurred in a react component',
+            'the connection to the page was unexpectedly closed',
+            'readablestream',
+            'readable stream',
+            'uncaught exception: undefined',
+            'uncaught undefined',
             'server action not found',
             'unrecognizedactionerror',
         ]);
@@ -34,11 +43,15 @@ describe('isStaleDeployError', () => {
     });
 
     it('treats exactly undefined as stale-deploy', () => {
+        // A stale build can leave the caught value itself missing (an aborted
+        // RSC stream reaching a client component as `undefined` rather than a
+        // real Error), so there's no message to pattern-match on.
         expect(isStaleDeployError(undefined)).toBe(true);
     });
 
     it('matches string errors containing stale patterns and returns false for unmatched non-errors', () => {
-        expect(isStaleDeployError('failed to fetch dynamically imported module')).toBe(true);
+        expect(isStaleDeployError('uncaught exception: undefined')).toBe(true);
+        expect(isStaleDeployError('Failed to read data from the ReadableStream')).toBe(true);
         expect(isStaleDeployError('some random string')).toBe(false);
         expect(isStaleDeployError(null)).toBe(false);
         expect(isStaleDeployError({ message: 'not a real error' })).toBe(false);
@@ -55,7 +68,23 @@ describe('isStaleDeployError', () => {
         expect(isStaleDeployError(new Error('Failed to load chunk 123'))).toBe(true);
         expect(isStaleDeployError(new Error('TypeError: Failed to fetch'))).toBe(true);
         expect(isStaleDeployError(new Error('Error: Loading CSS chunk failed'))).toBe(true);
-        expect(isStaleDeployError(new Error('Failed to fetch dynamically imported module'))).toBe(true);
+        expect(isStaleDeployError(new Error('Connection closed by server'))).toBe(true);
+        expect(isStaleDeployError(new Error('Failed to parse RSC payload'))).toBe(true);
+        expect(isStaleDeployError(new Error('Minified React error #412; visit ...'))).toBe(true);
+        expect(
+            isStaleDeployError(
+                new Error(
+                    'The above error occurred in a React component:\n\nDa@https://staging.contractor.clarivant.management/_next/static/chunks/vinext-B-tL6zBm.js:32:8204',
+                ),
+            ),
+        ).toBe(true);
+        expect(
+            isStaleDeployError(
+                new Error(
+                    'Error: The connection to the page was unexpectedly closed, possibly due to the stop button being clicked, loss of Wi-Fi, or an unstable internet connection.',
+                ),
+            ),
+        ).toBe(true);
     });
 
     it('allows providing custom patterns list and iterating multiple patterns', () => {

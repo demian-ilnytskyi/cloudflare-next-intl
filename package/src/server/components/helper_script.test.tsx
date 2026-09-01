@@ -163,7 +163,7 @@ describe('HelperScript', () => {
          
         new Function(source)();
         const event = new Event('unhandledrejection') as PromiseRejectionEvent & { reason: unknown };
-        Object.defineProperty(event, 'reason', { value: new Error('Failed to fetch dynamically imported module') });
+        Object.defineProperty(event, 'reason', { value: new Error('Loading chunk 4 failed') });
         window.dispatchEvent(event);
         expect(reload).toHaveBeenCalledTimes(1);
 
