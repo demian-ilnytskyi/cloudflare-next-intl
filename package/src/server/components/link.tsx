@@ -61,7 +61,7 @@ function CustomLinkFunction(
         urlString = typeof href === 'object' ? (href.pathname || '') : (href || '');
     }
 
-    const isCustom = prefetchType === 'custom';
+    const isCustom = prefetchType === 'custom' && prefetch !== false;
 
     useEffect(() => {
         setIsNavigating(false);
@@ -109,7 +109,7 @@ function CustomLinkFunction(
         }
     };
 
-    const effectivePrefetch = isCustom ? (prefetch ?? false) : prefetch;
+    const effectivePrefetch = isCustom ? false : prefetch;
 
     return <LinkComponent
         ref={ref}

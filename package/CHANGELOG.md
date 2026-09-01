@@ -3,6 +3,18 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.26] - 2026-09-02
+
+### Fixed
+
+- `CustomLink`'s `triggerPrefetch` was missing the `useCallback` import,
+  causing a build/runtime error.
+- `prefetchType="custom"` with `prefetch={true}` no longer also triggers
+  Next's built-in prefetch — custom prefetch mode now always forces Next's
+  own `prefetch` off.
+- `prefetch={false}` now disables the custom hover/timer-based prefetch too,
+  not just Next's built-in one.
+
 ## [0.9.25] - 2026-09-01
 
 ### Added
