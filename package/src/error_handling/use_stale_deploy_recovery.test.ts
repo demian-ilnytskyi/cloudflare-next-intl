@@ -69,16 +69,19 @@ describe('isRecentBuild', () => {
 });
 
 describe('shouldRecoverFromStaleDeploy with recentBuild', () => {
-    it('does not recover when reload marker already matches buildId', () => {
-        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', true)).toBe(false);
+    it('does not recover when reload marker matches buildId AND was reloaded recently', () => {
+        const now = Date.now();
+        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', false, now - 5_000, now)).toBe(false);
     });
 
-    it('does not recover for a non-stale error even if the build is recent', () => {
-        expect(shouldRecoverFromStaleDeploy(genericError, 'build-a', 'build-a', true)).toBe(false);
+    it('does not recover for a non-stale error even if reloaded recently', () => {
+        const now = Date.now();
+        expect(shouldRecoverFromStaleDeploy(genericError, 'build-a', 'build-a', false, now - 5_000, now)).toBe(false);
     });
 
-    it('defaults recentBuild parameter to false when omitted', () => {
-        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a')).toBe(false);
+    it('recovers when previous reload was >15s ago', () => {
+        const now = Date.now();
+        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', false, now - 20_000, now)).toBe(true);
     });
 });
 
