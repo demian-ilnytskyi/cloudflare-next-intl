@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.20
+
+### Fixed
+
+- Fixed infinite reload loop in `useStaleDeployRecovery` by ensuring the reload marker strictly blocks repeated reloads on the same build ID.
+- Cleaned up `CopyButton` timer on unmount via `useEffect`.
+
 ## 0.9.19
 
 ### Fixed

@@ -12,7 +12,6 @@ describe('LocalTime', () => {
 
 describe('CopyButton', () => {
     it('copies the given text and shows the copied label', async () => {
-        vi.useFakeTimers();
         const writeText = vi.fn(async () => undefined);
         Object.assign(navigator, { clipboard: { writeText } });
 
@@ -21,9 +20,6 @@ describe('CopyButton', () => {
 
         expect(writeText).toHaveBeenCalledWith('hello');
         await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Copied'));
-
-        vi.advanceTimersByTime(1600);
-        vi.useRealTimers();
     });
 });
 

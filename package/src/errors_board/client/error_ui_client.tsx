@@ -29,11 +29,16 @@ export function CopyButton({
 }): Component {
     const [copied, setCopied] = useState(false);
 
+    useEffect(() => {
+        if (!copied) return;
+        const timer = setTimeout(() => setCopied(false), 1500);
+        return () => clearTimeout(timer);
+    }, [copied]);
+
     function handleCopy(event: React.MouseEvent): void {
         event.preventDefault();
         void navigator.clipboard.writeText(text).then(() => {
             setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
         });
     }
 
