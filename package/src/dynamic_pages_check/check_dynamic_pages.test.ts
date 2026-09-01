@@ -181,6 +181,43 @@ describe('checkDynamicPages', () => {
         expect(written['/app/audit/[propertyId]/page.tsx']).toContain('export const dynamic = "force-static";');
     });
 
+    it('syncErrorReportingAuthUser defaults to false: leaves an eligible reportError call untouched', async () => {
+        const { io, written } = makeIo({
+            '/app/page.tsx': 'export const dynamic = "force-dynamic";\nimport "../repo";\nexport default function Page() {}',
+        });
+        io.readFile = vi.fn((file: string) => {
+            if (file === '/app/page.tsx') return 'export const dynamic = "force-dynamic";\nimport "../repo";\nexport default function Page() {}';
+            if (file === '/repo.ts') return `import { reportError } from "cloudflare-next-intl/errorHandling";\nvoid reportError(cfg, { classOrMethodName: 'X' });`;
+            throw new Error(`unexpected read: ${file}`);
+        });
+        io.isFile = vi.fn((file: string) => file === '/app/page.tsx' || file === '/repo.ts');
+
+        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'fix' }, io);
+
+        expect(reports).toEqual([{ file: '/app/page.tsx', action: 'already-declared' }]);
+        expect(written['/repo.ts']).toBeUndefined();
+    });
+
+    it('syncErrorReportingAuthUser: true appends its own reports and rewrites the eligible call', async () => {
+        const { io, written } = makeIo({
+            '/app/page.tsx': 'export const dynamic = "force-dynamic";\nimport "../repo";\nexport default function Page() {}',
+        });
+        io.readFile = vi.fn((file: string) => {
+            if (file === '/app/page.tsx') return 'export const dynamic = "force-dynamic";\nimport "../repo";\nexport default function Page() {}';
+            if (file === '/repo.ts') return `import { reportError } from "cloudflare-next-intl/errorHandling";\nvoid reportError(cfg, { classOrMethodName: 'X' });`;
+            throw new Error(`unexpected read: ${file}`);
+        });
+        io.isFile = vi.fn((file: string) => file === '/app/page.tsx' || file === '/repo.ts');
+
+        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'fix', syncErrorReportingAuthUser: true }, io);
+
+        expect(reports).toEqual([
+            { file: '/app/page.tsx', action: 'already-declared' },
+            { file: '/repo.ts', action: 'added-use-auth-user', callCount: 1 },
+        ]);
+        expect(written['/repo.ts']).toContain('useAuthUser: true,');
+    });
+
     it('skips every file listed in `skip`, without reading or writing it', async () => {
         const { io, written } = makeIo({
             '/app/errors/page.tsx': 'export default function Page() {}',

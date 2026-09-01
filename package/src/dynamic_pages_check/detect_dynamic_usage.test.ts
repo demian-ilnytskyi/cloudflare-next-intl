@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectDynamicUsage } from './detect_dynamic_usage.js';
+import { detectDynamicUsage, readExplicitDynamicValue } from './detect_dynamic_usage.js';
 
 describe('detectDynamicUsage', () => {
     it('finds no explicit export and no dynamic APIs in a plain static page', () => {
@@ -57,5 +57,28 @@ describe('detectDynamicUsage', () => {
     it('deduplicates repeated matches of the same API', () => {
         const result = detectDynamicUsage(`import { cookies } from "next/headers";\ncookies(); cookies(); cookies();`);
         expect(result.detectedDynamicApis.filter((a) => a === 'cookies()')).toHaveLength(1);
+    });
+});
+
+describe('readExplicitDynamicValue', () => {
+    it('reads a force-dynamic export', () => {
+        expect(readExplicitDynamicValue(`export const dynamic = "force-dynamic";`)).toBe('force-dynamic');
+    });
+
+    it('reads a force-static export with single quotes', () => {
+        expect(readExplicitDynamicValue(`export const dynamic = 'force-static';`)).toBe('force-static');
+    });
+
+    it('reads auto and error', () => {
+        expect(readExplicitDynamicValue(`export const dynamic = "auto";`)).toBe('auto');
+        expect(readExplicitDynamicValue(`export const dynamic = "error";`)).toBe('error');
+    });
+
+    it('returns null when there is no explicit export', () => {
+        expect(readExplicitDynamicValue(`export default function Page() {}`)).toBeNull();
+    });
+
+    it('returns null for an unrecognized literal value', () => {
+        expect(readExplicitDynamicValue(`export const dynamic = "not-a-real-value";`)).toBeNull();
     });
 });

@@ -40,3 +40,19 @@ export function detectDynamicUsage(sourceText: string): DynamicDetectionResult {
         detectedDynamicApis: DYNAMIC_API_CHECKS.filter(({ pattern }) => pattern.test(sourceText)).map(({ name }) => name),
     };
 }
+
+const EXPLICIT_DYNAMIC_EXPORT_VALUE = /export\s+const\s+dynamic\s*=\s*['"]([^'"]+)['"]/;
+
+/**
+ * Reads the literal string value of an explicit `export const dynamic =
+ * '...'`, or `null` when there isn't one, or its value isn't one of Next's
+ * four recognized literals (`force-static`/`force-dynamic`/`auto`/`error`)
+ * — e.g. a non-literal expression this text scan can't evaluate.
+ */
+export function readExplicitDynamicValue(sourceText: string): 'force-static' | 'force-dynamic' | 'auto' | 'error' | null {
+    const match = EXPLICIT_DYNAMIC_EXPORT_VALUE.exec(sourceText);
+    if (match === null) return null;
+    const value = match[1];
+    if (value === 'force-static' || value === 'force-dynamic' || value === 'auto' || value === 'error') return value;
+    return null;
+}

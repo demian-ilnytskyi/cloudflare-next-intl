@@ -27,3 +27,30 @@ export default async function resolveOptionalAuthUser(): Promise<{ user: User | 
         return { user: null };
     }
 }
+
+/**
+ * Gated form of {@link resolveOptionalAuthUser} for an `onError` sink that
+ * wants to attach the reporting user only when the call site that reported
+ * the error opted in — pass `ErrorHandlingParams.useAuthUser` straight
+ * through. Defaults to `false`: when `useAuthUser` isn't `true`, this
+ * resolves `{ user: null }` immediately, without calling `getAuthUser()` at
+ * all — no `cookies()` read happens on that request, so a page reached only
+ * through this path (never through the `useAuthUser: true` case) stays
+ * invisible to `checkDynamicPages`'s dynamic-API scan.
+ *
+ * A caller that already knows its page is dynamic (or isn't a page render
+ * at all — a Server Action, a route handler) loses nothing by passing
+ * `useAuthUser: true`; a caller reached from a static page should leave it
+ * `false` (the default) to keep that page static.
+ *
+ * @example
+ * ```ts
+ * // app on_error.ts sink
+ * const { user } = await resolveErrorReportingUser(params.useAuthUser);
+ * const userEmail = user?.email ?? null;
+ * ```
+ */
+export async function resolveErrorReportingUser(useAuthUser?: boolean): Promise<{ user: User | null }> {
+    if (useAuthUser !== true) return { user: null };
+    return resolveOptionalAuthUser();
+}

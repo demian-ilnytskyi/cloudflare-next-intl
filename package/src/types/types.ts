@@ -224,6 +224,19 @@ export interface ErrorHandlingParams {
      * only if you want a coarser/different dedup key.
      */
     dedupKey?: string;
+    /**
+     * Opt-in for your own `onError` sink to attach the reporting user (see
+     * `cloudflare-next-intl/resolveOptionalAuthUser`'s
+     * `resolveErrorReportingUser(params.useAuthUser)`). Defaults to `false`
+     * — an `onError` sink honoring this never calls `getAuthUser()` unless
+     * the specific `reportError()` call site that raised this report passed
+     * `true`, so a page whose only reason to resolve the user would be
+     * "attach them to this error report" stays static by default instead of
+     * being flagged dynamic by `checkDynamicPages`. Set `true` per call site
+     * only where you actually want the user on that specific report and
+     * don't mind the page becoming dynamic.
+     */
+    useAuthUser?: boolean;
 }
 
 export interface ErrorHandlingRoutingConfig {

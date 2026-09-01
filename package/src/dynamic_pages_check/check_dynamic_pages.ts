@@ -4,6 +4,7 @@ import { findPageFiles as findPageFilesImpl } from './find_page_files.js';
 import { detectDynamicUsage } from './detect_dynamic_usage.js';
 import { traceDynamicUsage } from './trace_dynamic_usage.js';
 import { insertDynamicExport } from './insert_dynamic_export.js';
+import { syncErrorReportingAuthUser, type SyncErrorReportingAuthUserReport } from './sync_error_reporting_auth_user.js';
 import type { AliasConfig } from './resolve_local_imports.js';
 
 /** `'off'` — don't scan at all (the global disable switch). `'report'` — scan and say what would change, write nothing. `'fix'` — scan and write the missing `export const dynamic` into each qualifying file. */
@@ -47,6 +48,14 @@ export interface CheckDynamicPagesOptions {
      * `@/*` -> `./src/*` tsconfig convention) — pass your own to override.
      */
     aliases?: readonly AliasConfig[];
+    /**
+     * Defaults to `false`. When enabled, runs `syncErrorReportingAuthUser`
+     * immediately after the main per-page scan, using this same
+     * `appDir`/`mode`/`target`/`skip`/`aliases` — see that function's docs
+     * for what it does and why it's opt-in. Its reports are appended to
+     * this call's returned array.
+     */
+    syncErrorReportingAuthUser?: boolean;
 }
 
 export interface CheckDynamicPagesReport {
@@ -72,7 +81,7 @@ function defaultIsFile(path: string): boolean {
 export async function checkDynamicPages(
     options: CheckDynamicPagesOptions,
     io: CheckDynamicPagesIo = {},
-): Promise<CheckDynamicPagesReport[]> {
+): Promise<(CheckDynamicPagesReport | SyncErrorReportingAuthUserReport)[]> {
     const mode = options.mode ?? 'report';
     if (mode === 'off') return [];
     const target = options.target ?? 'next';
@@ -87,7 +96,7 @@ export async function checkDynamicPages(
         { prefix: '@/', replacement: resolve(options.appDir, '..') },
     ];
 
-    const reports: CheckDynamicPagesReport[] = [];
+    const reports: (CheckDynamicPagesReport | SyncErrorReportingAuthUserReport)[] = [];
     for (const file of findPageFiles(options.appDir)) {
         if (skipSet.has(file)) {
             reports.push({ file, action: 'skipped' });
@@ -127,6 +136,14 @@ export async function checkDynamicPages(
         } else {
             reports.push({ file, action: 'would-add-force-dynamic' });
         }
+    }
+
+    if (options.syncErrorReportingAuthUser === true) {
+        const syncReports = await syncErrorReportingAuthUser(
+            { appDir: options.appDir, mode: options.mode, target: options.target, skip: options.skip, aliases: options.aliases },
+            { findPageFiles, readFile, writeFile, isFile },
+        );
+        reports.push(...syncReports);
     }
     return reports;
 }

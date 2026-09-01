@@ -16,6 +16,14 @@ export interface AutoDynamicPagesPluginOptions {
      * Runtime target. Defaults to `'vinext'`.
      */
     target?: 'next' | 'vinext';
+    /**
+     * Defaults to `false`. Passed straight through to `checkDynamicPages`'s
+     * `syncErrorReportingAuthUser` option — see its docs. Opt-in separately
+     * from this plugin's own default-on `autoDynamicPages` behavior, since
+     * it mutates `reportError()` call-site arguments across your app, not
+     * just one `export const dynamic` per page.
+     */
+    syncErrorReportingAuthUser?: boolean;
 }
 
 export function autoDynamicPagesPlugin(options: AutoDynamicPagesPluginOptions = {}): Plugin {
@@ -48,6 +56,7 @@ export function autoDynamicPagesPlugin(options: AutoDynamicPagesPluginOptions = 
                     appDir,
                     mode: options.mode ?? "fix",
                     target: options.target ?? "vinext",
+                    syncErrorReportingAuthUser: options.syncErrorReportingAuthUser ?? false,
                 });
             } catch (err) {
                 console.warn("[cloudflare-next-intl] autoDynamicPages check error:", err);

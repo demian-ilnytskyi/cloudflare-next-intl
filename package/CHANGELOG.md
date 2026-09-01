@@ -3,6 +3,40 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.16] - 2026-09-01
+
+### Added
+
+- **`syncErrorReportingAuthUser`** (`cloudflare-next-intl/checkDynamicPages`,
+  also as `checkDynamicPages`'s and the `autoDynamicPages` Vite plugin's new
+  `syncErrorReportingAuthUser` option, default `false`): a whole-app
+  companion pass that auto-inserts `useAuthUser: true` into `reportError()`
+  call sites reached *only* from pages already confirmed `force-dynamic` —
+  so those reports get the signed-in user attached without a hand-written
+  `useAuthUser: true` per call site. A call reachable from even one
+  static/unknown-status page is left untouched (default `false` stays in
+  effect there), so this can never make a static page dynamic on its own.
+
+## [0.9.15] - 2026-09-01
+
+### Added
+
+- **`ErrorHandlingParams.useAuthUser`** and **`resolveErrorReportingUser(useAuthUser?)`**
+  (`cloudflare-next-intl/resolveOptionalAuthUser`): a gated form of
+  `resolveOptionalAuthUser()` for an `onError` sink that only wants to
+  attach the reporting user when the specific `reportError()` call site
+  opted in. Defaults to `false` — when `useAuthUser` isn't `true`, it
+  resolves `{ user: null }` immediately without calling `getAuthUser()` at
+  all, so a page reached only through that default path stays invisible to
+  `checkDynamicPages`'s dynamic-API scan. Replaces hand-rolling an
+  unconditional `getAuthUser()` call inside your own `onError` sink (the
+  exact pattern `checkDynamicPages`'s new transitive tracing, added in
+  0.9.14, now correctly flags dynamic) with a single opt-in boolean your
+  own `reportError({ ..., useAuthUser: true })` call sites control
+  per-call — off by default, so most pages stay static; a call site that
+  wants the user on that specific report (or is already dynamic anyway)
+  turns it on without affecting anything else.
+
 ## [0.9.14] - 2026-09-01
 
 ### Fixed
