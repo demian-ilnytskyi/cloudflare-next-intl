@@ -66,6 +66,20 @@ function CustomLinkFunction(
         setIsNavigating(false);
     }, [pathname]);
 
+    // Safety net: `isNavigating` otherwise only clears when `pathname`
+    // actually changes. A transition that never lands — an error mid-render,
+    // a dev-server compile queue backed up, a request that just hangs — means
+    // pathname never changes, so without this every future click on every
+    // Link in the app is silently swallowed (`handleClick`'s
+    // `e.preventDefault(); return;` below) with no error and no way to
+    // recover short of a hard reload. 10s is generous for a real navigation;
+    // it exists only to bound the failure, not to be a normal-path timer.
+    useEffect(() => {
+        if (!isNavigating) return;
+        const timer = setTimeout(() => setIsNavigating(false), 10000);
+        return () => clearTimeout(timer);
+    }, [isNavigating]);
+
     const isCustom = prefetchType === 'custom' && prefetch !== false;
 
     const triggerPrefetch = useCallback(() => {

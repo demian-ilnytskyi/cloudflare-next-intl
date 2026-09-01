@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { GenerateRoutingConfig, RequestOrHeaders } from '../../types/types.js';
 import { countryCookieKey, timezoneCookieKey } from '../../config/cookie_key.js';
 
@@ -248,8 +249,15 @@ export async function getTimezone(
 
 /**
  * Resolves the Cloudflare environment bindings object from `generate.env` or `generate.getCloudflareContext`.
+ *
+ * Memoized per request with React's `cache()` — every `db` call that falls
+ * through to a Hyperdrive/binding lookup (`resolveDbMode` ->
+ * `resolveHyperdriveConnectionString` -> here) used to pay its own
+ * `getCloudflareContext({ async: true })` resolution, even though several of
+ * those can happen in a single page render for an answer that cannot change
+ * within one request.
  */
-export async function resolveEnv(generate?: GenerateRoutingConfig): Promise<Record<string, unknown> | undefined> {
+async function resolveEnvUncached(generate?: GenerateRoutingConfig): Promise<Record<string, unknown> | undefined> {
     if (!generate) return undefined;
     if (generate.env) {
         const resolved = typeof generate.env === 'function' ? await generate.env() : generate.env;
@@ -265,3 +273,5 @@ export async function resolveEnv(generate?: GenerateRoutingConfig): Promise<Reco
     }
     return undefined;
 }
+
+export const resolveEnv = cache(resolveEnvUncached);

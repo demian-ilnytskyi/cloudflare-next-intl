@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { DbRoutingConfig, GenerateRoutingConfig, SupabaseDbConfig } from '../types/types.js';
 import resolveConfigValue from './resolve_config_value.js';
 import { resolveHyperdriveConnectionString } from './resolve_hyperdrive_connection_string.js';
@@ -40,8 +41,15 @@ export type ResolvedDbMode =
  * Hyperdrive binding off `env` when `db.connectionString` is unset.
  * @returns The resolved mode, plus whichever of `connectionString`/`supabase`
  * that mode needs.
+ *
+ * Memoized per request with React's `cache()`: `withUserDb`/`withPublicDb`
+ * call this once per DB-backed section of a page, and a busy render can hit
+ * it 6+ times for the same `db`/`generate` pair — each one re-resolving the
+ * Hyperdrive binding (and, transitively, `getCloudflareContext({ async:
+ * true })`) from scratch for an answer that cannot change within one
+ * request.
  */
-export default async function resolveDbMode(db: DbRoutingConfig, generate?: GenerateRoutingConfig): Promise<ResolvedDbMode> {
+async function resolveDbModeUncached(db: DbRoutingConfig, generate?: GenerateRoutingConfig): Promise<ResolvedDbMode> {
     const connectionString = await resolveConfigValue(db.connectionString);
     if (connectionString) return { mode: 'postgres', connectionString };
 
@@ -53,3 +61,6 @@ export default async function resolveDbMode(db: DbRoutingConfig, generate?: Gene
     if (db.supabase) return { mode: 'supabase', supabase: db.supabase };
     return { mode: 'postgres', connectionString: undefined };
 }
+
+const resolveDbMode = cache(resolveDbModeUncached);
+export default resolveDbMode;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.29
+
+### Changed
+
+- Memoized `resolveDbMode`, `resolveEnv`, and the Supabase REST client (`createRestClient`) per request with React's `cache()`, so a page with multiple DB-backed sections no longer re-resolves the Hyperdrive binding or constructs a fresh `@supabase/supabase-js` client for each call.
+- Added a 10s safety-net timeout to `<Link>`'s `isNavigating` state so a navigation that never lands (error mid-render, hung request) doesn't permanently swallow future clicks.
+
 ## 0.9.23
 
 ### Fixed
