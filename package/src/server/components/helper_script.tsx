@@ -63,23 +63,21 @@ export default function HelperScript(): Component | null {
                     }
                     return false;
                 }
-                function recover(msg) {
-                    // One reload attempt per page load, no matter how many matching
-                    // errors fire in a row (a single stale deploy commonly throws
-                    // several near-simultaneous chunk failures) — without this guard
-                    // each one would race to read-then-write the same sessionStorage
-                    // key and could re-trigger reload() multiple times before the
-                    // first navigation lands.
+                function recover(msg, source) {
                     if (attemptedThisLoad) return;
                     try {
-                        if (!isStale(msg)) return;
+                        var stale = isStale(msg);
+                        console.warn('[StaleDeploy early-catch] Intercepted:', { source: source, msg: msg, isStale: stale });
+                        if (!stale) return;
                         var buildId = localStorage.getItem('buildId') || 'unknown';
-                        // Same marker/key as useStaleDeployRecovery: one reload per
-                        // build id, so a repeat failure on a build that already spent
-                        // its reload falls through instead of reloading forever.
-                        if (sessionStorage.getItem(key) === buildId) return;
+                        var marker = sessionStorage.getItem(key);
+                        if (marker === buildId) {
+                            console.warn('[StaleDeploy early-catch] Skipping reload, already attempted for buildId:', buildId);
+                            return;
+                        }
                         attemptedThisLoad = true;
                         sessionStorage.setItem(key, buildId);
+                        console.warn('[StaleDeploy early-catch] Reloading for buildId:', buildId);
                         try {
                             var u = new URL(window.location.href);
                             u.searchParams.set('_stale_reload', String(Date.now()));
@@ -91,9 +89,9 @@ export default function HelperScript(): Component | null {
                         console.error('Stale Deploy Early Catch Script Error:', e);
                     }
                 }
-                window.addEventListener('error', function(e) { recover(e.message); });
+                window.addEventListener('error', function(e) { recover(e.message, 'error-event'); });
                 window.addEventListener('unhandledrejection', function(e) {
-                    recover(e.reason && e.reason.message);
+                    recover(e.reason && (e.reason.message || e.reason), 'unhandledrejection');
                 });
       })();`
                 }} />}

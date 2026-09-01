@@ -68,15 +68,30 @@ function canRecover(error: unknown): boolean {
     try {
         const reloadTimeRaw = sessionStorage.getItem(RECOVERY_TIME_KEY);
         const reloadTime = reloadTimeRaw ? Number(reloadTimeRaw) : null;
-        return shouldRecoverFromStaleDeploy(
+        const bId = currentBuildId();
+        const marker = sessionStorage.getItem(RECOVERY_RELOAD_KEY);
+        const isRecent = isRecentBuild(buildIdSetAt(), Date.now());
+        const isStale = isStaleDeployError(error);
+        const result = shouldRecoverFromStaleDeploy(
             error,
-            currentBuildId(),
-            sessionStorage.getItem(RECOVERY_RELOAD_KEY),
-            isRecentBuild(buildIdSetAt(), Date.now()),
+            bId,
+            marker,
+            isRecent,
             reloadTime,
             Date.now(),
         );
-    } catch {
+        console.warn('[useStaleDeployRecovery]', {
+            error,
+            isStale,
+            bId,
+            marker,
+            isRecent,
+            reloadTime,
+            result,
+        });
+        return result;
+    } catch (e) {
+        console.error('[useStaleDeployRecovery] Error in canRecover:', e);
         return false;
     }
 }
