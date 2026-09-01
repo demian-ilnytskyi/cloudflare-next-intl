@@ -80,7 +80,13 @@ export default function HelperScript(): Component | null {
                         if (sessionStorage.getItem(key) === buildId) return;
                         attemptedThisLoad = true;
                         sessionStorage.setItem(key, buildId);
-                        window.location.reload();
+                        try {
+                            var u = new URL(window.location.href);
+                            u.searchParams.set('_stale_reload', String(Date.now()));
+                            window.location.replace(u.toString());
+                        } catch (e) {
+                            window.location.reload();
+                        }
                     } catch (e) {
                         console.error('Stale Deploy Early Catch Script Error:', e);
                     }
@@ -156,7 +162,16 @@ export default function HelperScript(): Component | null {
                     // 3. Handle Locale Redirect.
                     // The logic is clearer: redirect only if a non-default locale is set
                     // and the URL isn't already localized.
+                    // Clean up stale reload query parameter if present
                     const { pathname, search, hash } = window.location;
+                    if (search && search.indexOf('_stale_reload=') > -1) {
+                        try {
+                            const cleanUrl = new URL(window.location.href);
+                            cleanUrl.searchParams.delete('_stale_reload');
+                            window.history.replaceState(history.state, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+                        } catch (e) {}
+                    }
+
                     if (locale && locale !== '${config.defaultLocale}' && !pathname.startsWith(\`/\${locale}\`)) {
                         const newPath = \`/\${locale}\${pathname === '/' ? '' : pathname}\${search}\${hash}\`;
                         // Redirecting will stop further script execution on this page.

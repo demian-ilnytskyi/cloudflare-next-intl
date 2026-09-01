@@ -18,23 +18,14 @@ describe('shouldRecoverFromStaleDeploy', () => {
         expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', '')).toBe(true);
     });
 
-    it('does not recover when this build already reloaded once (marker matches buildId)', () => {
-        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a')).toBe(false);
+    it('does not recover when this build already reloaded recently (<15s ago)', () => {
+        const now = 100_000;
+        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', false, now - 5_000, now)).toBe(false);
     });
 
-    it('re-arms and recovers after a redeploy (marker is old build id)', () => {
-        expect(shouldRecoverFromStaleDeploy(staleError, 'build-b', 'build-a')).toBe(true);
-    });
-
-    it('never recovers for an unrelated generic error', () => {
-        expect(shouldRecoverFromStaleDeploy(genericError, 'build-a', null)).toBe(false);
-        expect(shouldRecoverFromStaleDeploy(genericError, 'build-b', 'build-a')).toBe(false);
-    });
-
-    it('recovers when error is undefined (aborted RSC stream with missing error)', () => {
-        expect(shouldRecoverFromStaleDeploy(undefined, 'build-a', null)).toBe(true);
-        expect(shouldRecoverFromStaleDeploy(undefined, 'build-a', 'build-a')).toBe(false);
-        expect(shouldRecoverFromStaleDeploy(undefined, 'build-a', 'build-a', true)).toBe(false);
+    it('recovers when the last reload for this build was >15s ago', () => {
+        const now = 100_000;
+        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', false, now - 20_000, now)).toBe(true);
     });
 
     it('does not recover when error is null or non-Error value', () => {

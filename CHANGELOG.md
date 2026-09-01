@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.21
+
+### Fixed
+
+- Improved stale deploy recovery with cache-busting reload (`performCacheBustReload`) to bypass browser HTTP disk cache after app deployment.
+- Throttled recovery reloads to 15s to prevent infinite reload loops while ensuring reliable recovery when `buildId` is unpopulated.
+- Automatically cleaned up `_stale_reload` query parameters in `HelperScript`.
+
 ## 0.9.20
 
 ### Fixed
