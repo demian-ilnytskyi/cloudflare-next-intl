@@ -8,6 +8,10 @@ export const defaultStaleDeployPatterns: readonly string[] = [
     'minified react error #412',
     'the above error occurred in a react component',
     'the connection to the page was unexpectedly closed',
+    'readablestream',
+    'readable stream',
+    'uncaught exception: undefined',
+    'uncaught undefined',
     'server action not found',
     'unrecognizedactionerror',
 ];
@@ -36,11 +40,17 @@ export default function isStaleDeployError(
     // thrown error is never `undefined`.
     if (error === undefined) return true;
     if (!error) return false;
-    if (!(error instanceof Error)) return false;
 
-    if (error.name === 'ChunkLoadError' || error.name === 'UnrecognizedActionError') return true;
+    let message = '';
+    if (error instanceof Error) {
+        if (error.name === 'ChunkLoadError' || error.name === 'UnrecognizedActionError') return true;
+        message = (error.message || '').toLowerCase();
+    } else if (typeof error === 'string') {
+        message = error.toLowerCase();
+    } else {
+        return false;
+    }
 
-    const message = (error.message || '').toLowerCase();
     const list = patterns ? patterns.map((p) => p.toLowerCase()) : activeLowercasedPatterns;
     for (const pattern of list) {
         if (message.includes(pattern)) {

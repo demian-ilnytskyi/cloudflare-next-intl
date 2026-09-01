@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.23
+
+### Fixed
+
+- Added support for detecting aborted RSC stream and stream connection errors in Firefox (including string `"uncaught exception: undefined"`, `"uncaught undefined"`, `"readablestream"`, and `"readable stream"`).
+- Extended `isStaleDeployError` to handle string error messages directly in addition to `Error` instances.
+- Added comprehensive logging across early-catch script and `useStaleDeployRecovery` for debugging stale deploy recoveries.
+- Improved `<Link>` component prefetch and navigation handling for object `href` and empty paths.
+
 ## 0.9.21
 
 ### Fixed

@@ -21,6 +21,10 @@ describe('isStaleDeployError', () => {
             'minified react error #412',
             'the above error occurred in a react component',
             'the connection to the page was unexpectedly closed',
+            'readablestream',
+            'readable stream',
+            'uncaught exception: undefined',
+            'uncaught undefined',
             'server action not found',
             'unrecognizedactionerror',
         ]);
@@ -45,9 +49,11 @@ describe('isStaleDeployError', () => {
         expect(isStaleDeployError(undefined)).toBe(true);
     });
 
-    it('returns false for null and other non-Error caught values', () => {
+    it('matches string errors containing stale patterns and returns false for unmatched non-errors', () => {
+        expect(isStaleDeployError('uncaught exception: undefined')).toBe(true);
+        expect(isStaleDeployError('Failed to read data from the ReadableStream')).toBe(true);
+        expect(isStaleDeployError('some random string')).toBe(false);
         expect(isStaleDeployError(null)).toBe(false);
-        expect(isStaleDeployError('some string')).toBe(false);
         expect(isStaleDeployError({ message: 'not a real error' })).toBe(false);
     });
 
