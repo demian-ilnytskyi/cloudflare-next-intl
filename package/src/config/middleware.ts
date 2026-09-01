@@ -3,11 +3,12 @@ import { NextResponse } from 'next/server.js';
 import { languageDetecotr } from '../server/functions/get_user_locale.js';
 import type { CookieAttributes, MiddlewareCustomHandler } from '../types/types.js';
 import config from './intl_config.js';
-import { isBotCookieKey, localeCookieName } from './cookie_key.js';
+import { countryCookieKey, isBotCookieKey, localeCookieName, timezoneCookieKey } from './cookie_key.js';
 import { cache } from 'react';
 import reportError from '../error_handling/report_error.js';
 import type * as UserAgentModule from 'next/dist/server/web/spec-extension/user-agent';
 import type * as UpdateSessionModule from '../firebase_auth/middleware/update_session.js';
+import { defaultCountryHeaderNames, defaultTimezoneHeaderNames } from '../server/functions/geo.js';
 
 const sameSite: true | false | "lax" | "strict" | "none" | undefined = false;
 
@@ -41,6 +42,14 @@ export const localesSet = new Set(config.locales);
 // Still fully lazy: consumers who never set `config.firebaseAuth` never
 // reach the branch that assigns this, so they never pay the import at all.
 let updateSessionModule: typeof UpdateSessionModule | undefined;
+
+function getFirstHeaderValue(headers: Headers, names: readonly string[]): string | undefined {
+    for (const name of names) {
+        const value = headers.get(name);
+        if (value) return value;
+    }
+    return undefined;
+}
 
 /**
  * This middleware function runs for every incoming request. Handles locale
@@ -107,15 +116,19 @@ export default async function intlMiddleware(
 
         const effectiveLocaleForRequest = urlLocale ?? initialChosenLocale;
 
-        const country = (request as unknown as { cf?: { country?: string } }).cf?.country ?? request.headers.get('cf-ipcountry') ?? request.headers.get('x-cf-country');
-        if (country) {
-            request.headers.set('x-cf-country', country);
-        }
-
-        const timezone = (request as unknown as { cf?: { timezone?: string } }).cf?.timezone ?? request.headers.get('cf-timezone') ?? request.headers.get('x-cf-timezone');
-        if (timezone) {
-            request.headers.set('x-cf-timezone', timezone);
-        }
+        const cf = (request as unknown as { cf?: { country?: string; timezone?: string } }).cf;
+        const countryHeaderNames = config.cookieConsent?.countryHeaderNames
+            ?? config.generate?.countryHeaderNames
+            ?? defaultCountryHeaderNames;
+        const timezoneHeaderNames = config.generate?.timezoneHeaderNames
+            ?? defaultTimezoneHeaderNames;
+        const countryCookieName = config.cookieConsent?.countryCookieName
+            ?? config.generate?.countryCookieName
+            ?? countryCookieKey;
+        const timezoneCookieName = config.generate?.timezoneCookieName
+            ?? timezoneCookieKey;
+        const country = cf?.country || getFirstHeaderValue(request.headers, countryHeaderNames);
+        const timezone = cf?.timezone || getFirstHeaderValue(request.headers, timezoneHeaderNames);
 
         const requestHeaders = new Headers(request.headers);
         requestHeaders.set('x-pathname', pathWithoutLocale);
@@ -179,10 +192,27 @@ export default async function intlMiddleware(
 
         if (country) {
             response.headers.set('x-cf-country', country);
+            // Set as a JS-readable cookie so client-side consent resolution
+            // works correctly for static/cached pages where the server
+            // component can't read the per-visitor country from next/headers().
+            response.cookies.set(countryCookieName, country, {
+                path: '/',
+                maxAge: 86400, // 24 h — refreshed on every request
+                httpOnly: false,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+            });
         }
 
         if (timezone) {
             response.headers.set('x-cf-timezone', timezone);
+            response.cookies.set(timezoneCookieName, timezone, {
+                path: '/',
+                maxAge: 86400,
+                httpOnly: false,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+            });
         }
 
         // Auto-wires the firebase_auth submodule's redirect/session-refresh

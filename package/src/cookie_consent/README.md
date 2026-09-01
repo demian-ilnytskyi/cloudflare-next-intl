@@ -53,6 +53,17 @@ country is resolved from the request's Cloudflare geo headers
 seeded to `true` immediately; a country that can't be resolved still
 requires consent (fail-safe).
 
+**Static / cached pages**: for routes with `generateStaticParams` (or
+routes whose HTML is cached at the Cloudflare edge as a shared response),
+the server component runs once at render time with a specific visitor's
+headers — but the cached HTML is then served to all subsequent visitors,
+whose countries may differ. To handle this, `intlMiddleware` sets a
+short-lived `__cf_country__` cookie (24 h, JS-readable, `SameSite=Lax`)
+on every response — including Cloudflare edge-cache hits — from
+`cf.country`. `CookieConsentProvider` reads this cookie on client mount
+and re-evaluates GDPR membership, overriding the server-baked
+`requiresConsent` when needed. No additional configuration is required.
+
 Two optional getters override that resolution: `getCountryCode` resolves the
 country directly (if you already have it from a header/KV/your own logic);
 `generate.getCloudflareContext` (on `RoutingConfig`, shared with the
@@ -91,3 +102,7 @@ or set `cookieConsent.privacyPolicyPath` to `false` to disable the default link 
   `privacyPolicyUpdated` stays `false` forever.
 - `useCookieConsent` throws `"useCookieConsent must be used within a
   CookieConsentProvider"` if called outside the provider.
+- The `__cf_country__` cookie is set by `intlMiddleware` and is required
+  for correct country-based gating on static/cached pages. It is not set
+  when the country cannot be determined (no `cf.country`, no `cf-ipcountry`
+  / `x-cf-country` header), in which case the server-baked value is used.

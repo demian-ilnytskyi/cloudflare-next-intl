@@ -6,7 +6,6 @@ import { localesSet } from "../../config/middleware.js";
 import config from "../../config/intl_config.js";
 import type { SerializedAuthUser } from "../../firebase_auth/types.js";
 import type { CookieConsentAnalyticsConfig } from "../../types/types.js";
-import resolveRequiresConsent from "../../cookie_consent/gdpr_countries.js";
 import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
 import reportError from "../../error_handling/report_error.js";
 import type * as AuthUserServerProviderModule from "../../firebase_auth/server/auth_user_server_provider.js";
@@ -152,23 +151,12 @@ export default async function LocationzationProvider({ language, messages, stati
     if (config.cookieConsent) {
         const isDevEnvironment = process.env.NODE_ENV === 'development';
 
-        // `getCloudflareContext` under `next dev`'s Cloudflare dev shim can
-        // crash the local workerd process (a native RPC panic, not a
-        // catchable JS error — see cloudflare/workers-sdk#8687) merely by
-        // being called, regardless of what it resolves to. `getCountryCode`
-        // is caller-supplied and may be dev-safe, so only skip the
-        // `getCloudflareContext` path in dev; fail-safe to `true`
-        // (banner shown) same as an unresolved country would.
-        requiresConsent = !isDevEnvironment
-            ? await resolveRequiresConsent(
-                config.cookieConsent.getCountryCode,
-                config.generate?.getCloudflareContext,
-                config.cookieConsent.gdprCountries,
-                config.errorHandling,
-                config.cookieConsent.countryHeaderNames,
-                config.generate,
-            )
-            : false;
+        // Country-based gating is handled client-side by CookieConsentProvider
+        // via the __cf_country__ cookie set by intlMiddleware on every response
+        // (including Cloudflare edge-cache hits). Passing true here is the safe
+        // default; the client corrects it on mount without flicker because the
+        // isMounted gate keeps the dialog hidden until after the cookie is read.
+        requiresConsent = !isDevEnvironment;
 
         const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
 

@@ -35,6 +35,7 @@ function Consumer() {
     return (
         <div>
             <span data-testid="consent">{ctx.consent === null ? 'null' : String(ctx.consent)}</span>
+            <span data-testid="requires-consent">{String(ctx.requiresConsent)}</span>
             <span data-testid="updated">{String(ctx.privacyPolicyUpdated)}</span>
             <span data-testid="privacy-policy-path">{String(ctx.privacyPolicyPath)}</span>
             <span data-testid="show-privacy-policy">{String(ctx.showPrivacyPolicy)}</span>
@@ -285,5 +286,51 @@ describe('CookieConsentProvider', () => {
         const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
         render(<CookieConsentProvider><Consumer /></CookieConsentProvider>);
         expect(screen.getByTestId('show-privacy-policy')).toHaveTextContent('false');
+    });
+
+    // ── country-cookie client-side correction ────────────────────────────────
+
+    it('corrects requiresConsent to false when country cookie is a non-GDPR country', async () => {
+        cookies.set('__cf_country__', 'UA');
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
+        render(<CookieConsentProvider requiresConsent={true}><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('requires-consent')).toHaveTextContent('false');
+    });
+
+    it('keeps requiresConsent true when country cookie is a GDPR country', async () => {
+        cookies.set('__cf_country__', 'DE');
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
+        render(<CookieConsentProvider requiresConsent={true}><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('requires-consent')).toHaveTextContent('true');
+    });
+
+    it('keeps requiresConsent true when country cookie is absent', async () => {
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
+        render(<CookieConsentProvider requiresConsent={true}><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('requires-consent')).toHaveTextContent('true');
+    });
+
+    it('does not re-evaluate country cookie when requiresConsent prop is false', async () => {
+        cookies.set('__cf_country__', 'DE');
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
+        render(<CookieConsentProvider requiresConsent={false}><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('requires-consent')).toHaveTextContent('false');
+    });
+
+    it('uses custom gdprCountries list for client-side correction', async () => {
+        currentConfig = { cookieConsent: { gdprCountries: ['UA', 'US'] } };
+        cookies.set('__cf_country__', 'UA');
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
+        render(<CookieConsentProvider requiresConsent={true}><Consumer /></CookieConsentProvider>);
+        // UA is in the custom list → must require consent
+        expect(screen.getByTestId('requires-consent')).toHaveTextContent('true');
+    });
+
+    it('uses custom gdprCountries list — non-member country is corrected to false', async () => {
+        currentConfig = { cookieConsent: { gdprCountries: ['DE', 'FR'] } };
+        cookies.set('__cf_country__', 'UA');
+        const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
+        render(<CookieConsentProvider requiresConsent={true}><Consumer /></CookieConsentProvider>);
+        expect(screen.getByTestId('requires-consent')).toHaveTextContent('false');
     });
 });

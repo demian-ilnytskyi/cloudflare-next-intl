@@ -3,6 +3,28 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.12] - 2026-09-01
+
+### Fixed
+
+- **Cookie consent banner shown incorrectly on static/cached pages**: for
+  routes with `generateStaticParams` (or responses cached at the Cloudflare
+  edge as a shared `public` response), the server component that resolves
+  `requiresConsent` ran once — with whichever visitor's country happened to
+  populate the cache — and that resolved value was then served to all
+  subsequent visitors regardless of their country. Visitors from non-GDPR
+  countries (e.g. Ukraine) would see the banner because the cached HTML had
+  `requiresConsent=true` baked in.
+
+  **Fix**: `intlMiddleware` now sets a `__cf_country__` cookie (24 h,
+  JS-readable, `SameSite=Lax`) on every response from `cf.country` —
+  including Cloudflare edge-cache hits where the Worker still runs but the
+  page HTML is served from cache. `CookieConsentProvider` reads this cookie
+  on client mount and re-evaluates GDPR membership using the same
+  `defaultGdprCountries` list (or a custom `gdprCountries` override),
+  overriding the server-baked value when needed. No configuration changes
+  required.
+
 ## [0.9.11] - 2026-09-01
 
 ### Fixed

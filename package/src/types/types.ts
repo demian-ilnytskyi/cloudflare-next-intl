@@ -157,10 +157,22 @@ export interface GenerateRoutingConfig {
      */
     countryHeaderNames?: readonly string[];
     /**
+     * Cookie name read by `getCountry()` when request headers do not contain
+     * country metadata. Defaults to `'__cf_country__'`.
+     * `cookieConsent.countryCookieName` takes precedence for the
+     * cookie-consent banner's own client/server resolution.
+     */
+    countryCookieName?: string;
+    /**
      * Request headers read (in order) by `getTimezone()` to resolve the
      * visitor's IANA timezone. Defaults to `['x-cf-timezone', 'cf-timezone']`.
      */
     timezoneHeaderNames?: readonly string[];
+    /**
+     * Cookie name read by `getTimezone()` when request headers do not contain
+     * timezone metadata. Defaults to `'__cf_timezone__'`.
+     */
+    timezoneCookieName?: string;
 }
 
 /**
@@ -170,7 +182,11 @@ export interface GenerateRoutingConfig {
 export type RequestOrHeaders =
     | Request
     | Headers
-    | { headers?: Headers | Record<string, string | null | undefined>; cf?: { country?: string; timezone?: string; [key: string]: unknown } }
+    | {
+        headers?: Headers | Record<string, string | null | undefined>;
+        cookies?: { get?: (name: string) => { value?: string } | string | undefined };
+        cf?: { country?: string; timezone?: string; [key: string]: unknown };
+    }
     | undefined;
 
 export interface ErrorHandlingParams {
@@ -397,6 +413,12 @@ export interface CookieConsentRoutingConfig {
      * your edge/proxy forwards the country under a different name.
      */
     countryHeaderNames?: readonly string[];
+    /**
+     * Cookie name read by the client-side consent provider and by
+     * `resolveRequiresConsent`'s built-in country fallback. Defaults to
+     * `generate.countryCookieName` or `'__cf_country__'`.
+     */
+    countryCookieName?: string;
     /**
      * Country codes (ISO 3166-1 alpha-2) for which the cookie-consent banner
      * is required. Defaults to the EU/EEA + UK + Switzerland

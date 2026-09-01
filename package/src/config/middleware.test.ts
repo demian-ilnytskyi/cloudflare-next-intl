@@ -327,4 +327,93 @@ describe('intlMiddleware with firebaseAuth configured', () => {
         expect(res.headers.get('x-cf-country')).toBe('FR');
         expect(res.headers.get('x-cf-timezone')).toBe('Europe/Paris');
     });
+
+    it('prefers canonical x-cf headers over fallback cf headers when both are present', async () => {
+        const req = makeRequest('https://example.com/en/about', {
+            headers: {
+                'x-cf-country': 'FR',
+                'cf-ipcountry': 'DE',
+                'x-cf-timezone': 'Europe/Paris',
+                'cf-timezone': 'Europe/Berlin',
+            },
+        });
+
+        const res = await intlMiddleware(req);
+        expect(res.headers.get('x-cf-country')).toBe('FR');
+        expect(res.headers.get('x-cf-timezone')).toBe('Europe/Paris');
+    });
+
+    it('sets __cf_country__ cookie from cf.country', async () => {
+        const req = makeRequest('https://example.com/en/about') as unknown as {
+            cf: { country: string };
+            headers: Headers;
+            nextUrl: URL;
+            url: string;
+            cookies: { get: (name: string) => { value: string } | undefined };
+        };
+        req.cf = { country: 'UA' };
+
+        const res = await intlMiddleware(req as never);
+        const setCookieHeader = res.headers.get('set-cookie') ?? '';
+        expect(setCookieHeader).toContain('__cf_country__=UA');
+    });
+
+    it('sets __cf_timezone__ cookie from cf.timezone', async () => {
+        const req = makeRequest('https://example.com/en/about') as unknown as {
+            cf: { timezone: string };
+            headers: Headers;
+            nextUrl: URL;
+            url: string;
+            cookies: { get: (name: string) => { value: string } | undefined };
+        };
+        req.cf = { timezone: 'Europe/Kyiv' };
+
+        const res = await intlMiddleware(req as never);
+        const setCookieHeader = res.headers.get('set-cookie') ?? '';
+        expect(res.headers.get('x-cf-timezone')).toBe('Europe/Kyiv');
+        expect(setCookieHeader).toContain('__cf_timezone__=Europe%2FKyiv');
+    });
+
+    it('sets __cf_country__ cookie from cf-ipcountry header', async () => {
+        const req = makeRequest('https://example.com/en/about', {
+            headers: { 'cf-ipcountry': 'DE' },
+        });
+
+        const res = await intlMiddleware(req);
+        const setCookieHeader = res.headers.get('set-cookie') ?? '';
+        expect(setCookieHeader).toContain('__cf_country__=DE');
+    });
+
+    it('does not set __cf_country__ cookie when country is unavailable', async () => {
+        const req = makeRequest('https://example.com/en/about');
+        const res = await intlMiddleware(req);
+        const setCookieHeader = res.headers.get('set-cookie') ?? '';
+        expect(setCookieHeader).not.toContain('__cf_country__');
+    });
+
+    it('uses configured country and timezone header names when normalizing middleware headers', async () => {
+        vi.doMock('./intl_config', () => ({
+            default: {
+                locales: ['en', 'de'],
+                defaultLocale: 'en',
+                generate: {
+                    countryHeaderNames: ['x-visitor-country'],
+                    timezoneHeaderNames: ['x-visitor-timezone'],
+                },
+            },
+        }));
+
+        const { default: intlMiddlewareWithCustomHeaders } = await import('./middleware.js');
+        const req = makeRequest('https://example.com/en/about', {
+            headers: {
+                'x-visitor-country': 'UA',
+                'x-visitor-timezone': 'Europe/Kyiv',
+            },
+        });
+
+        const res = await intlMiddlewareWithCustomHeaders(req);
+        expect(res.headers.get('x-cf-country')).toBe('UA');
+        expect(res.headers.get('x-cf-timezone')).toBe('Europe/Kyiv');
+        expect(res.headers.get('set-cookie') ?? '').toContain('__cf_country__=UA');
+    });
 });

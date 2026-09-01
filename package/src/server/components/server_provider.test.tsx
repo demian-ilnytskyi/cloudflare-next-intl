@@ -222,15 +222,15 @@ describe('LocationzationProvider', () => {
         expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'true');
     });
 
-    it('resolves requiresConsent via getCountryCode, taking precedence over generate.getCloudflareContext', async () => {
+    it('always passes requiresConsent=true server-side (country check delegated to client via __cf_country__ cookie)', async () => {
         cookieConsentValue = {
-            getCountryCode: () => 'US',
+            getCountryCode: () => 'US', // ignored — no longer called server-side
         };
-        generateValue = { getCloudflareContext: () => ({ cf: { country: 'DE' } }) };
+        generateValue = { getCloudflareContext: () => ({ cf: { country: 'DE' } }) }; // also ignored
         vi.resetModules();
         const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
-        expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'false');
+        expect(await screen.findByTestId('cookie-consent-provider')).toHaveAttribute('data-requires-consent', 'true');
     });
 
     it('defaults requiresConsent to true when neither getCountryCode nor getCloudflareContext is set', async () => {

@@ -4,6 +4,7 @@ import type { GenerateRoutingConfig } from '../../types/types.js';
 
 vi.mock('next/headers', () => ({
     headers: vi.fn(),
+    cookies: vi.fn(),
 }));
 
 describe('geo functions', () => {
@@ -58,6 +59,30 @@ describe('geo functions', () => {
             expect(result).toBe('PL');
         });
 
+        it('resolves country from an explicit cookie header when geo headers are missing', async () => {
+            const result = await getCountry({ headers: { cookie: '__cf_country__=UA' } });
+            expect(result).toBe('UA');
+        });
+
+        it('prefers explicit country headers over the country cookie', async () => {
+            const result = await getCountry({
+                headers: {
+                    'x-cf-country': 'DE',
+                    cookie: '__cf_country__=UA',
+                },
+            });
+            expect(result).toBe('DE');
+        });
+
+        it('resolves country from explicit request cookies', async () => {
+            const result = await getCountry({
+                cookies: {
+                    get: (name: string) => name === '__cf_country__' ? { value: 'UA' } : undefined,
+                },
+            });
+            expect(result).toBe('UA');
+        });
+
         it('falls through when record headers have empty strings or missing keys', async () => {
             const { headers } = await import('next/headers');
             vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
@@ -88,6 +113,28 @@ describe('geo functions', () => {
 
             const result = await getCountry();
             expect(result).toBe('CA');
+        });
+
+        it('resolves country from next/headers cookie header when geo headers are missing', async () => {
+            const { headers } = await import('next/headers');
+            const mockHeaders = new Headers();
+            mockHeaders.set('cookie', '__cf_country__=UA');
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+
+            const result = await getCountry();
+            expect(result).toBe('UA');
+        });
+
+        it('resolves country from next/headers cookies() when request headers have no country', async () => {
+            const { headers, cookies } = await import('next/headers');
+            const mockHeaders = new Headers();
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockResolvedValueOnce({
+                get: (name: string) => name === '__cf_country__' ? { value: 'UA' } : undefined,
+            } as unknown as Awaited<ReturnType<typeof cookies>>);
+
+            const result = await getCountry();
+            expect(result).toBe('UA');
         });
 
         it('falls back to generate.getCloudflareContext when next/headers throws', async () => {
@@ -243,6 +290,30 @@ describe('geo functions', () => {
             expect(result).toBe('Europe/Warsaw');
         });
 
+        it('resolves timezone from an explicit cookie header when geo headers are missing', async () => {
+            const result = await getTimezone({ headers: { cookie: '__cf_timezone__=Europe%2FKyiv' } });
+            expect(result).toBe('Europe/Kyiv');
+        });
+
+        it('prefers explicit timezone headers over the timezone cookie', async () => {
+            const result = await getTimezone({
+                headers: {
+                    'x-cf-timezone': 'Europe/Berlin',
+                    cookie: '__cf_timezone__=Europe%2FKyiv',
+                },
+            });
+            expect(result).toBe('Europe/Berlin');
+        });
+
+        it('resolves timezone from explicit request cookies', async () => {
+            const result = await getTimezone({
+                cookies: {
+                    get: (name: string) => name === '__cf_timezone__' ? { value: 'Europe/Kyiv' } : undefined,
+                },
+            });
+            expect(result).toBe('Europe/Kyiv');
+        });
+
         it('falls through when record headers have empty strings or missing keys', async () => {
             const { headers } = await import('next/headers');
             vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
@@ -273,6 +344,28 @@ describe('geo functions', () => {
 
             const result = await getTimezone();
             expect(result).toBe('America/Chicago');
+        });
+
+        it('resolves timezone from next/headers cookie header when geo headers are missing', async () => {
+            const { headers } = await import('next/headers');
+            const mockHeaders = new Headers();
+            mockHeaders.set('cookie', '__cf_timezone__=Europe%2FKyiv');
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+
+            const result = await getTimezone();
+            expect(result).toBe('Europe/Kyiv');
+        });
+
+        it('resolves timezone from next/headers cookies() when request headers have no timezone', async () => {
+            const { headers, cookies } = await import('next/headers');
+            const mockHeaders = new Headers();
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockResolvedValueOnce({
+                get: (name: string) => name === '__cf_timezone__' ? { value: 'Europe/Kyiv' } : undefined,
+            } as unknown as Awaited<ReturnType<typeof cookies>>);
+
+            const result = await getTimezone();
+            expect(result).toBe('Europe/Kyiv');
         });
 
         it('falls through when next/headers returns headers without any cf headers', async () => {
