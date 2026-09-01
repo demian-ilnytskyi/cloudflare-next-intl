@@ -176,10 +176,10 @@ describe('useStaleDeployRecovery', () => {
         expect(reloadMock).not.toHaveBeenCalled();
     });
 
-    it('returns false when current build has already spent its reload marker in sessionStorage and build is not recent', async () => {
+    it('returns false when current build has already spent its reload marker in sessionStorage recently (<15s ago)', async () => {
         window.localStorage.setItem('buildId', 'v1.0.0');
-        window.localStorage.setItem('buildIdSetAt', String(Date.now() - 120_000)); // 2 minutes ago (past 60s window)
         window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
+        window.sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 5_000));
 
         const onRecover = vi.fn().mockResolvedValue(undefined);
         const { result } = renderHook(() => useStaleDeployRecovery(staleError, onRecover, 1000));
@@ -195,36 +195,29 @@ describe('useStaleDeployRecovery', () => {
         expect(reloadMock).not.toHaveBeenCalled();
     });
 
-    it('returns false when current build already has marker in sessionStorage even if build was set recently (<60s)', async () => {
+    it('returns true and recovers when previous reload for this build was >15s ago', async () => {
         window.localStorage.setItem('buildId', 'v1.0.0');
-        window.localStorage.setItem('buildIdSetAt', String(Date.now() - 5_000)); // 5 seconds ago (within 60s window)
         window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
+        window.sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 20_000));
 
         const onRecover = vi.fn().mockResolvedValue(undefined);
         const { result } = renderHook(() => useStaleDeployRecovery(staleError, onRecover, 1000));
 
-        expect(result.current).toBe(false);
-
-        await act(async () => {
-            vi.advanceTimersByTime(2000);
-        });
-
-        expect(onRecover).not.toHaveBeenCalled();
-        expect(clearClientCacheSpy).not.toHaveBeenCalled();
-        expect(reloadMock).not.toHaveBeenCalled();
+        expect(result.current).toBe(true);
     });
 
-    it('returns false when buildIdSetAt is an empty string in localStorage and marker matches', async () => {
+    it('returns false when buildIdSetAt is an empty string in localStorage and marker was set recently', async () => {
         window.localStorage.setItem('buildId', 'v1.0.0');
         window.localStorage.setItem('buildIdSetAt', '');
         window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
+        window.sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 2_000));
 
         const { result } = renderHook(() => useStaleDeployRecovery(staleError, undefined, 1000));
 
         expect(result.current).toBe(false);
     });
 
-    it('returns true and triggers recovery with default 5000ms delay', async () => {
+    it('returns true and triggers recovery with default 1000ms delay', async () => {
         window.localStorage.setItem('buildId', 'v1.0.0');
         const onRecover = vi.fn().mockResolvedValue({ success: true });
 
@@ -232,15 +225,15 @@ describe('useStaleDeployRecovery', () => {
 
         expect(result.current).toBe(true);
 
-        // Before 5000ms delay
+        // Before 1000ms delay
         await act(async () => {
-            vi.advanceTimersByTime(4999);
+            vi.advanceTimersByTime(999);
         });
         expect(onRecover).not.toHaveBeenCalled();
         expect(clearClientCacheSpy).not.toHaveBeenCalled();
         expect(reloadMock).not.toHaveBeenCalled();
 
-        // At 5000ms
+        // At 1000ms
         await act(async () => {
             vi.advanceTimersByTime(1);
         });
