@@ -33,6 +33,27 @@ describe('detectDynamicUsage', () => {
         expect(result.detectedDynamicApis).toContain('cache: "no-store"');
     });
 
+    it('detects getAuthUser() as a dynamic signal (it wraps cookies())', () => {
+        const result = detectDynamicUsage(
+            `import { getAuthUser } from "cloudflare-next-intl/getFirebaseAuthUser";\nasync function f() { const { user } = await getAuthUser(); }`
+        );
+        expect(result.detectedDynamicApis).toContain('getAuthUser()');
+    });
+
+    it('detects useAuthUser() as a dynamic signal', () => {
+        const result = detectDynamicUsage(
+            `import useAuthUser from "cloudflare-next-intl/useFirebaseAuthUser";\nasync function f() { await useAuthUser(); }`
+        );
+        expect(result.detectedDynamicApis).toContain('useAuthUser()');
+    });
+
+    it('detects withUserDb() as a dynamic signal (it resolves uid via getAuthUser()/cookies internally)', () => {
+        const result = detectDynamicUsage(
+            `import { withUserDb } from "cloudflare-next-intl/db";\nasync function f() { return withUserDb((db) => db.select().from(table)); }`
+        );
+        expect(result.detectedDynamicApis).toContain('withUserDb()');
+    });
+
     it('deduplicates repeated matches of the same API', () => {
         const result = detectDynamicUsage(`import { cookies } from "next/headers";\ncookies(); cookies(); cookies();`);
         expect(result.detectedDynamicApis.filter((a) => a === 'cookies()')).toHaveLength(1);

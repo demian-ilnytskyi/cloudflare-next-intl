@@ -120,6 +120,47 @@ describe('checkDynamicPages', () => {
         });
     });
 
+    it('follows a local import to catch getAuthUser() usage the page file itself never mentions (regression: CRV audit page)', async () => {
+        const { io, written } = makeIo({
+            '/app/audit/[propertyId]/page.tsx': 'import AuditContent from "../audit_content";\nexport default function Page() { return <AuditContent />; }',
+        });
+        io.readFile = vi.fn((file: string) => {
+            if (file === '/app/audit/[propertyId]/page.tsx') {
+                return 'import AuditContent from "../audit_content";\nexport default function Page() { return <AuditContent />; }';
+            }
+            if (file === '/app/audit/audit_content.tsx') {
+                return 'import { getAuthUser } from "cloudflare-next-intl/getFirebaseAuthUser";\nasync function f() { await getAuthUser(); }';
+            }
+            throw new Error(`unexpected read: ${file}`);
+        });
+        io.isFile = vi.fn((file: string) =>
+            file === '/app/audit/audit_content.tsx' || file === '/app/audit/[propertyId]/page.tsx'
+        );
+
+        const reports = await checkDynamicPages(
+            { appDir: APP_DIR, mode: 'fix', target: 'vinext' },
+            io,
+        );
+
+        expect(reports).toEqual([{ file: '/app/audit/[propertyId]/page.tsx', action: 'added-force-dynamic' }]);
+        expect(written['/app/audit/[propertyId]/page.tsx']).toContain('export const dynamic = "force-dynamic";');
+    });
+
+    it('resolveImports: false disables local-import tracing (single-file behavior)', async () => {
+        const { io, written } = makeIo({
+            '/app/audit/[propertyId]/page.tsx': 'import AuditContent from "../audit_content";\nexport default function Page() { return <AuditContent />; }',
+        });
+        io.isFile = vi.fn(() => true);
+
+        const reports = await checkDynamicPages(
+            { appDir: APP_DIR, mode: 'fix', target: 'vinext', resolveImports: false },
+            io,
+        );
+
+        expect(reports).toEqual([{ file: '/app/audit/[propertyId]/page.tsx', action: 'added-force-static' }]);
+        expect(written['/app/audit/[propertyId]/page.tsx']).toContain('export const dynamic = "force-static";');
+    });
+
     it('skips every file listed in `skip`, without reading or writing it', async () => {
         const { io, written } = makeIo({
             '/app/errors/page.tsx': 'export default function Page() {}',

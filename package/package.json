@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.9.13",
+  "version": "0.9.14",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -141,6 +141,10 @@
     "./getFirebaseAuthUser": {
       "types": "./dist/src/firebase_auth/server/use_auth_user_server.d.ts",
       "import": "./dist/src/firebase_auth/server/use_auth_user_server.js"
+    },
+    "./resolveOptionalAuthUser": {
+      "types": "./dist/src/firebase_auth/server/resolve_optional_auth_user.d.ts",
+      "import": "./dist/src/firebase_auth/server/resolve_optional_auth_user.js"
     },
     "./firebaseAuthActions": {
       "types": "./dist/src/firebase_auth/client/auth_actions.d.ts",

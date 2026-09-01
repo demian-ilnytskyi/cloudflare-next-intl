@@ -3,6 +3,42 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.14] - 2026-09-01
+
+### Fixed
+
+- **`checkDynamicPages`/`autoDynamicPages` missed auth usage reached through
+  an import, not written in the page file itself**: the scan only ever
+  read the single page file's own text, so a page whose per-user data came
+  from an imported component or repository — which called `getAuthUser()`
+  (itself built on `cookies()`) — showed no signal at all and, on
+  `target: 'vinext'` (the Vite plugin's default), got `force-static`
+  auto-inserted: real per-user content served from a static/shared cache.
+  `checkDynamicPages` (and the `autoDynamicPages` Vite plugin built on it)
+  now follows a page's local (relative/`@/`-alias) imports transitively —
+  cycle-safe, capped at 300 files — and unions the dynamic-API signals
+  found across that whole reachable file set. Also added `getAuthUser()`,
+  `useAuthUser()`, and `withUserDb()` (this package's own auth/db helpers,
+  each of which reads `cookies()` — directly, or via `withUserDb`'s
+  uid-resolution fallback) as directly-recognized signals, alongside the
+  existing `cookies()`/`headers()`/`searchParams`/etc. list. New
+  `resolveImports` (default `true`) and `aliases` options on
+  `checkDynamicPages` control/opt out of the new tracing.
+
+### Added
+
+- **`resolveOptionalAuthUser()`** (`cloudflare-next-intl/resolveOptionalAuthUser`):
+  a best-effort variant of `getAuthUser()` for callers that want to
+  *attach* the current user when one happens to be known — error/telemetry
+  reporting, analytics, logging — without failing or changing behavior
+  when no request/session context is available. Swallows every failure
+  and resolves `{ user: null }` instead of throwing. Also the recommended
+  fix for a page the new transitive `checkDynamicPages` scan flags dynamic
+  only because of this kind of optional, non-content-affecting read: being
+  an npm-package import, it's a boundary the scan doesn't open, so a call
+  to it contributes no signal (unlike a hand-rolled `try`/`catch` around
+  `getAuthUser()` in your own code, which the scan still sees).
+
 ## [0.9.12] - 2026-09-01
 
 ### Fixed

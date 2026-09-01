@@ -9,6 +9,16 @@ export interface DynamicDetectionResult {
 // dependency to spend on a precise one) and deliberately conservative: a
 // false positive here just means a page keeps Next's default dynamic
 // inference instead of gaining `force-static`, never the other way around.
+// `getAuthUser()`/`useAuthUser()` are this package's own server-side auth
+// helpers (`cloudflare-next-intl/getFirebaseAuthUser`,
+// `.../useFirebaseAuthUser`) — both call Next's `cookies()` internally, so a
+// call to either is itself a dynamic signal even though the literal text
+// `cookies(` never appears at the call site. `withUserDb()`
+// (`cloudflare-next-intl/db`) runs a per-signed-in-user, RLS-scoped query —
+// when its caller passes no explicit `uid`, it resolves one via
+// `getAuthUser()` internally (`db/context.ts`'s `resolveUserId`), the same
+// text-invisible dependency, so it's flagged unconditionally rather than
+// trying to detect whether a given call site happens to pass `uid` itself.
 const DYNAMIC_API_CHECKS: { name: string; pattern: RegExp }[] = [
     { name: 'cookies()', pattern: /\bcookies\s*\(/ },
     { name: 'headers()', pattern: /\bheaders\s*\(\s*\)/ },
@@ -17,6 +27,9 @@ const DYNAMIC_API_CHECKS: { name: string; pattern: RegExp }[] = [
     { name: 'connection()', pattern: /\bconnection\s*\(\s*\)/ },
     { name: 'cache: "no-store"', pattern: /cache:\s*['"]no-store['"]/ },
     { name: 'next: { revalidate: 0 }', pattern: /next:\s*\{\s*revalidate:\s*0\s*[,}]/ },
+    { name: 'getAuthUser()', pattern: /\bgetAuthUser\s*\(/ },
+    { name: 'useAuthUser()', pattern: /\buseAuthUser\s*\(/ },
+    { name: 'withUserDb()', pattern: /\bwithUserDb\s*\(/ },
 ];
 
 const EXPLICIT_DYNAMIC_EXPORT = /export\s+const\s+dynamic\s*=/;
