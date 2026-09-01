@@ -34,7 +34,7 @@ describe('shouldRecoverFromStaleDeploy', () => {
     it('recovers when error is undefined (aborted RSC stream with missing error)', () => {
         expect(shouldRecoverFromStaleDeploy(undefined, 'build-a', null)).toBe(true);
         expect(shouldRecoverFromStaleDeploy(undefined, 'build-a', 'build-a')).toBe(false);
-        expect(shouldRecoverFromStaleDeploy(undefined, 'build-a', 'build-a', true)).toBe(true);
+        expect(shouldRecoverFromStaleDeploy(undefined, 'build-a', 'build-a', true)).toBe(false);
     });
 
     it('does not recover when error is null or non-Error value', () => {
@@ -78,8 +78,8 @@ describe('isRecentBuild', () => {
 });
 
 describe('shouldRecoverFromStaleDeploy with recentBuild', () => {
-    it('recovers even when the reload marker already matches, if the build is recent', () => {
-        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', true)).toBe(true);
+    it('does not recover when reload marker already matches buildId', () => {
+        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', true)).toBe(false);
     });
 
     it('does not recover for a non-stale error even if the build is recent', () => {
@@ -204,7 +204,7 @@ describe('useStaleDeployRecovery', () => {
         expect(reloadMock).not.toHaveBeenCalled();
     });
 
-    it('returns true and recovers when current build already has marker in sessionStorage BUT build was set recently (<60s)', async () => {
+    it('returns false when current build already has marker in sessionStorage even if build was set recently (<60s)', async () => {
         window.localStorage.setItem('buildId', 'v1.0.0');
         window.localStorage.setItem('buildIdSetAt', String(Date.now() - 5_000)); // 5 seconds ago (within 60s window)
         window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
@@ -212,15 +212,15 @@ describe('useStaleDeployRecovery', () => {
         const onRecover = vi.fn().mockResolvedValue(undefined);
         const { result } = renderHook(() => useStaleDeployRecovery(staleError, onRecover, 1000));
 
-        expect(result.current).toBe(true);
+        expect(result.current).toBe(false);
 
         await act(async () => {
-            vi.advanceTimersByTime(1000);
+            vi.advanceTimersByTime(2000);
         });
 
-        expect(onRecover).toHaveBeenCalledTimes(1);
-        expect(clearClientCacheSpy).toHaveBeenCalledTimes(1);
-        expect(reloadMock).toHaveBeenCalledTimes(1);
+        expect(onRecover).not.toHaveBeenCalled();
+        expect(clearClientCacheSpy).not.toHaveBeenCalled();
+        expect(reloadMock).not.toHaveBeenCalled();
     });
 
     it('returns false when buildIdSetAt is an empty string in localStorage and marker matches', async () => {
