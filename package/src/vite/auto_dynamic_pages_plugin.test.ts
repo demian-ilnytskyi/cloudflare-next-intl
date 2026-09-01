@@ -1,0 +1,79 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { autoDynamicPagesPlugin } from "./auto_dynamic_pages_plugin.js";
+
+const TEST_DIR = resolve(__dirname, "../../.test_tmp_auto_dynamic");
+
+describe("autoDynamicPagesPlugin", () => {
+    beforeEach(() => {
+        if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true });
+        mkdirSync(resolve(TEST_DIR, "src/app/[locale]"), { recursive: true });
+    });
+
+    afterEach(() => {
+        if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true });
+    });
+
+    it("automatically inserts export const dynamic = 'force-static' during configResolved", async () => {
+        const pagePath = resolve(TEST_DIR, "src/app/[locale]/page.tsx");
+        writeFileSync(pagePath, `export default function Page() { return <div>Hello</div>; }\n`, "utf8");
+
+        const plugin = autoDynamicPagesPlugin();
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({ root: TEST_DIR });
+        // @ts-expect-error Idempotency check: second invocation returns early
+        await plugin.configResolved?.({ root: TEST_DIR });
+
+        const content = readFileSync(pagePath, "utf8");
+        expect(content).toContain('export const dynamic = "force-static";');
+    });
+
+    it("supports fallback to app/ directory if src/app does not exist", async () => {
+        rmSync(TEST_DIR, { recursive: true, force: true });
+        mkdirSync(resolve(TEST_DIR, "app/[locale]"), { recursive: true });
+        const pagePath = resolve(TEST_DIR, "app/[locale]/page.tsx");
+        writeFileSync(pagePath, `export default function Page() { return <div>Hello</div>; }\n`, "utf8");
+
+        const plugin = autoDynamicPagesPlugin();
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({ root: TEST_DIR });
+
+        const content = readFileSync(pagePath, "utf8");
+        expect(content).toContain('export const dynamic = "force-static";');
+    });
+
+    it("respects explicit appDir, mode, and target options", async () => {
+        const pagePath = resolve(TEST_DIR, "src/app/[locale]/page.tsx");
+        writeFileSync(pagePath, `export default function Page() { return <div>Hello</div>; }\n`, "utf8");
+
+        const plugin = autoDynamicPagesPlugin({
+            appDir: resolve(TEST_DIR, "src/app"),
+            mode: "fix",
+            target: "vinext",
+        });
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({});
+
+        const content = readFileSync(pagePath, "utf8");
+        expect(content).toContain('export const dynamic = "force-static";');
+    });
+
+    it("does nothing when appDir does not exist", async () => {
+        const plugin = autoDynamicPagesPlugin({
+            appDir: resolve(TEST_DIR, "non_existent_app_dir"),
+        });
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({ root: TEST_DIR });
+    });
+
+    it("handles error in checkDynamicPages gracefully", async () => {
+        const plugin = autoDynamicPagesPlugin({
+            // @ts-expect-error Invalid mode to trigger error in checkDynamicPages
+            mode: "invalid_mode",
+            appDir: resolve(TEST_DIR, "src/app"),
+        });
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({ root: "" });
+    });
+});

@@ -5,7 +5,17 @@ import { cfWorkersClientStubPlugin } from "./cf_workers_client_stub.js";
 import { localeFilePlugin, type LocaleFilePluginOptions } from "./locale_file_plugin.js";
 import { imageOptimizerPlugin, type ImageOptimizerPluginOptions } from "../image_optimizer/index.js";
 
+import { autoDynamicPagesPlugin, type AutoDynamicPagesPluginOptions } from "./auto_dynamic_pages_plugin.js";
+
 export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
+    /**
+     * Automatically run `checkDynamicPages({ mode: 'fix', target: 'vinext' })` during Vite setup
+     * to insert `export const dynamic = "force-static"` for static SSG pages.
+     * Pass an options object or set `false` to disable.
+     * @default true
+     */
+    autoDynamicPages?: boolean | AutoDynamicPagesPluginOptions;
+
     /**
      * Emit static `BUILD_ID` asset on client build for Vinext / Cloudflare.
      * Set to `false` to disable or pass a custom filename string.
@@ -43,6 +53,16 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
 
 export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plugin[] {
     const plugins: Plugin[] = [];
+
+    if (options.autoDynamicPages !== false) {
+        plugins.push(
+            autoDynamicPagesPlugin(
+                typeof options.autoDynamicPages === "object"
+                    ? options.autoDynamicPages
+                    : undefined
+            )
+        );
+    }
 
     if (options.imageOptimizer !== false) {
         plugins.push(
