@@ -66,12 +66,39 @@ describe('isRecentBuild', () => {
         expect(isRecentBuild(1_000, 1_000 + 2_000, 5_000)).toBe(true);
         expect(isRecentBuild(1_000, 1_000 + 6_000, 5_000)).toBe(false);
     });
+
+    it('returns false when localStorage throws in buildIdSetAt', () => {
+        const originalGetItem = window.localStorage.getItem;
+        window.localStorage.getItem = (key: string) => {
+            if (key === 'buildIdSetAt') throw new Error('QuotaExceeded');
+            return originalGetItem.call(window.localStorage, key);
+        };
+        const { result } = renderHook(() => useStaleDeployRecovery(staleError, undefined, 500));
+        expect(result.current).toBe(true);
+        window.localStorage.getItem = originalGetItem;
+    });
 });
 
 describe('shouldRecoverFromStaleDeploy with recentBuild', () => {
     it('does not recover when reload marker matches buildId AND was reloaded recently', () => {
         const now = Date.now();
         expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', false, now - 5_000, now)).toBe(false);
+    });
+
+    it('recovers when recentBuild is true even if marker matches buildId and reloaded recently', () => {
+        const now = Date.now();
+        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', true, now - 5_000, now)).toBe(true);
+    });
+
+    it('recovers when buildId is unknown and marker matches unknown', () => {
+        const now = Date.now();
+        expect(shouldRecoverFromStaleDeploy(staleError, 'unknown', 'unknown', false, now - 5_000, now)).toBe(false);
+        expect(shouldRecoverFromStaleDeploy(staleError, 'unknown', 'unknown', true, now - 5_000, now)).toBe(true);
+    });
+
+    it('recovers when marker is different buildId', () => {
+        const now = Date.now();
+        expect(shouldRecoverFromStaleDeploy(staleError, 'build-b', 'build-a', false, now - 5_000, now)).toBe(true);
     });
 
     it('does not recover for a non-stale error even if reloaded recently', () => {
