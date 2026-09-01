@@ -76,4 +76,19 @@ describe("autoDynamicPagesPlugin", () => {
         // @ts-expect-error Mock Vite configResolved hook call
         await plugin.configResolved?.({ root: "" });
     });
+
+    it("does nothing when neither src/app nor app exist in root", async () => {
+        rmSync(TEST_DIR, { recursive: true, force: true });
+        mkdirSync(TEST_DIR, { recursive: true });
+
+        const plugin = autoDynamicPagesPlugin();
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({ root: TEST_DIR });
+    });
+
+    it("falls back to process.cwd() when config.root is empty", async () => {
+        const plugin = autoDynamicPagesPlugin();
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({});
+    });
 });
