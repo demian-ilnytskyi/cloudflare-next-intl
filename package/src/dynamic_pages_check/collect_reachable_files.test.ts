@@ -56,6 +56,40 @@ describe('collectReachableFiles', () => {
         expect([...files.keys()].sort()).toEqual(['/repo/src/app/b.ts', '/repo/src/app/page.tsx']);
     });
 
+    it('does not open a file whose own text opens with a "use server" directive', () => {
+        const map = {
+            '/repo/src/app/page.tsx': 'import "./action";',
+            '/repo/src/app/action.ts': `"use server";\nimport { cookies } from "next/headers";\nexport async function clear() { (await cookies()).delete("x"); }`,
+        };
+        const files = collectReachableFiles('/repo/src/app/page.tsx', map['/repo/src/app/page.tsx'], [], makeIo(map));
+        expect([...files.keys()]).toEqual(['/repo/src/app/page.tsx']);
+    });
+
+    it('does not open a "use server" file with single quotes or a leading "use strict" directive', () => {
+        const map = {
+            '/repo/src/app/page.tsx': 'import "./a";\nimport "./b";',
+            "/repo/src/app/a.ts": `'use server';\nexport async function a() {}`,
+            '/repo/src/app/b.ts': `"use strict";\n"use server";\nexport async function b() {}`,
+        };
+        const files = collectReachableFiles('/repo/src/app/page.tsx', map['/repo/src/app/page.tsx'], [], makeIo(map));
+        expect([...files.keys()]).toEqual(['/repo/src/app/page.tsx']);
+    });
+
+    it('still includes the entry file itself even if it opens with "use server"', () => {
+        const source = `"use server";\nexport async function action() {}`;
+        const files = collectReachableFiles('/repo/src/app/action.ts', source, [], makeIo({}));
+        expect([...files.keys()]).toEqual(['/repo/src/app/action.ts']);
+    });
+
+    it('does NOT skip a file merely mentioning "use server" mid-file (only a leading directive counts)', () => {
+        const map = {
+            '/repo/src/app/page.tsx': 'import "./b";',
+            '/repo/src/app/b.ts': `import { cookies } from "next/headers";\n// calls a "use server" action elsewhere\ncookies();`,
+        };
+        const files = collectReachableFiles('/repo/src/app/page.tsx', map['/repo/src/app/page.tsx'], [], makeIo(map));
+        expect([...files.keys()].sort()).toEqual(['/repo/src/app/b.ts', '/repo/src/app/page.tsx']);
+    });
+
     it('stops at MAX_FILES_VISITED without throwing', () => {
         const FILE_COUNT = 320;
         const map: Record<string, string> = {

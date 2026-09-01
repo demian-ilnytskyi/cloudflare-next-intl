@@ -46,7 +46,7 @@ export default async function resolveDbMode(db: DbRoutingConfig, generate?: Gene
     if (connectionString) return { mode: 'postgres', connectionString };
 
     if (db.autoHyperdrive !== false) {
-        const hyperdriveConnectionString = await resolveHyperdriveConnectionString(generate);
+        const hyperdriveConnectionString = await resolveHyperdriveConnectionString(generate, db.autoHyperdriveSkipUrls);
         if (hyperdriveConnectionString) return { mode: 'postgres', connectionString: hyperdriveConnectionString };
     }
 

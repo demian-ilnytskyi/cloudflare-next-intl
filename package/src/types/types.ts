@@ -1041,6 +1041,12 @@ export interface DbRoutingConfig {
      */
     autoHyperdrive?: boolean;
     /**
+     * Connection strings treated as "no connection" when found on
+     * `env.HYPERDRIVE.connectionString` (e.g. `wrangler dev`'s unconfigured
+     * placeholder). Defaults to `['postgresql://user:pass@localhost:5432/db']`.
+     */
+    autoHyperdriveSkipUrls?: string[];
+    /**
      * Whether the pooled client is closed once the last in-flight
      * `withPublicDb`/`withUserDb` call of the request finishes.
      *

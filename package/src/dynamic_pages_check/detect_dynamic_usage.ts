@@ -28,16 +28,32 @@ const DYNAMIC_API_CHECKS: { name: string; pattern: RegExp }[] = [
     { name: 'cache: "no-store"', pattern: /cache:\s*['"]no-store['"]/ },
     { name: 'next: { revalidate: 0 }', pattern: /next:\s*\{\s*revalidate:\s*0\s*[,}]/ },
     { name: 'getAuthUser()', pattern: /\bgetAuthUser\s*\(/ },
-    { name: 'useAuthUser()', pattern: /\buseAuthUser\s*\(/ },
     { name: 'withUserDb()', pattern: /\bwithUserDb\s*\(/ },
 ];
+
+// `useAuthUser()` is ambiguous by name alone: `cloudflare-next-intl` exports
+// it both as the server-side helper (wraps `cookies()`, resolved via the
+// `react-server` package.json export condition) and as the client-side
+// `AuthUserProvider`-context hook (`"use client"` only, never touches
+// `cookies()`) — same identifier, same call syntax, different module
+// depending purely on which condition the bundler resolves. A file's own
+// `"use client"` directive is a reliable disambiguator: Next never applies
+// the `react-server` condition inside a Client Component, so a `useAuthUser`
+// call there can only be the client hook — checked separately from
+// `DYNAMIC_API_CHECKS` so it can be skipped based on that directive.
+const USE_AUTH_USER_CALL = /\buseAuthUser\s*\(/;
+const USE_CLIENT_DIRECTIVE = /^(?:\s*['"]use \w[\w-]*['"]\s*;?\s*)*['"]use client['"]\s*;?/;
 
 const EXPLICIT_DYNAMIC_EXPORT = /export\s+const\s+dynamic\s*=/;
 
 export function detectDynamicUsage(sourceText: string): DynamicDetectionResult {
+    const detectedDynamicApis = DYNAMIC_API_CHECKS.filter(({ pattern }) => pattern.test(sourceText)).map(({ name }) => name);
+    if (USE_AUTH_USER_CALL.test(sourceText) && !USE_CLIENT_DIRECTIVE.test(sourceText)) {
+        detectedDynamicApis.push('useAuthUser()');
+    }
     return {
         hasExplicitDynamicExport: EXPLICIT_DYNAMIC_EXPORT.test(sourceText),
-        detectedDynamicApis: DYNAMIC_API_CHECKS.filter(({ pattern }) => pattern.test(sourceText)).map(({ name }) => name),
+        detectedDynamicApis,
     };
 }
 

@@ -3,6 +3,27 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.17] - 2026-09-01
+
+### Added
+
+- **`db.autoHyperdriveSkipUrls`**: connection strings from
+  `env.HYPERDRIVE.connectionString` treated as "no connection" by
+  auto-Hyperdrive resolution. Defaults to
+  `['postgresql://user:pass@localhost:5432/db']` (`wrangler dev`'s
+  unconfigured placeholder).
+
+### Changed
+
+- `checkDynamicPages`'s import walk no longer opens a locally-imported file
+  that opens with a `"use server"` directive — its exports are Server
+  Actions, invoked only on explicit call, so being merely imported no longer
+  contributes a dynamic signal (same treatment a bare npm-package import
+  already gets).
+- `useAuthUser()` is no longer treated as a dynamic signal in a file that
+  opens with a `"use client"` directive, since that can only be this
+  package's client-side hook, not the server-side one that reads `cookies()`.
+
 ## [0.9.16] - 2026-09-01
 
 ### Added

@@ -47,6 +47,20 @@ describe('detectDynamicUsage', () => {
         expect(result.detectedDynamicApis).toContain('useAuthUser()');
     });
 
+    it('does NOT flag useAuthUser() in a "use client" file — that resolves to the client-side context hook, never cookies()', () => {
+        const result = detectDynamicUsage(
+            `"use client";\n\nimport useAuthUser from "cloudflare-next-intl/useFirebaseAuthUser";\nexport default function Widget() { const { user } = useAuthUser(); return null; }`
+        );
+        expect(result.detectedDynamicApis).not.toContain('useAuthUser()');
+    });
+
+    it('still flags useAuthUser() in a "use client" file that has a leading "use strict" directive first', () => {
+        const result = detectDynamicUsage(
+            `"use strict";\n"use client";\nimport useAuthUser from "cloudflare-next-intl/useFirebaseAuthUser";\nuseAuthUser();`
+        );
+        expect(result.detectedDynamicApis).not.toContain('useAuthUser()');
+    });
+
     it('detects withUserDb() as a dynamic signal (it resolves uid via getAuthUser()/cookies internally)', () => {
         const result = detectDynamicUsage(
             `import { withUserDb } from "cloudflare-next-intl/db";\nasync function f() { return withUserDb((db) => db.select().from(table)); }`
