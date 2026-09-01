@@ -49,7 +49,9 @@ export function shouldRecoverFromStaleDeploy(
     marker: string | null,
     recentBuild = false,
 ): boolean {
-    return isStaleDeployError(error) && (marker !== buildId || recentBuild);
+    // If buildId is unknown or missing, marker shouldn't block recovery for stale errors.
+    const isMarkerActive = marker !== null && marker !== '' && (buildId === 'unknown' || marker === buildId);
+    return isStaleDeployError(error) && (!isMarkerActive || recentBuild);
 }
 
 function canRecover(error: unknown): boolean {

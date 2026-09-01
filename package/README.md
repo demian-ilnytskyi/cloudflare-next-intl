@@ -657,7 +657,7 @@ export default function GlobalError({
 }
 ```
 
-- `isStaleDeployError(error: unknown, patterns?: readonly string[]): boolean`: Returns `true` if the error indicates a missing chunk, failed fetch, dynamically imported module failure, CSS chunk failure, closed connection, corrupted RSC payload, hydration error #412 from a stale deployment, or an aborted stream missing an error value (`undefined`). Defaults to `defaultStaleDeployPatterns` (or patterns configured in `intl-config.ts` via `errorHandling.staleDeployPatterns`).
+- `isStaleDeployError(error: unknown, patterns?: readonly string[]): boolean`: Returns `true` if the error indicates a missing chunk, failed fetch, dynamically imported module failure, CSS chunk failure, closed connection, corrupted RSC payload, hydration error #412 from a stale deployment, an unhandled `UnrecognizedActionError`/`server action not found` rejection, or an aborted stream missing an error value (`undefined`). Defaults to `defaultStaleDeployPatterns` (or patterns configured in `intl-config.ts` via `errorHandling.staleDeployPatterns`).
 - `setStaleDeployPatterns(patterns: readonly string[]): void`: Setter to update the active pattern list and pre-compute lowercased substrings for maximum runtime performance.
 - `getStaleDeployPatterns(): readonly string[]`: Returns the currently active pattern list.
 - `clearClientCache(): Promise<void>`: Best-effort cleanup that deletes all CacheStorage caches (`window.caches`), unregisters active Service Workers, and clears `sessionStorage`.

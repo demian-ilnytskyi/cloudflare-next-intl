@@ -21,6 +21,8 @@ describe('isStaleDeployError', () => {
             'minified react error #412',
             'the above error occurred in a react component',
             'the connection to the page was unexpectedly closed',
+            'server action not found',
+            'unrecognizedactionerror',
         ]);
         expect(getStaleDeployPatterns()).toEqual(defaultStaleDeployPatterns);
     });

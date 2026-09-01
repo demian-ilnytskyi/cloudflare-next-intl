@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.19
+
+### Fixed
+
+- Added `server action not found` and `UnrecognizedActionError` to `defaultStaleDeployPatterns` and `isStaleDeployError` so missing/invalid server actions following an app redeployment are correctly recognized as stale deploy errors.
+- Improved `shouldRecoverFromStaleDeploy` so an `unknown` or missing `buildId` does not block recovery when a stale deploy error occurs.
+
 ## 0.9.7
 
 ### Fixed

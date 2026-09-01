@@ -157,11 +157,11 @@ describe('getTranslationsImpl', () => {
             );
         });
 
-        it('warns and returns key when the path leads through an array prematurely', () => {
+        it('warns and returns key when path leads through a string prematurely in t()', () => {
             const t = getTranslationsImpl('en', rawMessages, 'Common');
-            expect(t.raw('items.0')).toBe('items.0');
+            expect(t('title.extra')).toBe('title.extra');
             expect(console.warn).toHaveBeenCalledWith(
-                expect.stringContaining('leads to a non-object prematurely'),
+                expect.stringContaining('invalid structure'),
             );
         });
     });
