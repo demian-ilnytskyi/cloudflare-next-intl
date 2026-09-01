@@ -49,6 +49,13 @@ describe('geo functions', () => {
             expect(result).toBeUndefined();
         });
 
+        it('resolves country from a cookie on a direct Headers input', async () => {
+            const h = new Headers();
+            h.set('cookie', '__cf_country__=UA');
+            const result = await getCountry(h);
+            expect(result).toBe('UA');
+        });
+
         it('resolves country from input with plain record headers', async () => {
             const result = await getCountry({ headers: { 'x-cf-country': 'ES' } });
             expect(result).toBe('ES');
@@ -135,6 +142,91 @@ describe('geo functions', () => {
 
             const result = await getCountry();
             expect(result).toBe('UA');
+        });
+
+        it('resolves country from cookies() when get returns a string', async () => {
+            const { headers, cookies } = await import('next/headers');
+            const mockHeaders = new Headers();
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockResolvedValueOnce({
+                get: (name: string) => name === '__cf_country__' ? 'UA' : undefined,
+            } as unknown as Awaited<ReturnType<typeof cookies>>);
+
+            const result = await getCountry();
+            expect(result).toBe('UA');
+        });
+
+        it('skips an empty country cookie value and malformed cookie parts', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockResolvedValueOnce(new Headers({
+                cookie: 'session; __cf_country__=; other=x',
+            }) as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getCountry();
+            expect(result).toBeUndefined();
+        });
+
+        it('falls through when the cookie header has no country cookie', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockResolvedValueOnce(new Headers({
+                cookie: 'session=abc; theme=dark',
+            }) as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getCountry();
+            expect(result).toBeUndefined();
+        });
+
+        it('returns undefined when cookies() throws', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockResolvedValueOnce(new Headers() as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getCountry();
+            expect(result).toBeUndefined();
+        });
+
+        it('reads a mixed-case header name from a lowercase record key', async () => {
+            const result = await getCountry(
+                { headers: { 'x-country': 'NL' } },
+                undefined,
+                ['X-Country'],
+            );
+            expect(result).toBe('NL');
+        });
+
+        it('falls through when input.headers is missing and cf.country is not a string', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+            vi.mocked(cookies).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getCountry({ headers: undefined, cf: { country: 1 as unknown as string } });
+            expect(result).toBeUndefined();
+        });
+
+        it('falls through when cookies().get has no value and ctx.cf.country is not a string', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockResolvedValueOnce(new Headers() as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockResolvedValueOnce({
+                get: () => ({ value: '' }),
+            } as unknown as Awaited<ReturnType<typeof cookies>>);
+
+            const result = await getCountry(undefined, {
+                ctx: { cf: { country: 1 as unknown as string } },
+            } as GenerateRoutingConfig);
+            expect(result).toBeUndefined();
+        });
+
+        it('falls through when getCloudflareContext returns a non-string country', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+            vi.mocked(cookies).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getCountry(undefined, {
+                getCloudflareContext: vi.fn().mockResolvedValue({ cf: { country: 1 } }),
+            } as GenerateRoutingConfig);
+            expect(result).toBeUndefined();
         });
 
         it('falls back to generate.getCloudflareContext when next/headers throws', async () => {
@@ -280,6 +372,13 @@ describe('geo functions', () => {
             expect(result).toBe('UTC');
         });
 
+        it('resolves timezone from a cookie on a direct Headers input', async () => {
+            const h = new Headers();
+            h.set('cookie', '__cf_timezone__=Europe%2FKyiv');
+            const result = await getTimezone(h);
+            expect(result).toBe('Europe/Kyiv');
+        });
+
         it('resolves timezone from input with plain record headers', async () => {
             const result = await getTimezone({ headers: { 'x-cf-timezone': 'Europe/Madrid' } });
             expect(result).toBe('Europe/Madrid');
@@ -366,6 +465,92 @@ describe('geo functions', () => {
 
             const result = await getTimezone();
             expect(result).toBe('Europe/Kyiv');
+        });
+
+        it('resolves timezone from cookies() when get returns a string', async () => {
+            const { headers, cookies } = await import('next/headers');
+            const mockHeaders = new Headers();
+            vi.mocked(headers).mockResolvedValueOnce(mockHeaders as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockResolvedValueOnce({
+                get: (name: string) => name === '__cf_timezone__' ? 'Europe/Kyiv' : undefined,
+            } as unknown as Awaited<ReturnType<typeof cookies>>);
+
+            const result = await getTimezone();
+            expect(result).toBe('Europe/Kyiv');
+        });
+
+        it('skips an empty timezone cookie value and malformed cookie parts', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockResolvedValueOnce(new Headers({
+                cookie: 'session; __cf_timezone__=; other=x',
+            }) as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getTimezone(undefined, 'UTC');
+            expect(result).toBe('UTC');
+        });
+
+        it('falls through when the cookie header has no timezone cookie', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockResolvedValueOnce(new Headers({
+                cookie: 'session=abc; theme=dark',
+            }) as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getTimezone(undefined, 'UTC');
+            expect(result).toBe('UTC');
+        });
+
+        it('returns fallback when cookies() throws', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockResolvedValueOnce(new Headers() as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getTimezone(undefined, 'UTC');
+            expect(result).toBe('UTC');
+        });
+
+        it('reads a mixed-case timezone header name from a lowercase record key', async () => {
+            const result = await getTimezone(
+                { headers: { 'x-tz': 'Europe/Amsterdam' } },
+                undefined,
+                undefined,
+                ['X-Tz'],
+            );
+            expect(result).toBe('Europe/Amsterdam');
+        });
+
+        it('falls through when input.headers is missing and cf.timezone is not a string', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+            vi.mocked(cookies).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getTimezone({ headers: undefined, cf: { timezone: 1 as unknown as string } }, 'UTC');
+            expect(result).toBe('UTC');
+        });
+
+        it('falls through when cookies().get has no value and ctx.cf.timezone is not a string', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockResolvedValueOnce(new Headers() as unknown as Awaited<ReturnType<typeof headers>>);
+            vi.mocked(cookies).mockResolvedValueOnce({
+                get: () => ({ value: '' }),
+            } as unknown as Awaited<ReturnType<typeof cookies>>);
+
+            const result = await getTimezone(undefined, 'UTC', {
+                ctx: { cf: { timezone: 1 as unknown as string } },
+            } as GenerateRoutingConfig);
+            expect(result).toBe('UTC');
+        });
+
+        it('falls through when getCloudflareContext returns a non-string timezone', async () => {
+            const { headers, cookies } = await import('next/headers');
+            vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+            vi.mocked(cookies).mockRejectedValueOnce(new Error('Outside request scope'));
+
+            const result = await getTimezone(undefined, 'UTC', {
+                getCloudflareContext: vi.fn().mockResolvedValue({ cf: { timezone: 1 } }),
+            } as GenerateRoutingConfig);
+            expect(result).toBe('UTC');
         });
 
         it('falls through when next/headers returns headers without any cf headers', async () => {
