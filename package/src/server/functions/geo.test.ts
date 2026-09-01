@@ -755,4 +755,50 @@ describe('geo header name overrides', () => {
         vi.doUnmock('../../config/intl_config');
         vi.resetModules();
     });
+
+    it('extractHeader handles record object with null value or non-matching key', async () => {
+        expect(await getCountry({ headers: { 'x-cf-country': null } })).toBeUndefined();
+        expect(await getTimezone({ headers: { 'x-cf-timezone': null } })).toBeUndefined();
+    });
+
+    it('getCountry and getTimezone handle empty cf object or empty string properties', async () => {
+        expect(await getCountry({ cf: {} })).toBeUndefined();
+        expect(await getCountry({ cf: { country: '' } })).toBeUndefined();
+        expect(await getTimezone({ cf: {} })).toBeUndefined();
+        expect(await getTimezone({ cf: { timezone: '' } })).toBeUndefined();
+    });
+
+    it('getCountry and getTimezone handle gen.ctx resolving to null or object without cf', async () => {
+        const { headers } = await import('next/headers');
+        vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+        expect(await getCountry(undefined, { ctx: () => null } as unknown as GenerateRoutingConfig)).toBeUndefined();
+
+        vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+        expect(await getCountry(undefined, { ctx: () => ({}) } as unknown as GenerateRoutingConfig)).toBeUndefined();
+
+        vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+        expect(await getTimezone(undefined, 'UTC', { ctx: () => null } as unknown as GenerateRoutingConfig)).toBe('UTC');
+
+        vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+        expect(await getTimezone(undefined, 'UTC', { ctx: () => ({}) } as unknown as GenerateRoutingConfig)).toBe('UTC');
+    });
+
+    it('getCountry and getTimezone handle getCloudflareContext resolving to null or object without cf/country', async () => {
+        const { headers } = await import('next/headers');
+        vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+        expect(await getCountry(undefined, { getCloudflareContext: vi.fn().mockResolvedValue(null) } as unknown as GenerateRoutingConfig)).toBeUndefined();
+
+        vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+        expect(await getCountry(undefined, { getCloudflareContext: vi.fn().mockResolvedValue({}) } as unknown as GenerateRoutingConfig)).toBeUndefined();
+
+        vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+        expect(await getTimezone(undefined, 'UTC', { getCloudflareContext: vi.fn().mockResolvedValue(null) } as unknown as GenerateRoutingConfig)).toBe('UTC');
+
+        vi.mocked(headers).mockRejectedValueOnce(new Error('Outside request scope'));
+        expect(await getTimezone(undefined, 'UTC', { getCloudflareContext: vi.fn().mockResolvedValue({}) } as unknown as GenerateRoutingConfig)).toBe('UTC');
+    });
+
+    it('resolveEnv handles generate without env or getCloudflareContext', async () => {
+        expect(await resolveEnv({ countryHeaderNames: ['x-country'] } as GenerateRoutingConfig)).toBeUndefined();
+    });
 });

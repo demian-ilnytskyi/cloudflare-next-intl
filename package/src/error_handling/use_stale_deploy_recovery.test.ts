@@ -247,6 +247,20 @@ describe('useStaleDeployRecovery', () => {
         expect(result.current).toBe(false);
     });
 
+    it('handles non-numeric buildIdSetAt value in localStorage gracefully', async () => {
+        window.localStorage.setItem('buildIdSetAt', 'not-a-number');
+        const { result } = renderHook(() => useStaleDeployRecovery(staleError, undefined, 1000));
+        expect(result.current).toBe(true);
+    });
+
+    it('handles non-numeric stale-deploy-recovery-time in sessionStorage gracefully', async () => {
+        window.localStorage.setItem('buildId', 'v1.0.0');
+        window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
+        window.sessionStorage.setItem('stale-deploy-recovery-time', 'invalid-number');
+        const { result } = renderHook(() => useStaleDeployRecovery(staleError, undefined, 1000));
+        expect(result.current).toBe(true);
+    });
+
     it('returns true and triggers recovery with default 1000ms delay', async () => {
         window.localStorage.setItem('buildId', 'v1.0.0');
         const onRecover = vi.fn().mockResolvedValue({ success: true });

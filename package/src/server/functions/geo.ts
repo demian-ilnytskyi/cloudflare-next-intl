@@ -87,19 +87,20 @@ export async function getCountry(
     const names = headerNames
         ?? gen?.countryHeaderNames
         ?? defaultCountryHeaderNames;
+    const cookieName = gen?.countryCookieName ?? countryCookieKey;
     if (input) {
         if ('headers' in input && input.headers) {
             const country = extractFromHeaderNames(input.headers, names);
             if (country) return country;
-            const cookieCountry = extractCookieHeader(input.headers, countryCookieKey);
+            const cookieCountry = extractCookieHeader(input.headers, cookieName);
             if (cookieCountry) return cookieCountry;
         } else if (typeof (input as Headers).get === 'function') {
             const country = extractFromHeaderNames(input as Headers, names);
             if (country) return country;
-            const cookieCountry = extractCookieHeader(input as Headers, countryCookieKey);
+            const cookieCountry = extractCookieHeader(input as Headers, cookieName);
             if (cookieCountry) return cookieCountry;
         }
-        const cookieCountry = extractCookie((input as { cookies?: { get?: (name: string) => { value?: string } | string | undefined } }).cookies, countryCookieKey);
+        const cookieCountry = extractCookie((input as { cookies?: { get?: (name: string) => { value?: string } | string | undefined } }).cookies, cookieName);
         if (cookieCountry) {
             return cookieCountry;
         }
@@ -114,7 +115,7 @@ export async function getCountry(
         const h = await headers();
         const country = extractFromHeaderNames(h, names);
         if (country) return country;
-        const cookieCountry = extractCookieHeader(h, countryCookieKey);
+        const cookieCountry = extractCookieHeader(h, cookieName);
         if (cookieCountry) return cookieCountry;
     } catch {
         // Outside request scope / build time
@@ -123,7 +124,7 @@ export async function getCountry(
     try {
         const { cookies } = await import('next/headers.js');
         const c = await cookies();
-        const country = extractCookie(c, countryCookieKey);
+        const country = extractCookie(c, cookieName);
         if (country) return country;
     } catch {
         // Outside request scope / build time
@@ -176,19 +177,20 @@ export async function getTimezone(
     const names = headerNames
         ?? gen?.timezoneHeaderNames
         ?? defaultTimezoneHeaderNames;
+    const cookieName = gen?.timezoneCookieName ?? timezoneCookieKey;
     if (input) {
         if ('headers' in input && input.headers) {
             const tz = extractFromHeaderNames(input.headers, names);
             if (tz) return tz;
-            const cookieTimezone = extractCookieHeader(input.headers, timezoneCookieKey);
+            const cookieTimezone = extractCookieHeader(input.headers, cookieName);
             if (cookieTimezone) return cookieTimezone;
         } else if (typeof (input as Headers).get === 'function') {
             const tz = extractFromHeaderNames(input as Headers, names);
             if (tz) return tz;
-            const cookieTimezone = extractCookieHeader(input as Headers, timezoneCookieKey);
+            const cookieTimezone = extractCookieHeader(input as Headers, cookieName);
             if (cookieTimezone) return cookieTimezone;
         }
-        const cookieTimezone = extractCookie((input as { cookies?: { get?: (name: string) => { value?: string } | string | undefined } }).cookies, timezoneCookieKey);
+        const cookieTimezone = extractCookie((input as { cookies?: { get?: (name: string) => { value?: string } | string | undefined } }).cookies, cookieName);
         if (cookieTimezone) {
             return cookieTimezone;
         }
@@ -203,7 +205,7 @@ export async function getTimezone(
         const h = await headers();
         const tz = extractFromHeaderNames(h, names);
         if (tz) return tz;
-        const cookieTimezone = extractCookieHeader(h, timezoneCookieKey);
+        const cookieTimezone = extractCookieHeader(h, cookieName);
         if (cookieTimezone) return cookieTimezone;
     } catch {
         // Outside request scope
@@ -212,7 +214,7 @@ export async function getTimezone(
     try {
         const { cookies } = await import('next/headers.js');
         const c = await cookies();
-        const tz = extractCookie(c, timezoneCookieKey);
+        const tz = extractCookie(c, cookieName);
         if (tz) return tz;
     } catch {
         // Outside request scope
