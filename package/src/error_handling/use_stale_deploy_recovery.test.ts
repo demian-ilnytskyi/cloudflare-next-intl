@@ -482,3 +482,63 @@ describe('useStaleDeployRecovery', () => {
     });
 });
 
+describe('performCacheBustReload', () => {
+    const originalLocation = window.location;
+
+    afterEach(() => {
+        Object.defineProperty(window, 'location', {
+            value: originalLocation,
+            writable: true,
+            configurable: true,
+        });
+    });
+
+    it('does nothing when typeof window is undefined', async () => {
+        const originalWindow = global.window;
+        try {
+            // @ts-expect-error test SSR
+            delete global.window;
+            const { performCacheBustReload } = await import('./use_stale_deploy_recovery.js');
+            expect(() => performCacheBustReload()).not.toThrow();
+        } finally {
+            global.window = originalWindow;
+        }
+    });
+
+    it('uses location.replace with cache buster query parameter when URL parsing succeeds', async () => {
+        const replaceMock = vi.fn();
+        Object.defineProperty(window, 'location', {
+            value: {
+                href: 'https://example.com/test',
+                replace: replaceMock,
+            },
+            writable: true,
+            configurable: true,
+        });
+
+        const { performCacheBustReload } = await import('./use_stale_deploy_recovery.js');
+        performCacheBustReload();
+
+        expect(replaceMock).toHaveBeenCalledTimes(1);
+        expect(replaceMock.mock.calls[0][0]).toContain('https://example.com/test?_stale_reload=');
+    });
+
+    it('falls back to window.location.reload when URL parsing/replace throws', async () => {
+        const reloadMock = vi.fn();
+        Object.defineProperty(window, 'location', {
+            value: {
+                href: 'invalid-url-that-causes-new-url-to-throw',
+                reload: reloadMock,
+                replace: vi.fn(),
+            },
+            writable: true,
+            configurable: true,
+        });
+
+        const { performCacheBustReload } = await import('./use_stale_deploy_recovery.js');
+        performCacheBustReload();
+
+        expect(reloadMock).toHaveBeenCalledTimes(1);
+    });
+});
+
