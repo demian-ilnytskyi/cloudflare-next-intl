@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { autoDynamicPagesPlugin } from "./auto_dynamic_pages_plugin.js";
@@ -68,6 +68,7 @@ describe("autoDynamicPagesPlugin", () => {
     });
 
     it("handles error in checkDynamicPages gracefully", async () => {
+        const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
         const plugin = autoDynamicPagesPlugin({
             // @ts-expect-error Invalid mode to trigger error in checkDynamicPages
             mode: "invalid_mode",
@@ -75,6 +76,11 @@ describe("autoDynamicPagesPlugin", () => {
         });
         // @ts-expect-error Mock Vite configResolved hook call
         await plugin.configResolved?.({ root: "" });
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
+            "[cloudflare-next-intl] autoDynamicPages check error:",
+            expect.any(Error)
+        );
+        consoleWarnSpy.mockRestore();
     });
 
     it("does nothing when neither src/app nor app exist in root", async () => {
