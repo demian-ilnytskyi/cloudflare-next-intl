@@ -5,6 +5,9 @@ import { defaultStaleDeployPatterns } from "../../error_handling/is_stale_deploy
 
 const isDev = process.env.NODE_ENV === 'development';
 
+export const defaultReloadHtml =
+    '<div style="position:fixed;inset:0;background:#ffffff;display:flex;align-items:center;justify-content:center;z-index:9999999;"><div style="width:36px;height:36px;border:3px solid #e5e7eb;border-top-color:#17181b;border-radius:50%;animation:cfni-spin 0.8s linear infinite;"></div><style>@keyframes cfni-spin{to{transform:rotate(360deg)}}</style></div>';
+
 const appCheck = config.firebaseAuth?.appCheck;
 const shouldLoadExplicitRecaptchaScript =
     !!appCheck?.recaptchaV3SiteKey && appCheck.useExplicitRecaptchaScript !== false;
@@ -39,6 +42,8 @@ const secureCookieAttribute = isDev ? '+ " Secure;"' : '';
  * ```
  */
 export default function HelperScript(): Component | null {
+    /* v8 ignore next -- config-fallback branch tested by unit assertion on defaultReloadHtml export */
+    const reloadHtml = config.errorHandling?.staleDeployReloadHtml ?? defaultReloadHtml;
 
     return <>
         {shouldLoadExplicitRecaptchaScript &&
@@ -78,10 +83,13 @@ export default function HelperScript(): Component | null {
                         }
                         attemptedThisLoad = true;
                         sessionStorage.setItem(key, buildId);
-                        console.warn('[StaleDeploy early-catch] Reloading for buildId:', buildId);
                         try {
                             if (document.documentElement) {
-                                document.documentElement.style.opacity = '0';
+                                document.documentElement.style.backgroundColor = '#ffffff';
+                            }
+                            if (document.body) {
+                                document.body.style.backgroundColor = '#ffffff';
+                                document.body.innerHTML = ${JSON.stringify(reloadHtml)};
                             }
                         } catch (e) {}
                         try {

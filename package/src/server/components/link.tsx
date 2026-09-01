@@ -3,6 +3,7 @@
 import LinkComponent, { type LinkProps } from 'next/link.js';
 import {
     forwardRef,
+    useCallback,
     useEffect,
     useState,
     useTransition,
@@ -66,7 +67,7 @@ function CustomLinkFunction(
         setIsNavigating(false);
     }, [pathname]);
 
-    const triggerPrefetch = () => {
+    const triggerPrefetch = useCallback(() => {
         if (!isCustom || !urlString || urlString.startsWith('#') || prefetchedRoutes.has(urlString)) {
             return;
         }
@@ -76,13 +77,13 @@ function CustomLinkFunction(
         } catch {
             // ignore prefetch errors
         }
-    };
+    }, [isCustom, urlString, pathnames, router]);
 
     useEffect(() => {
         if (!isCustom) return;
-        const timer = setTimeout(triggerPrefetch, 600);
+        const timer = setTimeout(triggerPrefetch, 500);
         return () => clearTimeout(timer);
-    }, [urlString, isCustom]);
+    }, [urlString, isCustom, triggerPrefetch]);
 
     const handleHoverPrefetch = () => {
         if (isCustom) {

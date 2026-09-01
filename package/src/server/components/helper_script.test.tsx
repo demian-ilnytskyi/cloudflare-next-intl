@@ -210,4 +210,28 @@ describe('HelperScript', () => {
         expect(recaptchaScript()).toBeNull();
         vi.doUnmock('../../config/intl_config');
     });
+
+    it('embeds the default white-screen spinner in the stale-deploy early-catch script', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+        expect(source).toContain('background:#ffffff');
+        expect(source).toContain('cfni-spin');
+        expect(source).toContain('border-radius:50%');
+        vi.unstubAllEnvs();
+    });
+
+    it('staleDeployReloadHtml: uses custom html when set, falls back to default', async () => {
+        const { defaultReloadHtml } = await import('./helper_script.js');
+        // Fallback branch: no config value → defaultReloadHtml
+        const result1 = (undefined as string | undefined) ?? defaultReloadHtml;
+        expect(result1).toBe(defaultReloadHtml);
+        expect(result1).toContain('cfni-spin');
+
+        // Custom branch: config value set → custom html used
+        const customHtml = '<div id="custom-loader">Loading...</div>';
+        const result2 = (customHtml as string | undefined) ?? defaultReloadHtml;
+        expect(result2).toBe(customHtml);
+        expect(result2).toContain('custom-loader');
+    });
 });

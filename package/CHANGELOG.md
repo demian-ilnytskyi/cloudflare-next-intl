@@ -3,6 +3,21 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.25] - 2026-09-01
+
+### Added
+
+- **`errorHandling.staleDeployReloadHtml`**: custom HTML string rendered into
+  `document.body` when a stale-deploy error triggers the automatic
+  cache-busting reload. Defaults to a centered spinner on a white background
+  (exported as `defaultReloadHtml` from `helper_script`).
+
+### Changed
+
+- Stale-deploy early-catch reload now paints `document.documentElement` and
+  `document.body` white and swaps in the spinner HTML, instead of fading the
+  page out via `opacity: 0`.
+
 ## [0.9.24] - 2026-09-01
 
 ### Changed

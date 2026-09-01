@@ -305,6 +305,12 @@ export interface ErrorHandlingRoutingConfig {
      */
     staleDeployPatterns?: readonly string[];
     /**
+     * Custom HTML string rendered into `document.body` when a stale deploy
+     * error is caught and an automatic cache-busting reload is triggered.
+     * Defaults to a centered loading spinner on a clean white background.
+     */
+    staleDeployReloadHtml?: string;
+    /**
      * Called with the stringified message of each `console.error(...)` call
      * (only consulted when `overrideConsoleError` is `true`), in addition to
      * `ignoreConsoleErrors` — return `true` to skip reporting it (it's still
