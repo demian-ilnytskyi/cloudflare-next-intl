@@ -52,6 +52,7 @@ export default function HelperScript(): Component | null {
                 id="stale-deploy-early-catch"
                 dangerouslySetInnerHTML={{
                     __html: `(function() {
+                try {
                 var patterns = ${JSON.stringify(defaultStaleDeployPatterns)};
                 var key = 'stale-deploy-recovery-reloaded';
                 var attemptedThisLoad = false;
@@ -79,6 +80,11 @@ export default function HelperScript(): Component | null {
                         sessionStorage.setItem(key, buildId);
                         console.warn('[StaleDeploy early-catch] Reloading for buildId:', buildId);
                         try {
+                            if (document.documentElement) {
+                                document.documentElement.style.opacity = '0';
+                            }
+                        } catch (e) {}
+                        try {
                             var u = new URL(window.location.href);
                             u.searchParams.set('_stale_reload', String(Date.now()));
                             window.location.replace(u.toString());
@@ -93,6 +99,7 @@ export default function HelperScript(): Component | null {
                 window.addEventListener('unhandledrejection', function(e) {
                     recover(e.reason && (e.reason.message || e.reason), 'unhandledrejection');
                 });
+                } catch (e) { try { console.error('Stale Deploy Early Catch Script Error:', e); } catch (e2) {} }
       })();`
                 }} />}
         {!isDev &&
@@ -102,22 +109,34 @@ export default function HelperScript(): Component | null {
                 try {
                     const resp = await fetch('/BUILD_ID', { method: 'HEAD', cache: 'no-store' });
                     if (resp.ok) {
-                        const BUILD_ID = resp.headers.get('ETag')?.replace(/W\\/|"/g, '');
+                        let BUILD_ID;
+                        try {
+                            BUILD_ID = resp.headers.get('ETag')?.replace(/W\\/|"/g, '');
+                        } catch (e) { BUILD_ID = undefined; }
                         if(!BUILD_ID) return;
-                        console.log('Build ID:', BUILD_ID);
+                        try { console.log('Build ID:', BUILD_ID); } catch (e) {}
 
-                        const prevBuild = localStorage.getItem('buildId');
+                        let prevBuild;
+                        try {
+                            prevBuild = localStorage.getItem('buildId');
+                        } catch (e) { prevBuild = null; }
 
                         if (prevBuild !== BUILD_ID) {
-                            localStorage.setItem('buildId', BUILD_ID);
-                            localStorage.setItem('buildIdSetAt', String(Date.now()));
+                            try {
+                                localStorage.setItem('buildId', BUILD_ID);
+                                localStorage.setItem('buildIdSetAt', String(Date.now()));
+                            } catch (e) {}
                             if(prevBuild){
-                                window.location.reload(true);
+                                try {
+                                    window.location.reload(true);
+                                } catch (e) {
+                                    try { window.location.reload(); } catch (e2) {}
+                                }
                             }
                         }
                     }
                 } catch (e) {
-                    console.error('Check Build ID Script Error:', e);
+                    try { console.error('Check Build ID Script Error:', e); } catch (e2) {}
                 }
       })();`}
             </script>}
@@ -136,16 +155,22 @@ export default function HelperScript(): Component | null {
                         // Use a regex to find the cookie directly, avoiding splits and loops.
                         // The non-capturing group (?:^|; ) matches the start of the string or a '; '
                         // to ensure we're not matching a substring of another cookie's name.
-                        const match = document.cookie.match(new RegExp(\`(?:^|; )\${name}=([^;]*)\`));
-                        return match ? decodeURIComponent(match[1]) : null;
+                        try {
+                            const match = document.cookie.match(new RegExp(\`(?:^|; )\${name}=([^;]*)\`));
+                            return match ? decodeURIComponent(match[1]) : null;
+                        } catch (e) {
+                            return null;
+                        }
                     };
 
                     function setTheme(isDark){
-                        const classList=document.documentElement.classList;
-                        // This check is efficient as it only touches the DOM when a change is needed.
-                        if (classList.contains('dark') !== isDark) {
-                            classList.toggle('dark', isDark);
-                        }
+                        try {
+                            const classList=document.documentElement.classList;
+                            // This check is efficient as it only touches the DOM when a change is needed.
+                            if (classList.contains('dark') !== isDark) {
+                                classList.toggle('dark', isDark);
+                            }
+                        } catch (e) {}
                     }
                     
                     function syncTheme(){
@@ -173,37 +198,45 @@ export default function HelperScript(): Component | null {
                     if (locale && locale !== '${config.defaultLocale}' && !pathname.startsWith(\`/\${locale}\`)) {
                         const newPath = \`/\${locale}\${pathname === '/' ? '' : pathname}\${search}\${hash}\`;
                         // Redirecting will stop further script execution on this page.
-                        window.location.href = newPath;
+                        try {
+                            window.location.href = newPath;
+                        } catch (e) {}
                     } else {
                         const isDark = getCookie('${isDarkCookieKey}');
                         if(isDark===null){
-                            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                            let prefersDark = false;
+                            try {
+                                prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                            } catch (e) {}
                             setTheme(prefersDark);
-                            document.cookie = '${isDarkCookieKey}=' +
-                                                prefersDark +
-                                                '; path=/; max-age=31536000; SameSite=Lax;'
-                                                ${secureCookieAttribute};
+                            try {
+                                document.cookie = '${isDarkCookieKey}=' +
+                                                    prefersDark +
+                                                    '; path=/; max-age=31536000; SameSite=Lax;'
+                                                    ${secureCookieAttribute};
+                            } catch (e) {}
                         }else{
                             setTheme(isDark==='true');
                         }
                         // 3. Set up listeners for client-side navigation (only if not redirecting).
-                        
-                        // Store original history methods.
-                        const pushState = history.pushState;
-                        const replaceState = history.replaceState;
-                        const back = history.back;
+                        try {
+                            // Store original history methods.
+                            const pushState = history.pushState;
+                            const replaceState = history.replaceState;
+                            const back = history.back;
 
-                        history.back = function (...args) {
-                            back.apply(history, args);
-                        };
-                        history.pushState = function (...args) {
-                            pushState.apply(history, args);
-                            syncTheme(); // Re-sync theme after navigation.
-                        };
-                        history.replaceState = function (...args) {
-                            replaceState.apply(history, args);
-                            syncTheme(); // Re-sync theme after state replacement.
-                        };
+                            history.back = function (...args) {
+                                try { back.apply(history, args); } catch (e) {}
+                            };
+                            history.pushState = function (...args) {
+                                try { pushState.apply(history, args); } catch (e) {}
+                                try { syncTheme(); } catch (e) {} // Re-sync theme after navigation.
+                            };
+                            history.replaceState = function (...args) {
+                                try { replaceState.apply(history, args); } catch (e) {}
+                                try { syncTheme(); } catch (e) {} // Re-sync theme after state replacement.
+                            };
+                        } catch (e) {}
                     }
                 } catch (e) {
                     console.error('App State check Script Error:', e);

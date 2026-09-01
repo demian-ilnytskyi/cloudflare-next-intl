@@ -3,6 +3,18 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.24] - 2026-09-01
+
+### Changed
+
+- `IntlHelperScript`'s inline bootstrap scripts (stale-deploy early-catch,
+  build-id check, theme/locale sync, `history.pushState`/`replaceState`
+  overrides) now guard each individual browser API call with its own
+  try/catch, so a single failing call (e.g. blocked `localStorage`,
+  `matchMedia`) can't abort the rest of the script.
+- `cookieConsentAnalytics`'s Google Consent Mode bootstrap script is now
+  wrapped in a try/catch.
+
 ## [0.9.17] - 2026-09-01
 
 ### Added

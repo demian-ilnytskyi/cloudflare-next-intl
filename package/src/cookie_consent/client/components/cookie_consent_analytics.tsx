@@ -87,7 +87,8 @@ export function googleConsentModeBootstrapScript(config: CookieConsentAnalyticsC
 })();`
         : '';
 
-    return `window.dataLayer = window.dataLayer || [];
+    return `try {
+window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('consent', 'default', {
   'ad_storage': 'denied',
@@ -99,5 +100,6 @@ gtag('consent', 'default', {
 gtag('js', new Date());
 ${configCalls}
 ${gtagLoader}
-${adSenseLoader}`;
+${adSenseLoader}
+} catch (e) { try { console.error('Cookie Consent Analytics Script Error:', e); } catch (e2) {} }`;
 }
