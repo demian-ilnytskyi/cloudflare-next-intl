@@ -118,6 +118,26 @@ describe('checkDynamicPages', () => {
             expect(reports).toEqual([{ file: pageFile, action: 'added-force-dynamic' }]);
             expect(readFileSync(pageFile, 'utf8')).toContain('export const dynamic = "force-dynamic";');
         });
+
+        it('with real fs (no io.isFile override) follows a real local import to a file that exists, and ignores one that does not', async () => {
+            mkdirSync(dir, { recursive: true });
+            const pageFile = join(dir, 'page.tsx');
+            const contentFile = join(dir, 'content.tsx');
+            writeFileSync(
+                pageFile,
+                'import Content from "./content";\nimport "./does_not_exist";\nexport default function Page() { return <Content />; }\n',
+                'utf8',
+            );
+            writeFileSync(
+                contentFile,
+                'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n',
+                'utf8',
+            );
+
+            const reports = await checkDynamicPages({ appDir: dir, mode: 'report' });
+
+            expect(reports).toEqual([{ file: pageFile, action: 'would-add-force-dynamic' }]);
+        });
     });
 
     it('follows a local import to catch getAuthUser() usage the page file itself never mentions (regression: CRV audit page)', async () => {

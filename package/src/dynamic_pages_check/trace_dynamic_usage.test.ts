@@ -67,6 +67,42 @@ describe('traceDynamicUsage', () => {
         expect(result.detectedDynamicApis).toContain('headers()');
     });
 
+    it('defaults to treating every specifier as unresolvable when io.isFile is omitted', () => {
+        const readFile = (file: string) => {
+            throw new Error(`should not read: ${file}`);
+        };
+        const result = traceDynamicUsage(
+            '/repo/src/app/page.tsx',
+            'import { cookies } from "next/headers";\nimport "./b";\ncookies();',
+            [],
+            { readFile },
+        );
+        expect(result.detectedDynamicApis).toEqual(['cookies()']);
+    });
+
+    it('stops opening new files once the visited-file cap is reached, without throwing', () => {
+        const FILE_COUNT = 320;
+        const files: Record<string, string> = {
+            '/repo/src/app/page.tsx': Array.from(
+                { length: FILE_COUNT },
+                (_, i) => `import "./leaf_${i}";`,
+            ).join('\n'),
+        };
+        for (let i = 0; i < FILE_COUNT; i++) {
+            files[`/repo/src/app/leaf_${i}.ts`] = 'export const x = 1;';
+        }
+        const io = {
+            readFile: (file: string) => {
+                const source = files[file];
+                if (source === undefined) throw new Error(`no such file: ${file}`);
+                return source;
+            },
+            isFile: (file: string) => file in files,
+        };
+        const result = traceDynamicUsage('/repo/src/app/page.tsx', files['/repo/src/app/page.tsx'], [], io);
+        expect(result.detectedDynamicApis).toEqual([]);
+    });
+
     it('does not open a bare package specifier', () => {
         const readFile = (file: string) => {
             throw new Error(`should not read: ${file}`);
@@ -106,6 +142,29 @@ describe('traceDynamicUsage', () => {
             makeIo(files),
         );
         expect(result.hasExplicitDynamicExport).toBe(false);
+    });
+
+    it('skips a resolved import whose file cannot be read (e.g. deleted between resolve and read) without throwing', () => {
+        const files = {
+            '/repo/src/app/page.tsx': 'import { cookies } from "next/headers";\nimport "./b";\ncookies();',
+        };
+        const io = {
+            readFile: (file: string) => {
+                const source = files[file as keyof typeof files];
+                if (source === undefined) throw new Error(`no such file: ${file}`);
+                return source;
+            },
+            // isFile claims "./b" resolves, but readFile below has no entry for
+            // it — the read-after-resolve race this branch guards against.
+            isFile: (file: string) => file === '/repo/src/app/b.ts',
+        };
+        const result = traceDynamicUsage(
+            '/repo/src/app/page.tsx',
+            files['/repo/src/app/page.tsx'],
+            [],
+            io,
+        );
+        expect(result.detectedDynamicApis).toEqual(['cookies()']);
     });
 
     it('deduplicates a signal found in multiple files', () => {

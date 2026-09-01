@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { join } from 'node:path';
 import { extractImportSpecifiers, resolveLocalImport } from './resolve_local_imports.js';
 
 describe('extractImportSpecifiers', () => {
@@ -44,6 +45,16 @@ describe('resolveLocalImport', () => {
         expect(resolved).toBe('/repo/src/app/audit/audit_content.tsx');
     });
 
+    it('resolves a specifier that already carries its own extension without appending another', () => {
+        const resolved = resolveLocalImport(
+            './audit_content.tsx',
+            '/repo/src/app/audit/page.tsx',
+            [],
+            isFile,
+        );
+        expect(resolved).toBe('/repo/src/app/audit/audit_content.tsx');
+    });
+
     it('resolves an alias-prefixed specifier', () => {
         const resolved = resolveLocalImport(
             '@/shared/utils/require_flavour',
@@ -68,5 +79,17 @@ describe('resolveLocalImport', () => {
         const isFileWithIndex = (file: string) => file === '/repo/src/app/audit/index.ts';
         const resolved = resolveLocalImport('./audit', '/repo/src/app/page.tsx', [], isFileWithIndex);
         expect(resolved).toBe('/repo/src/app/audit/index.ts');
+    });
+
+    describe('with the real filesystem (no isFile override)', () => {
+        it('resolves a relative specifier to a real sibling file', () => {
+            const resolved = resolveLocalImport('./detect_dynamic_usage', __filename, []);
+            expect(resolved).toBe(join(__dirname, 'detect_dynamic_usage.ts'));
+        });
+
+        it('returns null for a relative specifier with no real file behind it', () => {
+            const resolved = resolveLocalImport('./definitely_does_not_exist_xyz', __filename, []);
+            expect(resolved).toBeNull();
+        });
     });
 });
