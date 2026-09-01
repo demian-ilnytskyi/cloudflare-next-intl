@@ -43,9 +43,6 @@ function CustomLinkFunction(
 ) {
     const localeValue = getLocaleCache();
     const router = useRouter();
-    const pathname = usePathname();
-    const [isPending, startTransition] = useTransition();
-    const [isNavigating, setIsNavigating] = useState(false);
 
     const needsLangPath = localeValue !== config.defaultLocale || !localeValue;
 
@@ -61,11 +58,15 @@ function CustomLinkFunction(
         urlString = typeof href === 'object' ? (href.pathname || '') : (href || '');
     }
 
-    const isCustom = prefetchType === 'custom' && prefetch !== false;
+    const pathname = usePathname();
+    const [isPending, startTransition] = useTransition();
+    const [isNavigating, setIsNavigating] = useState(false);
 
     useEffect(() => {
         setIsNavigating(false);
     }, [pathname]);
+
+    const isCustom = prefetchType === 'custom' && prefetch !== false;
 
     const triggerPrefetch = useCallback(() => {
         if (!isCustom || !urlString || urlString.startsWith('#') || prefetchedRoutes.has(urlString)) {
@@ -81,7 +82,7 @@ function CustomLinkFunction(
 
     useEffect(() => {
         if (!isCustom) return;
-        const timer = setTimeout(triggerPrefetch, 500);
+        const timer = setTimeout(triggerPrefetch, 100);
         return () => clearTimeout(timer);
     }, [urlString, isCustom, triggerPrefetch]);
 
@@ -101,9 +102,12 @@ function CustomLinkFunction(
         }
 
         if (isCustom) {
-            setIsNavigating(true);
+            const targetPath = typeof pathnames === 'string' ? pathnames : urlString;
+            if (pathname !== targetPath) {
+                setIsNavigating(true);
+            }
             startTransition(() => {
-                router.push(typeof pathnames === 'string' ? pathnames : urlString);
+                router.push(targetPath);
             });
             e.preventDefault();
         }

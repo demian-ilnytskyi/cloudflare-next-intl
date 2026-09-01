@@ -3,7 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.9.26] - 2026-09-02
+## [0.9.27] - 2026-09-02
+
+### Fixed
+
+- **Firebase Server Auth Session Caching**: Added an in-memory `authCache` Map (5-minute TTL) in `firebase_server.ts` to cache verified Firebase `User` instances per `authIdToken`. This avoids making blocking HTTP POST requests to Google's Identity Toolkit API (`identitytoolkit.googleapis.com`) on every server request / page navigation within the same Cloudflare Worker isolate.
+- **Link Component Effective Prefetching**: Fixed `CustomLink` `effectivePrefetch` logic when `prefetchType="custom"` is set so `prefetch={false}` explicitly overrides built-in Next link prefetching.
 
 ### Fixed
 

@@ -4,7 +4,7 @@ import { renderHook, act } from '@testing-library/react';
 import useStaleDeployRecovery, { shouldRecoverFromStaleDeploy, isRecentBuild } from './use_stale_deploy_recovery.js';
 import * as clearClientCacheModule from './clear_client_cache.js';
 
-const staleError = new Error('The connection to the page was unexpectedly closed');
+const staleError = new Error('Failed to fetch dynamically imported module');
 const chunkError = new Error('Loading chunk 42 failed');
 const dynamicImportError = new Error('Failed to fetch dynamically imported module');
 const genericError = new Error('Database connection failed');
@@ -38,10 +38,8 @@ describe('shouldRecoverFromStaleDeploy', () => {
         expect(shouldRecoverFromStaleDeploy(chunkError, 'build-a', null)).toBe(true);
         expect(shouldRecoverFromStaleDeploy(dynamicImportError, 'build-a', null)).toBe(true);
         expect(shouldRecoverFromStaleDeploy(new Error('loading css chunk failed'), 'build-a', null)).toBe(true);
-        expect(shouldRecoverFromStaleDeploy(new Error('connection closed by server'), 'build-a', null)).toBe(true);
-        expect(shouldRecoverFromStaleDeploy(new Error('error reading RSC payload'), 'build-a', null)).toBe(true);
-        expect(shouldRecoverFromStaleDeploy(new Error('Minified React error #412'), 'build-a', null)).toBe(true);
-        expect(shouldRecoverFromStaleDeploy(new Error('The above error occurred in a React component'), 'build-a', null)).toBe(true);
+        expect(shouldRecoverFromStaleDeploy(new Error('server action not found'), 'build-a', null)).toBe(true);
+        expect(shouldRecoverFromStaleDeploy(new Error('unrecognizedactionerror'), 'build-a', null)).toBe(true);
         const namedChunkError = new Error('custom message');
         namedChunkError.name = 'ChunkLoadError';
         expect(shouldRecoverFromStaleDeploy(namedChunkError, 'build-a', null)).toBe(true);
