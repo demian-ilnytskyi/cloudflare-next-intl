@@ -69,9 +69,11 @@ describe("autoDynamicPagesPlugin", () => {
 
     it("handles error in checkDynamicPages gracefully", async () => {
         const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-        // Passing a file path as appDir causes findPageFiles to throw ENOTDIR
+        const checkDynamicPagesModule = await import("../dynamic_pages_check/index.js");
+        const spy = vi.spyOn(checkDynamicPagesModule, "checkDynamicPages").mockRejectedValueOnce(new Error("Test error"));
+
         const plugin = autoDynamicPagesPlugin({
-            appDir: resolve(TEST_DIR, "src/app/[locale]/page.tsx"),
+            appDir: resolve(TEST_DIR, "src/app"),
         });
         // @ts-expect-error Mock Vite configResolved hook call
         await plugin.configResolved?.({ root: TEST_DIR });
@@ -79,6 +81,7 @@ describe("autoDynamicPagesPlugin", () => {
             "[cloudflare-next-intl] autoDynamicPages check error:",
             expect.any(Error)
         );
+        spy.mockRestore();
         consoleWarnSpy.mockRestore();
     });
 
