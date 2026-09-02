@@ -19,24 +19,20 @@ import { usePathname, useRouter } from 'next/navigation.js';
 type Url = string | UrlObject;
 
 /**
- * `prefetch` defaults to `false` — no route is ever prefetched (no
- * hover/pointerdown/mount prefetching) unless a caller explicitly opts in
- * with `prefetch` (a plain boolean, honored per `next/link`) or
- * `prefetchType="eager"` combined with `prefetch={true}`. This is a
- * deliberate default for backends with real per-request latency: many Links
- * mounted together (a sidebar, a results table) must never burst-prefetch
- * and starve the page's own real data fetch for a connection/worker slot.
+ * `prefetch` defaults to `true` — a `'custom'`/`'eager'` Link prefetches on
+ * hover (after a 100ms dwell, not on every `mouseenter`) and on pointerdown.
+ * Pass `prefetch={false}` on a given Link to opt it out.
  *
  * - `'custom'` (default): loop-safe click interception (`startTransition` +
  *   `router.push`, plus double-click navigation protection) — this is what
  *   avoids the prefetch-loop bug `prefetchType="default"` causes on this
- *   router setup. With `prefetch` left at its `false` default it does no
- *   prefetching at all; pass `prefetch={true}` to opt back into
- *   hover/pointerdown-dwell prefetch.
- * - `'eager'`: same click interception as `'custom'`, PLUS (only when
- *   `prefetch={true}` is also passed) prefetches ~100ms after mount even
- *   without a hover. Opt into this only for a Link that's alone (or one of a
- *   small, fixed few) on the page.
+ *   router setup. Hover-dwell and pointerdown prefetch, per the `prefetch`
+ *   prop above.
+ * - `'eager'`: same click interception as `'custom'`, PLUS (unless
+ *   `prefetch={false}` is passed) prefetches ~100ms after mount even without
+ *   a hover. Opt into this only for a Link that's alone (or one of a small,
+ *   fixed few) on the page — many of these mounting together turns one page
+ *   load into a burst of navigations' worth of server work.
  * - `'default'`: vanilla `next/link` prefetch behavior — do not use for
  *   in-app navigation Links on this router setup, see `'custom'` above; only
  *   for links `next/link` itself should own (external-ish or special cases).
@@ -46,6 +42,13 @@ export type PrefetchType = 'custom' | 'eager' | 'default';
 type NextLinkProps = Omit<ComponentProps<'a'>, keyof LinkProps> &
     Omit<LinkProps, 'locale'> & {
         prefetchType?: PrefetchType;
+        /**
+         * How long the pointer must dwell on the link before hover-prefetch
+         * fires. Defaults to `100` (ms). `0` prefetches immediately on
+         * `mouseenter`, with no dwell. Pointerdown prefetch is unaffected —
+         * it always fires immediately, dwell or not.
+         */
+        hoverPrefetchDelayMs?: number;
     };
 
 type Props = NextLinkProps;
@@ -53,24 +56,12 @@ type Props = NextLinkProps;
 // Global session deduping set to prevent infinite prefetch loops across route TTL expirations
 const prefetchedRoutes = new Set<string>();
 
-/**
- * Fired on `window` the instant a `'custom'`/`'eager'` Link's click handler
- * decides to navigate — `detail` is the target path — and again with
- * `detail: null` once the router's real `pathname` catches up. The RSC
- * response on this stack isn't streamed incrementally, so a route's own
- * `loading.tsx` typically never gets a chance to paint before its real
- * content (both arrive in the same response). This event is what lets a
- * consumer show its own instant, purely client-side "you're on the new
- * page now" state — including moving the address bar itself via
- * `history.replaceState` below — without waiting on that slow response.
- */
-export const PENDING_NAVIGATION_EVENT = 'cloudflare-next-intl:pending-navigation';
-
 function CustomLinkFunction(
     {
         href,
         prefetch,
         prefetchType = 'custom',
+        hoverPrefetchDelayMs = 100,
         onClick,
         onMouseEnter,
         onMouseLeave,
@@ -82,10 +73,10 @@ function CustomLinkFunction(
     const localeValue = getLocaleCache();
     const router = useRouter();
 
-    // A given `Link`'s own `prefetch` prop always wins; otherwise fall back
-    // to `link.defaultPrefetch` from `setIntlConfig` (see `LinkRoutingConfig`),
-    // defaulting to `false` when neither is set.
-    prefetch ??= config.link?.defaultPrefetch ?? false;
+    // Defaults to `true`: a `'custom'`/`'eager'` Link hover-prefetches (100ms
+    // dwell) and pointerdown-prefetches unless a caller explicitly opts out
+    // with `prefetch={false}`.
+    prefetch ??= config.link?.defaultPrefetch ?? true;
 
     const needsLangPath = localeValue !== config.defaultLocale || !localeValue;
 
@@ -107,7 +98,6 @@ function CustomLinkFunction(
 
     useEffect(() => {
         setIsNavigating(false);
-        window.dispatchEvent(new CustomEvent<string | null>(PENDING_NAVIGATION_EVENT, { detail: null }));
     }, [pathname]);
 
     // Safety net: `isNavigating` otherwise only clears when `pathname`
@@ -170,13 +160,18 @@ function CustomLinkFunction(
     };
 
     // Dwell delay: only prefetch once the pointer rests on the link for
-    // 100ms, instead of firing on every mouseenter. A cursor merely passing
-    // over a link on its way elsewhere (scrolling a sidebar, moving toward
-    // another target) would otherwise trigger a prefetch it never needed.
+    // `hoverPrefetchDelayMs` (100ms by default), instead of firing on every
+    // mouseenter. A cursor merely passing over a link on its way elsewhere
+    // (scrolling a sidebar, moving toward another target) would otherwise
+    // trigger a prefetch it never needed. `0` fires immediately on hover.
     const handleHoverStart = () => {
         if (!prefetchEnabled) return;
         clearHoverTimer();
-        hoverTimerRef.current = setTimeout(doPrefetch, 100);
+        if (hoverPrefetchDelayMs <= 0) {
+            doPrefetch();
+            return;
+        }
+        hoverTimerRef.current = setTimeout(doPrefetch, hoverPrefetchDelayMs);
     };
 
     const handleHoverEnd = () => {
@@ -198,16 +193,6 @@ function CustomLinkFunction(
             const targetPath = typeof pathnames === 'string' ? pathnames : urlString;
             if (pathname !== targetPath) {
                 setIsNavigating(true);
-                // Optimistic address-bar move: `replaceState` (not
-                // `pushState`) so it doesn't add a duplicate history entry —
-                // the router's own `router.push` below still owns the real
-                // history entry once its slow response lands.
-                try {
-                    window.history.replaceState(window.history.state, '', targetPath);
-                    window.dispatchEvent(new CustomEvent<string | null>(PENDING_NAVIGATION_EVENT, { detail: targetPath }));
-                } catch {
-                    // ignore — purely a UX nicety, navigation still proceeds below
-                }
             }
             startTransition(() => {
                 router.push(targetPath);

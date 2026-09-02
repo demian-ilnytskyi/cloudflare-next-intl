@@ -80,34 +80,11 @@ describe('Link (server-safe locale-aware)', () => {
         expect(container2.querySelector('a')).toHaveAttribute('href', '');
     });
 
-    it('does not prefetch on hover when prefetch is left at its default (false), but pointerdown still prefetches', async () => {
+    it('hover-prefetches by default (100ms dwell) and on pointerdown', async () => {
         vi.useFakeTimers();
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
-        render(<Link href="/test-hover-default-off">Hover Link</Link>);
-        const link = screen.getByRole('link', { name: 'Hover Link' });
-        fireEvent.mouseEnter(link);
-        act(() => {
-            vi.advanceTimersByTime(100);
-        });
-        expect(mockPrefetch).not.toHaveBeenCalled();
-
-        // pointerdown prefetches unconditionally — it only fires when the
-        // user has already committed to this link, unlike hover.
-        fireEvent.pointerDown(link);
-        expect(mockPrefetch).toHaveBeenCalledWith('/test-hover-default-off');
-
-        // navigation itself still works via the loop-safe click interceptor
-        fireEvent.click(link);
-        expect(mockPush).toHaveBeenCalledWith('/test-hover-default-off');
-        vi.useRealTimers();
-    });
-
-    it('prefetches route after a hover dwell and on pointerdown when prefetchType is custom', async () => {
-        vi.useFakeTimers();
-        const { getLocaleCache } = await import('../../general/cache_variables.js');
-        vi.mocked(getLocaleCache).mockReturnValue('en');
-        render(<Link href="/test-hover" prefetch={true}>Hover Link</Link>);
+        render(<Link href="/test-hover">Hover Link</Link>);
         const link = screen.getByRole('link', { name: 'Hover Link' });
         fireEvent.mouseEnter(link);
         expect(mockPrefetch).not.toHaveBeenCalled();
@@ -116,9 +93,57 @@ describe('Link (server-safe locale-aware)', () => {
         });
         expect(mockPrefetch).toHaveBeenCalledWith('/test-hover');
 
-        // pointerdown also triggers hover prefetch
+        // pointerdown also triggers prefetch, deduped in the session set
         fireEvent.pointerDown(link);
-        expect(mockPrefetch).toHaveBeenCalledTimes(1); // Deduped in session set
+        expect(mockPrefetch).toHaveBeenCalledTimes(1);
+        vi.useRealTimers();
+    });
+
+    it('prefetches immediately on hover when hoverPrefetchDelayMs={0}', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        render(<Link href="/test-hover-zero-delay" hoverPrefetchDelayMs={0}>Hover Link</Link>);
+        const link = screen.getByRole('link', { name: 'Hover Link' });
+        fireEvent.mouseEnter(link);
+        expect(mockPrefetch).toHaveBeenCalledWith('/test-hover-zero-delay');
+    });
+
+    it('respects a custom non-default hoverPrefetchDelayMs', async () => {
+        vi.useFakeTimers();
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        render(<Link href="/test-hover-custom-delay" hoverPrefetchDelayMs={300}>Hover Link</Link>);
+        const link = screen.getByRole('link', { name: 'Hover Link' });
+        fireEvent.mouseEnter(link);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
+        expect(mockPrefetch).not.toHaveBeenCalled();
+        act(() => {
+            vi.advanceTimersByTime(200);
+        });
+        expect(mockPrefetch).toHaveBeenCalledWith('/test-hover-custom-delay');
+        vi.useRealTimers();
+    });
+
+    it('does not hover-prefetch when prefetch={false}, but pointerdown still prefetches (already committed to the click)', async () => {
+        vi.useFakeTimers();
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        render(<Link href="/test-hover-off" prefetch={false}>Hover Link</Link>);
+        const link = screen.getByRole('link', { name: 'Hover Link' });
+        fireEvent.mouseEnter(link);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
+        expect(mockPrefetch).not.toHaveBeenCalled();
+
+        fireEvent.pointerDown(link);
+        expect(mockPrefetch).toHaveBeenCalledWith('/test-hover-off');
+
+        // navigation itself still works via the loop-safe click interceptor
+        fireEvent.click(link);
+        expect(mockPush).toHaveBeenCalledWith('/test-hover-off');
         vi.useRealTimers();
     });
 
@@ -144,7 +169,7 @@ describe('Link (server-safe locale-aware)', () => {
         mockPrefetch.mockImplementationOnce(() => {
             throw new Error('prefetch failed');
         });
-        render(<Link href="#section" prefetch={true}>Hash Link</Link>);
+        render(<Link href="#section">Hash Link</Link>);
         const link = screen.getByRole('link', { name: 'Hash Link' });
         fireEvent.mouseEnter(link);
         act(() => {
@@ -152,7 +177,7 @@ describe('Link (server-safe locale-aware)', () => {
         });
         expect(mockPrefetch).not.toHaveBeenCalled();
 
-        render(<Link href="/error-prefetch" prefetch={true}>Error Link</Link>);
+        render(<Link href="/error-prefetch">Error Link</Link>);
         const errLink = screen.getByRole('link', { name: 'Error Link' });
         fireEvent.mouseEnter(errLink);
         expect(() => {
@@ -175,19 +200,6 @@ describe('Link (server-safe locale-aware)', () => {
         // Second click while in-flight is prevented
         fireEvent.click(link);
         expect(mockPush).toHaveBeenCalledTimes(1);
-    });
-
-    it('still navigates when history.replaceState throws during the optimistic address-bar move', async () => {
-        const { getLocaleCache } = await import('../../general/cache_variables.js');
-        vi.mocked(getLocaleCache).mockReturnValue('en');
-        const replaceStateSpy = vi.spyOn(window.history, 'replaceState').mockImplementationOnce(() => {
-            throw new Error('replaceState failed');
-        });
-        render(<Link href="/test-replacestate-throws">Click Link</Link>);
-        const link = screen.getByRole('link', { name: 'Click Link' });
-        expect(() => fireEvent.click(link)).not.toThrow();
-        expect(mockPush).toHaveBeenCalledWith('/test-replacestate-throws');
-        replaceStateSpy.mockRestore();
     });
 
     it('respects defaultPrevented on onClick prop', async () => {
@@ -220,27 +232,27 @@ describe('Link (server-safe locale-aware)', () => {
         vi.useFakeTimers();
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
-        render(<Link href="/timer-prefetch" prefetchType="eager" prefetch={true}>Timer Link</Link>);
+        render(<Link href="/timer-prefetch" prefetchType="eager">Timer Link</Link>);
         act(() => {
-            vi.advanceTimersByTime(700);
+            vi.advanceTimersByTime(100);
         });
         expect(mockPrefetch).toHaveBeenCalledWith('/timer-prefetch');
         vi.useRealTimers();
     });
 
-    it('does NOT trigger the mount timer for the default prefetchType="custom" (hover-only)', async () => {
+    it('does NOT trigger the mount timer for prefetchType="custom" (hover/pointerdown only)', async () => {
         vi.useFakeTimers();
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
         render(<Link href="/no-timer-prefetch">No Timer Link</Link>);
         act(() => {
-            vi.advanceTimersByTime(700);
+            vi.advanceTimersByTime(100);
         });
         expect(mockPrefetch).not.toHaveBeenCalledWith('/no-timer-prefetch');
         vi.useRealTimers();
     });
 
-    it('calls custom onMouseEnter and onPointerDown handlers and handles object href navigation', async () => {
+    it('calls custom onMouseEnter, onMouseLeave and onPointerDown handlers and handles object href navigation', async () => {
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
         const onMouseEnter = vi.fn();

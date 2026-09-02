@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.33
+
+### Changed
+
+- `<Link>`'s `prefetch` prop now defaults back to `true` — hover (100ms dwell) and pointerdown prefetch happen out of the box again; pass `prefetch={false}` to opt a Link out.
+- Added a `hoverPrefetchDelayMs` prop (default `100`) to control the hover dwell delay before prefetch fires; `0` prefetches immediately on `mouseenter`, matching the pre-dwell behavior for callers that want it.
+- Removed the `history.replaceState`/`PENDING_NAVIGATION_EVENT` optimistic address-bar-move feature added in 0.9.32.
+
 ## 0.9.32
 
 ### Changed
