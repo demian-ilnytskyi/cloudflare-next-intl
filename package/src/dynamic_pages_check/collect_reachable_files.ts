@@ -13,33 +13,25 @@ export interface CollectReachableFilesIo {
  */
 export const MAX_FILES_VISITED = 300;
 
-// Matches a leading `"use server";`/`'use server';` directive — optionally
-// preceded by other string-literal directives (e.g. `"use strict"`), same
-// position Next.js itself requires it in. A file marked this way exports
-// Server Actions: functions invoked only when explicitly called (a form
-// action, an event handler's onClick) — never automatically executed just
-// because the file is imported, let alone during another page's render.
-// Reachability through an import says nothing about invocation timing here,
-// so such a file is treated as an opaque boundary this scan doesn't open —
-// the same treatment a bare npm package specifier already gets.
-const USE_SERVER_DIRECTIVE = /^(?:\s*['"]use \w[\w-]*['"]\s*;?\s*)*['"]use server['"]\s*;?/;
-
-function hasLeadingUseServerDirective(source: string): boolean {
-    return USE_SERVER_DIRECTIVE.test(source);
-}
-
 /**
  * Walks `entryFile`'s local (relative/alias) import graph — cycle-safe,
  * capped at {@link MAX_FILES_VISITED} — and returns every file reached,
  * `entryFile` included (inserted first, so callers that care about
  * iteration order can rely on it coming first), mapped to its source text.
- * An imported file whose own text opens with a `"use server"` directive is
- * never opened (see {@link hasLeadingUseServerDirective}) — `entryFile`
- * itself is always included regardless, since a page's own text is always
- * in scope. Shared by `traceDynamicUsage` (unions `detectDynamicUsage`
- * signals across this set) and `syncErrorReportingAuthUser` (finds
- * `reportError()` calls across this set) so both walk the exact same graph
- * by construction.
+ *
+ * A `"use server"` file IS opened and included: its exports aren't only
+ * form-bound Server Actions invoked later by user interaction — a common,
+ * legitimate pattern calls them directly as plain async functions during
+ * the SAME render (`await someRepository.fetchThing(id)` inside a Server
+ * Component's body), same timing as any other import. Treating such a file
+ * as opaque hid real dynamic-API usage (e.g. `getAuthUser()`) behind it,
+ * which is exactly backwards from this scan's own stated bias: a false
+ * positive here only costs an unnecessary `force-dynamic`, but a false
+ * negative silently mis-marks a genuinely per-user page as static.
+ *
+ * Shared by `traceDynamicUsage` (unions `detectDynamicUsage` signals across
+ * this set) and `syncErrorReportingAuthUser` (finds `reportError()` calls
+ * across this set) so both walk the exact same graph by construction.
  */
 export function collectReachableFiles(
     entryFile: string,
@@ -67,7 +59,6 @@ export function collectReachableFiles(
             } catch {
                 continue;
             }
-            if (hasLeadingUseServerDirective(importedSource)) continue;
             files.set(resolved, importedSource);
             queue.push(resolved);
         }

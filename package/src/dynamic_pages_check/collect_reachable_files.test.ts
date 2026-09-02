@@ -56,23 +56,23 @@ describe('collectReachableFiles', () => {
         expect([...files.keys()].sort()).toEqual(['/repo/src/app/b.ts', '/repo/src/app/page.tsx']);
     });
 
-    it('does not open a file whose own text opens with a "use server" directive', () => {
+    it('opens a file whose own text opens with a "use server" directive — its exports may be called directly during render, not only as a form-bound action', () => {
         const map = {
             '/repo/src/app/page.tsx': 'import "./action";',
             '/repo/src/app/action.ts': `"use server";\nimport { cookies } from "next/headers";\nexport async function clear() { (await cookies()).delete("x"); }`,
         };
         const files = collectReachableFiles('/repo/src/app/page.tsx', map['/repo/src/app/page.tsx'], [], makeIo(map));
-        expect([...files.keys()]).toEqual(['/repo/src/app/page.tsx']);
+        expect([...files.keys()].sort()).toEqual(['/repo/src/app/action.ts', '/repo/src/app/page.tsx']);
     });
 
-    it('does not open a "use server" file with single quotes or a leading "use strict" directive', () => {
+    it('opens a "use server" file with single quotes or a leading "use strict" directive too', () => {
         const map = {
             '/repo/src/app/page.tsx': 'import "./a";\nimport "./b";',
             "/repo/src/app/a.ts": `'use server';\nexport async function a() {}`,
             '/repo/src/app/b.ts': `"use strict";\n"use server";\nexport async function b() {}`,
         };
         const files = collectReachableFiles('/repo/src/app/page.tsx', map['/repo/src/app/page.tsx'], [], makeIo(map));
-        expect([...files.keys()]).toEqual(['/repo/src/app/page.tsx']);
+        expect([...files.keys()].sort()).toEqual(['/repo/src/app/a.ts', '/repo/src/app/b.ts', '/repo/src/app/page.tsx']);
     });
 
     it('still includes the entry file itself even if it opens with "use server"', () => {

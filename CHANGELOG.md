@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.34
+
+### Fixed
+
+- `checkDynamicPages`'s import-graph trace no longer treats a `"use server"` file as opaque. A `"use server"` file's exports aren't only form-bound Server Actions invoked later by user interaction — a common, legitimate pattern (this package's own `withUserDb`/`getAuthUser`-based repositories) calls them directly as plain async functions during the same render (`await someRepository.fetchThing(id)` inside a Server Component body). Treating such a file as opaque hid real dynamic-API usage (e.g. `getAuthUser()`) behind it, causing genuinely per-user pages to be misclassified `force-static` instead of `force-dynamic`.
+
 ## 0.9.33
 
 ### Changed
