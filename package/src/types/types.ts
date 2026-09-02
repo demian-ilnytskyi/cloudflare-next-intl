@@ -119,7 +119,24 @@ export interface RoutingConfig<AppLocales extends Locales, AppLocalePrefixMode e
      * the defaults: enabled, reporting via `console.error`.
      */
     errorHandling?: ErrorHandlingRoutingConfig;
+    /**
+     * Configures the `Link` component's default `prefetch` value. Omit to
+     * keep the safe default (`false` — no prefetching unless a given `Link`
+     * passes `prefetch={true}` itself). Set `defaultPrefetch: true` to flip
+     * that app-wide, e.g. for a backend with low enough per-request latency
+     * that hover/pointerdown/mount prefetching is worth the extra load. A
+     * `prefetch` prop passed to an individual `Link` always wins over this.
+     */
+    link?: LinkRoutingConfig;
 };
+
+export interface LinkRoutingConfig {
+    /**
+     * Default for `Link`'s `prefetch` prop when a given `Link` doesn't pass
+     * one itself. Defaults to `false`.
+     */
+    defaultPrefetch?: boolean;
+}
 
 export interface GenerateRoutingConfig {
     /**

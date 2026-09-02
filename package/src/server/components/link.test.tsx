@@ -80,20 +80,65 @@ describe('Link (server-safe locale-aware)', () => {
         expect(container2.querySelector('a')).toHaveAttribute('href', '');
     });
 
-    it('prefetches route on hover and pointerdown when prefetchType is custom', async () => {
+    it('does not prefetch on hover when prefetch is left at its default (false), but pointerdown still prefetches', async () => {
+        vi.useFakeTimers();
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
-        render(<Link href="/test-hover">Hover Link</Link>);
+        render(<Link href="/test-hover-default-off">Hover Link</Link>);
         const link = screen.getByRole('link', { name: 'Hover Link' });
         fireEvent.mouseEnter(link);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
+        expect(mockPrefetch).not.toHaveBeenCalled();
+
+        // pointerdown prefetches unconditionally — it only fires when the
+        // user has already committed to this link, unlike hover.
+        fireEvent.pointerDown(link);
+        expect(mockPrefetch).toHaveBeenCalledWith('/test-hover-default-off');
+
+        // navigation itself still works via the loop-safe click interceptor
+        fireEvent.click(link);
+        expect(mockPush).toHaveBeenCalledWith('/test-hover-default-off');
+        vi.useRealTimers();
+    });
+
+    it('prefetches route after a hover dwell and on pointerdown when prefetchType is custom', async () => {
+        vi.useFakeTimers();
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        render(<Link href="/test-hover" prefetch={true}>Hover Link</Link>);
+        const link = screen.getByRole('link', { name: 'Hover Link' });
+        fireEvent.mouseEnter(link);
+        expect(mockPrefetch).not.toHaveBeenCalled();
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
         expect(mockPrefetch).toHaveBeenCalledWith('/test-hover');
 
         // pointerdown also triggers hover prefetch
         fireEvent.pointerDown(link);
         expect(mockPrefetch).toHaveBeenCalledTimes(1); // Deduped in session set
+        vi.useRealTimers();
+    });
+
+    it('cancels the hover dwell timer on mouseleave before it fires', async () => {
+        vi.useFakeTimers();
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        render(<Link href="/test-hover-leave">Hover Leave Link</Link>);
+        const link = screen.getByRole('link', { name: 'Hover Leave Link' });
+        fireEvent.mouseEnter(link);
+        fireEvent.mouseLeave(link);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
+        expect(mockPrefetch).not.toHaveBeenCalledWith('/test-hover-leave');
+        vi.useRealTimers();
     });
 
     it('ignores prefetch for hash links or when prefetch errors occur', async () => {
+        vi.useFakeTimers();
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
         mockPrefetch.mockImplementationOnce(() => {
@@ -102,11 +147,20 @@ describe('Link (server-safe locale-aware)', () => {
         render(<Link href="#section">Hash Link</Link>);
         const link = screen.getByRole('link', { name: 'Hash Link' });
         fireEvent.mouseEnter(link);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
         expect(mockPrefetch).not.toHaveBeenCalled();
 
         render(<Link href="/error-prefetch">Error Link</Link>);
         const errLink = screen.getByRole('link', { name: 'Error Link' });
-        expect(() => fireEvent.mouseEnter(errLink)).not.toThrow();
+        fireEvent.mouseEnter(errLink);
+        expect(() => {
+            act(() => {
+                vi.advanceTimersByTime(100);
+            });
+        }).not.toThrow();
+        vi.useRealTimers();
     });
 
     it('intercepts click and prevents duplicate navigation when prefetchType is custom', async () => {
@@ -149,11 +203,11 @@ describe('Link (server-safe locale-aware)', () => {
         expect(mockPush).not.toHaveBeenCalled(); // Handled by default Next link
     });
 
-    it('triggers idle prefetch timer after mount', async () => {
+    it('triggers idle prefetch timer after mount for prefetchType="eager"', async () => {
         vi.useFakeTimers();
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
-        render(<Link href="/timer-prefetch">Timer Link</Link>);
+        render(<Link href="/timer-prefetch" prefetchType="eager" prefetch={true}>Timer Link</Link>);
         act(() => {
             vi.advanceTimersByTime(700);
         });
@@ -161,16 +215,30 @@ describe('Link (server-safe locale-aware)', () => {
         vi.useRealTimers();
     });
 
+    it('does NOT trigger the mount timer for the default prefetchType="custom" (hover-only)', async () => {
+        vi.useFakeTimers();
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        render(<Link href="/no-timer-prefetch">No Timer Link</Link>);
+        act(() => {
+            vi.advanceTimersByTime(700);
+        });
+        expect(mockPrefetch).not.toHaveBeenCalledWith('/no-timer-prefetch');
+        vi.useRealTimers();
+    });
+
     it('calls custom onMouseEnter and onPointerDown handlers and handles object href navigation', async () => {
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
         const onMouseEnter = vi.fn();
+        const onMouseLeave = vi.fn();
         const onPointerDown = vi.fn();
 
         render(
             <Link
                 href={{ pathname: '/obj-nav', query: { a: '1' } }}
                 onMouseEnter={onMouseEnter}
+                onMouseLeave={onMouseLeave}
                 onPointerDown={onPointerDown}
             >
                 Obj Link
@@ -180,6 +248,9 @@ describe('Link (server-safe locale-aware)', () => {
         const link = screen.getByRole('link', { name: 'Obj Link' });
         fireEvent.mouseEnter(link);
         expect(onMouseEnter).toHaveBeenCalled();
+
+        fireEvent.mouseLeave(link);
+        expect(onMouseLeave).toHaveBeenCalled();
 
         fireEvent.pointerDown(link);
         expect(onPointerDown).toHaveBeenCalled();

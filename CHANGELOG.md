@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.9.32
+
+### Changed
+
+- `<Link>`'s pointerdown prefetch now fires unconditionally (regardless of the `prefetch` opt-in that gates hover/eager-mount prefetching) — pointerdown only happens once the user has already committed to the link, unlike hover, so it's safe to prefetch on regardless.
+- `<Link>` now moves the address bar immediately on click via `history.replaceState` (not `pushState`, so it doesn't add a duplicate history entry) and fires a new `PENDING_NAVIGATION_EVENT` on `window` with the target path, clearing it again once the router's real `pathname` catches up. This lets a consumer show an instant, purely client-side "you're on the new page now" state — including its own loading skeleton and active-nav highlighting — without waiting on a non-streamed RSC response.
+
+## 0.9.31
+
+### Changed
+
+- `<Link>`'s `prefetch` prop now defaults to `false` — no route is ever prefetched (no hover-dwell, no pointerdown, no mount timer) unless a caller explicitly passes `prefetch={true}`. The loop-safe click interception (`startTransition` + `router.push`) that `prefetchType="custom"`/`"eager"` provide still applies regardless, so in-app navigation stays instant and loop-free with prefetching fully off.
+
+## 0.9.30
+
+### Changed
+
+- Made `'custom'` `<Link>` prefetch hover-only by default: it now waits for a 100ms pointer dwell on the link (instead of firing on every `mouseenter`) and no longer prefetches automatically on mount, so rendering many Links together (a sidebar, a results table) doesn't burst-prefetch every one of them.
+- Added a new `prefetchType="eager"` option that keeps the old mount-time prefetch (~100ms after mount, no hover needed) for standalone Links where that's worth the extra server load.
+
 ## 0.9.29
 
 ### Changed
