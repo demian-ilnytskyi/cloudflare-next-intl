@@ -825,6 +825,43 @@ describe('resolveUserDbCredentials', () => {
         await expect(resolveUserDbCredentials()).resolves.toEqual({ uid: 'config-uid', accessToken: 'config-jwt', role: null });
         expect(getAuthUser).not.toHaveBeenCalled();
     });
+
+    it('falls back to null when the signed-in Firebase user has no uid/token of its own', async () => {
+        config.firebaseAuth = {};
+        getAuthUser.mockResolvedValue({
+            user: {
+                uid: undefined,
+                getIdToken: vi.fn().mockResolvedValue(undefined),
+                getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }),
+            },
+            loading: false,
+        });
+
+        await expect(resolveUserDbCredentials()).resolves.toEqual({ uid: null, accessToken: null, role: null });
+    });
+
+    it('still consults Firebase for the role claim, without overwriting the already-resolved uid/token', async () => {
+        config.firebaseAuth = {};
+        config.db = {
+            connectionString: 'postgresql://x',
+            getUserId: () => 'config-uid',
+            getAccessToken: () => 'config-jwt',
+        };
+        getAuthUser.mockResolvedValue({
+            user: {
+                uid: 'firebase-uid',
+                getIdToken: vi.fn().mockResolvedValue('firebase-jwt'),
+                getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'technician' } }),
+            },
+            loading: false,
+        });
+
+        await expect(resolveUserDbCredentials()).resolves.toEqual({
+            uid: 'config-uid',
+            accessToken: 'config-jwt',
+            role: 'technician',
+        });
+    });
 });
 
 describe('withUserDb with resolved credentials', () => {
@@ -870,5 +907,12 @@ describe('withUserDb with resolved credentials', () => {
         config.firebaseAuth = {};
         await expect(withUserDb(async () => 'ok', { uid: null, accessToken: null, role: null }))
             .rejects.toThrow(/without a user id/);
+    });
+
+    it('names the missing access token when credentials carry none in Supabase mode', async () => {
+        config.firebaseAuth = {};
+        config.db = { supabase: { url: 'https://p.supabase.co', anonKey: 'anon' } };
+        await expect(withUserDb(async () => 'ok', { uid: 'passed-uid', accessToken: null, role: null }))
+            .rejects.toThrow(/access token/i);
     });
 });
