@@ -18,6 +18,12 @@ import { usePathname, useRouter } from 'next/navigation.js';
 
 type Url = string | UrlObject;
 
+/** Fired on `window` the instant a custom-intercepted click starts a
+ * navigation (`detail` = target path) and again once it lands or a fresh
+ * Link mounts on the new route (`detail` = null). Consumers like a global
+ * transition-loading gate rely on this to know when to show/hide. */
+export const PENDING_NAVIGATION_EVENT = 'cloudflare-next-intl:pending-navigation';
+
 /**
  * `prefetch` defaults to `true` — a `'custom'`/`'eager'` Link prefetches on
  * hover (after a 100ms dwell, not on every `mouseenter`) and on pointerdown.
@@ -96,8 +102,19 @@ function CustomLinkFunction(
     const [isPending, startTransition] = useTransition();
     const [isNavigating, setIsNavigating] = useState(false);
 
+    // A freshly-mounted Link (e.g. a sidebar item swapping from a plain
+    // <span> to this Link when it stops being the active route) must not
+    // dispatch the "landed" event on its very first effect run — that would
+    // clear a pending navigation someone else just started in the same
+    // render pass, before it ever gets a chance to show.
+    const isFirstPathnameEffect = useRef(true);
     useEffect(() => {
         setIsNavigating(false);
+        if (isFirstPathnameEffect.current) {
+            isFirstPathnameEffect.current = false;
+            return;
+        }
+        window.dispatchEvent(new CustomEvent<string | null>(PENDING_NAVIGATION_EVENT, { detail: null }));
     }, [pathname]);
 
     // Safety net: `isNavigating` otherwise only clears when `pathname`
@@ -183,6 +200,7 @@ function CustomLinkFunction(
     const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
         onClick?.(e);
         if (e.defaultPrevented) return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
 
         if (isCustom && (isNavigating || isPending)) {
             e.preventDefault();
@@ -193,6 +211,7 @@ function CustomLinkFunction(
             const targetPath = typeof pathnames === 'string' ? pathnames : urlString;
             if (pathname !== targetPath) {
                 setIsNavigating(true);
+                window.dispatchEvent(new CustomEvent<string | null>(PENDING_NAVIGATION_EVENT, { detail: targetPath }));
             }
             startTransition(() => {
                 router.push(targetPath);

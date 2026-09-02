@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
-import Link from './link.js';
+import Link, { PENDING_NAVIGATION_EVENT } from './link.js';
 
 const mockPush = vi.fn();
 const mockPrefetch = vi.fn();
+const mockUsePathname = vi.fn(() => '/current');
 
 vi.mock('../../general/cache_variables', () => ({ getLocaleCache: vi.fn() }));
 vi.mock('next/navigation.js', () => ({
@@ -12,13 +13,14 @@ vi.mock('next/navigation.js', () => ({
         prefetch: mockPrefetch,
         replace: vi.fn(),
     }),
-    usePathname: () => '/current',
+    usePathname: () => mockUsePathname(),
 }));
 
 afterEach(() => {
     cleanup();
     mockPush.mockReset();
     mockPrefetch.mockReset();
+    mockUsePathname.mockReturnValue('/current');
 });
 
 describe('Link (server-safe locale-aware)', () => {
@@ -200,6 +202,42 @@ describe('Link (server-safe locale-aware)', () => {
         // Second click while in-flight is prevented
         fireEvent.click(link);
         expect(mockPush).toHaveBeenCalledTimes(1);
+    });
+
+    it('dispatches PENDING_NAVIGATION_EVENT on click and again with null once pathname catches up, but not on initial mount', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        const events: (string | null)[] = [];
+        const listener = (e: Event) => events.push((e as CustomEvent<string | null>).detail);
+        window.addEventListener(PENDING_NAVIGATION_EVENT, listener);
+
+        const { rerender } = render(<Link href="/test-pending">Pending Link</Link>);
+        expect(events).toEqual([]); // no "landed" event on initial mount
+
+        const link = screen.getByRole('link', { name: 'Pending Link' });
+        fireEvent.click(link);
+        expect(events).toEqual(['/test-pending']);
+
+        mockUsePathname.mockReturnValue('/test-pending');
+        rerender(<Link href="/test-pending">Pending Link</Link>);
+        expect(events).toEqual(['/test-pending', null]);
+
+        window.removeEventListener(PENDING_NAVIGATION_EVENT, listener);
+    });
+
+    it('lets the browser handle modified clicks and non-primary mouse buttons instead of intercepting', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        render(<Link href="/test-modified-click">Modified Link</Link>);
+        const link = screen.getByRole('link', { name: 'Modified Link' });
+
+        fireEvent.click(link, { metaKey: true });
+        fireEvent.click(link, { ctrlKey: true });
+        fireEvent.click(link, { shiftKey: true });
+        fireEvent.click(link, { altKey: true });
+        fireEvent.click(link, { button: 1 });
+
+        expect(mockPush).not.toHaveBeenCalled();
     });
 
     it('respects defaultPrevented on onClick prop', async () => {

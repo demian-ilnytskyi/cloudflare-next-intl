@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.35
+
+### Added
+
+- Reintroduced `PENDING_NAVIGATION_EVENT`, fired on `window` when a `'custom'`/`'eager'` `<Link>` click starts navigating (`detail` = target path) and again once it lands (`detail: null`), so a consumer (e.g. a global transition-loading gate) can react without polling `pathname`. A freshly-mounted Link's first effect run no longer fires the "landed" event, so it can't clear a pending navigation someone else just started in the same render pass.
+
+### Fixed
+
+- `<Link>`'s click interceptor now ignores modified clicks (Cmd/Ctrl/Shift/Alt-click) and non-primary mouse buttons, letting the browser handle "open in new tab"/"open in new window" instead of hijacking them into an in-app `router.push`.
+
 ## 0.9.34
 
 ### Fixed
