@@ -144,11 +144,6 @@ function CustomLinkFunction(
         }
     }, [urlString, pathnames, router]);
 
-    const triggerPrefetch = useCallback(() => {
-        if (!prefetchEnabled) return;
-        doPrefetch();
-    }, [prefetchEnabled, doPrefetch]);
-
     // pointerdown fires only when the user has already committed to this
     // link (finger/mouse down right before the click lands) — unlike hover,
     // it can't fire from a cursor merely passing over the link on its way
@@ -161,9 +156,9 @@ function CustomLinkFunction(
 
     useEffect(() => {
         if (!isEager) return;
-        const timer = setTimeout(triggerPrefetch, 100);
+        const timer = setTimeout(doPrefetch, 100);
         return () => clearTimeout(timer);
-    }, [urlString, isEager, triggerPrefetch]);
+    }, [urlString, isEager, doPrefetch]);
 
     const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -181,7 +176,7 @@ function CustomLinkFunction(
     const handleHoverStart = () => {
         if (!prefetchEnabled) return;
         clearHoverTimer();
-        hoverTimerRef.current = setTimeout(triggerPrefetch, 100);
+        hoverTimerRef.current = setTimeout(doPrefetch, 100);
     };
 
     const handleHoverEnd = () => {

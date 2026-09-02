@@ -144,7 +144,7 @@ describe('Link (server-safe locale-aware)', () => {
         mockPrefetch.mockImplementationOnce(() => {
             throw new Error('prefetch failed');
         });
-        render(<Link href="#section">Hash Link</Link>);
+        render(<Link href="#section" prefetch={true}>Hash Link</Link>);
         const link = screen.getByRole('link', { name: 'Hash Link' });
         fireEvent.mouseEnter(link);
         act(() => {
@@ -152,7 +152,7 @@ describe('Link (server-safe locale-aware)', () => {
         });
         expect(mockPrefetch).not.toHaveBeenCalled();
 
-        render(<Link href="/error-prefetch">Error Link</Link>);
+        render(<Link href="/error-prefetch" prefetch={true}>Error Link</Link>);
         const errLink = screen.getByRole('link', { name: 'Error Link' });
         fireEvent.mouseEnter(errLink);
         expect(() => {
@@ -175,6 +175,19 @@ describe('Link (server-safe locale-aware)', () => {
         // Second click while in-flight is prevented
         fireEvent.click(link);
         expect(mockPush).toHaveBeenCalledTimes(1);
+    });
+
+    it('still navigates when history.replaceState throws during the optimistic address-bar move', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        const replaceStateSpy = vi.spyOn(window.history, 'replaceState').mockImplementationOnce(() => {
+            throw new Error('replaceState failed');
+        });
+        render(<Link href="/test-replacestate-throws">Click Link</Link>);
+        const link = screen.getByRole('link', { name: 'Click Link' });
+        expect(() => fireEvent.click(link)).not.toThrow();
+        expect(mockPush).toHaveBeenCalledWith('/test-replacestate-throws');
+        replaceStateSpy.mockRestore();
     });
 
     it('respects defaultPrevented on onClick prop', async () => {
@@ -257,5 +270,50 @@ describe('Link (server-safe locale-aware)', () => {
 
         fireEvent.click(link);
         expect(mockPush).toHaveBeenCalledWith('/obj-nav');
+    });
+});
+
+describe('Link with link.defaultPrefetch: true in intl config', () => {
+    afterEach(() => {
+        vi.doUnmock('../../config/intl_config.js');
+        vi.resetModules();
+    });
+
+    it('hover-prefetches by default when the app config sets link.defaultPrefetch: true', async () => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config.js', () => ({
+            default: { locales: ['en'], defaultLocale: 'en', link: { defaultPrefetch: true } },
+        }));
+        vi.useFakeTimers();
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        const { default: ConfiguredLink } = await import('./link.js');
+        render(<ConfiguredLink href="/config-default-prefetch">Configured Link</ConfiguredLink>);
+        const link = screen.getByRole('link', { name: 'Configured Link' });
+        fireEvent.mouseEnter(link);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
+        expect(mockPrefetch).toHaveBeenCalledWith('/config-default-prefetch');
+        vi.useRealTimers();
+    });
+
+    it('an explicit prefetch={false} on the Link still wins over link.defaultPrefetch: true', async () => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config.js', () => ({
+            default: { locales: ['en'], defaultLocale: 'en', link: { defaultPrefetch: true } },
+        }));
+        vi.useFakeTimers();
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        const { default: ConfiguredLink } = await import('./link.js');
+        render(<ConfiguredLink href="/config-default-prefetch-override" prefetch={false}>Configured Link</ConfiguredLink>);
+        const link = screen.getByRole('link', { name: 'Configured Link' });
+        fireEvent.mouseEnter(link);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
+        expect(mockPrefetch).not.toHaveBeenCalled();
+        vi.useRealTimers();
     });
 });
