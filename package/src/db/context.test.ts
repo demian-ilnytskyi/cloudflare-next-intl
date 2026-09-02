@@ -34,7 +34,7 @@ vi.mock('../firebase_auth/server/use_auth_user_server', () => ({ getAuthUser }))
 vi.mock('../config/intl_config', () => ({ default: config }));
 vi.mock('./transaction_batch', () => ({ default: runTransactionBatch }));
 
-import { withPublicDb, withUserDb } from './context.js';
+import { withPublicDb, withUserDb, resolveUserDbCredentials } from './context.js';
 
 beforeEach(() => {
     tx._clientQuery.mockClear();
@@ -784,5 +784,91 @@ describe('withUserDb role safety', () => {
         const calls = tx._clientQuery.mock.calls.map((c: unknown[]) => c[0]);
         const setRole = calls.find((s: string) => typeof s === 'string' && s.startsWith('set local role'));
         expect(setRole).toBe('set local role "x"" ; set role ""postgres"');
+    });
+});
+
+describe('resolveUserDbCredentials', () => {
+    it('reads uid, token and role claim from the signed-in Firebase user', async () => {
+        config.firebaseAuth = {};
+        getAuthUser.mockResolvedValue({
+            user: {
+                uid: 'firebase-uid',
+                getIdToken: vi.fn().mockResolvedValue('firebase-jwt'),
+                getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'technician' } }),
+            },
+            loading: false,
+        });
+
+        await expect(resolveUserDbCredentials()).resolves.toEqual({
+            uid: 'firebase-uid',
+            accessToken: 'firebase-jwt',
+            role: 'technician',
+        });
+    });
+
+    it('returns nulls rather than throwing when nobody is signed in', async () => {
+        config.firebaseAuth = {};
+        getAuthUser.mockResolvedValue({ user: null, loading: false });
+
+        await expect(resolveUserDbCredentials()).resolves.toEqual({ uid: null, accessToken: null, role: null });
+    });
+
+    it('prefers the configured resolvers over the Firebase session', async () => {
+        config.firebaseAuth = {};
+        config.db = {
+            connectionString: 'postgresql://x',
+            authenticatedRoleClaim: false,
+            getUserId: () => 'config-uid',
+            getAccessToken: () => 'config-jwt',
+        };
+
+        await expect(resolveUserDbCredentials()).resolves.toEqual({ uid: 'config-uid', accessToken: 'config-jwt', role: null });
+        expect(getAuthUser).not.toHaveBeenCalled();
+    });
+});
+
+describe('withUserDb with resolved credentials', () => {
+    it('uses the passed uid and role without touching the request', async () => {
+        config.firebaseAuth = {};
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select 1');
+            return 'ok';
+        }, { uid: 'passed-uid', accessToken: 'passed-jwt', role: 'technician' });
+
+        expect(getAuthUser).not.toHaveBeenCalled();
+        expect(tx._clientQuery).toHaveBeenCalledWith(
+            `select set_config('request.jwt.claims', $1, true)`,
+            [JSON.stringify({ sub: 'passed-uid' })],
+        );
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role "technician"');
+    });
+
+    it('falls back to the default role when the credentials carry none', async () => {
+        config.firebaseAuth = {};
+        await withUserDb(async (db) => {
+            const client = (db as unknown as { client: { query: (sql: unknown) => Promise<unknown> } }).client;
+            if (client) await client.query('select 1');
+            return 'ok';
+        }, { uid: 'passed-uid', accessToken: null, role: null });
+
+        expect(getAuthUser).not.toHaveBeenCalled();
+        expect(tx._clientQuery).toHaveBeenCalledWith('set local role "authenticated"');
+    });
+
+    it('sends the passed access token in Supabase mode', async () => {
+        config.firebaseAuth = {};
+        config.db = { supabase: { url: 'https://p.supabase.co', anonKey: 'anon' } };
+
+        await withUserDb(async () => 'ok', { uid: 'passed-uid', accessToken: 'passed-jwt', role: null });
+
+        expect(getAuthUser).not.toHaveBeenCalled();
+        expect(proxyDrizzle).toHaveBeenCalledTimes(1);
+    });
+
+    it('names the missing field when credentials come back empty', async () => {
+        config.firebaseAuth = {};
+        await expect(withUserDb(async () => 'ok', { uid: null, accessToken: null, role: null }))
+            .rejects.toThrow(/without a user id/);
     });
 });

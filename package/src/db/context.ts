@@ -22,6 +22,75 @@ export type DrizzleDb = NodePgDatabase<Record<string, never>>;
 const DEFAULT_ROLE = 'authenticated';
 
 /**
+ * Everything `withUserDb` needs to know about the caller, resolved from the
+ * request up front by {@link resolveUserDbCredentials}.
+ *
+ * Exists because the sources those values come from — cookies, headers, the
+ * Firebase session — are request-scoped, and Next forbids reading them inside
+ * a function wrapped in `unstable_cache` or re-run by a background
+ * revalidation. Resolve once where the request still exists, then hand the
+ * plain values to `withUserDb` inside the cached callback.
+ */
+export interface UserDbCredentials {
+    /** The caller's id, written into `request.jwt.claims.sub` for RLS. */
+    uid: string | null;
+    /** The JWT sent to PostgREST in Supabase mode. */
+    accessToken: string | null;
+    /** The Postgres role the session runs as, when it came from a token claim. */
+    role: string | null;
+}
+
+function isCredentials(value: unknown): value is UserDbCredentials {
+    return typeof value === 'object' && value !== null;
+}
+
+function throwMissingCredential(what: string): never {
+    throw new Error(
+        `db: withUserDb was given credentials without ${what}. resolveUserDbCredentials() ` +
+        'returns nulls when nobody is signed in — check for that before calling withUserDb.',
+    );
+}
+
+/**
+ * Resolves the caller's id, access token, and role while the request is still
+ * readable, so the result can be passed to {@link withUserDb} from somewhere
+ * that cannot read cookies — an `unstable_cache` callback, or the background
+ * revalidation Next runs for one after the response has been sent.
+ *
+ * Each field falls back to `null` rather than throwing: a missing token is
+ * only an error if the call that uses it actually needs one, and that is
+ * `withUserDb`'s decision, not this function's.
+ */
+export async function resolveUserDbCredentials(dbOverride?: DbRoutingConfig): Promise<UserDbCredentials> {
+    const config = await resolveDbConfig(dbOverride);
+    const db = config.db;
+    requireDbConfig(db);
+
+    const fromConfigUid = (await db.getUserId?.()) ?? null;
+    const fromConfigToken = (await db.getAccessToken?.()) ?? null;
+
+    let uid = fromConfigUid;
+    let accessToken = fromConfigToken;
+    let role: string | null = null;
+
+    if (config.firebaseAuth && (uid === null || accessToken === null || db.authenticatedRoleClaim !== false)) {
+        const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server.js');
+        const { user } = await getAuthUser();
+        if (user) {
+            uid ??= user.uid ?? null;
+            accessToken ??= (await user.getIdToken(false)) ?? null;
+            if (db.authenticatedRoleClaim !== false && typeof user.getIdTokenResult === 'function') {
+                const { claims } = await user.getIdTokenResult();
+                const claimValue = claims[db.authenticatedRoleClaim ?? 'role'];
+                if (typeof claimValue === 'string' && claimValue) role = claimValue;
+            }
+        }
+    }
+
+    return { uid, accessToken, role };
+}
+
+/**
  * Resolves the user id for `withUserDb`, trying, in order: the explicit `uid`
  * argument, `db.getUserId()`, then the signed-in Firebase user. `uid` may be
  * `null` (as well as omitted) to mean "skip this source, try the next one" —
@@ -51,9 +120,10 @@ async function resolveUserId(config: DbConfig, uid?: string | null): Promise<str
  * otherwise falls back to `db.authenticatedRole` (string or sync/async
  * function), then `DEFAULT_ROLE`.
  */
-async function resolveAuthenticatedRole(config: DbConfig, db: DbRoutingConfig): Promise<string> {
+async function resolveAuthenticatedRole(config: DbConfig, db: DbRoutingConfig, claimed?: string | null): Promise<string> {
+    if (claimed) return claimed;
     const claimField = db.authenticatedRoleClaim;
-    if (config.firebaseAuth && claimField !== false) {
+    if (config.firebaseAuth && claimField !== false && claimed === undefined) {
         const { getAuthUser } = await import('../firebase_auth/server/use_auth_user_server.js');
         const { user } = await getAuthUser();
         if (user && typeof user.getIdTokenResult === 'function') {
@@ -246,20 +316,25 @@ function injectUidComment(sql: unknown, userId: string): unknown {
  * (non-Next.js) project needs to pass, since there is no `@intl-config` alias
  * to set up outside Next.js.
  */
-export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, uid?: string | null, dbOverride?: DbRoutingConfig): Promise<T> {
+export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, auth?: string | null | UserDbCredentials, dbOverride?: DbRoutingConfig): Promise<T> {
     const config = await resolveDbConfig(dbOverride);
     const db = config.db;
     requireDbConfig(db);
 
+    const credentials = isCredentials(auth) ? auth : null;
+    const uid: string | null = credentials ? credentials.uid : (auth as string | null | undefined) ?? null;
+
     const resolved = await resolveDbMode(db, config.generate);
 
     if (resolved.mode === 'supabase') {
-        const token = await resolveAccessToken(config);
+        const token = credentials
+            ? credentials.accessToken ?? throwMissingCredential('an access token')
+            : await resolveAccessToken(config);
         return fn(await supabaseDb(resolved.supabase, token));
     }
 
-    const userId = await resolveUserId(config, uid);
-    const role = await resolveAuthenticatedRole(config, db);
+    const userId = credentials ? uid ?? throwMissingCredential('a user id') : await resolveUserId(config, uid);
+    const role = await resolveAuthenticatedRole(config, db, credentials ? credentials.role : undefined);
     
     return await withDbClient(config, async (client) => {
         const rawClient = client as unknown as { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }> };

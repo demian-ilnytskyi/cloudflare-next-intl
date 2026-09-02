@@ -40,7 +40,8 @@
  * Generic Drizzle SQL helpers (`excluded`, `onConflictSet`, `ago`, …) live in
  * the separate `cloudflare-next-intl/dbHelpers` entry point.
  */
-export { withPublicDb, withUserDb } from './context.js';
+export { withPublicDb, withUserDb, resolveUserDbCredentials } from './context.js';
+export type { UserDbCredentials } from './context.js';
 export type { DrizzleDb, TransactionResult } from './context.js';
 export { withDbClient, connectToPostgres, disconnectPostgres, resetConnectionState } from './connection.js';
 export type { DbRoutingConfig } from '../types/types.js';

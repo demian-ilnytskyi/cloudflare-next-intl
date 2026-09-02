@@ -754,6 +754,38 @@ query code is identical either way — switching is a config change only.
 A direct connection always wins if both are configured, so adding a `supabase`
 block cannot silently reroute live traffic.
 
+#### Reading as the user from a cached function
+
+`withUserDb` normally resolves the caller from the request — cookies, the
+Firebase session — every time it runs. Next forbids that inside a function
+wrapped in `unstable_cache`, and the background revalidation it runs for one
+happens after the response is gone, so both fail with ``` `cookies()` cannot be
+called inside a function cached with `unstable_cache()` ```.
+
+Resolve the caller once, while the request still exists, and pass the plain
+values in:
+
+```typescript
+import { resolveUserDbCredentials, withUserDb } from "cloudflare-next-intl/db";
+import { unstable_cache } from "next/cache";
+
+const credentials = await resolveUserDbCredentials();
+if (credentials.uid === null) return null;
+
+const row = await unstable_cache(
+    () => withUserDb((db) => db.select().from(profiles).where(eq(profiles.id, credentials.uid!)), credentials),
+    ["profile-row", credentials.uid],
+    { tags: [`profile:${credentials.uid}`], revalidate: 60 },
+)();
+```
+
+`resolveUserDbCredentials()` returns `{ uid, accessToken, role }`, each `null`
+when it cannot be resolved — a signed-out visitor gets nulls rather than a
+throw, so the check above is yours to make. Passing the object to `withUserDb`
+in place of a bare `uid` makes it use those values and read nothing
+request-scoped; it throws naming the missing field if the one that mode needs
+is `null`.
+
 #### Standalone usage (no Next.js / `@intl-config`)
 
 `withPublicDb`/`withUserDb` normally read their `db` config from

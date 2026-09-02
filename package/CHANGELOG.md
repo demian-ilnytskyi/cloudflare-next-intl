@@ -3,6 +3,18 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.36] - 2026-09-02
+
+### Added
+
+- `resolveUserDbCredentials()` (`cloudflare-next-intl/db`) resolves the
+  caller's `uid`, `accessToken`, and role claim while the request is still
+  readable, and `withUserDb` now accepts that object in place of a bare `uid`.
+  Lets a `withUserDb` read run inside `unstable_cache` — and inside the
+  background revalidation Next runs for one — instead of throwing
+  ``` `cookies()` cannot be called inside a function cached with
+  `unstable_cache()` ```.
+
 ## [0.9.27] - 2026-09-02
 
 ### Fixed
