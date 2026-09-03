@@ -1,5 +1,5 @@
 import type { Plugin } from "vite";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { checkDynamicPages, type DynamicPagesCheckMode } from "../dynamic_pages_check/index.js";
 
@@ -24,7 +24,33 @@ export interface AutoDynamicPagesPluginOptions {
      * just one `export const dynamic` per page.
      */
     syncErrorReportingAuthUser?: boolean;
+    /**
+     * Defaults to `false`. Passed through to `checkDynamicPages` — prints
+     * one line per scanned page and, for each page forced dynamic, the
+     * `(api, file)` signals that decided it. Off by default so a normal
+     * build stays quiet; turn it on when a page is dynamic and you want to
+     * know which import dragged in the signal.
+     */
+    verbose?: boolean;
+    /**
+     * Defaults to `true`. Restores every page file this plugin wrote back to
+     * its pre-build contents when the build process exits, so an
+     * `export const dynamic` inserted purely to drive THIS build never lands
+     * in your working tree or a commit — the build still sees it (it's
+     * restored at process exit, long after every build stage has read the
+     * file), you just don't have to clean up after it or wire anything extra
+     * into your build command.
+     *
+     * Set `false` to keep the old behavior of leaving the inserted export in
+     * the file, i.e. to use this plugin as a one-shot codemod. Files touched
+     * by `syncErrorReportingAuthUser` are never restored — that one IS a
+     * deliberate source codemod, not a build-time injection.
+     */
+    restoreAfterBuild?: boolean;
 }
+
+/** Actions whose write was a build-time injection, and so is safe to roll back. */
+const RESTORABLE_ACTIONS = new Set(['added-force-dynamic', 'added-force-static']);
 
 export function autoDynamicPagesPlugin(options: AutoDynamicPagesPluginOptions = {}): Plugin {
     let ran = false;
@@ -52,16 +78,78 @@ export function autoDynamicPagesPlugin(options: AutoDynamicPagesPluginOptions = 
                 return;
             }
 
+            const restoreAfterBuild = options.restoreAfterBuild ?? true;
+            // Captured BEFORE the first write to each file, so a restore puts
+            // back what the developer actually has on disk.
+            const originals = new Map<string, string>();
+
             try {
-                await checkDynamicPages({
+                const reports = await checkDynamicPages({
                     appDir,
                     mode: options.mode ?? "fix",
                     target: options.target ?? "vinext",
                     syncErrorReportingAuthUser: options.syncErrorReportingAuthUser ?? false,
-                });
+                    verbose: options.verbose ?? false,
+                }, restoreAfterBuild
+                    ? {
+                        writeFile: (file: string, contents: string) => {
+                            if (!originals.has(file)) {
+                                try {
+                                    originals.set(file, readFileSync(file, "utf8"));
+                                } catch {
+                                    // Unreadable means unrestorable; write anyway.
+                                }
+                            }
+                            writeFileSync(file, contents, "utf8");
+                        },
+                    }
+                    : undefined);
+
+                if (!restoreAfterBuild) return;
+
+                const restorable = new Set(
+                    reports
+                        .filter((report) => RESTORABLE_ACTIONS.has(String((report as { action?: unknown }).action)))
+                        .map((report) => report.file),
+                );
+                for (const file of [...originals.keys()]) {
+                    if (!restorable.has(file)) originals.delete(file);
+                }
+                if (originals.size > 0) registerRestore(originals);
             } catch (err) {
                 console.warn("[cloudflare-next-intl] autoDynamicPages check error:", err);
             }
         },
     };
+}
+
+/**
+ * Writes `originals` back on process exit — the only hook that fires after
+ * EVERY build stage has read the files (vinext runs several sequential
+ * builds in one process, so restoring on a per-build hook like `closeBundle`
+ * would hand the later stages a file without the export). Handlers are
+ * synchronous because `exit` allows no async work, and idempotent because
+ * `SIGINT`/`SIGTERM` re-raise into `exit`.
+ */
+function registerRestore(originals: Map<string, string>): void {
+    let restored = false;
+    const restore = (): void => {
+        if (restored) return;
+        restored = true;
+        for (const [file, contents] of originals) {
+            try {
+                writeFileSync(file, contents, "utf8");
+            } catch {
+                // A build that already deleted/moved the file leaves nothing to restore.
+            }
+        }
+    };
+
+    process.once("exit", restore);
+    for (const signal of ["SIGINT", "SIGTERM"] as const) {
+        process.once(signal, () => {
+            restore();
+            process.kill(process.pid, signal);
+        });
+    }
 }

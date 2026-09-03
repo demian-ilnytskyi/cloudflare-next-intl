@@ -84,6 +84,7 @@ describe("autoDynamicPagesPlugin", () => {
 
         expect(spy).toHaveBeenCalledWith(
             expect.objectContaining({ syncErrorReportingAuthUser: true }),
+            expect.anything(),
         );
         spy.mockRestore();
     });

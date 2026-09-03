@@ -40,7 +40,7 @@ describe('checkDynamicPages', () => {
             '/app/errors/page.tsx': 'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n',
         });
         const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'fix' }, io);
-        expect(reports).toEqual([{ file: '/app/errors/page.tsx', action: 'added-force-dynamic' }]);
+        expect(reports).toEqual([{ file: '/app/errors/page.tsx', action: 'added-force-dynamic', signals: [{ api: 'cookies()', file: '/app/errors/page.tsx' }] }]);
         expect(written['/app/errors/page.tsx']).toContain('export const dynamic = "force-dynamic";');
     });
 
@@ -72,7 +72,7 @@ describe('checkDynamicPages', () => {
             '/app/errors/page.tsx': 'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n',
         });
         const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'fix', target: 'vinext' }, io);
-        expect(reports).toEqual([{ file: '/app/errors/page.tsx', action: 'added-force-dynamic' }]);
+        expect(reports).toEqual([{ file: '/app/errors/page.tsx', action: 'added-force-dynamic', signals: [{ api: 'cookies()', file: '/app/errors/page.tsx' }] }]);
         expect(written['/app/errors/page.tsx']).toContain('export const dynamic = "force-dynamic";');
     });
 
@@ -81,7 +81,7 @@ describe('checkDynamicPages', () => {
             '/app/errors/page.tsx': 'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n',
         });
         const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'report' }, io);
-        expect(reports).toEqual([{ file: '/app/errors/page.tsx', action: 'would-add-force-dynamic' }]);
+        expect(reports).toEqual([{ file: '/app/errors/page.tsx', action: 'would-add-force-dynamic', signals: [{ api: 'cookies()', file: '/app/errors/page.tsx' }] }]);
     });
 
     describe('with real fs (no io overrides)', () => {
@@ -104,7 +104,7 @@ describe('checkDynamicPages', () => {
 
             const reports = await checkDynamicPages({ appDir: dir });
 
-            expect(reports).toEqual([{ file: pageFile, action: 'would-add-force-dynamic' }]);
+            expect(reports).toEqual([{ file: pageFile, action: 'would-add-force-dynamic', signals: [{ api: 'cookies()', file: pageFile }] }]);
             expect(readFileSync(pageFile, 'utf8')).toBe(original);
         });
 
@@ -115,7 +115,7 @@ describe('checkDynamicPages', () => {
 
             const reports = await checkDynamicPages({ appDir: dir, mode: 'fix' });
 
-            expect(reports).toEqual([{ file: pageFile, action: 'added-force-dynamic' }]);
+            expect(reports).toEqual([{ file: pageFile, action: 'added-force-dynamic', signals: [{ api: 'cookies()', file: pageFile }] }]);
             expect(readFileSync(pageFile, 'utf8')).toContain('export const dynamic = "force-dynamic";');
         });
 
@@ -136,7 +136,7 @@ describe('checkDynamicPages', () => {
 
             const reports = await checkDynamicPages({ appDir: dir, mode: 'report' });
 
-            expect(reports).toEqual([{ file: pageFile, action: 'would-add-force-dynamic' }]);
+            expect(reports).toEqual([{ file: pageFile, action: 'would-add-force-dynamic', signals: [{ api: 'cookies()', file: contentFile }] }]);
         });
     });
 
@@ -162,7 +162,7 @@ describe('checkDynamicPages', () => {
             io,
         );
 
-        expect(reports).toEqual([{ file: '/app/audit/[propertyId]/page.tsx', action: 'added-force-dynamic' }]);
+        expect(reports).toEqual([{ file: '/app/audit/[propertyId]/page.tsx', action: 'added-force-dynamic', signals: [{ api: 'getAuthUser()', file: '/app/audit/audit_content.tsx' }] }]);
         expect(written['/app/audit/[propertyId]/page.tsx']).toContain('export const dynamic = "force-dynamic";');
     });
 
@@ -216,6 +216,52 @@ describe('checkDynamicPages', () => {
             { file: '/repo.ts', action: 'added-use-auth-user', callCount: 1 },
         ]);
         expect(written['/repo.ts']).toContain('useAuthUser: true,');
+    });
+
+    it('prints nothing by default, even for a page it forces dynamic', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const { io } = makeIo({
+            '/app/errors/page.tsx': 'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n',
+        });
+        await checkDynamicPages({ appDir: APP_DIR, mode: 'report' }, io);
+        expect(logSpy).not.toHaveBeenCalled();
+        logSpy.mockRestore();
+    });
+
+    it('verbose: true prints each page and the (api, file) signals behind a force-dynamic', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const { io } = makeIo({
+            '/app/errors/page.tsx': 'import { cookies } from "next/headers";\nasync function f() { await cookies(); }\n',
+        });
+        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', verbose: true }, io);
+        const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+        expect(printed).toContain('/app/errors/page.tsx');
+        expect(printed).toContain('cookies()');
+        expect(printed).toContain('in this file');
+        logSpy.mockRestore();
+    });
+
+    it('verbose: true attributes a signal to the imported file it actually came from', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const { io } = makeIo({
+            '/app/page.tsx': 'import "./helper";\nexport default function Page() {}',
+        });
+        io.readFile = vi.fn((file: string) => {
+            if (file === '/app/page.tsx') return 'import "./helper";\nexport default function Page() {}';
+            if (file === '/app/helper.ts') return 'import { cookies } from "next/headers";\nawait cookies();';
+            throw new Error(`unexpected read: ${file}`);
+        });
+        io.isFile = vi.fn((file: string) => file === '/app/page.tsx' || file === '/app/helper.ts');
+
+        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'report', verbose: true }, io);
+
+        expect(reports[0]).toEqual({
+            file: '/app/page.tsx',
+            action: 'would-add-force-dynamic',
+            signals: [{ api: 'cookies()', file: '/app/helper.ts' }],
+        });
+        expect(logSpy.mock.calls.map((call) => String(call[0])).join('\n')).toContain('via');
+        logSpy.mockRestore();
     });
 
     it('skips every file listed in `skip`, without reading or writing it', async () => {

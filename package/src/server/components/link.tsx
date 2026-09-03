@@ -123,14 +123,37 @@ function CustomLinkFunction(
         window.dispatchEvent(new CustomEvent<string | null>(PENDING_NAVIGATION_EVENT, { detail: null }));
     }, [pathname]);
 
+    // A transition can settle WITHOUT `pathname` changing — a target that
+    // differs only by `?query`/`#hash`, or a push to the route already
+    // rendered — and the `[pathname]` effect above then never runs. Clearing
+    // on `isPending` going true -> false covers that: the transition
+    // finishing is the completion signal that doesn't depend on the URL
+    // changing, so a Link stays clickable instead of sitting dead until the
+    // safety timer below fires.
+    const openedPendingEvent = useRef(false);
+    const wasPending = useRef(false);
+    useEffect(() => {
+        if (isPending) {
+            wasPending.current = true;
+            return;
+        }
+        if (!wasPending.current) return;
+        wasPending.current = false;
+        setIsNavigating(false);
+        if (!openedPendingEvent.current) return;
+        openedPendingEvent.current = false;
+        window.dispatchEvent(new CustomEvent<string | null>(PENDING_NAVIGATION_EVENT, { detail: null }));
+    }, [isPending]);
+
     // Safety net: `isNavigating` otherwise only clears when `pathname`
-    // actually changes. A transition that never lands — an error mid-render,
-    // a dev-server compile queue backed up, a request that just hangs — means
-    // pathname never changes, so without this every future click on every
-    // Link in the app is silently swallowed (`handleClick`'s
-    // `e.preventDefault(); return;` below) with no error and no way to
-    // recover short of a hard reload. 10s is generous for a real navigation;
-    // it exists only to bound the failure, not to be a normal-path timer.
+    // actually changes, or when the transition above settles. A transition
+    // that never settles at all — an error mid-render, a dev-server compile
+    // queue backed up, a request that just hangs — means neither fires, so
+    // without this every future click on THIS Link is silently swallowed
+    // (`handleClick`'s `e.preventDefault(); return;` below) with no error and
+    // no way to recover short of a hard reload. 10s is generous for a real
+    // navigation; it exists only to bound the failure, not to be a
+    // normal-path timer.
     useEffect(() => {
         if (!isNavigating) return;
         const timer = setTimeout(() => setIsNavigating(false), 10000);
@@ -215,8 +238,15 @@ function CustomLinkFunction(
 
         if (isCustom) {
             const targetPath = typeof pathnames === 'string' ? pathnames : urlString;
-            if (pathname !== targetPath) {
+            // Compare pathnames only: `usePathname()` never carries a
+            // `?query`/`#hash`, so comparing it against a raw href that has
+            // one would read as "different route", arm `isNavigating`, and
+            // then never clear it via `[pathname]` — the target pathname is
+            // the one we're already on.
+            const targetPathname = targetPath.replace(/[?#].*$/, '');
+            if (pathname !== targetPathname) {
                 setIsNavigating(true);
+                openedPendingEvent.current = true;
                 window.dispatchEvent(new CustomEvent<string | null>(PENDING_NAVIGATION_EVENT, { detail: targetPath }));
             }
             startTransition(() => {

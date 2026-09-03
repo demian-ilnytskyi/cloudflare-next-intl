@@ -194,21 +194,23 @@ describe('Link (server-safe locale-aware)', () => {
         vi.useRealTimers();
     });
 
-    it('intercepts click and prevents duplicate navigation when prefetchType is custom', async () => {
+    it('intercepts the click itself instead of letting the browser navigate, when prefetchType is custom', async () => {
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
         render(<Link href="/test-click">Click Link</Link>);
         const link = screen.getByRole('link', { name: 'Click Link' });
-        fireEvent.click(link);
+
+        const event = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+        act(() => {
+            link.dispatchEvent(event);
+        });
+
+        expect(event.defaultPrevented).toBe(true);
         expect(mockPush).toHaveBeenCalledTimes(1);
         expect(mockPush).toHaveBeenCalledWith('/test-click');
-
-        // Second click while in-flight is prevented
-        fireEvent.click(link);
-        expect(mockPush).toHaveBeenCalledTimes(1);
     });
 
-    it('dispatches PENDING_NAVIGATION_EVENT on click and again with null once pathname catches up, but not on initial mount', async () => {
+    it('dispatches PENDING_NAVIGATION_EVENT on click and again with null once the navigation resolves, but not on initial mount', async () => {
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
         const events: (string | null)[] = [];
@@ -220,11 +222,16 @@ describe('Link (server-safe locale-aware)', () => {
 
         const link = screen.getByRole('link', { name: 'Pending Link' });
         fireEvent.click(link);
-        expect(events).toEqual(['/test-pending']);
+        expect(events[0]).toBe('/test-pending');
 
         mockUsePathname.mockReturnValue('/test-pending');
         rerender(<Link href="/test-pending">Pending Link</Link>);
-        expect(events).toEqual(['/test-pending', null]);
+
+        // The gate opens once and closes — the important guarantee being that
+        // it never stays open, which is what stranded a global loading
+        // overlay when only a pathname change could close it.
+        expect(events[0]).toBe('/test-pending');
+        expect(events.at(-1)).toBeNull();
 
         window.removeEventListener(PENDING_NAVIGATION_EVENT, listener);
     });
@@ -268,6 +275,39 @@ describe('Link (server-safe locale-aware)', () => {
         fireEvent.click(link);
         expect(customOnClick).toHaveBeenCalled();
         expect(mockPush).not.toHaveBeenCalled(); // Handled by default Next link
+    });
+
+    it('stays clickable after a transition that settles without changing pathname (hash-only target)', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        mockUsePathname.mockReturnValue('/current');
+        render(<Link href="/current#section">Hash Link</Link>);
+        const link = screen.getByRole('link', { name: 'Hash Link' });
+
+        fireEvent.click(link);
+        expect(mockPush).toHaveBeenCalledTimes(1);
+
+        // Second click must NOT be swallowed: the pathname never changed, so
+        // the `[pathname]` reset never runs — the Link used to sit dead here
+        // until the 10s safety timer.
+        fireEvent.click(link);
+        expect(mockPush).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not open a pending-navigation event for a target whose pathname is the current one', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        mockUsePathname.mockReturnValue('/current');
+        const events: (string | null)[] = [];
+        const listener = (e: Event) => events.push((e as CustomEvent<string | null>).detail);
+        window.addEventListener(PENDING_NAVIGATION_EVENT, listener);
+
+        render(<Link href="/current?tab=b">Query Link</Link>);
+        fireEvent.click(screen.getByRole('link', { name: 'Query Link' }));
+
+        window.removeEventListener(PENDING_NAVIGATION_EVENT, listener);
+        expect(events).not.toContain('/current?tab=b');
+        expect(mockPush).toHaveBeenCalledWith('/current?tab=b');
     });
 
     it('triggers idle prefetch timer after mount for prefetchType="eager"', async () => {

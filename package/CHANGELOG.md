@@ -3,6 +3,19 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.42] - 2026-09-03
+
+### Added
+
+- `checkDynamicPages`'s `verbose` option (default `false`): prints one line per scanned page and, for each page forced dynamic, the exact `(api, file)` signals that decided it — attributing a `force-dynamic` several imports deep no longer requires bisecting imports by hand. `CheckDynamicPagesReport` now carries these `signals` regardless of `verbose`.
+- `autoDynamicPagesPlugin`'s new `restoreAfterBuild` option (default `true`): every page file the plugin writes to insert `export const dynamic` is restored to its pre-build contents on process exit, so the injected export never lands in your working tree or a commit. Also accepts the new `verbose` option, passed straight through to `checkDynamicPages`.
+- `collectReachableFiles` now stops tracing imports past a `"use client"` boundary — a `"use server"` action bound to an event handler behind a Client Component only runs later via a browser-triggered RPC, never during the server render that decides whether the page is static or dynamic, so it no longer forces false-positive `force-dynamic` on pages whose error/retry UI imports one.
+- `dynamic_pages_check` now exports `traceDynamicUsage`, `DynamicSignal`, `TraceDynamicUsageResult`, `collectReachableFiles`, and `MAX_FILES_VISITED`.
+
+### Fixed
+
+- `<Link>`'s `isNavigating` state now also clears when a `startTransition` settles without `pathname` changing (a target differing only by `?query`/`#hash`, or a push to the already-rendered route) — previously only the `[pathname]` effect cleared it, so such a Link stayed unclickable until the 10s safety timer fired. The click handler also now compares pathnames only when deciding whether to arm `isNavigating`/fire `PENDING_NAVIGATION_EVENT`, since `usePathname()` never carries a `?query`/`#hash`.
+
 ## [0.9.41] - 2026-09-03
 
 ### Fixed

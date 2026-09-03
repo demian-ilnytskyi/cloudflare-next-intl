@@ -33,6 +33,23 @@ describe('detectDynamicUsage', () => {
         expect(result.detectedDynamicApis).toContain('cache: "no-store"');
     });
 
+    it('does NOT flag a dev-gated cache ternary — the prod branch is the one that gets prerendered', () => {
+        const result = detectDynamicUsage(`fetchText(url, { cache: Config.isDev ? "no-store" : undefined });`);
+        expect(result.detectedDynamicApis).toEqual([]);
+    });
+
+    it('does NOT flag a dev-gated revalidate ternary', () => {
+        const result = detectDynamicUsage(`fetchText(url, { next: { revalidate: Config.isDev ? 0 : 3600 } });`);
+        expect(result.detectedDynamicApis).toEqual([]);
+    });
+
+    it('does NOT flag a revalidate read out of a variable', () => {
+        const result = detectDynamicUsage(
+            `const revalidateSeconds = Config.isDev ? 0 : 3600;\nfetchText(url, { next: { revalidate: revalidateSeconds } });`,
+        );
+        expect(result.detectedDynamicApis).toEqual([]);
+    });
+
     it('detects getAuthUser() as a dynamic signal (it wraps cookies())', () => {
         const result = detectDynamicUsage(
             `import { getAuthUser } from "cloudflare-next-intl/getFirebaseAuthUser";\nasync function f() { const { user } = await getAuthUser(); }`

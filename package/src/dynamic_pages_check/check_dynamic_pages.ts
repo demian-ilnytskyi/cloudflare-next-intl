@@ -1,8 +1,8 @@
 import { readFileSync, statSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { findPageFiles as findPageFilesImpl } from './find_page_files.js';
 import { detectDynamicUsage } from './detect_dynamic_usage.js';
-import { traceDynamicUsage } from './trace_dynamic_usage.js';
+import { traceDynamicUsage, type DynamicSignal } from './trace_dynamic_usage.js';
 import { insertDynamicExport } from './insert_dynamic_export.js';
 import { syncErrorReportingAuthUser, type SyncErrorReportingAuthUserReport } from './sync_error_reporting_auth_user.js';
 import type { AliasConfig } from './resolve_local_imports.js';
@@ -56,11 +56,30 @@ export interface CheckDynamicPagesOptions {
      * this call's returned array.
      */
     syncErrorReportingAuthUser?: boolean;
+    /**
+     * Defaults to `false` — nothing is printed. When `true`, logs one line
+     * per scanned page plus, for each page forced dynamic, the exact
+     * `(api, file)` signals that decided it.
+     *
+     * A page marked dynamic through a helper several imports deep is
+     * otherwise indistinguishable from one that reads `cookies()` in its own
+     * body, which makes an unexpected `force-dynamic` almost impossible to
+     * attribute without bisecting imports by hand. The reasons are always
+     * present on the returned reports (`signals`); this flag only controls
+     * whether they're also printed.
+     */
+    verbose?: boolean;
 }
 
 export interface CheckDynamicPagesReport {
     file: string;
     action: 'added-force-dynamic' | 'would-add-force-dynamic' | 'added-force-static' | 'would-add-force-static' | 'already-declared' | 'no-dynamic-usage-detected' | 'skipped';
+    /**
+     * The dynamic-API signals that decided a `force-dynamic` action, each
+     * paired with the file it was found in — present (and non-empty) only on
+     * the two `*-force-dynamic` actions.
+     */
+    signals?: DynamicSignal[];
 }
 
 export interface CheckDynamicPagesIo {
@@ -68,6 +87,35 @@ export interface CheckDynamicPagesIo {
     readFile?: (file: string) => string;
     writeFile?: (file: string, contents: string) => void;
     isFile?: (file: string) => boolean;
+}
+
+const ACTION_MARKER: Record<CheckDynamicPagesReport['action'], string> = {
+    'added-force-dynamic': 'ƒ force-dynamic',
+    'would-add-force-dynamic': 'ƒ force-dynamic (would add)',
+    'added-force-static': '○ force-static',
+    'would-add-force-static': '○ force-static (would add)',
+    'already-declared': '= already declared',
+    'no-dynamic-usage-detected': '- no dynamic usage detected',
+    skipped: '· skipped',
+};
+
+/** Path as typed in an editor's "go to file" box, not an absolute one nobody can scan. */
+function displayPath(file: string): string {
+    const rel = relative(process.cwd(), file);
+    return rel === '' || rel.startsWith('..') ? file : rel;
+}
+
+function logReports(reports: readonly { file: string; action?: unknown; signals?: DynamicSignal[] }[]): void {
+    console.log("[cloudflare-next-intl] dynamic-pages check:");
+    for (const report of reports) {
+        const action = report.action as CheckDynamicPagesReport['action'];
+        const marker = ACTION_MARKER[action] ?? String(action);
+        console.log(`  ${marker}  ${displayPath(report.file)}`);
+        for (const signal of report.signals ?? []) {
+            const where = signal.file === report.file ? 'in this file' : `via ${displayPath(signal.file)}`;
+            console.log(`      ↳ ${signal.api}  ${where}`);
+        }
+    }
 }
 
 function defaultIsFile(path: string): boolean {
@@ -106,7 +154,10 @@ export async function checkDynamicPages(
         const source = readFile(file);
         const detection = resolveImports
             ? traceDynamicUsage(file, source, aliases, { readFile, isFile })
-            : detectDynamicUsage(source);
+            : { ...detectDynamicUsage(source), signals: [] as DynamicSignal[] };
+        const signals: DynamicSignal[] = resolveImports
+            ? detection.signals
+            : detection.detectedDynamicApis.map((api) => ({ api, file }));
         if (detection.hasExplicitDynamicExport) {
             reports.push({ file, action: 'already-declared' });
             continue;
@@ -132,11 +183,13 @@ export async function checkDynamicPages(
 
         if (mode === 'fix') {
             writeFile(file, insertDynamicExport(source, 'force-dynamic'));
-            reports.push({ file, action: 'added-force-dynamic' });
+            reports.push({ file, action: 'added-force-dynamic', signals });
         } else {
-            reports.push({ file, action: 'would-add-force-dynamic' });
+            reports.push({ file, action: 'would-add-force-dynamic', signals });
         }
     }
+
+    if (options.verbose === true) logReports(reports);
 
     if (options.syncErrorReportingAuthUser === true) {
         const syncReports = await syncErrorReportingAuthUser(

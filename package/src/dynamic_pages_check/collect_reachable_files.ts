@@ -1,4 +1,5 @@
 import { extractImportSpecifiers, resolveLocalImport, type AliasConfig } from './resolve_local_imports.js';
+import { USE_CLIENT_DIRECTIVE } from './detect_dynamic_usage.js';
 
 export interface CollectReachableFilesIo {
     readFile: (file: string) => string;
@@ -29,6 +30,17 @@ export const MAX_FILES_VISITED = 300;
  * positive here only costs an unnecessary `force-dynamic`, but a false
  * negative silently mis-marks a genuinely per-user page as static.
  *
+ * The one boundary that DOES stop traversal is a `"use client"` file: only
+ * ITS own text is scanned, its imports aren't queued. Anything reached only
+ * through a Client Component — most commonly a `"use server"` action bound
+ * to an event handler for later user-triggered RPC — never runs during the
+ * server render that decides whether the page itself is static or dynamic,
+ * so it carries no signal for that render. Unlike the `"use server"` case
+ * above, opening it costs the "safe side" a real, common false positive
+ * (any page whose error/retry UI imports a cookie-clearing Server Action
+ * behind a client boundary gets force-dynamic for no reason) instead of
+ * guarding against a false negative.
+ *
  * Shared by `traceDynamicUsage` (unions `detectDynamicUsage` signals across
  * this set) and `syncErrorReportingAuthUser` (finds `reportError()` calls
  * across this set) so both walk the exact same graph by construction.
@@ -47,6 +59,14 @@ export function collectReachableFiles(
         const current = queue.shift()!;
         if (files.size >= MAX_FILES_VISITED) continue;
         const source = files.get(current)!;
+
+        // Everything a Client Component imports — a "use server" action
+        // bound to an onClick/form included — only runs later via an RPC
+        // the browser triggers, never during the server render that decides
+        // whether THIS page is static or dynamic. Stop tracing past it
+        // (the client file's own text is still scanned by detectDynamicUsage
+        // for its own directly-visible signals).
+        if (USE_CLIENT_DIRECTIVE.test(source)) continue;
 
         for (const specifier of extractImportSpecifiers(source)) {
             if (files.size >= MAX_FILES_VISITED) break;

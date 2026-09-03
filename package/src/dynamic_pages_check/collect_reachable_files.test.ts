@@ -90,6 +90,23 @@ describe('collectReachableFiles', () => {
         expect([...files.keys()].sort()).toEqual(['/repo/src/app/b.ts', '/repo/src/app/page.tsx']);
     });
 
+    it('does not trace past a "use client" file — a "use server" action it imports for an event handler carries no render-time signal', () => {
+        const map = {
+            '/repo/src/app/page.tsx': 'import "./retry_button";',
+            '/repo/src/app/retry_button.tsx': `"use client";\nimport { clearCookies } from "./clear_cookies";\nexport function RetryButton() { return null; }`,
+            '/repo/src/app/clear_cookies.ts': `"use server";\nimport { cookies } from "next/headers";\nexport async function clearCookies() { (await cookies()).delete("x"); }`,
+        };
+        const files = collectReachableFiles('/repo/src/app/page.tsx', map['/repo/src/app/page.tsx'], [], makeIo(map));
+        expect([...files.keys()].sort()).toEqual(['/repo/src/app/page.tsx', '/repo/src/app/retry_button.tsx']);
+        expect(files.has('/repo/src/app/clear_cookies.ts')).toBe(false);
+    });
+
+    it('still scans a "use client" file\'s own text (entry file case)', () => {
+        const source = `"use client";\nexport function C() { const s = searchParams; }`;
+        const files = collectReachableFiles('/repo/src/app/c.tsx', source, [], makeIo({}));
+        expect(files.get('/repo/src/app/c.tsx')).toBe(source);
+    });
+
     it('stops at MAX_FILES_VISITED without throwing', () => {
         const FILE_COUNT = 320;
         const map: Record<string, string> = {

@@ -42,7 +42,18 @@ const DYNAMIC_API_CHECKS: { name: string; pattern: RegExp }[] = [
 // call there can only be the client hook — checked separately from
 // `DYNAMIC_API_CHECKS` so it can be skipped based on that directive.
 const USE_AUTH_USER_CALL = /\buseAuthUser\s*\(/;
-const USE_CLIENT_DIRECTIVE = /^(?:\s*['"]use \w[\w-]*['"]\s*;?\s*)*['"]use client['"]\s*;?/;
+
+/**
+ * Matches a leading `"use client"` directive. Exported so
+ * `collectReachableFiles` can stop tracing imports past a Client Component
+ * boundary — anything a client file imports (a `"use server"` action bound
+ * to an event handler included) only ever runs later via an RPC the browser
+ * triggers, never during the server render that decides whether the PAGE
+ * itself is static or dynamic. `detectDynamicUsage` still runs on the client
+ * file's own text, since a client file can't itself call a server-only
+ * dynamic API.
+ */
+export const USE_CLIENT_DIRECTIVE = /^(?:\s*['"]use \w[\w-]*['"]\s*;?\s*)*['"]use client['"]\s*;?/;
 
 const EXPLICIT_DYNAMIC_EXPORT = /export\s+const\s+dynamic\s*=/;
 
