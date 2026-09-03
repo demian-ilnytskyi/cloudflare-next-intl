@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.39] - 2026-09-03
+
+### Fixed
+
+- `<Link>` and `DefaultPrivacyPolicyLink` no longer build an href from the literal string `"undefined"` when the locale cache is unset (a mid-hydration race, a lazily-loaded provider chunk that hasn't run yet, a duplicated module instance from a dev-server re-optimize). They now degrade to the default locale's unprefixed URL instead.
+
 ## [0.9.38] - 2026-09-03
 
 ### Changed

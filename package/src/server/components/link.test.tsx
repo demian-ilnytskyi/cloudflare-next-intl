@@ -38,11 +38,15 @@ describe('Link (server-safe locale-aware)', () => {
         expect(screen.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about');
     });
 
-    it('prepends a locale segment when no locale is cached at all', async () => {
+    it('falls back to the unprefixed default-locale href when no locale is cached at all', async () => {
+        // Regression test: an unset cache (a mid-hydration race, a
+        // lazily-loaded provider chunk that hasn't run yet, a duplicated
+        // module instance from a dev-server re-optimize) used to produce
+        // `/undefined/about` — a broken href, not just a wrong one.
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue(undefined);
         render(<Link href="/about">About</Link>);
-        expect(screen.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/undefined/about');
+        expect(screen.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about');
     });
 
     it('handles an object href by using its pathname with non-default locale', async () => {

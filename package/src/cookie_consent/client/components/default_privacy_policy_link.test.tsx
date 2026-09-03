@@ -28,11 +28,11 @@ describe('DefaultPrivacyPolicyLink', () => {
         expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy-policy');
     });
 
-    it('prepends a locale segment when no locale is cached at all', async () => {
+    it('falls back to the unprefixed default-locale href when no locale is cached at all', async () => {
         const { getLocaleCache } = await import('../../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue(undefined);
         render(<DefaultPrivacyPolicyLink privacyPolicyPath="/privacy-policy" text="Privacy Policy" />);
-        expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/undefined/privacy-policy');
+        expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy-policy');
     });
 
     it('applies className and style', async () => {

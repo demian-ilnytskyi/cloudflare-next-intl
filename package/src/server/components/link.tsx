@@ -84,7 +84,13 @@ function CustomLinkFunction(
     // with `prefetch={false}`.
     prefetch ??= config.link?.defaultPrefetch ?? true;
 
-    const needsLangPath = localeValue !== config.defaultLocale || !localeValue;
+    // An unset cache (mid-hydration race, a lazily-loaded provider chunk that
+    // hasn't run yet, a duplicated module instance from a dev-server
+    // re-optimize) must degrade to the default locale's unprefixed URL, not
+    // to a prefix built from the literal string "undefined" — a broken href
+    // is worse than a href that's briefly missing a locale segment it
+    // would otherwise have carried.
+    const needsLangPath = localeValue !== undefined && localeValue !== config.defaultLocale;
 
     let pathnames: Url;
     let urlString: string;

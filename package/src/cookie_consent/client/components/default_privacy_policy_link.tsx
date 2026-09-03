@@ -21,7 +21,10 @@ export default function DefaultPrivacyPolicyLink({ privacyPolicyPath, text, clas
     if (privacyPolicyPath === false) return null;
 
     const localeValue = getLocaleCache();
-    const needsLangPath = localeValue !== config.defaultLocale || !localeValue;
+    // An unset cache degrades to the default locale's unprefixed URL rather
+    // than a `/undefined${privacyPolicyPath}` href — see the matching fix
+    // and comment on the server `Link` component.
+    const needsLangPath = localeValue !== undefined && localeValue !== config.defaultLocale;
     const href = needsLangPath ? `/${localeValue}${privacyPolicyPath}` : privacyPolicyPath;
 
     return (
