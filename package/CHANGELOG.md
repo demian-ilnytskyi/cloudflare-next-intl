@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.41] - 2026-09-03
+
+### Fixed
+
+- The `next_image_shim`'s dynamic `import("virtual:cloudflare-next-intl-images-manifest")` now carries a `/* webpackIgnore: true */` comment, so Webpack-based builds (Next.js's default) don't try to statically resolve this Vite-only virtual module and fail the build for apps that never load the Vite plugin.
+
 ## [0.9.40] - 2026-09-03
 
 ### Fixed
