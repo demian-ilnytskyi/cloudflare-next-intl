@@ -112,8 +112,9 @@ export default function HelperScript(): Component | null {
                 }} />}
         {!isDev &&
             <script
-                id="build-id-script">
-                {`(async function() {
+                id="build-id-script"
+                dangerouslySetInnerHTML={{
+                    __html: `(async function() {
                 try {
                     const resp = await fetch('/BUILD_ID', { method: 'HEAD', cache: 'no-store' });
                     if (resp.ok) {
@@ -146,13 +147,13 @@ export default function HelperScript(): Component | null {
                 } catch (e) {
                     try { console.error('Check Build ID Script Error:', e); } catch (e2) {}
                 }
-      })();`}
-            </script>}
+      })();`
+                }} />}
 
         <script
             id="intl-app-state-checker"
-        >
-            {`(function() {
+            dangerouslySetInnerHTML={{
+                __html: `(function() {
                 try {
                     /**
                      * Efficiently retrieves a cookie value by its name.
@@ -249,8 +250,8 @@ export default function HelperScript(): Component | null {
                 } catch (e) {
                     console.error('App State check Script Error:', e);
                 }
-      })();`}
-        </script>
+      })();`
+            }} />
         <ClientHelperScript />
     </>;
 }

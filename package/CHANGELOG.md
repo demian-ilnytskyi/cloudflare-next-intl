@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.40] - 2026-09-03
+
+### Fixed
+
+- `HelperScript`'s two inline `<script>` tags now render their source via `dangerouslySetInnerHTML` instead of JSX text children, so React no longer HTML-escapes characters (quotes, `<`, `&`) inside the script bodies, which could otherwise corrupt the emitted JavaScript.
+
 ## [0.9.39] - 2026-09-03
 
 ### Fixed
