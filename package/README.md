@@ -278,6 +278,7 @@ export default defineConfig({
     plugins: [
         cloudflareNextIntl({
             imageOptimizer: {                     // Image optimizer configuration (or `false` to disable)
+                dev: false,                        // Also run the scan on dev server start, not just production build (default: false)
                 maxWidth: 1920,                   // Downscale max width limit (default: 1920, or `false`)
                 formats: ["avif", "webp"],        // Target sibling formats, in browser-preference order (default: ["webp"], or `false`).
                                                    // Also supports: "png", "jpeg", "gif", "tiff", "heif", "jp2", "jxl"
