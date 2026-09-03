@@ -5,16 +5,16 @@ import { getShimPath, imageOptimizerPlugin, VIRTUAL_IMAGE_SHIM_ID, VIRTUAL_MANIF
 import { makeTempDir, cleanup } from "../test_utils/image_optimizer_test_helpers.js";
 
 describe("imageOptimizerPlugin", () => {
-    it("has expected name and enforce pre", () => {
+    it("has expected name, enforce pre, and apply: build by default (dev defaults to false)", () => {
         const plugin = imageOptimizerPlugin();
         expect(plugin.name).toBe("cloudflare-next-intl-image-optimizer");
         expect(plugin.enforce).toBe("pre");
-        expect(plugin.apply).toBeUndefined();
+        expect(plugin.apply).toBe("build");
     });
 
-    it("sets apply: build when dev is false", () => {
-        const plugin = imageOptimizerPlugin({ dev: false });
-        expect(plugin.apply).toBe("build");
+    it("leaves apply undefined (runs on dev too) when dev: true is passed explicitly", () => {
+        const plugin = imageOptimizerPlugin({ dev: true });
+        expect(plugin.apply).toBeUndefined();
     });
 
     it("resolves virtual image shim ID and checks getShimPath with .js", async () => {

@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.44] - 2026-09-04
+
+### Changed
+
+- **Breaking (default only):** `imageOptimizerPlugin`'s `dev` option now defaults to `false` (was `true`) — the optimizer no longer re-scans and re-generates AVIF/WebP variants on every dev server start. Downscaling/format conversion is a build concern; the app's `next/image` shim already degrades cleanly with no manifest (plain, unoptimized rendering, no blur placeholder), and dev's own output was never served any differently once generated. Pass `imageOptimizer: { dev: true }` to `cloudflareNextIntl()` to restore the old behavior and preview real optimized output/blur in dev.
+
 ## [0.9.43] - 2026-09-03
 
 ### Added

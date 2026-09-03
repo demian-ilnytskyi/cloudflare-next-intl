@@ -50,7 +50,14 @@ export interface ImageOptimizerPluginOptions {
     manifest?: string;
     /** Global blur placeholder settings, or `false` to disable blur generation. Default: true */
     blur?: boolean | ImageBlurOptions;
-    /** Run on dev server as well as production build. Default: true */
+    /**
+     * Run the optimizer scan on dev server start, not just production build.
+     * Off by default: downscaling/AVIF+WebP generation is a build concern,
+     * this re-scans on every dev restart, and the shim degrades cleanly with
+     * no manifest (plain, unoptimized `next/image` rendering — no blur
+     * placeholder). Turn on to preview real optimized output/blur in dev.
+     * Default: false
+     */
     dev?: boolean;
     /** Cache directory. Default: "node_modules/.cache/cloudflare-next-intl/image-optimizer" */
     cacheDir?: string;
@@ -146,7 +153,7 @@ export const DEFAULT_OPTIONS: ResolvedOptions = {
     formats: ["webp"] as ImageFormat[],
     manifest: "public/generated/images.json",
     blur: DEFAULT_BLUR_OPTIONS,
-    dev: true,
+    dev: false,
     cacheDir: "node_modules/.cache/cloudflare-next-intl/image-optimizer",
     onlyUsed: true,
     overrides: {},
