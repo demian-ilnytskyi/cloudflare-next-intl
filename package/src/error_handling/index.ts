@@ -15,5 +15,4 @@ export {
 } from './is_stale_deploy_error.js';
 export { default as clearClientCache } from './clear_client_cache.js';
 export { default as useStaleDeployRecovery, shouldRecoverFromStaleDeploy } from './use_stale_deploy_recovery.js';
-export { setErrorHandlingActionConfig, getErrorHandlingActionConfig } from './error_handling_action_config.js';
 export type { ErrorHandlingParams, ErrorHandlingRoutingConfig } from '../types/types.js';

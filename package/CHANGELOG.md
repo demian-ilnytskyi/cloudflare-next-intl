@@ -3,20 +3,32 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.38] - 2026-09-03
+
+### Changed
+
+- **`reportClientError`** now resolves its config through `@intl-config` —
+  the same virtual alias `db`/`clearSessionAction` already read your
+  `RoutingConfig` through — instead of the `setErrorHandlingActionConfig`
+  module-scope registration 0.9.37 shipped. One less moving part: nothing to
+  call before `reportClientError` ever runs, since every consuming app
+  already points `@intl-config` at its own config file (README "Setup" step
+  2). `setErrorHandlingActionConfig`/`getErrorHandlingActionConfig` are
+  removed — 0.9.37 shipped hours ago, so this corrects the API rather than
+  deprecating it.
+
 ## [0.9.37] - 2026-09-03
 
 ### Added
 
 - **`reportClientError`** (`cloudflare-next-intl/reportClientError`) — a
-  ready-made `"use server"` action reporting a client-originated error,
-  paired with **`setErrorHandlingActionConfig`**/`getErrorHandlingActionConfig`
-  (`cloudflare-next-intl/errorHandling`). Call `setErrorHandlingActionConfig`
-  once alongside your `RoutingConfig`, then import `reportClientError`
-  directly from client code — no per-app `"use server"` wrapper file needed,
-  since `createServerErrorAction`'s factory-return pattern can't itself carry
-  `"use server"` (see 0.8.x below). `createServerErrorAction` is unchanged and
-  still the right choice when you want config bound explicitly per call
-  instead of through this module-scope registration.
+  ready-made `"use server"` action reporting a client-originated error.
+  Import and call it directly from client code — no per-app `"use server"`
+  wrapper file needed, since `createServerErrorAction`'s factory-return
+  pattern can't itself carry `"use server"` (see 0.8.x below).
+  `createServerErrorAction` is unchanged and still the right choice when you
+  want config bound explicitly per call rather than resolved through
+  `@intl-config`.
 
 ## [0.9.36] - 2026-09-02
 
