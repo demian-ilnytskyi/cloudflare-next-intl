@@ -24,9 +24,9 @@ import { reportClientErrorCore } from './report_client_error_core.js';
  * `createServerErrorAction` and re-exports its result under a different
  * name than a plain `const`.
  *
- * Prefer the package's own ready-made `reportClientError` action (paired
- * with `setErrorHandlingActionConfig`) instead if you don't need config
- * bound per call — it skips this wrapper file entirely.
+ * Prefer the package's own ready-made `reportClientError` action (reads
+ * config from `@intl-config`) instead if you don't need config bound
+ * per call — it skips this wrapper file entirely.
  *
  * The error is stringified before crossing the client→server action
  * boundary (Next.js server actions serialize arguments; an `Error` instance

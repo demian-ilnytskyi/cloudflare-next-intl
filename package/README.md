@@ -627,6 +627,34 @@ server-side resolution) on `ErrorHandlingParams` — reporting is skipped
 whenever `consent` is set and not `true`, since sending error reports to a
 third party without consent can itself be GDPR-relevant.
 
+#### Reporting client-side errors
+
+`reportClientError` is a ready-made server action for a client component's
+own `catch`/error boundary — it resolves your `errorHandling`/`generate`
+config through `@intl-config` (the alias `db`/`clearSessionAction` already
+use — see "Setup" above), so there's no wrapper file or setup call beyond
+that alias:
+
+```typescript
+// some_client_component.tsx
+"use client";
+import reportClientError from "cloudflare-next-intl/reportClientError";
+
+try {
+    await riskyClientThing();
+} catch (error) {
+    void reportClientError(error, "riskyClientThing");
+}
+```
+
+The error is stringified before it crosses the action boundary — no need to
+normalize it into an `Error` yourself first, even a non-`Error` throw or an
+unresolved React reference stub comes through safely — and `isClient: true`
+plus a best-effort `requestContext: { path, userAgent, referer }` (via
+`next/headers`) are attached automatically. Prefer `createServerErrorAction`
+instead if you want config bound explicitly per call rather than resolved
+through `@intl-config`.
+
 #### Stale Deploy & Chunk Load Error Recovery
 
 When a new version of your application is deployed to Cloudflare Workers, users on older client sessions may encounter `ChunkLoadError` or failed dynamic imports when requesting outdated chunks.

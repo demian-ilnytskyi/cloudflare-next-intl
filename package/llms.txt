@@ -34,6 +34,7 @@ other subpath can be used.
 - `./clearClientCache` — `clearClientCache()`: async helper wiping `window.caches`, unregistering service workers, and clearing `sessionStorage` for recovering from stale deployments.
 - `useStaleDeployRecovery(error, onRecover?, delayMs?)` (client hook, in `./errorHandling`) — once per build id (`localStorage['buildId']`, `sessionStorage` marker), waits `delayMs` (default 5000ms), runs optional `onRecover()` + `clearClientCache()` in parallel, then `window.location.reload()`. Returns whether a reload is pending, so caller renders a loading state instead of error UI. Recovers even past the one-reload cap when `localStorage['buildIdSetAt']` is <60s old (new deploy still settling). `shouldRecoverFromStaleDeploy(error, buildId, marker, recentBuild?)` and `isRecentBuild(setAt, now, windowMs?)` are the pure predicates.
 - `./createServerErrorAction` — `createServerErrorAction(action, config)`: wrapper for server actions with standardized error reporting.
+- `./reportClientError` — `reportClientError(error, classOrMethodName, params?)`: ready-made `"use server"` action reporting a client-originated error, config resolved via `@intl-config` (no per-app wrapper file or setup call needed, unlike `createServerErrorAction`).
 
 ## `firebaseAuth*` subpaths (require `firebaseAuth` set on your `RoutingConfig`)
 

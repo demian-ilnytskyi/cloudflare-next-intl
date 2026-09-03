@@ -25,7 +25,7 @@ async function resolveRequestContext(): Promise<{ path?: string; userAgent?: str
 
 /**
  * Shared body behind both `createServerErrorAction` (config bound per call)
- * and `reportClientError` (config read from `setErrorHandlingActionConfig`).
+ * and `reportClientError` (config read from `@intl-config`).
  * Stringifies `error` before it would otherwise cross a serialization
  * boundary — including React's own unresolved-reference stubs, via
  * `stringifyUnknown` — and attaches `requestContext` alongside `params`.
