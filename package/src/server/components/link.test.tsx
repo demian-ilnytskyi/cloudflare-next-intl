@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import Link, { PENDING_NAVIGATION_EVENT } from './link.js';
+import type * as ReactModule from 'react';
 
 const mockPush = vi.fn();
 const mockPrefetch = vi.fn();
@@ -208,6 +209,30 @@ describe('Link (server-safe locale-aware)', () => {
         expect(event.defaultPrevented).toBe(true);
         expect(mockPush).toHaveBeenCalledTimes(1);
         expect(mockPush).toHaveBeenCalledWith('/test-click');
+    });
+
+    it('prevents a click while a transition is still pending', async () => {
+        // Forces isPending to stay true, the way a real (non-mocked)
+        // router.push does while its RSC roundtrip is in flight — a plain
+        // synchronous mockPush settles the transition immediately, which
+        // would otherwise make this guard branch untestable.
+        vi.resetModules();
+        vi.doMock('react', async (importOriginal) => {
+            const actual = await importOriginal<typeof ReactModule>();
+            return { ...actual, useTransition: () => [true, (cb: () => void) => cb()] };
+        });
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        const { default: PendingLink } = await import('./link.js');
+
+        render(<PendingLink href="/test-click-pending">Click Link</PendingLink>);
+        const link = screen.getByRole('link', { name: 'Click Link' });
+        fireEvent.click(link);
+
+        expect(mockPush).not.toHaveBeenCalled();
+
+        vi.doUnmock('react');
+        vi.resetModules();
     });
 
     it('dispatches PENDING_NAVIGATION_EVENT on click and again with null once the navigation resolves, but not on initial mount', async () => {

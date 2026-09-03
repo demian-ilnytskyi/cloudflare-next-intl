@@ -129,4 +129,56 @@ describe("autoDynamicPagesPlugin", () => {
         // @ts-expect-error Mock Vite configResolved hook call
         await plugin.configResolved?.({ command: "build" });
     });
+
+    it("restores each rewritten page file to its original contents on process exit (default restoreAfterBuild)", async () => {
+        const pagePath = resolve(TEST_DIR, "src/app/[locale]/page.tsx");
+        const original = `export default function Page() { return <div>Hello</div>; }\n`;
+        writeFileSync(pagePath, original, "utf8");
+
+        const plugin = autoDynamicPagesPlugin();
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({ root: TEST_DIR, command: "build" });
+
+        expect(readFileSync(pagePath, "utf8")).toContain('export const dynamic = "force-static";');
+
+        process.emit("exit", 0);
+
+        expect(readFileSync(pagePath, "utf8")).toBe(original);
+    });
+
+    it("leaves the inserted export in place when restoreAfterBuild is false", async () => {
+        const pagePath = resolve(TEST_DIR, "src/app/[locale]/page.tsx");
+        writeFileSync(pagePath, `export default function Page() { return <div>Hello</div>; }\n`, "utf8");
+
+        const plugin = autoDynamicPagesPlugin({ restoreAfterBuild: false });
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({ root: TEST_DIR, command: "build" });
+
+        const afterBuild = readFileSync(pagePath, "utf8");
+        expect(afterBuild).toContain('export const dynamic = "force-static";');
+
+        process.emit("exit", 0);
+
+        expect(readFileSync(pagePath, "utf8")).toBe(afterBuild);
+    });
+
+    it("also restores on SIGINT/SIGTERM before re-raising the signal", async () => {
+        const pagePath = resolve(TEST_DIR, "src/app/[locale]/page.tsx");
+        const original = `export default function Page() { return <div>Hello</div>; }\n`;
+        writeFileSync(pagePath, original, "utf8");
+
+        const plugin = autoDynamicPagesPlugin();
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({ root: TEST_DIR, command: "build" });
+
+        // process.kill is stubbed here — emitting the real signal would
+        // otherwise re-raise it against this very test process via the
+        // handler under test and terminate it.
+        const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
+        process.emit("SIGINT");
+
+        expect(readFileSync(pagePath, "utf8")).toBe(original);
+        expect(killSpy).toHaveBeenCalledWith(process.pid, "SIGINT");
+        killSpy.mockRestore();
+    });
 });

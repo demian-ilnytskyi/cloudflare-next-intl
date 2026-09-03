@@ -1,10 +1,11 @@
 import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { findPageFiles as findPageFilesImpl } from './find_page_files.js';
-import { detectDynamicUsage } from './detect_dynamic_usage.js';
+import { detectDynamicUsage, readExplicitDynamicValue, type DynamicApiCheck } from './detect_dynamic_usage.js';
 import { traceDynamicUsage, type DynamicSignal } from './trace_dynamic_usage.js';
 import { insertDynamicExport } from './insert_dynamic_export.js';
 import { syncErrorReportingAuthUser, type SyncErrorReportingAuthUserReport } from './sync_error_reporting_auth_user.js';
+import { deriveRoute, isApiRoute, makePageLabeler, type PageLabelStyle } from './derive_page_label.js';
 import type { AliasConfig } from './resolve_local_imports.js';
 
 /** `'off'` — don't scan at all (the global disable switch). `'report'` — scan and say what would change, write nothing. `'fix'` — scan and write the missing `export const dynamic` into each qualifying file. */
@@ -49,6 +50,20 @@ export interface CheckDynamicPagesOptions {
      */
     aliases?: readonly AliasConfig[];
     /**
+     * Defaults to `[]`. Extra `{ name, pattern }` dynamic-API checks, run
+     * alongside the built-in list (`cookies()`, `getAuthUser()`, ...) —
+     * for a project's own dynamic-wrapping helper this text scan has no
+     * way to know about on its own (a custom auth check, a bespoke
+     * per-request cache buster). Each `pattern` is matched against the
+     * file's text with comments blanked out, same as the built-ins.
+     *
+     * @example
+     * ```ts
+     * extraChecks: [{ name: 'myOrgAuth()', pattern: /\bmyOrgAuth\s*\(/ }]
+     * ```
+     */
+    extraChecks?: readonly DynamicApiCheck[];
+    /**
      * Defaults to `false`. When enabled, runs `syncErrorReportingAuthUser`
      * immediately after the main per-page scan, using this same
      * `appDir`/`mode`/`target`/`skip`/`aliases` — see that function's docs
@@ -57,9 +72,10 @@ export interface CheckDynamicPagesOptions {
      */
     syncErrorReportingAuthUser?: boolean;
     /**
-     * Defaults to `false` — nothing is printed. When `true`, logs one line
-     * per scanned page plus, for each page forced dynamic, the exact
-     * `(api, file)` signals that decided it.
+     * Defaults to `false` — nothing is printed. `true` logs a block per
+     * scanned page: its label, whether it's Static (SSG) or Dynamic (SSR),
+     * and, for a page forced dynamic, the exact `(api, file, line)` signals
+     * that decided it.
      *
      * A page marked dynamic through a helper several imports deep is
      * otherwise indistinguishable from one that reads `cookies()` in its own
@@ -67,8 +83,17 @@ export interface CheckDynamicPagesOptions {
      * attribute without bisecting imports by hand. The reasons are always
      * present on the returned reports (`signals`); this flag only controls
      * whether they're also printed.
+     *
+     * Pass an object instead of `true` to also set `pageLabel` — how each
+     * page's own line is displayed:
+     * - `'title'` (default): a short name derived from the route, e.g.
+     *   `accept-invite/page.tsx` -> `"Accept Invite"`,
+     *   `results/[id]/page.tsx` -> `"Results (:id)"`.
+     * - `'path'`: the old behavior, the file's path relative to the current
+     *   working directory.
+     * - a function `(file, appDir) => string` for a custom label.
      */
-    verbose?: boolean;
+    verbose?: boolean | { pageLabel?: PageLabelStyle | ((file: string, appDir: string) => string) };
 }
 
 export interface CheckDynamicPagesReport {
@@ -80,6 +105,13 @@ export interface CheckDynamicPagesReport {
      * the two `*-force-dynamic` actions.
      */
     signals?: DynamicSignal[];
+    /**
+     * The literal value of an existing `export const dynamic = '...'`,
+     * present only on `action: 'already-declared'` and only when that value
+     * is one of Next's four recognized literals — `null` for a
+     * non-literal expression this text scan can't evaluate.
+     */
+    explicitValue?: 'force-static' | 'force-dynamic' | 'auto' | 'error' | null;
 }
 
 export interface CheckDynamicPagesIo {
@@ -89,15 +121,47 @@ export interface CheckDynamicPagesIo {
     isFile?: (file: string) => boolean;
 }
 
-const ACTION_MARKER: Record<CheckDynamicPagesReport['action'], string> = {
-    'added-force-dynamic': 'ƒ force-dynamic',
-    'would-add-force-dynamic': 'ƒ force-dynamic (would add)',
-    'added-force-static': '○ force-static',
-    'would-add-force-static': '○ force-static (would add)',
-    'already-declared': '= already declared',
-    'no-dynamic-usage-detected': '- no dynamic usage detected',
-    skipped: '· skipped',
-};
+const LEGEND = 'λ API   ƒ Dynamic (SSR)   ○ Static (SSG)   = Already declared   - Unclear (framework decides)   · Skipped';
+
+/** Single leading glyph for a report — matches vinext/Next's own route-table symbols (`λ`/`ƒ`/`○`) plus two of this scan's own (`=`/`-`/`·`). */
+function actionGlyph(report: CheckDynamicPagesReport, isApi: boolean): string {
+    if (isApi && report.action !== 'skipped') return 'λ';
+    switch (report.action) {
+        case 'added-force-dynamic':
+        case 'would-add-force-dynamic':
+            return 'ƒ';
+        case 'added-force-static':
+        case 'would-add-force-static':
+            return '○';
+        case 'no-dynamic-usage-detected': return '-';
+        case 'skipped': return '·';
+        case 'already-declared':
+            if (report.explicitValue === 'force-dynamic') return 'ƒ';
+            if (report.explicitValue === 'force-static') return '○';
+            return '=';
+    }
+}
+
+/** What the glyph on this line means, spelled out — the glyph alone repeats across dozens of pages and stops being legible on its own. */
+function actionDetail(report: CheckDynamicPagesReport, isApi: boolean): string {
+    if (isApi && report.action !== 'skipped') return 'API route';
+    switch (report.action) {
+        case 'added-force-dynamic': return 'Dynamic (SSR) — added export const dynamic = "force-dynamic"';
+        case 'would-add-force-dynamic': return 'Dynamic (SSR) — would add export const dynamic = "force-dynamic"';
+        case 'added-force-static': return 'Static (SSG) — added export const dynamic = "force-static"';
+        case 'would-add-force-static': return 'Static (SSG) — would add export const dynamic = "force-static"';
+        case 'no-dynamic-usage-detected': return 'Unclear — no dynamic-API usage detected, left to the framework';
+        case 'skipped': return 'Skipped — excluded from this scan';
+        case 'already-declared':
+            switch (report.explicitValue) {
+                case 'force-dynamic': return 'Dynamic (SSR) — export const dynamic = "force-dynamic" already set';
+                case 'force-static': return 'Static (SSG) — export const dynamic = "force-static" already set';
+                case 'auto': return 'export const dynamic = "auto" already set';
+                case 'error': return 'export const dynamic = "error" already set';
+                default: return 'export const dynamic already set';
+            }
+    }
+}
 
 /** Path as typed in an editor's "go to file" box, not an absolute one nobody can scan. */
 function displayPath(file: string): string {
@@ -105,17 +169,32 @@ function displayPath(file: string): string {
     return rel === '' || rel.startsWith('..') ? file : rel;
 }
 
-function logReports(reports: readonly { file: string; action?: unknown; signals?: DynamicSignal[] }[]): void {
-    console.log("[cloudflare-next-intl] dynamic-pages check:");
-    for (const report of reports) {
-        const action = report.action as CheckDynamicPagesReport['action'];
-        const marker = ACTION_MARKER[action] ?? String(action);
-        console.log(`  ${marker}  ${displayPath(report.file)}`);
+/**
+ * One row per page — `├`/`└` tree connector, `λ`/`ƒ`/`○`/etc glyph, route,
+ * and human label, the same shape as vinext/Next's own build-time route
+ * table — followed by its signals (if any) indented under a `│`/` `
+ * continuation so they visually belong to that row and not the next one.
+ */
+function logReports(
+    reports: readonly CheckDynamicPagesReport[],
+    appDir: string,
+    pageLabel: (file: string) => string,
+): void {
+    console.log(`[cloudflare-next-intl] dynamic-pages check\n${LEGEND}\n`);
+    reports.forEach((report, index) => {
+        const isLast = index === reports.length - 1;
+        const branch = isLast ? '└' : '├';
+        const isApi = isApiRoute(report.file);
+        const glyph = actionGlyph(report, isApi);
+        const route = deriveRoute(appDir, report.file);
+        console.log(`${branch} ${glyph} ${route}  ${pageLabel(report.file)}  — ${actionDetail(report, isApi)}`);
+        const continuation = isLast ? ' ' : '│';
         for (const signal of report.signals ?? []) {
-            const where = signal.file === report.file ? 'in this file' : `via ${displayPath(signal.file)}`;
-            console.log(`      ↳ ${signal.api}  ${where}`);
+            const location = `${displayPath(signal.file)}:${signal.line}`;
+            const where = signal.file === report.file ? `at ${location}` : `via ${location}`;
+            console.log(`${continuation}     ↳ ${signal.api}  ${where}`);
         }
-    }
+    });
 }
 
 function defaultIsFile(path: string): boolean {
@@ -143,6 +222,7 @@ export async function checkDynamicPages(
     const aliases: readonly AliasConfig[] = options.aliases ?? [
         { prefix: '@/', replacement: resolve(options.appDir, '..') },
     ];
+    const extraChecks = options.extraChecks ?? [];
 
     const reports: (CheckDynamicPagesReport | SyncErrorReportingAuthUserReport)[] = [];
     for (const file of findPageFiles(options.appDir)) {
@@ -153,13 +233,13 @@ export async function checkDynamicPages(
 
         const source = readFile(file);
         const detection = resolveImports
-            ? traceDynamicUsage(file, source, aliases, { readFile, isFile })
-            : { ...detectDynamicUsage(source), signals: [] as DynamicSignal[] };
+            ? traceDynamicUsage(file, source, aliases, { readFile, isFile }, extraChecks)
+            : { ...detectDynamicUsage(source, extraChecks), signals: [] as DynamicSignal[] };
         const signals: DynamicSignal[] = resolveImports
             ? detection.signals
-            : detection.detectedDynamicApis.map((api) => ({ api, file }));
+            : detection.matches.map(({ name, line }) => ({ api: name, file, line }));
         if (detection.hasExplicitDynamicExport) {
-            reports.push({ file, action: 'already-declared' });
+            reports.push({ file, action: 'already-declared', explicitValue: readExplicitDynamicValue(source) });
             continue;
         }
         if (detection.detectedDynamicApis.length === 0) {
@@ -189,7 +269,11 @@ export async function checkDynamicPages(
         }
     }
 
-    if (options.verbose === true) logReports(reports);
+    if (options.verbose) {
+        const pageLabelStyle = typeof options.verbose === 'object' ? options.verbose.pageLabel : undefined;
+        const pageLabel = makePageLabeler(options.appDir, pageLabelStyle, displayPath);
+        logReports(reports as CheckDynamicPagesReport[], options.appDir, pageLabel);
+    }
 
     if (options.syncErrorReportingAuthUser === true) {
         const syncReports = await syncErrorReportingAuthUser(

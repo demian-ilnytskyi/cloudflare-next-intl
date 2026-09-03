@@ -3,6 +3,23 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.43] - 2026-09-03
+
+### Added
+
+- `checkDynamicPages`'s `extraChecks` option: your own `{ name, pattern }` dynamic-API checks, run alongside the built-in list (`cookies()`, `getAuthUser()`, ...) — for a project-specific helper this text scan otherwise has no way to know is dynamic. Passed straight through by `autoDynamicPagesPlugin` too.
+- `CheckDynamicPagesReport` now carries `explicitValue` on `action: 'already-declared'` — the literal value of an existing `export const dynamic = '...'`, or `null` when it's a non-literal expression this text scan can't evaluate.
+- New exports from `dynamic_pages_check`: `stripComments`, `DynamicApiCheck`, `DynamicApiMatch`, `derivePageLabel`, `deriveRoute`, `isApiRoute`, `makePageLabeler`, `PageLabelStyle`.
+
+### Changed
+
+- Each `DynamicSignal` (from `traceDynamicUsage`/`checkDynamicPages`) now carries the 1-based source `line` its match starts on.
+- Verbose output is now a route table matching vinext/Next's own build-time shape: a `├`/`└` tree per page with a `λ`/`ƒ`/`○`/`=`/`-`/`·` glyph, the page's route and a short human label (`accept-invite/page.tsx` → `"Accept Invite"`), and each signal's exact `file:line` — so an unexpected `force-dynamic` can be found without a manual `grep`. `verbose: { pageLabel: 'path' | 'title' | (file, appDir) => string }` controls the label; `'title'` (derived) is the new default, `'path'` restores the old file-path display.
+
+### Fixed
+
+- Text-scan false positives: dynamic-API names mentioned only inside a `//`/`/* */` comment are no longer counted as usage, and an import whose local binding is never referenced elsewhere in the file (a leftover from a refactor) is no longer traced into.
+
 ## [0.9.42] - 2026-09-03
 
 ### Added

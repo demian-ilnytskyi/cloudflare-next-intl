@@ -1,5 +1,5 @@
-import { extractImportSpecifiers, resolveLocalImport, type AliasConfig } from './resolve_local_imports.js';
-import { USE_CLIENT_DIRECTIVE } from './detect_dynamic_usage.js';
+import { extractImportBindings, resolveLocalImport, type AliasConfig } from './resolve_local_imports.js';
+import { stripComments, USE_CLIENT_DIRECTIVE } from './detect_dynamic_usage.js';
 
 export interface CollectReachableFilesIo {
     readFile: (file: string) => string;
@@ -13,6 +13,20 @@ export interface CollectReachableFilesIo {
  * scan.
  */
 export const MAX_FILES_VISITED = 300;
+
+/** `code` with every `[start, end)` span from `spans` blanked to spaces (newlines kept), so a binding's own import line can't count as a "usage" of itself. */
+function blankSpans(code: string, spans: readonly { start: number; end: number }[]): string {
+    let out = code;
+    for (const { start, end } of spans) {
+        out = out.slice(0, start) + [...out.slice(start, end)].map((c) => (c === '\n' ? '\n' : ' ')).join('') + out.slice(end);
+    }
+    return out;
+}
+
+/** Whether `name` appears as a whole word anywhere in `text` — used to decide if an import's binding is referenced outside its own `import` line. */
+function isWordUsed(name: string, text: string): boolean {
+    return new RegExp(`\\b${name}\\b`).test(text);
+}
 
 /**
  * Walks `entryFile`'s local (relative/alias) import graph — cycle-safe,
@@ -44,6 +58,18 @@ export const MAX_FILES_VISITED = 300;
  * Shared by `traceDynamicUsage` (unions `detectDynamicUsage` signals across
  * this set) and `syncErrorReportingAuthUser` (finds `reportError()` calls
  * across this set) so both walk the exact same graph by construction.
+ *
+ * A THIRD boundary — narrower than either of the above — is an import whose
+ * local binding is never referenced anywhere else in the file: a real
+ * pattern, not a hypothetical one (a call site gets deleted in a refactor,
+ * the `import` line above it doesn't). Such a file is never actually
+ * reached at render time no matter what it contains, so it isn't opened.
+ * `bindingUsedElsewhere` decides this — conservatively: any binding this
+ * text scan can't rule out as used stays in, so a real but unusually-shaped
+ * usage (e.g. only inside a type position, or shadowed by an unrelated
+ * local of the same name) still gets traced rather than silently dropped.
+ * `export ... from` re-exports and bare `import '...'` side effects have no
+ * local binding to check and are always followed.
  */
 export function collectReachableFiles(
     entryFile: string,
@@ -68,8 +94,15 @@ export function collectReachableFiles(
         // for its own directly-visible signals).
         if (USE_CLIENT_DIRECTIVE.test(source)) continue;
 
-        for (const specifier of extractImportSpecifiers(source)) {
+        const code = stripComments(source);
+        const imports = extractImportBindings(code);
+        const usageText = blankSpans(code, imports);
+
+        for (const { specifier, bindings, alwaysFollow } of imports) {
             if (files.size >= MAX_FILES_VISITED) break;
+            if (!alwaysFollow && bindings.length > 0 && !bindings.some((name) => isWordUsed(name, usageText))) {
+                continue; // every binding this import introduces is unreferenced: dead import, nothing to trace into
+            }
             const resolved = resolveLocalImport(specifier, current, aliases, isFile);
             if (resolved === null || files.has(resolved)) continue;
 

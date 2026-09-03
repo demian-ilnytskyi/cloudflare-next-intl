@@ -1,4 +1,4 @@
-import { detectDynamicUsage, type DynamicDetectionResult } from './detect_dynamic_usage.js';
+import { detectDynamicUsage, type DynamicApiCheck, type DynamicDetectionResult } from './detect_dynamic_usage.js';
 import { collectReachableFiles, type CollectReachableFilesIo } from './collect_reachable_files.js';
 import type { AliasConfig } from './resolve_local_imports.js';
 
@@ -10,6 +10,8 @@ export interface DynamicSignal {
     api: string;
     /** Absolute path of the file the signal was found in — the entry page itself, or any file in its traced import graph. */
     file: string;
+    /** 1-based line, within `file`, that the api's first match starts on. */
+    line: number;
 }
 
 export interface TraceDynamicUsageResult extends DynamicDetectionResult {
@@ -40,6 +42,7 @@ export function traceDynamicUsage(
     entrySource: string,
     aliases: readonly AliasConfig[],
     io: TraceDynamicUsageIo,
+    extraChecks: readonly DynamicApiCheck[] = [],
 ): TraceDynamicUsageResult {
     const files = collectReachableFiles(entryFile, entrySource, aliases, io);
 
@@ -48,16 +51,21 @@ export function traceDynamicUsage(
     const signals: DynamicSignal[] = [];
     let first = true;
     for (const [file, source] of files.entries()) {
-        const detection = detectDynamicUsage(source);
+        const detection = detectDynamicUsage(source, extraChecks);
         if (first) {
             hasExplicitDynamicExport = detection.hasExplicitDynamicExport;
             first = false;
         }
-        detection.detectedDynamicApis.forEach((api) => {
-            detectedApis.add(api);
-            signals.push({ api, file });
+        detection.matches.forEach(({ name, line }) => {
+            detectedApis.add(name);
+            signals.push({ api: name, file, line });
         });
     }
 
-    return { hasExplicitDynamicExport, detectedDynamicApis: [...detectedApis], signals };
+    return {
+        hasExplicitDynamicExport,
+        detectedDynamicApis: [...detectedApis],
+        matches: signals.map(({ api, line }) => ({ name: api, line })),
+        signals,
+    };
 }

@@ -1,7 +1,7 @@
 import type { Plugin } from "vite";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { checkDynamicPages, type DynamicPagesCheckMode } from "../dynamic_pages_check/index.js";
+import { checkDynamicPages, type DynamicApiCheck, type DynamicPagesCheckMode, type PageLabelStyle } from "../dynamic_pages_check/index.js";
 
 export interface AutoDynamicPagesPluginOptions {
     /**
@@ -25,13 +25,22 @@ export interface AutoDynamicPagesPluginOptions {
      */
     syncErrorReportingAuthUser?: boolean;
     /**
-     * Defaults to `false`. Passed through to `checkDynamicPages` — prints
-     * one line per scanned page and, for each page forced dynamic, the
-     * `(api, file)` signals that decided it. Off by default so a normal
-     * build stays quiet; turn it on when a page is dynamic and you want to
-     * know which import dragged in the signal.
+     * Defaults to `[]`. Passed straight through to `checkDynamicPages`'s
+     * `extraChecks` option — your own `{ name, pattern }` dynamic-API
+     * checks, run alongside the built-in list, for a project-specific
+     * helper this scan otherwise has no way to know is dynamic.
      */
-    verbose?: boolean;
+    extraChecks?: readonly DynamicApiCheck[];
+    /**
+     * Defaults to `false`. Passed through to `checkDynamicPages` — prints a
+     * route table (page label, route, Static/Dynamic/API) and, for a page
+     * forced dynamic, the `(api, file, line)` signals that decided it. Off
+     * by default so a normal build stays quiet; turn it on when a page is
+     * dynamic and you want to know which import dragged in the signal. Pass
+     * `{ pageLabel: ... }` instead of `true` to change how each page's own
+     * label is displayed — see `checkDynamicPages`'s `verbose` option.
+     */
+    verbose?: boolean | { pageLabel?: PageLabelStyle | ((file: string, appDir: string) => string) };
     /**
      * Defaults to `true`. Restores every page file this plugin wrote back to
      * its pre-build contents when the build process exits, so an
@@ -89,6 +98,7 @@ export function autoDynamicPagesPlugin(options: AutoDynamicPagesPluginOptions = 
                     mode: options.mode ?? "fix",
                     target: options.target ?? "vinext",
                     syncErrorReportingAuthUser: options.syncErrorReportingAuthUser ?? false,
+                    extraChecks: options.extraChecks ?? [],
                     verbose: options.verbose ?? false,
                 }, restoreAfterBuild
                     ? {

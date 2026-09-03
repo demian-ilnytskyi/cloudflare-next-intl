@@ -33,6 +33,99 @@ export function extractImportSpecifiers(sourceText: string): string[] {
     return specifiers;
 }
 
+export interface ImportBindingInfo {
+    /** The `from '...'` module specifier. */
+    specifier: string;
+    /** Local names this statement introduces (`b` for `import { a as b }`, `ns` for `import * as ns`, the identifier for a default import). Empty for a bare side-effect `import '...'`. */
+    bindings: string[];
+    /**
+     * `true` for a bare `import '...'` or any `export ... from '...'`
+     * re-export — there's no local binding whose usage could be checked
+     * (a re-export's "usage" is external, by other modules importing THIS
+     * one), so these are always worth following regardless of `bindings`.
+     */
+    alwaysFollow: boolean;
+    /** Character offset where this statement starts in the source. */
+    start: number;
+    /** Character offset just past this statement's closing `from '...'`/`'...'`. */
+    end: number;
+}
+
+// Matches an `import`/`export` clause up to its `from '...'` — the lazy
+// `[\s\S]*?` stops at the nearest `from`, which is the statement's own for
+// any normally-formatted import (this is the same class of text heuristic
+// as the rest of this file: good enough for this project's style, not a
+// full parser).
+const FROM_IMPORT_STATEMENT = /\b(import|export)\s+type\s+|\b(import|export)\s+([\s\S]*?)\s*from\s*(['"])([^'"]+)\4/g;
+const BARE_IMPORT_STATEMENT = /(?:^|\n|;)\s*(import\s*(['"])([^'"]+)\2)/g;
+
+/** Local binding name(s) an import/export clause (the text between `import`/`export` and `from`) introduces. */
+function bindingsFromClause(clause: string): string[] {
+    const bindings: string[] = [];
+    const namespaceMatch = /^\*\s*as\s+(\w+)$/.exec(clause.trim());
+    if (namespaceMatch) return [namespaceMatch[1]!];
+    if (clause.trim() === '*') return []; // `export * from '...'` — no local binding, always-follow handles it
+
+    const braceMatch = /\{([^}]*)\}/.exec(clause);
+    if (braceMatch) {
+        for (const rawItem of braceMatch[1]!.split(',')) {
+            const item = rawItem.trim().replace(/^type\s+/, '');
+            if (item.length === 0) continue;
+            const asMatch = /\bas\s+(\w+)$/.exec(item);
+            bindings.push(asMatch ? asMatch[1]! : item);
+        }
+    }
+
+    const beforeBrace = clause.slice(0, braceMatch?.index ?? clause.length).replace(/,\s*$/, '').trim();
+    if (/^\w+$/.test(beforeBrace)) bindings.push(beforeBrace);
+
+    return bindings;
+}
+
+/**
+ * Every `import`/`export ... from` statement in `sourceText`, each paired
+ * with the local name(s) it introduces — so a caller can tell an import
+ * whose binding is never referenced again (a leftover from a refactor: the
+ * call site was deleted, the `import` line wasn't) from one that's actually
+ * exercised. `import type` clauses are skipped entirely: a type never
+ * executes, so it carries no dynamic-API signal to trace into regardless of
+ * whether it's "used".
+ */
+export function extractImportBindings(sourceText: string): ImportBindingInfo[] {
+    const results: ImportBindingInfo[] = [];
+
+    FROM_IMPORT_STATEMENT.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = FROM_IMPORT_STATEMENT.exec(sourceText)) !== null) {
+        if (match[1] !== undefined || match[2] === undefined) continue; // `import type .../export type ...`: skipped
+        const keyword = match[2];
+        const clause = match[3]!;
+        const specifier = match[5]!;
+        results.push({
+            specifier,
+            bindings: keyword === 'export' ? [] : bindingsFromClause(clause),
+            alwaysFollow: keyword === 'export',
+            start: match.index,
+            end: match.index + match[0].length,
+        });
+    }
+
+    BARE_IMPORT_STATEMENT.lastIndex = 0;
+    while ((match = BARE_IMPORT_STATEMENT.exec(sourceText)) !== null) {
+        const statement = match[1]!;
+        const statementStart = match.index + match[0].indexOf(statement);
+        results.push({
+            specifier: match[3]!,
+            bindings: [],
+            alwaysFollow: true,
+            start: statementStart,
+            end: statementStart + statement.length,
+        });
+    }
+
+    return results;
+}
+
 const FILE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
 
 function defaultIsFile(path: string): boolean {

@@ -38,10 +38,12 @@ describe('traceDynamicUsage', () => {
 
     it('follows two hops: page -> content -> repository -> getAuthUser()', () => {
         const files = {
-            '/repo/src/app/audit/page.tsx': 'import AuditContent from "./audit_content";',
-            '/repo/src/app/audit/audit_content.tsx': 'import { fetchDraft } from "./audit_draft_repository";',
+            '/repo/src/app/audit/page.tsx':
+                'import AuditContent from "./audit_content";\nexport default function Page() { return <AuditContent />; }',
+            '/repo/src/app/audit/audit_content.tsx':
+                'import { fetchDraft } from "./audit_draft_repository";\nexport default async function AuditContent() { await fetchDraft(); }',
             '/repo/src/app/audit/audit_draft_repository.ts':
-                'import { getAuthUser } from "cloudflare-next-intl/getFirebaseAuthUser";\nasync function fetchDraft() { await getAuthUser(); }',
+                'import { getAuthUser } from "cloudflare-next-intl/getFirebaseAuthUser";\nexport async function fetchDraft() { await getAuthUser(); }',
         };
         const result = traceDynamicUsage(
             '/repo/src/app/audit/page.tsx',
@@ -54,7 +56,8 @@ describe('traceDynamicUsage', () => {
 
     it('follows an alias-prefixed import', () => {
         const files = {
-            '/repo/src/app/audit/page.tsx': 'import requireFlavour from "@/shared/utils/require_flavour";',
+            '/repo/src/app/audit/page.tsx':
+                'import requireFlavour from "@/shared/utils/require_flavour";\nrequireFlavour();',
             '/repo/src/shared/utils/require_flavour.ts':
                 'import { headers } from "next/headers";\nheaders();',
         };
@@ -179,5 +182,19 @@ describe('traceDynamicUsage', () => {
             makeIo(files),
         );
         expect(result.detectedDynamicApis.filter((a) => a === 'cookies()')).toHaveLength(1);
+    });
+
+    it('carries the line each signal was found on, per file', () => {
+        const files = {
+            '/repo/src/app/page.tsx': 'import "./b";\nexport default function Page() {}',
+            '/repo/src/app/b.ts': 'import { cookies } from "next/headers";\ncookies();',
+        };
+        const result = traceDynamicUsage(
+            '/repo/src/app/page.tsx',
+            files['/repo/src/app/page.tsx'],
+            [],
+            makeIo(files),
+        );
+        expect(result.signals).toEqual([{ api: 'cookies()', file: '/repo/src/app/b.ts', line: 2 }]);
     });
 });

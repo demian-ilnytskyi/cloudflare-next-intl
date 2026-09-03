@@ -18,6 +18,57 @@ describe('detectDynamicUsage', () => {
         expect(result.detectedDynamicApis).toContain('cookies()');
     });
 
+    it('ignores a dynamic-API name mentioned only in a // comment', () => {
+        const result = detectDynamicUsage(`// used to call getAuthUser() here\nexport default function Page() {}`);
+        expect(result.detectedDynamicApis).toEqual([]);
+    });
+
+    it('ignores a dynamic-API name mentioned only in a /* */ comment, across multiple lines', () => {
+        const result = detectDynamicUsage(
+            `/**\n * getAuthUser() is cache()'d per request, so this costs nothing extra.\n */\nexport default function Page() {}`,
+        );
+        expect(result.detectedDynamicApis).toEqual([]);
+    });
+
+    it('still finds a real call on the line right after a comment that merely mentions the same api', () => {
+        const result = detectDynamicUsage(
+            `// getAuthUser() is cache()'d per request\nimport { getAuthUser } from "cloudflare-next-intl/getFirebaseAuthUser";\nasync function f() { await getAuthUser(); }`,
+        );
+        expect(result.matches).toEqual([{ name: 'getAuthUser()', line: 3 }]);
+    });
+
+    it('does not treat a URL\'s "//" as a comment start', () => {
+        const result = detectDynamicUsage(`const url = "https://example.com";\nasync function f() { await cookies(); }`);
+        expect(result.matches).toEqual([{ name: 'cookies()', line: 2 }]);
+    });
+
+    it('blanks out an unterminated /* comment through the end of the file', () => {
+        const result = detectDynamicUsage(`/* leftover comment mentioning cookies()`);
+        expect(result.detectedDynamicApis).toEqual([]);
+    });
+
+    it('blanks out a // comment with no trailing newline, at the end of the file', () => {
+        const result = detectDynamicUsage(`export default function Page() {}\n// mentions cookies() here`);
+        expect(result.detectedDynamicApis).toEqual([]);
+    });
+
+    it('does not count a commented-out export const dynamic as declared', () => {
+        const result = detectDynamicUsage(`// export const dynamic = "force-static";\nexport default function Page() {}`);
+        expect(result.hasExplicitDynamicExport).toBe(false);
+    });
+
+    it('reports the 1-based line of each match, not just its presence', () => {
+        const result = detectDynamicUsage(
+            `import { cookies } from "next/headers";\n\nasync function f() {\n    await cookies();\n}`,
+        );
+        expect(result.matches).toContainEqual({ name: 'cookies()', line: 4 });
+    });
+
+    it('reports the line of the FIRST match when an api appears more than once', () => {
+        const result = detectDynamicUsage(`await cookies();\nawait cookies();`);
+        expect(result.matches).toEqual([{ name: 'cookies()', line: 1 }]);
+    });
+
     it('detects a searchParams prop', () => {
         const result = detectDynamicUsage(`export default async function Page({ searchParams }) {}`);
         expect(result.detectedDynamicApis).toContain('searchParams');
@@ -89,6 +140,40 @@ describe('detectDynamicUsage', () => {
         const result = detectDynamicUsage(`import { cookies } from "next/headers";\ncookies(); cookies(); cookies();`);
         expect(result.detectedDynamicApis.filter((a) => a === 'cookies()')).toHaveLength(1);
     });
+
+    it('runs a caller-supplied extraChecks pattern alongside the built-ins', () => {
+        const result = detectDynamicUsage(
+            'async function f() { await myOrgAuth(); }',
+            [{ name: 'myOrgAuth()', pattern: /\bmyOrgAuth\s*\(/ }],
+        );
+        expect(result.detectedDynamicApis).toEqual(['myOrgAuth()']);
+    });
+
+    it('does not flag an extraChecks pattern when it does not match', () => {
+        const result = detectDynamicUsage(
+            'export default function Page() {}',
+            [{ name: 'myOrgAuth()', pattern: /\bmyOrgAuth\s*\(/ }],
+        );
+        expect(result.detectedDynamicApis).toEqual([]);
+    });
+
+    it('still ignores an extraChecks match found only in a comment', () => {
+        const result = detectDynamicUsage(
+            '// used to call myOrgAuth() here\nexport default function Page() {}',
+            [{ name: 'myOrgAuth()', pattern: /\bmyOrgAuth\s*\(/ }],
+        );
+        expect(result.detectedDynamicApis).toEqual([]);
+    });
+
+    it('resets a global-flagged extraChecks pattern\'s lastIndex between calls', () => {
+        const check = { name: 'myOrgAuth()', pattern: /\bmyOrgAuth\s*\(/g };
+        const withMatch = detectDynamicUsage('myOrgAuth();', [check]);
+        const withoutMatch = detectDynamicUsage('nothing here', [check]);
+        const withMatchAgain = detectDynamicUsage('myOrgAuth();', [check]);
+        expect(withMatch.detectedDynamicApis).toEqual(['myOrgAuth()']);
+        expect(withoutMatch.detectedDynamicApis).toEqual([]);
+        expect(withMatchAgain.detectedDynamicApis).toEqual(['myOrgAuth()']);
+    });
 });
 
 describe('readExplicitDynamicValue', () => {
@@ -111,5 +196,9 @@ describe('readExplicitDynamicValue', () => {
 
     it('returns null for an unrecognized literal value', () => {
         expect(readExplicitDynamicValue(`export const dynamic = "not-a-real-value";`)).toBeNull();
+    });
+
+    it('returns null for a commented-out export, not the value inside the comment', () => {
+        expect(readExplicitDynamicValue(`// export const dynamic = "force-static";\nexport default function Page() {}`)).toBeNull();
     });
 });
