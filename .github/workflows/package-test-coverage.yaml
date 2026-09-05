@@ -24,5 +24,8 @@ jobs:
       per_file_exceptions: |
         general/general_functions.ts:87
         config/middleware.ts:93
+        errors_board/client/error_detail_view.tsx:96
         vite/auto_dynamic_pages_plugin.ts:98
+        vite/auto_locale_params_plugin.ts:98
+        locale_params_check/insert_locale_params.ts:97
       run_bench: true

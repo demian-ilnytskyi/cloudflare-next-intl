@@ -2,6 +2,7 @@ import type { Plugin } from "vite";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { checkDynamicPages, type DynamicApiCheck, type DynamicPagesCheckMode, type PageLabelStyle } from "../dynamic_pages_check/index.js";
+import { registerBuildWriteRestore } from "./build_write_restore_stack.js";
 
 export interface AutoDynamicPagesPluginOptions {
     /**
@@ -125,41 +126,10 @@ export function autoDynamicPagesPlugin(options: AutoDynamicPagesPluginOptions = 
                 for (const file of [...originals.keys()]) {
                     if (!restorable.has(file)) originals.delete(file);
                 }
-                if (originals.size > 0) registerRestore(originals);
+                registerBuildWriteRestore(originals);
             } catch (err) {
                 console.warn("[cloudflare-next-intl] autoDynamicPages check error:", err);
             }
         },
     };
-}
-
-/**
- * Writes `originals` back on process exit — the only hook that fires after
- * EVERY build stage has read the files (vinext runs several sequential
- * builds in one process, so restoring on a per-build hook like `closeBundle`
- * would hand the later stages a file without the export). Handlers are
- * synchronous because `exit` allows no async work, and idempotent because
- * `SIGINT`/`SIGTERM` re-raise into `exit`.
- */
-function registerRestore(originals: Map<string, string>): void {
-    let restored = false;
-    const restore = (): void => {
-        if (restored) return;
-        restored = true;
-        for (const [file, contents] of originals) {
-            try {
-                writeFileSync(file, contents, "utf8");
-            } catch {
-                // A build that already deleted/moved the file leaves nothing to restore.
-            }
-        }
-    };
-
-    process.once("exit", restore);
-    for (const signal of ["SIGINT", "SIGTERM"] as const) {
-        process.once(signal, () => {
-            restore();
-            process.kill(process.pid, signal);
-        });
-    }
 }

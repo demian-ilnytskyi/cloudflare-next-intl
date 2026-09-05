@@ -1,9 +1,19 @@
 export { autoDynamicPagesPlugin, type AutoDynamicPagesPluginOptions } from "./auto_dynamic_pages_plugin.js";
+export { autoLocaleParamsPlugin, type AutoLocaleParamsPluginOptions } from "./auto_locale_params_plugin.js";
 export { buildIdAsset } from "./build_id_asset.js";
 export { userAgentStubPlugin, USER_AGENT_STUB_ID, USER_AGENT_STUB_CODE } from "./user_agent_stub.js";
 export { cfWorkersClientStubPlugin, CF_WORKERS_CLIENT_STUB_ID, CF_WORKERS_CLIENT_STUB_CODE } from "./cf_workers_client_stub.js";
 export { vinextRouteWiringFixPlugin, patchAppPageRouteWiring, isAppPageRouteWiringFile, isAppPageRouteWiringAlreadyFixed, type VinextRouteWiringFixPluginOptions } from "./vinext_route_wiring_fix.js";
 export { localeFilePlugin, resolveDefaultIntlConfigPath, type LocaleFilePluginOptions } from "./locale_file_plugin.js";
+export {
+    lucideOptimizerPlugin,
+    detectLucideReact,
+    resolveLucideEsmEntry,
+    parseLucideIconMap,
+    transformLucideImports,
+    transformNextJsImports,
+    type LucideOptimizerPluginOptions,
+} from "./lucide_optimizer_plugin.js";
 export { cloudflareNextIntl, cloudflareNextIntlPlugin, type CloudflareNextIntlOptions, default } from "./plugin.js";
 export {
     imageOptimizer,

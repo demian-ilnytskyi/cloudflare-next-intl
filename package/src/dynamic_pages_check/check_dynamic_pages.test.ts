@@ -275,6 +275,40 @@ describe('checkDynamicPages', () => {
         logSpy.mockRestore();
     });
 
+    it('verbose: true includes a loading.tsx file, glyphed and labeled the same as a page.tsx', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const { io } = makeIo({
+            '/app/[locale]/property-profile/loading.tsx': 'export default function Loading() { return null; }',
+        });
+        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext', verbose: true }, io);
+        const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+        expect(printed).toContain('/:locale/property-profile');
+        expect(printed).toContain('Property Profile');
+        expect(printed).toContain('○');
+        expect(printed).toContain('Static (SSG) — would add');
+        logSpy.mockRestore();
+    });
+
+    it('verbose: true distinguishes a page.tsx row from a loading.tsx row sharing the same route/label', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const { io } = makeIo({
+            '/app/[locale]/(app)/property-profile/page.tsx': 'export default function Page() { return null; }',
+            '/app/[locale]/(app)/property-profile/loading.tsx': 'export default function Loading() { return null; }',
+        });
+        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext', verbose: true }, io);
+        const lines = logSpy.mock.calls.map((call) => String(call[0]));
+        const rows = lines.filter((line) => line.includes('Property Profile'));
+        expect(rows.length).toBe(2);
+        expect(rows.some((line) => line.includes('[page]'))).toBe(true);
+        expect(rows.some((line) => line.includes('[loading]'))).toBe(true);
+        // The page row's own route has no suffix; the loading row's route
+        // is the page's route with /loading appended, so the two are
+        // distinguishable by route alone, not just the trailing tag.
+        expect(rows.some((line) => line.includes('/:locale/property-profile  '))).toBe(true);
+        expect(rows.some((line) => line.includes('/:locale/property-profile/loading  '))).toBe(true);
+        logSpy.mockRestore();
+    });
+
     it('verbose: true glyphs an already-declared non-literal dynamic export as = (value not evaluable)', async () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         const { io } = makeIo({
@@ -320,6 +354,17 @@ describe('checkDynamicPages', () => {
         const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
         expect(printed).toContain('Unclear — no dynamic-API usage detected');
         expect(printed).toContain('Skipped — excluded from this scan');
+        logSpy.mockRestore();
+    });
+
+    it('verbose: true falls back to the full path as the file kind when the basename has no recognized extension', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const { io } = makeIo({
+            '/app/weird-file': 'export default function Page() {}',
+        });
+        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', verbose: true }, io);
+        const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+        expect(printed).toContain('/app/weird-file');
         logSpy.mockRestore();
     });
 

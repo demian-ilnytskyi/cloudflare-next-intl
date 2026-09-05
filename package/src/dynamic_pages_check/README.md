@@ -1,10 +1,14 @@
 # `src/dynamic_pages_check`
 
-Scans your `app/` directory for `page.*`/`route.*` files and, for every one
-that doesn't already declare its own `export const dynamic`, inserts
-`"force-dynamic"` when the file looks request-dependent (`cookies()`,
-`headers()`, a `searchParams` prop, `unstable_noStore()`, `connection()`, or
-a `no-store`/`revalidate: 0` fetch). A file with none of those signals is,
+Scans your `app/` directory for `page.*`/`route.*`/`loading.*` files and,
+for every one that doesn't already declare its own `export const dynamic`,
+inserts `"force-dynamic"` when the file looks request-dependent
+(`cookies()`, `headers()`, a `searchParams` prop, `unstable_noStore()`,
+`connection()`, a `no-store`/`revalidate: 0` fetch, or `getTranslations()`/
+`useTranslations()` called with no explicit `locale` and no preceding
+`setLocale`/`setLocaleAsync` — which resolves locale from the
+`NEXT_LOCALE`-style cookie, same as a direct `cookies()` call). A file with
+none of those signals is,
 by default (`target: 'next'`), left to Next's own static/dynamic inference
 — inserting `force-static` there would be an unsafe default, since a page
 can be dynamic through means this regex-based scan doesn't see; leaving it
@@ -66,7 +70,7 @@ const reports = await checkDynamicPages({
 
 ## Layout
 
-- `find_page_files.ts` — recursive `page.*`/`route.*` finder.
+- `find_page_files.ts` — recursive `page.*`/`route.*`/`loading.*` finder.
 - `detect_dynamic_usage.ts` — the text-heuristic detector, plus
   "already has an explicit `dynamic` export" detection.
 - `insert_dynamic_export.ts` — the pure source-rewrite step.

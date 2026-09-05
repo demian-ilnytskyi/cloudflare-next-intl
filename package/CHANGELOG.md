@@ -3,6 +3,35 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.48] - 2026-09-05
+
+### Added
+
+- New `autoLocaleParams` plugin (on by default, via `checkLocaleParams` in `cloudflare-next-intl/checkLocaleParams`, or the `cfni-check-locale-params` CLI bin) — scans `page`/`layout`/`loading` files under a `[locale]`-scoped route and inserts the `locale` param from `params` plus a `setLocale(locale)` call wherever `getTranslations()`/`useTranslations()` is used without one. Fixes the common case of a page implicitly depending on the `NEXT_LOCALE` cookie (defeating `force-static`) despite never calling `cookies()` itself. Registered to run before `autoDynamicPages` so a page it fixes no longer trips the dynamic-pages cookie-derived-locale signal.
+- `detectDynamicUsage` (`checkDynamicPages`) now recognizes a no-locale-arg `getTranslations()`/`useTranslations()` call (with no `setLocale`/`setLocaleAsync` call anywhere in the file) as a new `'getTranslations()/useTranslations() (cookie-derived locale)'` dynamic signal; `find_page_files.ts`'s `PAGE_FILE_NAMES` now also includes `loading.tsx/ts/jsx/js`.
+- New `lucideOptimizer` plugin (on by default, auto-detects `lucide-react`) — rewrites named `lucide-react` imports into direct per-icon deep imports (`lucide-react/dist/esm/icons/<icon>.mjs`) to avoid the dev-server socket exhaustion (`ERR_INSUFFICIENT_RESOURCES`) caused by Vite dep-optimizing the full ~1750-export barrel, and normalizes `next/*.js` specifiers (e.g. `next/dynamic.js` → `next/dynamic`) to prevent mid-session Vite re-optimization/React dispatcher splitting.
+- New shared `build_write_restore_stack.ts` (`registerBuildWriteRestore`) — LIFO restore-on-exit stack so multiple build-time plugins (`autoDynamicPages`, `autoLocaleParams`) that each write files during `vite build` are unwound in reverse registration order on process exit/`SIGINT`/`SIGTERM`, instead of one plugin's restore clobbering another's. `autoDynamicPagesPlugin` now uses this shared stack instead of its own duplicated restore logic.
+
+### Fixed
+
+- `checkDynamicPages`'s per-file log rows now include a `fileKind` (`page`/`layout`/`loading`/`route`) tag and append the kind to the printed route for non-page/route kinds, so a flagged `loading.tsx` is distinguishable from its sibling `page.tsx` in output.
+
+## [0.9.47] - 2026-09-05
+
+### Fixed
+
+- `vinextRouteWiringFixPlugin`'s prefetch learning patch (`patchPrefetchLearning`) now checks if an optimistic route template has already been cached for the navigation target (`hasOptimisticTemplate` via `resolveOptimisticNavigationPayload(...) !== null`). If a template is already loaded, `isPendingNavigationTarget` evaluates to `false` and does not block the navigation waiting for an in-flight prefetch promise to resolve, eliminating multi-second navigation stalls and eliminating navigation asymmetry when alternating between routes.
+- `stripRsc` query hash normalizer added to `patchPrefetchLearning`: strips `_rsc` / `%5Frsc` query parameters when matching `parsePrefetchCacheKey(cacheKey).rscUrl` against `options.targetRscUrl`, ensuring query-hash-tagged prefetch keys match the navigation's target RSC URL cleanly.
+
+## [0.9.46] - 2026-09-05
+
+### Fixed
+
+- `vinextRouteWiringFixPlugin`'s optimistic-routing patch (`patchOptimisticRouting`) now matches vinext's actual installed `matchOptimisticRouteManifestRoute` shape (inlined `getRouteTrie(...)` call, early-return on `null`) — the previous regex only matched a shape with a separate `const trie = ...` statement and silently no-opped against the real one, so the locale-prefix fix for optimistic (click-time) route matching never took effect.
+- Fix: `vinextRouteWiringFixPlugin` now clears Vite's `optimizeDeps` cache (`deps`/`deps_ssr`/`deps_rsc` under `cacheDir`) whenever it actually patches a vinext file on disk — previously a patch could land in `node_modules/vinext` while the browser/RSC runtime kept executing an already-pre-bundled, pre-patch copy of the same code until the cache was cleared by some unrelated means.
+- `vinextRouteWiringFixPlugin` now patches vinext's `learnOptimisticRouteTemplatesFromPrefetchCache` (`app-browser-entry.js`) so a navigation whose target prefetch is still in flight waits for it (bounded by a 3s timeout, so a stalled prefetch from an earlier, unrelated navigation can never stall a later one) instead of only ever learning from already-settled prefetch cache entries, which left the previous page on screen until the full navigation response arrived. New `prefetchLearning` plugin option (default `true`) gates this fix.
+- `patchOptimisticRouting` and `patchPrefetchLearning` now guard each of their two independent replacements with that replacement's own fix marker, instead of only the combined "fully fixed" sentinel — so if vinext ever changes just one of the two patched shapes, the still-matching half no longer re-applies (and, for `patchOptimisticRouting`, re-duplicates a prepended helper function) on every dev-server boot. `syncPatchVinextOnDisk` also now logs a `console.warn` when a target file is present and not yet fixed but the patch's regex doesn't match it, instead of silently doing nothing.
+
 ## [0.9.45] - 2026-09-05
 
 ### Added
