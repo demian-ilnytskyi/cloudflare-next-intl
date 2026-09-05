@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.49] - 2026-09-05
+
+### Fixed
+
+- `imageOptimizerPlugin` no longer fully disables itself in dev (`apply: resolved.dev ? undefined : "build"`). Its `resolveId`/`load` hooks now always run so `virtual:cloudflare-next-intl-images-manifest` (unconditionally imported by `next_image_shim.tsx`) resolves in dev too, avoiding a "Failed to resolve import ... Does the file exist?" 500 on any page using `next/image`. Only the `buildStart` optimizer scan stays gated to build (or opt-in dev), now checked against the real Vite command via `configResolved` rather than `resolved.dev`/`NODE_ENV` alone.
+
 ## [0.9.48] - 2026-09-05
 
 ### Added

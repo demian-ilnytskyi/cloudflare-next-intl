@@ -5,16 +5,65 @@ import { getShimPath, imageOptimizerPlugin, VIRTUAL_IMAGE_SHIM_ID, VIRTUAL_MANIF
 import { makeTempDir, cleanup } from "../test_utils/image_optimizer_test_helpers.js";
 
 describe("imageOptimizerPlugin", () => {
-    it("has expected name, enforce pre, and apply: build by default (dev defaults to false)", () => {
+    it("has expected name and enforce pre, with no apply restriction — resolveId/load must answer in dev too", () => {
         const plugin = imageOptimizerPlugin();
         expect(plugin.name).toBe("cloudflare-next-intl-image-optimizer");
         expect(plugin.enforce).toBe("pre");
-        expect(plugin.apply).toBe("build");
+        // Deliberately no `apply` gate: `next_image_shim.tsx` unconditionally
+        // imports the virtual manifest module regardless of dev/build, so
+        // `resolveId`/`load` must be registered in every environment or a dev
+        // server 500s with "Failed to resolve import ... Does the file exist?"
+        // for every page importing `next/image`. Only the actual optimizer
+        // SCAN (`buildStart`) is dev/build-gated — see the tests below.
+        expect(plugin.apply).toBeUndefined();
     });
 
-    it("leaves apply undefined (runs on dev too) when dev: true is passed explicitly", () => {
-        const plugin = imageOptimizerPlugin({ dev: true });
-        expect(plugin.apply).toBeUndefined();
+    it("resolveId/load answer the virtual manifest ID even in dev (command: 'serve'), dev: false (the default)", () => {
+        const plugin = imageOptimizerPlugin({ manifest: "missing-manifest.json" });
+        const configResolved = plugin.configResolved as (config: { command: string }) => void;
+        configResolved({ command: "serve" });
+
+        const resolved = (plugin.resolveId as (id: string) => string | undefined)(VIRTUAL_MANIFEST_ID);
+        expect(resolved).toBe("\0" + VIRTUAL_MANIFEST_ID);
+        // No manifest file exists at this path — resolveId/load still answer
+        // (not "undefined", which is what a dev-disabled plugin would do and
+        // is exactly the bug this test guards against) with the clean
+        // empty-manifest fallback.
+        const loaded = (plugin.load as (id: string) => string | undefined)("\0" + VIRTUAL_MANIFEST_ID);
+        expect(loaded).toContain("images: {}");
+    });
+
+    it("skips the buildStart optimizer scan during dev (command: 'serve') unless dev: true is passed", async () => {
+        const plugin = imageOptimizerPlugin({ dirs: [] });
+        const configResolved = plugin.configResolved as (config: { command: string }) => void;
+        configResolved({ command: "serve" });
+
+        const mockContext = { info: vi.fn() };
+        const buildStart = plugin.buildStart as (this: typeof mockContext) => Promise<void>;
+        await buildStart.call(mockContext);
+        expect(mockContext.info).not.toHaveBeenCalled();
+    });
+
+    it("runs the buildStart optimizer scan during dev when dev: true is passed explicitly", async () => {
+        const plugin = imageOptimizerPlugin({ dirs: [], dev: true });
+        const configResolved = plugin.configResolved as (config: { command: string }) => void;
+        configResolved({ command: "serve" });
+
+        const mockContext = { info: vi.fn() };
+        const buildStart = plugin.buildStart as (this: typeof mockContext) => Promise<void>;
+        await buildStart.call(mockContext);
+        expect(mockContext.info).toHaveBeenCalled();
+    });
+
+    it("runs the buildStart optimizer scan during a real build (command: 'build') regardless of dev option", async () => {
+        const plugin = imageOptimizerPlugin({ dirs: [] });
+        const configResolved = plugin.configResolved as (config: { command: string }) => void;
+        configResolved({ command: "build" });
+
+        const mockContext = { info: vi.fn() };
+        const buildStart = plugin.buildStart as (this: typeof mockContext) => Promise<void>;
+        await buildStart.call(mockContext);
+        expect(mockContext.info).toHaveBeenCalled();
     });
 
     it("resolves virtual image shim ID and checks getShimPath with .js", async () => {
