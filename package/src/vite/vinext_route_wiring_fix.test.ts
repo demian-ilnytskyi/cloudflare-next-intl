@@ -1122,3 +1122,104 @@ if (!isPrefetchLoadingShell && treePosition < routeSegments.length) {
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("cleared its stale Vite optimizeDeps cache"));
     });
 });
+
+describe("future upstream vinext compatibility and safety guards", () => {
+    it("does not patch getPrefetchLoadingEntry if future upstream changed the implementation", () => {
+        const futureUpstreamWiring = `
+function getPrefetchLoadingEntry(route) {
+    const custom = resolveCustomRouteLoading(route);
+    return custom ?? null;
+}
+if (!isPrefetchLoadingShell && treePosition < routeSegments.length && !routeLoadingComponent) {
+}
+`;
+        expect(isAppPageRouteWiringAlreadyFixed(futureUpstreamWiring)).toBe(true);
+        expect(patchAppPageRouteWiring(futureUpstreamWiring)).toBe(futureUpstreamWiring);
+    });
+
+    it("does not patch route matching if future upstream changed the implementation or parameters", () => {
+        const futureUpstreamRouteMatching = `
+function matchRouteWithTrie(url, routes, cache, context) {
+    const trie = getOrBuildTrie(cache, routes);
+    return context.customMatcher(trie, url);
+}
+function matchRouteWithTrieRawPathname(url, routes, cache, context) {
+    return context.customMatcher(getOrBuildTrie(cache, routes), url);
+}
+`;
+        expect(patchRouteMatching(futureUpstreamRouteMatching)).toBe(futureUpstreamRouteMatching);
+    });
+
+    it("recognizes upstream route matching as already fixed when upstream adds :locale support", () => {
+        const upstreamFixedRouteMatching = `
+function matchRouteWithTrie(url, routes, cache) {
+    const hasLeadingLocaleParam = routes.some((r) => r.patternParts?.[0] === ":locale");
+    const activeLocale = getActiveRouteLocale();
+    return trieMatch(trie, urlParts);
+}
+`;
+        expect(isRouteMatchingAlreadyFixed(upstreamFixedRouteMatching)).toBe(true);
+        expect(patchRouteMatching(upstreamFixedRouteMatching)).toBe(upstreamFixedRouteMatching);
+    });
+
+    it("does not patch optimistic routing if future upstream changed the implementation", () => {
+        const futureUpstreamOptimistic = `
+function matchOptimisticRouteManifestRoute(options) {
+    return options.router.match(options.href);
+}
+function resolveOptimisticNavigationParams(options) {
+    return options.router.resolveParams(options);
+}
+`;
+        expect(patchOptimisticRouting(futureUpstreamOptimistic)).toBe(futureUpstreamOptimistic);
+    });
+
+    it("recognizes upstream optimistic routing as already fixed when upstream handles :locale", () => {
+        const upstreamFixedOptimistic = `
+function matchOptimisticRouteManifestRoute(options) {
+    const hasLeadingLocaleParam = options.routeManifest.has(":locale");
+    const activeLocale = options.locale;
+}
+function resolveOptimisticNavigationParams(options) {
+    const isLocale = options.match.route.patternParts?.[0] === ":locale";
+}
+`;
+        expect(isOptimisticRoutingAlreadyFixed(upstreamFixedOptimistic)).toBe(true);
+        expect(patchOptimisticRouting(upstreamFixedOptimistic)).toBe(upstreamFixedOptimistic);
+    });
+
+    it("does not patch prefetch learning if future upstream changed the function or removed the buggy skip", () => {
+        const futureUpstreamBrowserEntry = `
+async function learnOptimisticRouteTemplatesFromPrefetchCache(options) {
+    for (const [key, promise] of options.inFlightFetches) {
+        await promise;
+    }
+}
+await learnOptimisticRouteTemplatesFromPrefetchCache({
+    interceptionContext: requestInterceptionContext,
+    mountedSlotsHeader,
+    routeManifest
+});
+`;
+        expect(isPrefetchLearningAlreadyFixed(futureUpstreamBrowserEntry)).toBe(true);
+        expect(patchPrefetchLearning(futureUpstreamBrowserEntry)).toBe(futureUpstreamBrowserEntry);
+    });
+
+    it("plugin transform hook returns undefined when future upstream files cannot be safely patched", () => {
+        const plugin = vinextRouteWiringFixPlugin();
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string; map: null } | undefined;
+
+        const futureWiring = "function getPrefetchLoadingEntry(route) { return null; }";
+        expect(transformHook.call({}, futureWiring, "/node_modules/vinext/dist/server/app-page-route-wiring.js")).toBeUndefined();
+
+        const futureMatching = "function matchRouteWithTrie() { return 1; }";
+        expect(transformHook.call({}, futureMatching, "/node_modules/vinext/dist/routing/route-matching.js")).toBeUndefined();
+
+        const futureOptimistic = "function matchOptimisticRouteManifestRoute() { return 2; }";
+        expect(transformHook.call({}, futureOptimistic, "/node_modules/vinext/dist/server/app-optimistic-routing.js")).toBeUndefined();
+
+        const futurePrefetch = "async function learnOptimisticRouteTemplatesFromPrefetchCache() { return 3; }";
+        expect(transformHook.call({}, futurePrefetch, "/node_modules/vinext/dist/server/app-browser-entry.js")).toBeUndefined();
+    });
+});
+

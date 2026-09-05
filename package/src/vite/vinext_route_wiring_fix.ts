@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 
 const PREFETCH_LOADING_FN_RE =
-    /function\s+getPrefetchLoadingEntry\s*\(\s*route\s*\)\s*\{[\s\S]*?return\s+getDefaultExport\s*\(\s*route\.loading\s*\)\s*\?[\s\S]*?:\s*null\s*;\s*\}/;
+    /function\s+getPrefetchLoadingEntry\s*\(\s*route\s*\)\s*\{[\s\S]*?firstNestedEntry[\s\S]*?route\.loadings[\s\S]*?return\s+getDefaultExport\s*\(\s*route\.loading\s*\)\s*\?[\s\S]*?:\s*null\s*;\s*\}/;
 
 const FIXED_PREFETCH_LOADING_FN = `function getPrefetchLoadingEntry(route) {
 	let rootEntry = null;
@@ -42,7 +42,9 @@ const FIXED_ROUTE_LOADING_GUARD =
  * If already fixed, the plugin will make no modifications.
  */
 export function isAppPageRouteWiringAlreadyFixed(code: string): boolean {
-    const hasBuggyPrefetch = code.includes("firstNestedEntry") && PREFETCH_LOADING_FN_RE.test(code);
+    const hasBuggyPrefetch =
+        code.includes("firstNestedEntry") &&
+        PREFETCH_LOADING_FN_RE.test(code);
     const hasBuggySuspense = !code.includes("!routeLoadingComponent") && ROUTE_LOADING_GUARD_RE.test(code);
     return !hasBuggyPrefetch && !hasBuggySuspense;
 }
@@ -63,8 +65,11 @@ export function patchAppPageRouteWiring(code: string): string {
 
     let result = code;
 
-    const hasBuggyPrefetch = code.includes("firstNestedEntry") && PREFETCH_LOADING_FN_RE.test(code);
-    if (hasBuggyPrefetch && !result.includes("deepestNestedEntry")) {
+    const hasBuggyPrefetch =
+        code.includes("firstNestedEntry") &&
+        !result.includes("deepestNestedEntry") &&
+        PREFETCH_LOADING_FN_RE.test(result);
+    if (hasBuggyPrefetch) {
         result = result.replace(PREFETCH_LOADING_FN_RE, FIXED_PREFETCH_LOADING_FN);
     }
 
@@ -82,16 +87,25 @@ export function isRouteMatchingFile(id: string): boolean {
 }
 
 export function isRouteMatchingAlreadyFixed(code: string): boolean {
-    return code.includes("hasLeadingLocaleParam");
+    if (code.includes("hasLeadingLocaleParam")) {
+        return true;
+    }
+    const hasUpstreamLocaleMatch =
+        code.includes(":locale") &&
+        (code.includes("activeLocale") || code.includes("getActiveRouteLocale") || code.includes("matchWithLocale") || code.includes("localeMatch")) &&
+        /function\s+matchRouteWithTrie[\s\S]*?:locale/.test(code);
+    return Boolean(hasUpstreamLocaleMatch);
 }
 
-const MATCH_ROUTE_WITH_TRIE_RE =
-    /function\s+matchRouteWithTrie\s*\(\s*url\s*,\s*routes\s*,\s*cache\s*\)\s*\{[\s\S]*?return\s+trieMatch\([\s\S]*?\);\s*\}/;
-
-const FIXED_MATCH_ROUTE_WITH_TRIE = `function getActiveRouteLocale() {
+const GET_ACTIVE_ROUTE_LOCALE_FN = `function getActiveRouteLocale() {
 	return (typeof document !== "undefined" && (document.documentElement?.lang || document.cookie.match(/__user_locale_key__=([^;]+)/)?.[1])) || (typeof window !== "undefined" && window.__VINEXT_LOCALE__) || "en";
 }
-function matchRouteWithTrie(url, routes, cache) {
+`;
+
+const MATCH_ROUTE_WITH_TRIE_RE =
+    /function\s+matchRouteWithTrie\s*\(\s*url\s*,\s*routes\s*,\s*cache\s*\)\s*\{[\s\S]*?normalizePathnameForRouteMatch[\s\S]*?getOrBuildTrie\(\s*cache\s*,\s*routes\s*\)\s*;?\s*\n\s*return\s+trieMatch\(\s*trie\s*,\s*urlParts\s*\)\s*;?\s*\}/;
+
+const FIXED_MATCH_ROUTE_WITH_TRIE_BODY = `function matchRouteWithTrie(url, routes, cache) {
 	const pathname = url.split("?")[0];
 	let normalizedUrl = pathname === "/" ? "/" : pathname.replace(/\\/$/, "");
 	normalizedUrl = normalizePathnameForRouteMatch(normalizedUrl);
@@ -109,7 +123,7 @@ function matchRouteWithTrie(url, routes, cache) {
 }`;
 
 const MATCH_ROUTE_WITH_TRIE_RAW_RE =
-    /function\s+matchRouteWithTrieRawPathname\s*\(\s*url\s*,\s*routes\s*,\s*cache\s*\)\s*\{[\s\S]*?return\s+trieMatch\([\s\S]*?\);\s*\}/;
+    /function\s+matchRouteWithTrieRawPathname\s*\(\s*url\s*,\s*routes\s*,\s*cache\s*\)\s*\{[\s\S]*?urlParts\s*=[\s\S]*?return\s+trieMatch\(\s*(?:trie|getOrBuildTrie\(\s*cache\s*,\s*routes\s*\))\s*,\s*urlParts\s*\)\s*;?\s*\}/;
 
 const FIXED_MATCH_ROUTE_WITH_TRIE_RAW = `function matchRouteWithTrieRawPathname(url, routes, cache) {
 	const pathname = url.split("?")[0];
@@ -132,11 +146,17 @@ export function patchRouteMatching(code: string): string {
     }
 
     let result = code;
-    if (MATCH_ROUTE_WITH_TRIE_RE.test(result)) {
-        result = result.replace(MATCH_ROUTE_WITH_TRIE_RE, FIXED_MATCH_ROUTE_WITH_TRIE);
+    if (!result.includes("hasLeadingLocaleParam") && MATCH_ROUTE_WITH_TRIE_RE.test(result)) {
+        const replacement = result.includes("function getActiveRouteLocale")
+            ? FIXED_MATCH_ROUTE_WITH_TRIE_BODY
+            : `${GET_ACTIVE_ROUTE_LOCALE_FN}${FIXED_MATCH_ROUTE_WITH_TRIE_BODY}`;
+        result = result.replace(MATCH_ROUTE_WITH_TRIE_RE, replacement);
     }
-    if (MATCH_ROUTE_WITH_TRIE_RAW_RE.test(result)) {
-        result = result.replace(MATCH_ROUTE_WITH_TRIE_RAW_RE, FIXED_MATCH_ROUTE_WITH_TRIE_RAW);
+    if (!result.includes("hasLeadingLocaleParam") && MATCH_ROUTE_WITH_TRIE_RAW_RE.test(result)) {
+        const replacement = result.includes("function getActiveRouteLocale")
+            ? FIXED_MATCH_ROUTE_WITH_TRIE_RAW
+            : `${GET_ACTIVE_ROUTE_LOCALE_FN}${FIXED_MATCH_ROUTE_WITH_TRIE_RAW}`;
+        result = result.replace(MATCH_ROUTE_WITH_TRIE_RAW_RE, replacement);
     }
     return result;
 }
@@ -147,19 +167,26 @@ export function isOptimisticRoutingFile(id: string): boolean {
 }
 
 export function isOptimisticRoutingAlreadyFixed(code: string): boolean {
-    const hasLocalePrefixFirst = code.includes("hasLeadingLocaleParam") &&
+    const hasLocalePrefixFirst =
+        code.includes("hasLeadingLocaleParam") &&
         code.indexOf("hasLeadingLocaleParam") < code.indexOf("const match = matchNode(trie, urlParts.normalized");
     const hasRawPartsFix = code.includes("options.rawUrlParts[0] !== options.match.params.locale");
-    return hasLocalePrefixFirst && hasRawPartsFix;
+    if (hasLocalePrefixFirst && hasRawPartsFix) {
+        return true;
+    }
+    const hasUpstreamLocaleMatch =
+        code.includes(":locale") &&
+        (code.includes("activeLocale") || code.includes("getActiveRouteLocale") || code.includes("localeMatch")) &&
+        /function\s+matchOptimisticRouteManifestRoute[\s\S]*?:locale/.test(code);
+    const hasUpstreamRawPartsFix =
+        /function\s+resolveOptimisticNavigationParams[\s\S]*?:locale/.test(code);
+    return Boolean(hasUpstreamLocaleMatch && hasUpstreamRawPartsFix);
 }
 
 const MATCH_OPTIMISTIC_ROUTE_RE =
-    /function\s+matchOptimisticRouteManifestRoute\s*\(\s*options\s*\)\s*\{[\s\S]*?getRouteTrie\([\s\S]*?\)[\s\S]*?\n\}/;
+    /function\s+matchOptimisticRouteManifestRoute\s*\(\s*options\s*\)\s*\{[\s\S]*?hrefToRouteParts\(\s*options\.href\s*,\s*options\.basePath\s*\)[\s\S]*?matchNode\([\s\S]*?urlParts\.normalized\s*,\s*0\s*,\s*\[\]\)[\s\S]*?decodeMatchedParams\(\s*match\.params\s*\)[\s\S]*?\n\}/;
 
-const FIXED_MATCH_OPTIMISTIC_ROUTE = `function getActiveRouteLocale() {
-	return (typeof document !== "undefined" && (document.documentElement?.lang || document.cookie.match(/__user_locale_key__=([^;]+)/)?.[1])) || (typeof window !== "undefined" && window.__VINEXT_LOCALE__) || "en";
-}
-function matchOptimisticRouteManifestRoute(options) {
+const FIXED_MATCH_OPTIMISTIC_ROUTE_BODY = `function matchOptimisticRouteManifestRoute(options) {
 	const urlParts = hrefToRouteParts(options.href, options.basePath);
 	if (urlParts === null) return null;
 	const trie = getRouteTrie(options.routeManifest);
@@ -198,7 +225,10 @@ export function patchOptimisticRouting(code: string): string {
 
     let result = code;
     if (!result.includes("hasLeadingLocaleParam") && MATCH_OPTIMISTIC_ROUTE_RE.test(result)) {
-        result = result.replace(MATCH_OPTIMISTIC_ROUTE_RE, FIXED_MATCH_OPTIMISTIC_ROUTE);
+        const replacement = result.includes("function getActiveRouteLocale")
+            ? FIXED_MATCH_OPTIMISTIC_ROUTE_BODY
+            : `${GET_ACTIVE_ROUTE_LOCALE_FN}${FIXED_MATCH_OPTIMISTIC_ROUTE_BODY}`;
+        result = result.replace(MATCH_OPTIMISTIC_ROUTE_RE, replacement);
     }
     if (!result.includes("options.rawUrlParts[0] !== options.match.params.locale") && RESOLVE_OPTIMISTIC_NAV_PARAMS_RE.test(result)) {
         result = result.replace(RESOLVE_OPTIMISTIC_NAV_PARAMS_RE, FIXED_RESOLVE_OPTIMISTIC_NAV_PARAMS);
@@ -214,11 +244,19 @@ export function isPrefetchLearningFile(id: string): boolean {
 export function isPrefetchLearningAlreadyFixed(code: string): boolean {
     const hasFixedFunction = code.includes("stripRsc(parsePrefetchCacheKey(cacheKey).rscUrl)") && code.includes("hasOptimisticTemplate");
     const hasFixedCallSite = code.includes("targetHref: currentHref,") && code.includes("targetRscUrl: rscUrl,") && !LEARN_TEMPLATES_CALL_RE.test(code);
-    return hasFixedFunction && hasFixedCallSite;
+    if (hasFixedFunction && hasFixedCallSite) {
+        return true;
+    }
+    // Upstream fixed / refactored: if the function exists but does not have the buggy unsettled skip
+    const hasBuggySkip = /if\s*\(\s*!isSettledPrefetchCacheEntry\(\s*entry\s*\)\s*\)\s*continue\s*;/.test(code);
+    if (!hasBuggySkip && code.includes("learnOptimisticRouteTemplatesFromPrefetchCache")) {
+        return true;
+    }
+    return false;
 }
 
 const LEARN_TEMPLATES_FN_RE =
-    /async\s+function\s+learnOptimisticRouteTemplatesFromPrefetchCache\s*\(\s*options\s*\)\s*\{[\s\S]*?await\s+Promise\.allSettled\(\s*learning\s*\);\s*\}/;
+    /async\s+function\s+learnOptimisticRouteTemplatesFromPrefetchCache\s*\(\s*options\s*\)\s*\{[\s\S]*?getPrefetchCache\(\)[\s\S]*?if\s*\(\s*!isSettledPrefetchCacheEntry\(\s*entry\s*\)\s*\)\s*continue\s*;[\s\S]*?learnOptimisticRouteTemplateFromPrefetch[\s\S]*?await\s+Promise\.allSettled\(\s*learning\s*\)\s*;?\s*\}/;
 
 const FIXED_LEARN_TEMPLATES_FN = `async function learnOptimisticRouteTemplatesFromPrefetchCache(options) {
 	if (options.routeManifest === null) return;
@@ -315,10 +353,18 @@ export function patchPrefetchLearning(code: string): string {
     }
 
     let result = code;
-    if (!result.includes("hasOptimisticTemplate") && LEARN_TEMPLATES_FN_RE.test(result)) {
+    const hasBuggyFn =
+        !result.includes("hasOptimisticTemplate") &&
+        !result.includes("isPendingNavigationTarget") &&
+        LEARN_TEMPLATES_FN_RE.test(result);
+    const hasFixedFunction =
+        result.includes("stripRsc(parsePrefetchCacheKey(cacheKey).rscUrl)") &&
+        result.includes("hasOptimisticTemplate");
+
+    if (hasBuggyFn) {
         result = result.replace(LEARN_TEMPLATES_FN_RE, FIXED_LEARN_TEMPLATES_FN);
     }
-    if (LEARN_TEMPLATES_CALL_RE.test(result)) {
+    if ((hasBuggyFn || hasFixedFunction) && LEARN_TEMPLATES_CALL_RE.test(result)) {
         result = result.replace(LEARN_TEMPLATES_CALL_RE, FIXED_LEARN_TEMPLATES_CALL);
     }
     return result;
@@ -527,6 +573,9 @@ export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOp
                     return;
                 }
                 const patched = patchAppPageRouteWiring(code);
+                if (patched === code) {
+                    return;
+                }
                 return {
                     code: patched,
                     map: null,
@@ -537,6 +586,9 @@ export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOp
                     return;
                 }
                 const patched = patchRouteMatching(code);
+                if (patched === code) {
+                    return;
+                }
                 return {
                     code: patched,
                     map: null,
@@ -547,6 +599,9 @@ export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOp
                     return;
                 }
                 const patched = patchPrefetchLearning(code);
+                if (patched === code) {
+                    return;
+                }
                 return {
                     code: patched,
                     map: null,
@@ -557,6 +612,9 @@ export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOp
                     return;
                 }
                 const patched = patchOptimisticRouting(code);
+                if (patched === code) {
+                    return;
+                }
                 return {
                     code: patched,
                     map: null,
