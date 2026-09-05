@@ -140,10 +140,52 @@ describe('addParamsPropToExistingDestructure', () => {
         expect(addParamsPropToExistingDestructure(source, 'locale')).toBe(source);
     });
 
+    it('returns source unchanged when there is no default-exported function at all (arrow function export)', () => {
+        const source = `const Page = () => null;\nexport default Page;`;
+        expect(addParamsPropToExistingDestructure(source, 'locale')).toBe(source);
+    });
+
+    it('returns source unchanged when the source ends mid-whitespace after the open paren', () => {
+        const source = `export default function Page(   `;
+        expect(addParamsPropToExistingDestructure(source, 'locale')).toBe(source);
+    });
+
+    it('returns source unchanged when the destructured keys brace never closes (unbalanced source)', () => {
+        const source = `export default async function Page({ test: { nested `;
+        expect(addParamsPropToExistingDestructure(source, 'locale')).toBe(source);
+    });
+
     it('respects a custom localeParam name', () => {
         const source = `export default function Page({ test }: { test: string }) {}`;
         const result = addParamsPropToExistingDestructure(source, 'lang');
         expect(result).toContain('params: Promise<{ lang: Language }>');
+    });
+
+    it('returns source unchanged when the destructured keys are not followed by a type annotation at all', () => {
+        const source = `export default function Page({ test }) {}`;
+        expect(addParamsPropToExistingDestructure(source, 'locale')).toBe(source);
+    });
+
+    it('returns source unchanged when the source ends right after the destructured keys (no colon to find)', () => {
+        const source = `export default function Page({ test } `;
+        expect(addParamsPropToExistingDestructure(source, 'locale')).toBe(source);
+    });
+
+    it('returns source unchanged when the type annotation is a wrapped type (Readonly<{...}>), not a bare inline object', () => {
+        const source = `export default function Page({ test }: Readonly<{ test: string }>) {}`;
+        expect(addParamsPropToExistingDestructure(source, 'locale')).toBe(source);
+    });
+
+    it('returns source unchanged when the inline type brace never closes (unbalanced source)', () => {
+        const source = `export default function Page({ test }: { test: { nested `;
+        expect(addParamsPropToExistingDestructure(source, 'locale')).toBe(source);
+    });
+
+    it('does not add a duplicate comma when the destructured keys already end with a trailing comma', () => {
+        const source = `export default function Page({ test, }: { test: string; }) {}`;
+        const result = addParamsPropToExistingDestructure(source, 'locale');
+        expect(result).toMatch(/\{ test, params \}/);
+        expect(result).not.toMatch(/,\s*,/);
     });
 });
 

@@ -123,4 +123,39 @@ describe('detectLocaleParams', () => {
         const source = `export default function Page() {\n    return null;\n}`;
         expect(detectLocaleParams(source, 'locale').hasDestructuredObjectWithoutParams).toBe(false);
     });
+
+    it('hasDestructuredObjectWithoutParams is false when the destructured keys brace never closes (unbalanced source)', () => {
+        const source = `export default async function Page({ test: { nested `;
+        expect(detectLocaleParams(source, 'locale').hasDestructuredObjectWithoutParams).toBe(false);
+    });
+
+    it('hasDestructuredObjectWithoutParams is false when there is no default-exported function at all (arrow function export)', () => {
+        const source = `const Page = () => null;\nexport default Page;`;
+        expect(detectLocaleParams(source, 'locale').hasDestructuredObjectWithoutParams).toBe(false);
+    });
+
+    it('hasDestructuredObjectWithoutParams is false when the source ends right after the open paren (no keys brace to find)', () => {
+        const source = `export default function Page(`;
+        expect(detectLocaleParams(source, 'locale').hasDestructuredObjectWithoutParams).toBe(false);
+    });
+
+    it('hasDestructuredObjectWithoutParams is false when the source ends mid-whitespace after the open paren', () => {
+        const source = `export default function Page(   `;
+        expect(detectLocaleParams(source, 'locale').hasDestructuredObjectWithoutParams).toBe(false);
+    });
+
+    it('hasDestructuredObjectWithoutParams is false when the source ends right after the destructured keys (no type annotation to find)', () => {
+        const source = `export default function Page({ test } `;
+        expect(detectLocaleParams(source, 'locale').hasDestructuredObjectWithoutParams).toBe(false);
+    });
+
+    it('hasDestructuredObjectWithoutParams is false when the inline type brace never closes (unbalanced source)', () => {
+        const source = `export default function Page({ test }: { test: { nested `;
+        expect(detectLocaleParams(source, 'locale').hasDestructuredObjectWithoutParams).toBe(false);
+    });
+
+    it('does not treat an array destructure as a conflicting locale binding', () => {
+        const source = `export default async function Page({ params }: { params: Promise<{ locale: Language }> }) {\n    const [locale] = ["en"];\n}`;
+        expect(detectLocaleParams(source, 'locale').hasConflictingLocaleBinding).toBe(false);
+    });
 });

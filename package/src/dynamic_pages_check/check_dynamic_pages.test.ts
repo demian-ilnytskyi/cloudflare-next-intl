@@ -357,6 +357,17 @@ describe('checkDynamicPages', () => {
         logSpy.mockRestore();
     });
 
+    it('verbose: true falls back to the full path as the file kind when the basename has no recognized extension', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const { io } = makeIo({
+            '/app/weird-file': 'export default function Page() {}',
+        });
+        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', verbose: true }, io);
+        const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+        expect(printed).toContain('/app/weird-file');
+        logSpy.mockRestore();
+    });
+
     it('verbose: true glyphs already-declared "auto"/"error" dynamic exports', async () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         const { io } = makeIo({

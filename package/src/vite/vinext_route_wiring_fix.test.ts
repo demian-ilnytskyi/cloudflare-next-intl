@@ -181,6 +181,42 @@ if (!isPrefetchLoadingShell && treePosition < routeSegments.length && !routeLoad
         expect(res).toBeUndefined();
     });
 
+    it("returns undefined when not already fixed but the patch is a no-op (deepestNestedEntry already present elsewhere)", () => {
+        const plugin = vinextRouteWiringFixPlugin();
+        const transform = plugin.transform as (code: string, id: string) => { code: string } | undefined;
+
+        const noOpCode = `
+function getPrefetchLoadingEntry(route) {
+	let rootEntry = null;
+	let firstNestedEntry = null;
+	for (const [index, loadingModule] of (route.loadings ?? []).entries()) {
+		if (!getDefaultExport(loadingModule)) continue;
+		const treePosition = route.loadingTreePositions?.[index];
+		if (treePosition === void 0) continue;
+		if (treePosition === 0) rootEntry ??= {
+			loadingModule,
+			treePosition
+		};
+		else if (firstNestedEntry === null || treePosition < firstNestedEntry.treePosition) firstNestedEntry = {
+			loadingModule,
+			treePosition
+		};
+	}
+	if (firstNestedEntry) return firstNestedEntry;
+	if (rootEntry) return rootEntry;
+	return getDefaultExport(route.loading) ? {
+		loadingModule: route.loading,
+		treePosition: route.routeSegments?.length ?? 0
+	} : null;
+}
+// deepestNestedEntry already exists elsewhere in this bundle
+const somewhereElseMarker = "deepestNestedEntry";
+`;
+        expect(isAppPageRouteWiringAlreadyFixed(noOpCode)).toBe(false);
+        const res = transform(noOpCode, "/node_modules/vinext/dist/server/app-page-route-wiring.js");
+        expect(res).toBeUndefined();
+    });
+
 
     it("matches .ts and .tsx file variants", () => {
         expect(isAppPageRouteWiringFile("/dir/app-page-route-wiring.tsx")).toBe(true);
@@ -436,6 +472,50 @@ describe("isRouteMatchingAlreadyFixed", () => {
     it("returns true when hasLeadingLocaleParam is present", () => {
         expect(isRouteMatchingAlreadyFixed("const hasLeadingLocaleParam = true;")).toBe(true);
     });
+
+    it("returns false when :locale and an OR term are present but matchRouteWithTrie regex does not match", () => {
+        const code = `
+const activeLocale = ":locale";
+function matchRouteWithTrie(url, routes, cache) {
+    return trieMatch(trie, urlParts);
+}
+`;
+        expect(isRouteMatchingAlreadyFixed(code)).toBe(false);
+    });
+
+    it("recognizes each individual upstream locale-match marker term (activeLocale, getActiveRouteLocale, matchWithLocale, localeMatch)", () => {
+        const upstreamWithActiveLocale = `
+function matchRouteWithTrie(url, routes, cache) {
+    activeLocale;
+    return trieMatch(trie, ":locale");
+}
+`;
+        expect(isRouteMatchingAlreadyFixed(upstreamWithActiveLocale)).toBe(true);
+
+        const upstreamWithGetActiveRouteLocale = `
+function matchRouteWithTrie(url, routes, cache) {
+    getActiveRouteLocale();
+    return trieMatch(trie, ":locale");
+}
+`;
+        expect(isRouteMatchingAlreadyFixed(upstreamWithGetActiveRouteLocale)).toBe(true);
+
+        const upstreamWithMatchWithLocale = `
+function matchRouteWithTrie(url, routes, cache) {
+    matchWithLocale;
+    return trieMatch(trie, ":locale");
+}
+`;
+        expect(isRouteMatchingAlreadyFixed(upstreamWithMatchWithLocale)).toBe(true);
+
+        const upstreamWithLocaleMatch = `
+function matchRouteWithTrie(url, routes, cache) {
+    localeMatch;
+    return trieMatch(trie, ":locale");
+}
+`;
+        expect(isRouteMatchingAlreadyFixed(upstreamWithLocaleMatch)).toBe(true);
+    });
 });
 
 describe("patchRouteMatching", () => {
@@ -461,6 +541,56 @@ function matchRouteWithTrieRawPathname(url, routes, cache) {
 
         // Idempotent
         expect(patchRouteMatching(patched)).toBe(patched);
+    });
+
+    it("reuses an existing getActiveRouteLocale when patching only matchRouteWithTrie", () => {
+        const buggy = `
+function getActiveRouteLocale() {
+    return "en";
+}
+function matchRouteWithTrie(url, routes, cache) {
+	const pathname = url.split("?")[0];
+	let normalizedUrl = pathname === "/" ? "/" : pathname.replace(/\\/$/, "");
+	normalizedUrl = normalizePathnameForRouteMatch(normalizedUrl);
+	const urlParts = normalizedUrl.split("/").filter(Boolean);
+	const trie = getOrBuildTrie(cache, routes);
+	return trieMatch(trie, urlParts);
+}
+`;
+        const patched = patchRouteMatching(buggy);
+        expect(patched).toContain("hasLeadingLocaleParam");
+        const getActiveRouteLocaleCount = (patched.match(/function getActiveRouteLocale\s*\(\s*\)/g) ?? []).length;
+        expect(getActiveRouteLocaleCount).toBe(1);
+    });
+
+    it("prepends a new getActiveRouteLocale when patching only matchRouteWithTrieRawPathname without one already present", () => {
+        const buggy = `
+function matchRouteWithTrieRawPathname(url, routes, cache) {
+	const pathname = url.split("?")[0];
+	const urlParts = (pathname === "/" ? "/" : pathname.replace(/\\/$/, "")).split("/").filter(Boolean);
+	return trieMatch(getOrBuildTrie(cache, routes), urlParts);
+}
+`;
+        const patched = patchRouteMatching(buggy);
+        expect(patched).toContain("hasLeadingLocaleParam");
+        expect(patched).toContain("function getActiveRouteLocale");
+    });
+
+    it("reuses an existing getActiveRouteLocale when patching only matchRouteWithTrieRawPathname", () => {
+        const buggy = `
+function getActiveRouteLocale() {
+    return "en";
+}
+function matchRouteWithTrieRawPathname(url, routes, cache) {
+	const pathname = url.split("?")[0];
+	const urlParts = (pathname === "/" ? "/" : pathname.replace(/\\/$/, "")).split("/").filter(Boolean);
+	return trieMatch(getOrBuildTrie(cache, routes), urlParts);
+}
+`;
+        const patched = patchRouteMatching(buggy);
+        expect(patched).toContain("hasLeadingLocaleParam");
+        const getActiveRouteLocaleCount = (patched.match(/function getActiveRouteLocale\s*\(\s*\)/g) ?? []).length;
+        expect(getActiveRouteLocaleCount).toBe(1);
     });
 });
 
@@ -627,6 +757,29 @@ function resolveOptimisticNavigationParams(options) {
         expect(secondRun).toBe(firstRun);
 
         const getActiveRouteLocaleCount = (secondRun.match(/function getActiveRouteLocale\s*\(\s*\)/g) ?? []).length;
+        expect(getActiveRouteLocaleCount).toBe(1);
+    });
+
+    it("reuses an existing getActiveRouteLocale when patching matchOptimisticRouteManifestRoute", () => {
+        const buggy = `
+function getActiveRouteLocale() {
+    return "en";
+}
+function matchOptimisticRouteManifestRoute(options) {
+	const urlParts = hrefToRouteParts(options.href, options.basePath);
+	if (urlParts === null) return null;
+	const trie = getRouteTrie(options.routeManifest);
+	const match = matchNode(trie, urlParts.normalized, 0, []);
+	if (match !== null) {
+		decodeMatchedParams(match.params);
+		return match;
+	}
+	return null;
+}
+`;
+        const patched = patchOptimisticRouting(buggy);
+        expect(patched).toContain("hasLeadingLocaleParam");
+        const getActiveRouteLocaleCount = (patched.match(/function getActiveRouteLocale\s*\(\s*\)/g) ?? []).length;
         expect(getActiveRouteLocaleCount).toBe(1);
     });
 });
@@ -807,6 +960,28 @@ await learnOptimisticRouteTemplatesFromPrefetchCache({
         const unrelated = "export const untouched = true;";
         expect(patchPrefetchLearning(unrelated)).toBe(unrelated);
     });
+
+    it("patches the call site when the function is already fixed but a leftover buggy-skip marker elsewhere keeps isPrefetchLearningAlreadyFixed false", () => {
+        const fullyPatched = patchPrefetchLearning(BUGGY_BROWSER_ENTRY);
+        const fixedFnBuggyCallSite = fullyPatched
+            .replace(
+                /await\s+learnOptimisticRouteTemplatesFromPrefetchCache\(\{[\s\S]*?\}\);/,
+                `await learnOptimisticRouteTemplatesFromPrefetchCache({
+	interceptionContext: requestInterceptionContext,
+	mountedSlotsHeader,
+	routeManifest
+});`
+            )
+            .concat('\n// leftover: if (!isSettledPrefetchCacheEntry(entry)) continue;\n');
+
+        expect(isPrefetchLearningAlreadyFixed(fixedFnBuggyCallSite)).toBe(false);
+        expect(fixedFnBuggyCallSite).toContain("hasOptimisticTemplate");
+        expect(fixedFnBuggyCallSite).not.toContain("targetRscUrl: rscUrl,");
+
+        const patched = patchPrefetchLearning(fixedFnBuggyCallSite);
+        expect(patched).toContain("targetRscUrl: rscUrl,");
+        expect(patched).toContain("targetHref: currentHref,");
+    });
 });
 
 describe("vinextRouteWiringFixPlugin with prefetch learning", () => {
@@ -826,6 +1001,16 @@ describe("vinextRouteWiringFixPlugin with prefetch learning", () => {
         const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string; map: null } | undefined;
 
         expect(transformHook.call({}, BUGGY_BROWSER_ENTRY, "/node_modules/vinext/dist/server/app-browser-entry.js")).toBeUndefined();
+    });
+
+    it("returns undefined when not already fixed but the patch is a no-op (regex does not match)", () => {
+        const plugin = vinextRouteWiringFixPlugin();
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string; map: null } | undefined;
+
+        const noOpCode = "export const foo = 42;";
+        expect(isPrefetchLearningAlreadyFixed(noOpCode)).toBe(false);
+        const res = transformHook.call({}, noOpCode, "/node_modules/vinext/dist/server/app-browser-entry.js");
+        expect(res).toBeUndefined();
     });
 });
 

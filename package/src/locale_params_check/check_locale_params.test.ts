@@ -1,4 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { checkLocaleParams } from './check_locale_params.js';
 
 const APP_DIR = '/app';
@@ -62,6 +65,14 @@ describe('checkLocaleParams', () => {
         expect(result.match(/await params/g)?.length).toBe(1);
         expect(result).toContain('setLocale(locale);');
         expect(result).toContain('import { getTranslations, setLocale } from "cloudflare-next-intl";');
+    });
+
+    it('reports "needs-manual-edit" when insertLocaleParamsBody cannot find the safe insertion point it detected (comment-split destructure)', async () => {
+        const source = 'export default function Page({ params }) {\n  const { locale /* } */ } = await params;\n}';
+        const { io, written } = makeIo({ '/app/[locale]/page.tsx': source });
+        const reports = await checkLocaleParams({ appDir: APP_DIR, mode: 'fix' }, io);
+        expect(reports).toEqual([{ file: '/app/[locale]/page.tsx', action: 'needs-manual-edit' }]);
+        expect(written).toEqual({});
     });
 
     it('mode "report" says what it would do without writing anything', async () => {
@@ -204,6 +215,81 @@ describe('checkLocaleParams', () => {
         expect(printed).toContain('✓');
         expect(printed).toContain('Already resolves locale');
         logSpy.mockRestore();
+    });
+
+    it('verbose: true labels an added-locale-params (mode "fix") and a skipped file', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const { io } = makeIo({
+            '/app/[locale]/page.tsx': 'export default function Page() {}',
+            '/app/[locale]/skip-me/page.tsx': 'export default function Page() {}',
+        });
+        await checkLocaleParams({ appDir: APP_DIR, mode: 'fix', skip: ['/app/[locale]/skip-me/page.tsx'], verbose: true }, io);
+        const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+        expect(printed).toContain('Missing locale-param setup — added it');
+        expect(printed).toContain('Skipped — excluded from this scan');
+        logSpy.mockRestore();
+    });
+
+    it('verbose: true falls back to the full path as the file kind when the basename has no recognized extension', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const { io } = makeIo({ '/app/[locale]/weird-file': 'export default function Page() {}' });
+        await checkLocaleParams({ appDir: APP_DIR, mode: 'report', verbose: true }, io);
+        const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+        expect(printed).toContain('/app/[locale]/weird-file');
+        logSpy.mockRestore();
+    });
+
+    it('accepts verbose as an object with a custom pageLabel', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const { io } = makeIo({ '/app/[locale]/page.tsx': 'export default function Page() {}' });
+        await checkLocaleParams({ appDir: APP_DIR, mode: 'report', verbose: { pageLabel: () => 'Custom Label' } }, io);
+        const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+        expect(printed).toContain('Custom Label');
+        logSpy.mockRestore();
+    });
+
+    it('verbose: true prints a path relative to cwd (not the raw absolute path) for a file actually under cwd', async () => {
+        const dir = mkdtempSync(join(process.cwd(), 'cfni-check-locale-params-cwd-'));
+        try {
+            const localeDir = join(dir, '[locale]');
+            mkdirSync(localeDir, { recursive: true });
+            const pageFile = join(localeDir, 'page.tsx');
+            writeFileSync(pageFile, 'export default function Page() {\n    return null;\n}', 'utf8');
+            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+            await checkLocaleParams({ appDir: dir, mode: 'report', verbose: { pageLabel: 'path' } });
+
+            const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+            expect(printed).not.toContain(pageFile);
+            logSpy.mockRestore();
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    describe('with real fs (no io overrides)', () => {
+        let dir: string;
+        beforeEach(() => {
+            dir = mkdtempSync(join(tmpdir(), 'cfni-check-locale-params-'));
+        });
+        afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+        it('defaults to mode "report" and never writes real files when no mode is given, printing the default relative-path label', async () => {
+            const localeDir = join(dir, '[locale]');
+            mkdirSync(localeDir, { recursive: true });
+            const pageFile = join(localeDir, 'page.tsx');
+            const original = 'export default function Page() {\n    return null;\n}';
+            writeFileSync(pageFile, original, 'utf8');
+            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+            const reports = await checkLocaleParams({ appDir: dir, verbose: { pageLabel: 'path' } });
+
+            expect(reports).toEqual([{ file: pageFile, action: 'would-add-locale-params' }]);
+            expect(readFileSync(pageFile, 'utf8')).toBe(original);
+            const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+            expect(printed).toContain(pageFile);
+            logSpy.mockRestore();
+        });
     });
 
     it('verbose: true labels a needs-manual-edit file with its own reason', async () => {
