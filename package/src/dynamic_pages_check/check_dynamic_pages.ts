@@ -7,6 +7,7 @@ import { insertDynamicExport } from './insert_dynamic_export.js';
 import { syncErrorReportingAuthUser, type SyncErrorReportingAuthUserReport } from './sync_error_reporting_auth_user.js';
 import { deriveRoute, isApiRoute, makePageLabeler, type PageLabelStyle } from './derive_page_label.js';
 import type { AliasConfig } from './resolve_local_imports.js';
+import { isVinextAppPageRouteWiringSafeOnDisk } from '../vite/vinext_route_wiring_fix.js';
 
 /** `'off'` — don't scan at all (the global disable switch). `'report'` — scan and say what would change, write nothing. `'fix'` — scan and write the missing `export const dynamic` into each qualifying file. */
 export type DynamicPagesCheckMode = 'off' | 'report' | 'fix';
@@ -48,6 +49,19 @@ export interface CheckDynamicPagesOptions {
      * @default false
      */
     includeLoading?: boolean;
+    /**
+     * Defaults to `true`. When `includeLoading: true` and `target === 'vinext'`,
+     * verifies that Vinext's on-disk route wiring is confirmed safe before
+     * allowing `export const dynamic` injection into `loading.*` files.
+     * If the wiring fix failed, the vinext file changed, or cannot be verified,
+     * disables `includeLoading` with a clear warning so broken routes are not generated.
+     * @default true
+     */
+    verifyVinextRouteWiring?: boolean;
+    /**
+     * Project root directory (defaults to parent of `appDir`).
+     */
+    projectRoot?: string;
     /**
      * Defaults to `true`. When enabled, a page's dynamic-API signal search
      * also follows its local (relative/`aliases`-prefixed) imports —
@@ -133,6 +147,7 @@ export interface CheckDynamicPagesIo {
     readFile?: (file: string) => string;
     writeFile?: (file: string, contents: string) => void;
     isFile?: (file: string) => boolean;
+    isVinextRouteWiringSafe?: (root: string) => boolean;
 }
 
 const LEGEND = 'λ API   ƒ Dynamic (SSR)   ○ Static (SSG)   = Already declared   - Unclear (framework decides)   · Skipped';
@@ -258,7 +273,18 @@ export async function checkDynamicPages(
     if (mode === 'off') return [];
     const target = options.target ?? 'next';
     const resolveImports = options.resolveImports ?? true;
-    const includeLoading = options.includeLoading ?? false;
+    let includeLoading = options.includeLoading ?? false;
+    if (includeLoading && target === 'vinext' && options.verifyVinextRouteWiring !== false) {
+        const projectRoot = options.projectRoot ?? resolve(options.appDir, '..');
+        const checkSafe = io.isVinextRouteWiringSafe ?? isVinextAppPageRouteWiringSafeOnDisk;
+        if (!checkSafe(projectRoot)) {
+            console.warn(
+                '[cloudflare-next-intl] WARNING: Vinext route wiring fix is not verified on disk (vinext files may have changed, failed to patch, or patch is disabled). SSG was NOT added to loading.* files.',
+            );
+            includeLoading = false;
+        }
+    }
+
     if (includeLoading) {
         console.warn(
             '[cloudflare-next-intl] WARNING: includeLoading is enabled. Forcing SSG on loading.* files is dangerous and can break route rendering, streaming, or hydration.',

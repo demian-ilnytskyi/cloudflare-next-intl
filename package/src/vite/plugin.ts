@@ -109,6 +109,20 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
         );
     }
 
+    const enableRouteLoadingFixes = options.experimentalRouteLoadingFixes === true;
+
+    const shouldEnableVinextFix = options.vinextRouteWiringFix !== undefined
+        ? Boolean(options.vinextRouteWiringFix)
+        : enableRouteLoadingFixes;
+
+    if (shouldEnableVinextFix) {
+        plugins.push(
+            vinextRouteWiringFixPlugin(
+                typeof options.vinextRouteWiringFix === "object" ? options.vinextRouteWiringFix : {},
+            ),
+        );
+    }
+
     // autoLocaleParams runs BEFORE autoDynamicPages: it can insert a
     // `setLocale(locale)` call into a page/layout/loading file that
     // previously had none, which removes the "cookie-derived locale" signal
@@ -127,8 +141,6 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
             )
         );
     }
-
-    const enableRouteLoadingFixes = options.experimentalRouteLoadingFixes === true;
 
     if (options.autoDynamicPages !== false) {
         const autoDynamicPagesOptions: AutoDynamicPagesPluginOptions =
@@ -160,18 +172,6 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
 
     if (options.userAgentStub !== false) {
         plugins.push(userAgentStubPlugin());
-    }
-
-    const shouldEnableVinextFix = options.vinextRouteWiringFix !== undefined
-        ? Boolean(options.vinextRouteWiringFix)
-        : enableRouteLoadingFixes;
-
-    if (shouldEnableVinextFix) {
-        plugins.push(
-            vinextRouteWiringFixPlugin(
-                typeof options.vinextRouteWiringFix === "object" ? options.vinextRouteWiringFix : {},
-            ),
-        );
     }
 
     if (options.localeFiles !== false) {

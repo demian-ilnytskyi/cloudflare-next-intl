@@ -15,6 +15,7 @@ import {
     resolveVinextBrowserEntryPath,
     resolveVinextOptimisticRoutingPath,
     syncPatchVinextOnDisk,
+    isVinextAppPageRouteWiringSafeOnDisk,
     vinextRouteWiringFixPlugin,
 } from "./vinext_route_wiring_fix.js";
 
@@ -260,7 +261,7 @@ const somewhereElseMarker = "deepestNestedEntry";
 
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
     resolveVinextAppPageRouteWiringPath,
     syncPatchVinextOnDisk,
@@ -1427,6 +1428,78 @@ await learnOptimisticRouteTemplatesFromPrefetchCache({
 
         const futurePrefetch = "async function learnOptimisticRouteTemplatesFromPrefetchCache() { return 3; }";
         expect(transformHook.call({}, futurePrefetch, "/node_modules/vinext/dist/server/app-browser-entry.js")).toBeUndefined();
+    });
+});
+
+describe("isVinextAppPageRouteWiringSafeOnDisk", () => {
+    it("returns false when vinext app-page-route-wiring.js does not exist", () => {
+        expect(isVinextAppPageRouteWiringSafeOnDisk("/non/existent/root")).toBe(false);
+    });
+
+    it("returns true when file exists and has fixes already applied", () => {
+        const root = resolve(__dirname, "../../.test_tmp_wiring_safe");
+        const dir = resolve(root, "node_modules/vinext/dist/server");
+        mkdirSync(dir, { recursive: true });
+        const filePath = resolve(dir, "app-page-route-wiring.js");
+        writeFileSync(filePath, "function alreadyFixed() { return null; }", "utf8");
+
+        try {
+            expect(isVinextAppPageRouteWiringSafeOnDisk(root)).toBe(true);
+        } finally {
+            rmSync(root, { recursive: true, force: true });
+        }
+    });
+
+    it("returns false when file exists but contains buggy patterns", () => {
+        const root = resolve(__dirname, "../../.test_tmp_wiring_buggy");
+        const dir = resolve(root, "node_modules/vinext/dist/server");
+        mkdirSync(dir, { recursive: true });
+        const filePath = resolve(dir, "app-page-route-wiring.js");
+        writeFileSync(
+            filePath,
+            `function getPrefetchLoadingEntry(route) {
+	let rootEntry = null;
+	let firstNestedEntry = null;
+	for (const [index, loadingModule] of (route.loadings ?? []).entries()) {
+		if (!getDefaultExport(loadingModule)) continue;
+		const treePosition = route.loadingTreePositions?.[index];
+		if (treePosition === void 0) continue;
+		if (treePosition === 0) rootEntry ??= {
+			loadingModule,
+			treePosition
+		};
+		else if (firstNestedEntry === null || treePosition < firstNestedEntry.treePosition) firstNestedEntry = {
+			loadingModule,
+			treePosition
+		};
+	}
+	if (firstNestedEntry) return firstNestedEntry;
+	if (rootEntry) return rootEntry;
+	return getDefaultExport(route.loading) ? {
+		loadingModule: route.loading,
+		treePosition: route.routeSegments?.length ?? 0
+	} : null;
+}`,
+            "utf8",
+        );
+
+        try {
+            expect(isVinextAppPageRouteWiringSafeOnDisk(root)).toBe(false);
+        } finally {
+            rmSync(root, { recursive: true, force: true });
+        }
+    });
+
+    it("returns false when reading file throws error", () => {
+        const root = resolve(__dirname, "../../.test_tmp_wiring_err");
+        const dir = resolve(root, "node_modules/vinext/dist/server/app-page-route-wiring.js");
+        mkdirSync(dir, { recursive: true });
+
+        try {
+            expect(isVinextAppPageRouteWiringSafeOnDisk(root)).toBe(false);
+        } finally {
+            rmSync(root, { recursive: true, force: true });
+        }
     });
 });
 

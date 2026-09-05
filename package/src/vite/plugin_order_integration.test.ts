@@ -19,7 +19,11 @@ describe('autoLocaleParams before autoDynamicPages (plugin.ts registration order
         const source = `import { getTranslations } from "cloudflare-next-intl";\nexport default async function Loading() {\n    const t = await getTranslations('PropertyIntake');\n    return null;\n}\n`;
         const reports = await checkDynamicPages(
             { appDir: APP_DIR, mode: 'report', target: 'vinext', includeLoading: true },
-            { findPageFiles: () => ['/app/[locale]/property-profile/loading.tsx'], readFile: () => source },
+            {
+                findPageFiles: () => ['/app/[locale]/property-profile/loading.tsx'],
+                readFile: () => source,
+                isVinextRouteWiringSafe: () => true,
+            },
         );
         expect(reports[0]!.action).toBe('would-add-force-dynamic');
         expect(reports[0]!.signals?.some((s) => s.api.includes('cookie-derived locale'))).toBe(true);
@@ -43,7 +47,11 @@ describe('autoLocaleParams before autoDynamicPages (plugin.ts registration order
 
         const reports = await checkDynamicPages(
             { appDir: APP_DIR, mode: 'report', target: 'vinext', includeLoading: true },
-            { findPageFiles: () => ['/app/[locale]/property-profile/loading.tsx'], readFile: () => stored },
+            {
+                findPageFiles: () => ['/app/[locale]/property-profile/loading.tsx'],
+                readFile: () => stored,
+                isVinextRouteWiringSafe: () => true,
+            },
         );
         expect(reports[0]!.action).toBe('would-add-force-static');
         expect(reports[0]!.signals ?? []).toEqual([]);

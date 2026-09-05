@@ -461,6 +461,22 @@ export function resolveVinextAppPageRouteWiringPath(root: string = process.cwd()
     return existsSync(directPath) ? directPath : null;
 }
 
+/**
+ * Checks if the on-disk `app-page-route-wiring.js` file inside `node_modules/vinext/dist/server`
+ * exists, is readable, and has all route-wiring and loading-fallback fixes applied.
+ * Returns `false` if the file does not exist, cannot be read, or contains unpatched/buggy patterns.
+ */
+export function isVinextAppPageRouteWiringSafeOnDisk(root: string = process.cwd()): boolean {
+    const filePath = resolveVinextAppPageRouteWiringPath(root);
+    if (!filePath) return false;
+    try {
+        const content = readFileSync(filePath, "utf8");
+        return isAppPageRouteWiringAlreadyFixed(content);
+    } catch {
+        return false;
+    }
+}
+
 export function resolveVinextRouteMatchingPath(root: string = process.cwd()): string | null {
     const directPath = resolve(root, "node_modules/vinext/dist/routing/route-matching.js");
     return existsSync(directPath) ? directPath : null;

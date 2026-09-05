@@ -6,7 +6,7 @@ import { checkDynamicPages } from './check_dynamic_pages.js';
 
 const APP_DIR = '/app';
 
-function makeIo(sources: Record<string, string>) {
+function makeIo(sources: Record<string, string>, overrides: Record<string, unknown> = {}) {
     const written: Record<string, string> = {};
     return {
         io: {
@@ -15,6 +15,8 @@ function makeIo(sources: Record<string, string>) {
             writeFile: vi.fn((file: string, contents: string) => {
                 written[file] = contents;
             }),
+            isVinextRouteWiringSafe: vi.fn(() => true),
+            ...overrides,
         },
         written,
     };
@@ -333,6 +335,44 @@ describe('checkDynamicPages', () => {
         await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext', includeLoading: true }, io);
         const nonSsgWarn = warnSpy.mock.calls.find((call) => String(call[0]).includes('Loading file is not static (SSG)'));
         expect(nonSsgWarn).toBeUndefined();
+        warnSpy.mockRestore();
+    });
+
+    it('disables includeLoading and emits warning when vinext route wiring is unverified', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { io, written } = makeIo(
+            {
+                '/app/[locale]/property-profile/loading.tsx': 'export default function Loading() { return null; }',
+            },
+            {
+                isVinextRouteWiringSafe: vi.fn(() => false),
+            },
+        );
+        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'fix', target: 'vinext', includeLoading: true }, io);
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Vinext route wiring fix is not verified on disk'),
+        );
+        expect(reports).toEqual([]);
+        expect(written['/app/[locale]/property-profile/loading.tsx']).toBeUndefined();
+        warnSpy.mockRestore();
+    });
+
+    it('falls back to isVinextAppPageRouteWiringSafeOnDisk when io.isVinextRouteWiringSafe is unset', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { io } = makeIo(
+            {
+                '/app/[locale]/property-profile/loading.tsx': 'export default function Loading() { return null; }',
+            },
+            {
+                isVinextRouteWiringSafe: undefined,
+            },
+        );
+        // APP_DIR is /app, so projectRoot is / which has no node_modules/vinext -> returns false
+        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext', includeLoading: true }, io);
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Vinext route wiring fix is not verified on disk'),
+        );
+        expect(reports).toEqual([]);
         warnSpy.mockRestore();
     });
 

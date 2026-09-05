@@ -28,6 +28,13 @@ export interface AutoDynamicPagesPluginOptions {
      */
     includeLoading?: boolean;
     /**
+     * Defaults to `true`. When `includeLoading: true` and `target === 'vinext'`,
+     * verifies that Vinext's on-disk route wiring is confirmed safe before
+     * allowing `export const dynamic` injection into `loading.*` files.
+     * @default true
+     */
+    verifyVinextRouteWiring?: boolean;
+    /**
      * Defaults to `false`. Passed straight through to `checkDynamicPages`'s
      * `syncErrorReportingAuthUser` option — see its docs. Opt-in separately
      * from this plugin's own default-on `autoDynamicPages` behavior, since
@@ -106,9 +113,11 @@ export function autoDynamicPagesPlugin(options: AutoDynamicPagesPluginOptions = 
             try {
                 const reports = await checkDynamicPages({
                     appDir,
+                    projectRoot: root,
                     mode: options.mode ?? "fix",
                     target: options.target ?? "vinext",
                     includeLoading: options.includeLoading ?? false,
+                    verifyVinextRouteWiring: options.verifyVinextRouteWiring ?? true,
                     syncErrorReportingAuthUser: options.syncErrorReportingAuthUser ?? false,
                     extraChecks: options.extraChecks ?? [],
                     verbose: options.verbose ?? false,
