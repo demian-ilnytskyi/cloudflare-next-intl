@@ -493,7 +493,6 @@ export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOp
                 const cacheDir = config.cacheDir || resolve(root, "node_modules/.vite");
                 const busted = bustVinextOptimizeDepsCache(cacheDir);
                 if (busted) {
-                    // eslint-disable-next-line no-console
                     console.log("[cfni:vinext-route-wiring-fix] patched vinext on disk and cleared its stale Vite optimizeDeps cache — dependencies will re-bundle on next request.");
                 }
             }
