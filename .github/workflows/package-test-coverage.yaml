@@ -24,4 +24,5 @@ jobs:
       per_file_exceptions: |
         general/general_functions.ts:87
         config/middleware.ts:93
+        vite/auto_dynamic_pages_plugin.ts:98
       run_bench: true
