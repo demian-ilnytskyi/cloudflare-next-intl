@@ -9,6 +9,10 @@ import {
     isOptimisticRoutingFile,
     isOptimisticRoutingAlreadyFixed,
     patchOptimisticRouting,
+    patchPrefetchLearning,
+    isPrefetchLearningFile,
+    isPrefetchLearningAlreadyFixed,
+    resolveVinextBrowserEntryPath,
     resolveVinextOptimisticRoutingPath,
     syncPatchVinextOnDisk,
     vinextRouteWiringFixPlugin,
@@ -588,4 +592,146 @@ function resolveOptimisticNavigationParams(options) {
     });
 });
 
+const BUGGY_BROWSER_ENTRY = `
+async function learnOptimisticRouteTemplatesFromPrefetchCache(options) {
+	if (options.routeManifest === null) return;
+	const learning = [...optimisticRouteTemplateLearning.values()];
+	for (const [cacheKey, entry] of getPrefetchCache()) {
+		const sourceKey = getOptimisticPrefetchSourceKey({
+			cacheKey,
+			interceptionContext: options.interceptionContext,
+			mountedSlotsHeader: options.mountedSlotsHeader
+		});
+		if (optimisticRouteTemplateSources.has(sourceKey)) continue;
+		if (optimisticRouteTemplateLearning.has(sourceKey)) continue;
+		if (!isSettledPrefetchCacheEntry(entry)) continue;
+		if (entry.prefetchKind === "route-tree") continue;
+		const promise = learnOptimisticRouteTemplateFromPrefetch({
+			cacheKey,
+			entry,
+			interceptionContext: options.interceptionContext,
+			mountedSlotsHeader: options.mountedSlotsHeader,
+			routeManifest: options.routeManifest
+		}).then((learned) => {
+			if (learned) optimisticRouteTemplateSources.add(sourceKey);
+		}).finally(() => {
+			optimisticRouteTemplateLearning.delete(sourceKey);
+		});
+		optimisticRouteTemplateLearning.set(sourceKey, promise);
+		learning.push(promise);
+	}
+	if (learning.length === 0) return;
+	await Promise.allSettled(learning);
+}
+await learnOptimisticRouteTemplatesFromPrefetchCache({
+	interceptionContext: requestInterceptionContext,
+	mountedSlotsHeader,
+	routeManifest
+});
+`;
 
+describe("isPrefetchLearningFile", () => {
+    it("matches only the vinext browser entry", () => {
+        expect(isPrefetchLearningFile("/p/node_modules/vinext/dist/server/app-browser-entry.js")).toBe(true);
+        expect(isPrefetchLearningFile("C:\\p\\node_modules\\vinext\\dist\\server\\app-browser-entry.js?v=1")).toBe(true);
+        expect(isPrefetchLearningFile("/p/node_modules/vinext/dist/server/app-optimistic-routing.js")).toBe(false);
+    });
+});
+
+describe("patchPrefetchLearning", () => {
+    it("awaits the in-flight prefetch of the navigation target and passes targetRscUrl", () => {
+        const patched = patchPrefetchLearning(BUGGY_BROWSER_ENTRY);
+
+        expect(patched).toContain("isPendingNavigationTarget");
+        expect(patched).toContain("parsePrefetchCacheKey(cacheKey).rscUrl === options.targetRscUrl");
+        expect(patched).toContain("await settledEntry.pending?.catch(() => {})");
+        expect(patched).toContain("targetRscUrl: rscUrl,");
+        expect(patched).not.toContain("if (!isSettledPrefetchCacheEntry(entry)) continue;");
+    });
+
+    it("keeps route-tree entries skipped and still awaits every learning promise", () => {
+        const patched = patchPrefetchLearning(BUGGY_BROWSER_ENTRY);
+
+        expect(patched).toContain('if (entry.prefetchKind === "route-tree") continue;');
+        expect(patched).toContain("await Promise.allSettled(learning);");
+    });
+
+    it("is idempotent and leaves already-fixed code untouched", () => {
+        const patched = patchPrefetchLearning(BUGGY_BROWSER_ENTRY);
+        expect(isPrefetchLearningAlreadyFixed(BUGGY_BROWSER_ENTRY)).toBe(false);
+        expect(isPrefetchLearningAlreadyFixed(patched)).toBe(true);
+        expect(patchPrefetchLearning(patched)).toBe(patched);
+    });
+
+    it("leaves unrelated code untouched", () => {
+        const unrelated = "export const untouched = true;";
+        expect(patchPrefetchLearning(unrelated)).toBe(unrelated);
+    });
+});
+
+describe("vinextRouteWiringFixPlugin with prefetch learning", () => {
+    it("transforms app-browser-entry.js and returns undefined once fixed", () => {
+        const plugin = vinextRouteWiringFixPlugin();
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string; map: null } | undefined;
+
+        const res = transformHook.call({}, BUGGY_BROWSER_ENTRY, "/node_modules/vinext/dist/server/app-browser-entry.js");
+        expect(res).toBeDefined();
+        expect(res!.code).toContain("targetRscUrl");
+
+        expect(transformHook.call({}, res!.code, "/node_modules/vinext/dist/server/app-browser-entry.js")).toBeUndefined();
+    });
+
+    it("skips the browser entry when prefetchLearning is false", () => {
+        const plugin = vinextRouteWiringFixPlugin({ prefetchLearning: false });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string; map: null } | undefined;
+
+        expect(transformHook.call({}, BUGGY_BROWSER_ENTRY, "/node_modules/vinext/dist/server/app-browser-entry.js")).toBeUndefined();
+    });
+});
+
+
+describe("syncPatchVinextOnDisk browser entry", () => {
+    let diskTempDir: string;
+
+    beforeEach(() => {
+        diskTempDir = mkdtempSync(join(tmpdir(), "cfni-vinext-entry-"));
+    });
+
+    afterEach(() => {
+        try {
+            rmSync(diskTempDir, { recursive: true, force: true });
+        } catch {
+            // Ignore
+        }
+    });
+
+    it("resolves the browser entry path when present and null otherwise", () => {
+        expect(resolveVinextBrowserEntryPath(diskTempDir)).toBeNull();
+        const dir = join(diskTempDir, "node_modules/vinext/dist/server");
+        mkdirSync(dir, { recursive: true });
+        const filePath = join(dir, "app-browser-entry.js");
+        writeFileSync(filePath, BUGGY_BROWSER_ENTRY, "utf8");
+        expect(resolveVinextBrowserEntryPath(diskTempDir)).toBe(filePath);
+    });
+
+    it("patches the browser entry on disk once, then reports no change", () => {
+        const dir = join(diskTempDir, "node_modules/vinext/dist/server");
+        mkdirSync(dir, { recursive: true });
+        const filePath = join(dir, "app-browser-entry.js");
+        writeFileSync(filePath, BUGGY_BROWSER_ENTRY, "utf8");
+
+        expect(syncPatchVinextOnDisk(diskTempDir)).toBe(true);
+        expect(readFileSync(filePath, "utf8")).toContain("targetRscUrl");
+        expect(syncPatchVinextOnDisk(diskTempDir)).toBe(false);
+    });
+
+    it("skips the browser entry when prefetchLearning is false", () => {
+        const dir = join(diskTempDir, "node_modules/vinext/dist/server");
+        mkdirSync(dir, { recursive: true });
+        const filePath = join(dir, "app-browser-entry.js");
+        writeFileSync(filePath, BUGGY_BROWSER_ENTRY, "utf8");
+
+        expect(syncPatchVinextOnDisk(diskTempDir, { prefetchLearning: false })).toBe(false);
+        expect(readFileSync(filePath, "utf8")).toBe(BUGGY_BROWSER_ENTRY);
+    });
+});

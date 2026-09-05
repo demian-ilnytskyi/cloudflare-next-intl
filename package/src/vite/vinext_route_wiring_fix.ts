@@ -203,6 +203,96 @@ export function patchOptimisticRouting(code: string): string {
     return result;
 }
 
+export function isPrefetchLearningFile(id: string): boolean {
+    const cleanId = id.split("?")[0].replace(/\\/g, "/");
+    return cleanId.endsWith("/app-browser-entry.js") || cleanId.endsWith("/app-browser-entry.ts");
+}
+
+export function isPrefetchLearningAlreadyFixed(code: string): boolean {
+    return code.includes("targetRscUrl");
+}
+
+const LEARN_TEMPLATES_FN_RE =
+    /async\s+function\s+learnOptimisticRouteTemplatesFromPrefetchCache\s*\(\s*options\s*\)\s*\{[\s\S]*?await\s+Promise\.allSettled\(\s*learning\s*\);\s*\}/;
+
+const FIXED_LEARN_TEMPLATES_FN = `async function learnOptimisticRouteTemplatesFromPrefetchCache(options) {
+	if (options.routeManifest === null) return;
+	const learning = [...optimisticRouteTemplateLearning.values()];
+	for (const [cacheKey, entry] of getPrefetchCache()) {
+		const sourceKey = getOptimisticPrefetchSourceKey({
+			cacheKey,
+			interceptionContext: options.interceptionContext,
+			mountedSlotsHeader: options.mountedSlotsHeader
+		});
+		if (optimisticRouteTemplateSources.has(sourceKey)) continue;
+		if (optimisticRouteTemplateLearning.has(sourceKey)) continue;
+		if (entry.prefetchKind === "route-tree") continue;
+		const isPendingNavigationTarget = !isSettledPrefetchCacheEntry(entry) && entry.pending !== void 0 && options.targetRscUrl !== void 0 && parsePrefetchCacheKey(cacheKey).rscUrl === options.targetRscUrl;
+		if (!isSettledPrefetchCacheEntry(entry) && !isPendingNavigationTarget) continue;
+		const promise = (async () => {
+			let settledEntry = entry;
+			if (!isSettledPrefetchCacheEntry(settledEntry)) {
+				await settledEntry.pending?.catch(() => {});
+				settledEntry = getPrefetchCache().get(cacheKey) ?? settledEntry;
+				if (!isSettledPrefetchCacheEntry(settledEntry)) return;
+			}
+			return learnOptimisticRouteTemplateFromPrefetch({
+				cacheKey,
+				entry: settledEntry,
+				interceptionContext: options.interceptionContext,
+				mountedSlotsHeader: options.mountedSlotsHeader,
+				routeManifest: options.routeManifest
+			});
+		})().then((learned) => {
+			if (learned) optimisticRouteTemplateSources.add(sourceKey);
+		}).finally(() => {
+			optimisticRouteTemplateLearning.delete(sourceKey);
+		});
+		optimisticRouteTemplateLearning.set(sourceKey, promise);
+		learning.push(promise);
+	}
+	if (learning.length === 0) return;
+	await Promise.allSettled(learning);
+}`;
+
+const LEARN_TEMPLATES_CALL_RE =
+    /(await\s+learnOptimisticRouteTemplatesFromPrefetchCache\(\s*\{\s*)interceptionContext:\s*requestInterceptionContext,/;
+
+const FIXED_LEARN_TEMPLATES_CALL = "$1interceptionContext: requestInterceptionContext,\n\t\t\t\t\t\t\ttargetRscUrl: rscUrl,";
+
+/**
+ * Patches Vinext's browser entry so a navigation whose target prefetch is still
+ * IN FLIGHT waits for that one prefetch before giving up on the optimistic route
+ * shell.
+ *
+ * Upstream only learns optimistic templates from prefetch entries that have
+ * already settled. A link prefetched on hover/pointerdown is normally still
+ * pending when the click lands, so there is no template to commit and the
+ * PREVIOUS page stays on screen until the full navigation response arrives —
+ * the target route's `loading.tsx` never gets a chance to paint. Only the entry
+ * matching the navigation target is awaited (it is a loading-shell prefetch, so
+ * it resolves well before the navigation response), never every pending entry.
+ */
+export function patchPrefetchLearning(code: string): string {
+    if (isPrefetchLearningAlreadyFixed(code)) {
+        return code;
+    }
+
+    let result = code;
+    if (LEARN_TEMPLATES_FN_RE.test(result)) {
+        result = result.replace(LEARN_TEMPLATES_FN_RE, FIXED_LEARN_TEMPLATES_FN);
+    }
+    if (LEARN_TEMPLATES_CALL_RE.test(result)) {
+        result = result.replace(LEARN_TEMPLATES_CALL_RE, FIXED_LEARN_TEMPLATES_CALL);
+    }
+    return result;
+}
+
+export function resolveVinextBrowserEntryPath(root: string = process.cwd()): string | null {
+    const directPath = resolve(root, "node_modules/vinext/dist/server/app-browser-entry.js");
+    return existsSync(directPath) ? directPath : null;
+}
+
 export function isAppPageRouteWiringFile(id: string): boolean {
     const cleanId = id.split("?")[0].replace(/\\/g, "/");
     return cleanId.endsWith("/app-page-route-wiring.js") || cleanId.endsWith("/app-page-route-wiring.tsx") || cleanId.endsWith("/app-page-route-wiring.ts");
@@ -227,10 +317,11 @@ export interface SyncPatchVinextOnDiskOptions {
     routeWiring?: boolean;
     routeMatching?: boolean;
     optimisticRouting?: boolean;
+    prefetchLearning?: boolean;
 }
 
 export function syncPatchVinextOnDisk(root: string = process.cwd(), options: SyncPatchVinextOnDiskOptions = {}): boolean {
-    const { routeWiring = true, routeMatching = true, optimisticRouting = true } = options;
+    const { routeWiring = true, routeMatching = true, optimisticRouting = true, prefetchLearning = true } = options;
     let changed = false;
 
     const wiringPath = routeWiring ? resolveVinextAppPageRouteWiringPath(root) : null;
@@ -281,6 +372,22 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
         }
     }
 
+    const browserEntryPath = prefetchLearning ? resolveVinextBrowserEntryPath(root) : null;
+    if (browserEntryPath) {
+        try {
+            const content = readFileSync(browserEntryPath, "utf8");
+            if (!isPrefetchLearningAlreadyFixed(content)) {
+                const patched = patchPrefetchLearning(content);
+                if (patched !== content) {
+                    writeFileSync(browserEntryPath, patched, "utf8");
+                    changed = true;
+                }
+            }
+        } catch {
+            // Failed read/write
+        }
+    }
+
     return changed;
 }
 
@@ -305,19 +412,28 @@ export interface VinextRouteWiringFixPluginOptions {
      * @default true
      */
     optimisticRouting?: boolean;
+
+    /**
+     * Fix optimistic route-shell learning so a navigation whose target prefetch is
+     * still in flight waits for it, instead of falling back to the full navigation
+     * response and leaving the previous page on screen.
+     * @default true
+     */
+    prefetchLearning?: boolean;
 }
 
 export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOptions = {}): Plugin {
     const routeWiring = options.routeWiring !== false;
     const routeMatching = options.routeMatching !== false;
     const optimisticRouting = options.optimisticRouting !== false;
+    const prefetchLearning = options.prefetchLearning !== false;
 
     return {
         name: "cfni:vinext-route-wiring-fix",
         enforce: "pre",
         configResolved(config) {
             const root = config.root || process.cwd();
-            syncPatchVinextOnDisk(root, { routeWiring, routeMatching, optimisticRouting });
+            syncPatchVinextOnDisk(root, { routeWiring, routeMatching, optimisticRouting, prefetchLearning });
         },
         transform(code, id) {
             if (routeWiring && isAppPageRouteWiringFile(id)) {
@@ -335,6 +451,16 @@ export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOp
                     return;
                 }
                 const patched = patchRouteMatching(code);
+                return {
+                    code: patched,
+                    map: null,
+                };
+            }
+            if (prefetchLearning && isPrefetchLearningFile(id)) {
+                if (isPrefetchLearningAlreadyFixed(code)) {
+                    return;
+                }
+                const patched = patchPrefetchLearning(code);
                 return {
                     code: patched,
                     map: null,
