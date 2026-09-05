@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import path from "node:path";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
@@ -241,29 +241,41 @@ describe("lucideOptimizerPlugin", () => {
         expect(plugin.name).toBe("cloudflare-next-intl-lucide-optimizer");
         expect(plugin.enforce).toBe("pre");
 
-        const configHook = plugin.config as (config: any) => any;
+        interface AliasEntry {
+            find: RegExp;
+            replacement: string;
+        }
+        interface MockConfigResult {
+            resolve?: { alias?: AliasEntry[] };
+            optimizeDeps?: { exclude?: string[]; include?: string[] };
+        }
+
+        const configHook = plugin.config as (config: Record<string, unknown>) => MockConfigResult;
         const configResult = configHook({ root: tempDir });
 
-        expect(configResult.resolve.alias).toBeDefined();
-        expect(configResult.resolve.alias.length).toBe(2);
-        expect(configResult.optimizeDeps.exclude).toContain("lucide-react");
-        expect(configResult.optimizeDeps.exclude).toContain("next/headers");
-        expect(configResult.optimizeDeps.include).toContain("next/dynamic");
+        expect(configResult.resolve?.alias).toBeDefined();
+        expect(configResult.resolve?.alias?.length).toBe(2);
+        expect(configResult.optimizeDeps?.exclude).toContain("lucide-react");
+        expect(configResult.optimizeDeps?.exclude).toContain("next/headers");
+        expect(configResult.optimizeDeps?.include).toContain("next/dynamic");
 
-        const configResolvedHook = plugin.configResolved as (config: any) => void;
+        const configResolvedHook = plugin.configResolved as (config: Record<string, unknown>) => void;
         configResolvedHook({ root: tempDir });
     });
 
     it("handles config and configResolved with empty dir where lucide is absent", () => {
         const emptyDir = fs.mkdtempSync(path.join(tmpdir(), "lucide-empty-"));
         try {
+            interface MockConfigResult {
+                optimizeDeps?: { exclude?: string[] };
+            }
             const plugin = lucideOptimizerPlugin({ root: emptyDir });
-            const configHook = plugin.config as (config: any) => any;
+            const configHook = plugin.config as (config: Record<string, unknown>) => MockConfigResult;
             const configRes = configHook({ root: emptyDir });
             expect(configRes).toBeDefined();
-            expect(configRes.optimizeDeps.exclude).not.toContain("lucide-react");
+            expect(configRes.optimizeDeps?.exclude).not.toContain("lucide-react");
 
-            const configResolvedHook = plugin.configResolved as (config: any) => void;
+            const configResolvedHook = plugin.configResolved as (config: Record<string, unknown>) => void;
             configResolvedHook({});
             configResolvedHook({ root: emptyDir });
         } finally {
@@ -273,7 +285,7 @@ describe("lucideOptimizerPlugin", () => {
 
     it("handles default options without options object", () => {
         const plugin = lucideOptimizerPlugin();
-        const configHook = plugin.config as (config: any) => any;
+        const configHook = plugin.config as (config: Record<string, unknown>) => unknown;
         const configRes = configHook({});
         expect(configRes).toBeDefined();
     });
@@ -288,10 +300,10 @@ describe("lucideOptimizerPlugin", () => {
         );
 
         const plugin = lucideOptimizerPlugin({ root: tempDir });
-        const configHook = plugin.config as (config: any) => any;
+        const configHook = plugin.config as (config: Record<string, unknown>) => unknown;
         configHook({ root: tempDir });
 
-        const transformHook = plugin.transform as (code: string, id: string) => any;
+        const transformHook = plugin.transform as (code: string, id: string) => { code: string; map: null } | null;
 
         // Skip non-JS or query stripped
         expect(transformHook("body { color: red; }", "/src/style.css")).toBeNull();

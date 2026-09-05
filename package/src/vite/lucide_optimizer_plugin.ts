@@ -152,7 +152,7 @@ export function lucideOptimizerPlugin(options: LucideOptimizerPluginOptions = {}
             const vinextHeadersShim = path.join(root, "node_modules", "vinext", "dist", "shims", "headers.js");
             const hasVinextHeaders = fs.existsSync(vinextHeadersShim);
 
-            const aliasEntries: Array<{ find: RegExp; replacement: string }> = [];
+            const aliasEntries: { find: RegExp; replacement: string }[] = [];
             if (hasVinextHeaders) {
                 aliasEntries.push({
                     find: /^next\/headers(\.js)?$/,
