@@ -98,6 +98,21 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(plugins[0].name).toBe("cfni:vinext-route-wiring-fix");
     });
 
+    it("supports vinextRouteWiringFix with sub-option overrides", () => {
+        const plugins = cloudflareNextIntl({
+            autoDynamicPages: false,
+            imageOptimizer: false,
+            buildIdAsset: false,
+            cfWorkersClientStub: false,
+            userAgentStub: false,
+            vinextRouteWiringFix: { routeMatching: false },
+            localeFiles: false,
+        });
+
+        expect(plugins.length).toBe(1);
+        expect(plugins[0].name).toBe("cfni:vinext-route-wiring-fix");
+    });
+
     it("exports plugin aliases and index exports", () => {
         expect(cloudflareNextIntlPlugin).toBe(cloudflareNextIntl);
         expect(viteIndex.cloudflareNextIntl).toBe(cloudflareNextIntl);

@@ -262,6 +262,17 @@ if (!isPrefetchLoadingShell && treePosition < routeSegments.length) {
         expect(didPatchAgain).toBe(false);
     });
 
+    it("skips route wiring patching when routeWiring option is false", () => {
+        const vinextDir = join(tempDir, "node_modules/vinext/dist/server");
+        mkdirSync(vinextDir, { recursive: true });
+        const filePath = join(vinextDir, "app-page-route-wiring.js");
+        writeFileSync(filePath, "export const untouched = true;", "utf8");
+
+        const didPatch = syncPatchVinextOnDisk(tempDir, { routeWiring: false });
+        expect(didPatch).toBe(false);
+        expect(readFileSync(filePath, "utf8")).toBe("export const untouched = true;");
+    });
+
     it("returns false if file content does not change after patch attempt", () => {
         const vinextDir = join(tempDir, "node_modules/vinext/dist/server");
         mkdirSync(vinextDir, { recursive: true });
@@ -322,6 +333,17 @@ function matchRouteWithTrie(url, routes, cache) {
         expect(didPatchAgain).toBe(false);
     });
 
+    it("skips route matching patching when routeMatching option is false", () => {
+        const vinextDir = join(tempDir, "node_modules/vinext/dist/routing");
+        mkdirSync(vinextDir, { recursive: true });
+        const filePath = join(vinextDir, "route-matching.js");
+        writeFileSync(filePath, "export const untouched = true;", "utf8");
+
+        const didPatch = syncPatchVinextOnDisk(tempDir, { routeMatching: false });
+        expect(didPatch).toBe(false);
+        expect(readFileSync(filePath, "utf8")).toBe("export const untouched = true;");
+    });
+
     it("resolves direct path for app-optimistic-routing when exists", () => {
         const vinextDir = join(tempDir, "node_modules/vinext/dist/server");
         mkdirSync(vinextDir, { recursive: true });
@@ -375,6 +397,17 @@ function resolveOptimisticNavigationParams(options) {
         // Second call should return false (already fixed)
         const didPatchAgain = syncPatchVinextOnDisk(tempDir);
         expect(didPatchAgain).toBe(false);
+    });
+
+    it("skips optimistic routing patching when optimisticRouting option is false", () => {
+        const vinextDir = join(tempDir, "node_modules/vinext/dist/server");
+        mkdirSync(vinextDir, { recursive: true });
+        const filePath = join(vinextDir, "app-optimistic-routing.js");
+        writeFileSync(filePath, "export const untouched = true;", "utf8");
+
+        const didPatch = syncPatchVinextOnDisk(tempDir, { optimisticRouting: false });
+        expect(didPatch).toBe(false);
+        expect(readFileSync(filePath, "utf8")).toBe("export const untouched = true;");
     });
 });
 
