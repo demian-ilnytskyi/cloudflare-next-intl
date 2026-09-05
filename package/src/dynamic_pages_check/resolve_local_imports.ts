@@ -64,7 +64,6 @@ function bindingsFromClause(clause: string): string[] {
     const bindings: string[] = [];
     const namespaceMatch = /^\*\s*as\s+(\w+)$/.exec(clause.trim());
     if (namespaceMatch) return [namespaceMatch[1]!];
-    if (clause.trim() === '*') return []; // `export * from '...'` — no local binding, always-follow handles it
 
     const braceMatch = /\{([^}]*)\}/.exec(clause);
     if (braceMatch) {
