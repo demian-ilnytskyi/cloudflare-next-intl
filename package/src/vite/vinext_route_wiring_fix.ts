@@ -197,10 +197,10 @@ export function patchOptimisticRouting(code: string): string {
     }
 
     let result = code;
-    if (MATCH_OPTIMISTIC_ROUTE_RE.test(result)) {
+    if (!result.includes("hasLeadingLocaleParam") && MATCH_OPTIMISTIC_ROUTE_RE.test(result)) {
         result = result.replace(MATCH_OPTIMISTIC_ROUTE_RE, FIXED_MATCH_OPTIMISTIC_ROUTE);
     }
-    if (RESOLVE_OPTIMISTIC_NAV_PARAMS_RE.test(result)) {
+    if (!result.includes("options.rawUrlParts[0] !== options.match.params.locale") && RESOLVE_OPTIMISTIC_NAV_PARAMS_RE.test(result)) {
         result = result.replace(RESOLVE_OPTIMISTIC_NAV_PARAMS_RE, FIXED_RESOLVE_OPTIMISTIC_NAV_PARAMS);
     }
     return result;
@@ -212,7 +212,9 @@ export function isPrefetchLearningFile(id: string): boolean {
 }
 
 export function isPrefetchLearningAlreadyFixed(code: string): boolean {
-    return code.includes("targetRscUrl");
+    const hasFixedFunction = code.includes("isPendingNavigationTarget");
+    const hasFixedCallSite = code.includes("targetRscUrl: rscUrl,");
+    return hasFixedFunction && hasFixedCallSite;
 }
 
 const LEARN_TEMPLATES_FN_RE =
@@ -235,7 +237,10 @@ const FIXED_LEARN_TEMPLATES_FN = `async function learnOptimisticRouteTemplatesFr
 		const promise = (async () => {
 			let settledEntry = entry;
 			if (!isSettledPrefetchCacheEntry(settledEntry)) {
-				await settledEntry.pending?.catch(() => {});
+				await Promise.race([
+					settledEntry.pending?.catch(() => {}),
+					new Promise((resolve) => setTimeout(resolve, 3000))
+				]);
 				settledEntry = getPrefetchCache().get(cacheKey) ?? settledEntry;
 				if (!isSettledPrefetchCacheEntry(settledEntry)) return;
 			}
@@ -275,6 +280,10 @@ const FIXED_LEARN_TEMPLATES_CALL = "$1interceptionContext: requestInterceptionCo
  * the target route's `loading.tsx` never gets a chance to paint. Only the entry
  * matching the navigation target is awaited (it is a loading-shell prefetch, so
  * it resolves well before the navigation response), never every pending entry.
+ * The wait is bounded by a 3s timeout so a stale/stalled prefetch left over
+ * from an earlier, unrelated navigation can never block a later one — once the
+ * timeout wins the race, the entry is treated as still-unsettled and this
+ * learning attempt simply gives up on it, same as if it were never awaited.
  */
 export function patchPrefetchLearning(code: string): string {
     if (isPrefetchLearningAlreadyFixed(code)) {
@@ -282,10 +291,10 @@ export function patchPrefetchLearning(code: string): string {
     }
 
     let result = code;
-    if (LEARN_TEMPLATES_FN_RE.test(result)) {
+    if (!result.includes("isPendingNavigationTarget") && LEARN_TEMPLATES_FN_RE.test(result)) {
         result = result.replace(LEARN_TEMPLATES_FN_RE, FIXED_LEARN_TEMPLATES_FN);
     }
-    if (LEARN_TEMPLATES_CALL_RE.test(result)) {
+    if (!result.includes("targetRscUrl: rscUrl,") && LEARN_TEMPLATES_CALL_RE.test(result)) {
         result = result.replace(LEARN_TEMPLATES_CALL_RE, FIXED_LEARN_TEMPLATES_CALL);
     }
     return result;
@@ -336,6 +345,8 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                 if (patched !== content) {
                     writeFileSync(wiringPath, patched, "utf8");
                     changed = true;
+                } else {
+                    console.warn(`[cfni:vinext-route-wiring-fix] ${wiringPath} does not match the expected shape for patchAppPageRouteWiring — this vinext version may have changed; the route-wiring fix was NOT applied.`);
                 }
             }
         } catch {
@@ -352,6 +363,8 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                 if (patched !== content) {
                     writeFileSync(matchingPath, patched, "utf8");
                     changed = true;
+                } else {
+                    console.warn(`[cfni:vinext-route-wiring-fix] ${matchingPath} does not match the expected shape for patchRouteMatching — this vinext version may have changed; the route-matching fix was NOT applied.`);
                 }
             }
         } catch {
@@ -368,6 +381,8 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                 if (patched !== content) {
                     writeFileSync(optimisticPath, patched, "utf8");
                     changed = true;
+                } else {
+                    console.warn(`[cfni:vinext-route-wiring-fix] ${optimisticPath} does not match the expected shape for patchOptimisticRouting — this vinext version may have changed; the optimistic-routing fix was NOT applied.`);
                 }
             }
         } catch {
@@ -384,6 +399,8 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                 if (patched !== content) {
                     writeFileSync(browserEntryPath, patched, "utf8");
                     changed = true;
+                } else {
+                    console.warn(`[cfni:vinext-route-wiring-fix] ${browserEntryPath} does not match the expected shape for patchPrefetchLearning — this vinext version may have changed; the prefetch-learning fix was NOT applied.`);
                 }
             }
         } catch {

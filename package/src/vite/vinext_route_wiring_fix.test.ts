@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {
     patchAppPageRouteWiring,
     isAppPageRouteWiringFile,
@@ -200,7 +200,7 @@ if (!isPrefetchLoadingShell && treePosition < routeSegments.length && !routeLoad
     });
 });
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -588,6 +588,47 @@ function resolveOptimisticNavigationParams(options) {
         // Idempotent
         expect(patchOptimisticRouting(patched)).toBe(patched);
     });
+
+    it("is idempotent per-half when only one function's shape has drifted (Finding 1 regression)", () => {
+        // resolveOptimisticNavigationParams is already in its FIXED shape, but
+        // matchOptimisticRouteManifestRoute is still the OLD/unfixed shape — a
+        // simulated partial upstream shape drift. isOptimisticRoutingAlreadyFixed
+        // requires BOTH halves fixed, so it returns false forever here, and
+        // patchOptimisticRouting must re-run every time WITHOUT re-patching the
+        // half that's already fixed (which would prepend a duplicate
+        // getActiveRouteLocale() definition on every run).
+        const halfDrifted = `
+function matchOptimisticRouteManifestRoute(options) {
+	const urlParts = hrefToRouteParts(options.href, options.basePath);
+	if (urlParts === null) return null;
+	const trie = getRouteTrie(options.routeManifest);
+	const match = matchNode(trie, urlParts.normalized, 0, []);
+	if (match !== null) {
+		decodeMatchedParams(match.params);
+		return match;
+	}
+	return null;
+}
+function resolveOptimisticNavigationParams(options) {
+	const rawParts = (options.match.route.patternParts?.[0] === ":locale" && options.rawUrlParts[0] !== options.match.params.locale)
+		? [options.match.params.locale, ...options.rawUrlParts]
+		: options.rawUrlParts;
+	const routeParams = extractRawRoutePatternParams(options.match.route.patternParts, rawParts);
+	canonicalizeAppPageParams(routeParams);
+}
+`;
+        expect(isOptimisticRoutingAlreadyFixed(halfDrifted)).toBe(false);
+
+        const firstRun = patchOptimisticRouting(halfDrifted);
+        expect(firstRun).toContain("hasLeadingLocaleParam");
+        expect(firstRun).toContain("getActiveRouteLocale");
+
+        const secondRun = patchOptimisticRouting(firstRun);
+        expect(secondRun).toBe(firstRun);
+
+        const getActiveRouteLocaleCount = (secondRun.match(/function getActiveRouteLocale\s*\(\s*\)/g) ?? []).length;
+        expect(getActiveRouteLocaleCount).toBe(1);
+    });
 });
 
 describe("vinextRouteWiringFixPlugin with optimistic routing", () => {
@@ -674,9 +715,18 @@ describe("patchPrefetchLearning", () => {
 
         expect(patched).toContain("isPendingNavigationTarget");
         expect(patched).toContain("parsePrefetchCacheKey(cacheKey).rscUrl === options.targetRscUrl");
-        expect(patched).toContain("await settledEntry.pending?.catch(() => {})");
+        expect(patched).toContain("settledEntry.pending?.catch(() => {})");
         expect(patched).toContain("targetRscUrl: rscUrl,");
         expect(patched).not.toContain("if (!isSettledPrefetchCacheEntry(entry)) continue;");
+    });
+
+    it("bounds the wait on a still-pending prefetch with a timeout race (Finding 4)", () => {
+        const patched = patchPrefetchLearning(BUGGY_BROWSER_ENTRY);
+
+        expect(patched).toContain("Promise.race([");
+        expect(patched).toContain("setTimeout(resolve, 3000)");
+        // The bare unbounded await must be gone — it's now inside the race.
+        expect(patched).not.toContain("await settledEntry.pending?.catch(() => {});");
     });
 
     it("keeps route-tree entries skipped and still awaits every learning promise", () => {
@@ -691,6 +741,63 @@ describe("patchPrefetchLearning", () => {
         expect(isPrefetchLearningAlreadyFixed(BUGGY_BROWSER_ENTRY)).toBe(false);
         expect(isPrefetchLearningAlreadyFixed(patched)).toBe(true);
         expect(patchPrefetchLearning(patched)).toBe(patched);
+    });
+
+    it("is idempotent per-half when only the call site has already been patched (Finding 2 regression)", () => {
+        // The call site already carries `targetRscUrl: rscUrl,`, but the function
+        // body is still the OLD/buggy shape (no `isPendingNavigationTarget`).
+        // A single-token sentinel keyed on "targetRscUrl" alone would treat this
+        // as already fixed and never patch the function — silently reverting the
+        // prefetch-learning fix to upstream (buggy) behavior forever.
+        const halfDrifted = `
+async function learnOptimisticRouteTemplatesFromPrefetchCache(options) {
+	if (options.routeManifest === null) return;
+	const learning = [...optimisticRouteTemplateLearning.values()];
+	for (const [cacheKey, entry] of getPrefetchCache()) {
+		const sourceKey = getOptimisticPrefetchSourceKey({
+			cacheKey,
+			interceptionContext: options.interceptionContext,
+			mountedSlotsHeader: options.mountedSlotsHeader
+		});
+		if (optimisticRouteTemplateSources.has(sourceKey)) continue;
+		if (optimisticRouteTemplateLearning.has(sourceKey)) continue;
+		if (!isSettledPrefetchCacheEntry(entry)) continue;
+		if (entry.prefetchKind === "route-tree") continue;
+		const promise = learnOptimisticRouteTemplateFromPrefetch({
+			cacheKey,
+			entry,
+			interceptionContext: options.interceptionContext,
+			mountedSlotsHeader: options.mountedSlotsHeader,
+			routeManifest: options.routeManifest
+		}).then((learned) => {
+			if (learned) optimisticRouteTemplateSources.add(sourceKey);
+		}).finally(() => {
+			optimisticRouteTemplateLearning.delete(sourceKey);
+		});
+		optimisticRouteTemplateLearning.set(sourceKey, promise);
+		learning.push(promise);
+	}
+	if (learning.length === 0) return;
+	await Promise.allSettled(learning);
+}
+await learnOptimisticRouteTemplatesFromPrefetchCache({
+	interceptionContext: requestInterceptionContext,
+	targetRscUrl: rscUrl,
+	mountedSlotsHeader,
+	routeManifest
+});
+`;
+        expect(isPrefetchLearningAlreadyFixed(halfDrifted)).toBe(false);
+
+        const firstRun = patchPrefetchLearning(halfDrifted);
+        expect(firstRun).toContain("isPendingNavigationTarget");
+        expect(isPrefetchLearningAlreadyFixed(firstRun)).toBe(true);
+
+        const secondRun = patchPrefetchLearning(firstRun);
+        expect(secondRun).toBe(firstRun);
+
+        const callSiteCount = (secondRun.match(/targetRscUrl: rscUrl,/g) ?? []).length;
+        expect(callSiteCount).toBe(1);
     });
 
     it("leaves unrelated code untouched", () => {
@@ -766,6 +873,136 @@ describe("syncPatchVinextOnDisk browser entry", () => {
     });
 });
 
+describe("syncPatchVinextOnDisk warns on silent no-op (Finding 3)", () => {
+    let warnTempDir: string;
+    let warnSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+        warnTempDir = mkdtempSync(join(tmpdir(), "cfni-vinext-warn-"));
+        warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        warnSpy.mockRestore();
+        try {
+            rmSync(warnTempDir, { recursive: true, force: true });
+        } catch {
+            // Ignore
+        }
+    });
+
+    it("warns when a present, not-already-fixed file does not match the patch's expected shape", () => {
+        // Content that is unambiguously "not fixed" per each target's own
+        // (marker-based) sentinel, yet matches none of that target's patch
+        // regexes — the exact silent-no-op shape this finding guards against:
+        // file present, not fixed, but the patch is also a no-op.
+        const mismatched = "function futureUpstreamRefactor() { return null; }\n";
+
+        const serverDir = join(warnTempDir, "node_modules/vinext/dist/server");
+        mkdirSync(serverDir, { recursive: true });
+
+        // routeWiring's sentinel re-tests the same regexes the patch itself uses,
+        // so a genuine no-op requires the ADDITIONAL guard in patchAppPageRouteWiring
+        // (skip if "deepestNestedEntry" is already present elsewhere) to be the
+        // thing that blocks the replacement, with no buggy Suspense pattern present
+        // either — otherwise that half would still get patched.
+        const wiringHalfDrifted = `
+function getPrefetchLoadingEntry(route) {
+	let rootEntry = null;
+	let firstNestedEntry = null;
+	for (const [index, loadingModule] of (route.loadings ?? []).entries()) {
+		if (!getDefaultExport(loadingModule)) continue;
+		const treePosition = route.loadingTreePositions?.[index];
+		if (treePosition === void 0) continue;
+		if (treePosition === 0) rootEntry ??= {
+			loadingModule,
+			treePosition
+		};
+		else if (firstNestedEntry === null || treePosition < firstNestedEntry.treePosition) firstNestedEntry = {
+			loadingModule,
+			treePosition
+		};
+	}
+	if (firstNestedEntry) return firstNestedEntry;
+	if (rootEntry) return rootEntry;
+	return getDefaultExport(route.loading) ? {
+		loadingModule: route.loading,
+		treePosition: route.routeSegments?.length ?? 0
+	} : null;
+}
+// deepestNestedEntry already exists elsewhere in this bundle (e.g. inlined from a shared chunk)
+const somewhereElseMarker = "deepestNestedEntry";
+`;
+        const wiringFilePath = join(serverDir, "app-page-route-wiring.js");
+        writeFileSync(wiringFilePath, wiringHalfDrifted, "utf8");
+
+        const matchingDir = join(warnTempDir, "node_modules/vinext/dist/routing");
+        mkdirSync(matchingDir, { recursive: true });
+        const matchingFilePath = join(matchingDir, "route-matching.js");
+        writeFileSync(matchingFilePath, mismatched, "utf8");
+
+        const optimisticFilePath = join(serverDir, "app-optimistic-routing.js");
+        writeFileSync(optimisticFilePath, mismatched, "utf8");
+
+        const browserEntryFilePath = join(serverDir, "app-browser-entry.js");
+        writeFileSync(browserEntryFilePath, mismatched, "utf8");
+
+        const didPatch = syncPatchVinextOnDisk(warnTempDir);
+        expect(didPatch).toBe(false);
+
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining(wiringFilePath));
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining(matchingFilePath));
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining(optimisticFilePath));
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining(browserEntryFilePath));
+        expect(warnSpy).toHaveBeenCalledTimes(4);
+
+        // Files are left untouched.
+        expect(readFileSync(wiringFilePath, "utf8")).toBe(wiringHalfDrifted);
+        expect(readFileSync(matchingFilePath, "utf8")).toBe(mismatched);
+        expect(readFileSync(optimisticFilePath, "utf8")).toBe(mismatched);
+        expect(readFileSync(browserEntryFilePath, "utf8")).toBe(mismatched);
+    });
+
+    it("handles browser entry read/write errors gracefully", () => {
+        const dir = join(warnTempDir, "node_modules/vinext/dist/server");
+        mkdirSync(dir, { recursive: true });
+        const filePath = join(dir, "app-browser-entry.js");
+        // Create a directory with the file name to trigger a read error.
+        mkdirSync(filePath);
+
+        const didPatch = syncPatchVinextOnDisk(warnTempDir);
+        expect(didPatch).toBe(false);
+        expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not warn once the file is actually patched", () => {
+        const dir = join(warnTempDir, "node_modules/vinext/dist/server");
+        mkdirSync(dir, { recursive: true });
+        const filePath = join(dir, "app-optimistic-routing.js");
+        const buggyCode = `
+function matchOptimisticRouteManifestRoute(options) {
+	const urlParts = hrefToRouteParts(options.href, options.basePath);
+	if (urlParts === null) return null;
+	const trie = getRouteTrie(options.routeManifest);
+	const match = matchNode(trie, urlParts.normalized, 0, []);
+	if (match !== null) {
+		decodeMatchedParams(match.params);
+		return match;
+	}
+	return null;
+}
+function resolveOptimisticNavigationParams(options) {
+	const routeParams = extractRawRoutePatternParams(options.match.route.patternParts, options.rawUrlParts);
+	canonicalizeAppPageParams(routeParams);
+}
+`;
+        writeFileSync(filePath, buggyCode, "utf8");
+
+        expect(syncPatchVinextOnDisk(warnTempDir)).toBe(true);
+        expect(warnSpy).not.toHaveBeenCalled();
+    });
+});
+
 describe("bustVinextOptimizeDepsCache", () => {
     let cacheTempDir: string;
 
@@ -815,5 +1052,70 @@ describe("bustVinextOptimizeDepsCache", () => {
         const missing = join(cacheTempDir, "does-not-exist");
         expect(() => bustVinextOptimizeDepsCache(missing)).not.toThrow();
         expect(bustVinextOptimizeDepsCache(missing)).toBe(false);
+    });
+
+    it("swallows a removal error for one subdirectory and still removes the rest", () => {
+        const depsDir = join(cacheTempDir, "deps");
+        const lockedDir = join(depsDir, "locked");
+        mkdirSync(lockedDir, { recursive: true });
+        writeFileSync(join(lockedDir, "f.js"), "x", "utf8");
+        // Strip permissions on the nested dir so recursive removal of "deps" fails
+        // partway through, exercising bustVinextOptimizeDepsCache's per-subdir catch.
+        chmodSync(lockedDir, 0o000);
+
+        mkdirSync(join(cacheTempDir, "deps_ssr"), { recursive: true });
+
+        try {
+            const result = bustVinextOptimizeDepsCache(cacheTempDir);
+            expect(result).toBe(true);
+            expect(existsSync(join(cacheTempDir, "deps_ssr"))).toBe(false);
+        } finally {
+            chmodSync(lockedDir, 0o755);
+        }
+    });
+});
+
+describe("vinextRouteWiringFixPlugin configResolved busts cache on a real patch", () => {
+    let root: string;
+    let logSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+        root = mkdtempSync(join(tmpdir(), "cfni-vinext-configresolved-"));
+        logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        logSpy.mockRestore();
+        try {
+            rmSync(root, { recursive: true, force: true });
+        } catch {
+            // Ignore
+        }
+    });
+
+    it("patches vinext on disk, clears the optimizeDeps cache, and logs once", () => {
+        const wiringDir = join(root, "node_modules/vinext/dist/server");
+        mkdirSync(wiringDir, { recursive: true });
+        writeFileSync(join(wiringDir, "app-page-route-wiring.js"), `
+function getPrefetchLoadingEntry(route) {
+	let firstNestedEntry = null;
+	for (const [index, loadingModule] of (route.loadings ?? []).entries()) {
+	}
+	return getDefaultExport(route.loading) ? {} : null;
+}
+if (!isPrefetchLoadingShell && treePosition < routeSegments.length) {
+`, "utf8");
+
+        // Default cacheDir (config.cacheDir left unset, exercising the `||` fallback).
+        const cacheDir = join(root, "node_modules/.vite");
+        mkdirSync(join(cacheDir, "deps"), { recursive: true });
+        writeFileSync(join(cacheDir, "deps", "entry.js"), "stale", "utf8");
+
+        const plugin = vinextRouteWiringFixPlugin();
+        const configResolvedHook = plugin.configResolved as (this: unknown, config: { root?: string; cacheDir?: string }) => void;
+        configResolvedHook.call({}, { root });
+
+        expect(existsSync(join(cacheDir, "deps"))).toBe(false);
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("cleared its stale Vite optimizeDeps cache"));
     });
 });
