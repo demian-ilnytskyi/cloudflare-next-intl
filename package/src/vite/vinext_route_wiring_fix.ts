@@ -154,15 +154,18 @@ export function isOptimisticRoutingAlreadyFixed(code: string): boolean {
 }
 
 const MATCH_OPTIMISTIC_ROUTE_RE =
-    /function\s+matchOptimisticRouteManifestRoute\s*\(\s*options\s*\)\s*\{[\s\S]*?const\s+trie\s*=\s*getRouteTrie\([\s\S]*?\);[\s\S]*?const\s+match\s*=\s*matchNode\([\s\S]*?\);[\s\S]*?return\s+null;\s*\}/;
+    /function\s+matchOptimisticRouteManifestRoute\s*\(\s*options\s*\)\s*\{[\s\S]*?getRouteTrie\([\s\S]*?\)[\s\S]*?\n\}/;
 
-const FIXED_MATCH_OPTIMISTIC_ROUTE = `function matchOptimisticRouteManifestRoute(options) {
+const FIXED_MATCH_OPTIMISTIC_ROUTE = `function getActiveRouteLocale() {
+	return (typeof document !== "undefined" && (document.documentElement?.lang || document.cookie.match(/__user_locale_key__=([^;]+)/)?.[1])) || (typeof window !== "undefined" && window.__VINEXT_LOCALE__) || "en";
+}
+function matchOptimisticRouteManifestRoute(options) {
 	const urlParts = hrefToRouteParts(options.href, options.basePath);
 	if (urlParts === null) return null;
 	const trie = getRouteTrie(options.routeManifest);
 	const hasLeadingLocaleParam = Array.from(options.routeManifest?.segmentGraph?.routes?.values() ?? []).some((r) => r.patternParts?.[0] === ":locale");
 	if (hasLeadingLocaleParam) {
-		const activeLocale = (typeof document !== "undefined" && (document.documentElement?.lang || document.cookie.match(/__user_locale_key__=([^;]+)/)?.[1])) || (typeof window !== "undefined" && window.__VINEXT_LOCALE__) || "en";
+		const activeLocale = getActiveRouteLocale();
 		if (urlParts.normalized[0] !== activeLocale) {
 			const localeMatch = matchNode(trie, [activeLocale, ...urlParts.normalized], 0, []);
 			if (localeMatch !== null) {

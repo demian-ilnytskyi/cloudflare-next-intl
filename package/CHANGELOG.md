@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.46] - 2026-09-05
+
+### Fixed
+
+- `vinextRouteWiringFixPlugin`'s optimistic-routing patch (`patchOptimisticRouting`) now matches vinext's actual installed `matchOptimisticRouteManifestRoute` shape (inlined `getRouteTrie(...)` call, early-return on `null`) — the previous regex only matched a shape with a separate `const trie = ...` statement and silently no-opped against the real one, so the locale-prefix fix for optimistic (click-time) route matching never took effect.
+
 ## [0.9.45] - 2026-09-05
 
 ### Added

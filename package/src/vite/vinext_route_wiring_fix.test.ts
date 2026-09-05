@@ -558,6 +558,35 @@ function resolveOptimisticNavigationParams(options) {
         // Idempotent
         expect(patchOptimisticRouting(patched)).toBe(patched);
     });
+
+    it("patches the real installed vinext shape (inlined trie lookup, early-return on null)", () => {
+        const REAL_INSTALLED_OPTIMISTIC_ROUTING_SHAPE = `
+  function matchOptimisticRouteManifestRoute(options) {
+  	const urlParts = hrefToRouteParts(options.href, options.basePath);
+  	if (urlParts === null) return null;
+  	const match = matchNode(getRouteTrie(options.routeManifest), urlParts.normalized, 0, []);
+  	if (match === null) return null;
+  	decodeMatchedParams(match.params);
+  	return match;
+}
+function resolveOptimisticNavigationParams(options) {
+  const routeParams = extractRawRoutePatternParams(options.match.route.patternParts, options.rawUrlParts);
+  canonicalizeAppPageParams(routeParams);
+}
+`;
+
+        expect(isOptimisticRoutingAlreadyFixed(REAL_INSTALLED_OPTIMISTIC_ROUTING_SHAPE)).toBe(false);
+
+        const patched = patchOptimisticRouting(REAL_INSTALLED_OPTIMISTIC_ROUTING_SHAPE);
+
+        expect(patched).not.toBe(REAL_INSTALLED_OPTIMISTIC_ROUTING_SHAPE);
+        expect(patched).toContain("hasLeadingLocaleParam");
+        expect(patched).toContain("getActiveRouteLocale");
+        expect(isOptimisticRoutingAlreadyFixed(patched)).toBe(true);
+
+        // Idempotent
+        expect(patchOptimisticRouting(patched)).toBe(patched);
+    });
 });
 
 describe("vinextRouteWiringFixPlugin with optimistic routing", () => {
