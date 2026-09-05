@@ -6,6 +6,7 @@ import { localeFilePlugin, type LocaleFilePluginOptions } from "./locale_file_pl
 import { imageOptimizerPlugin, type ImageOptimizerPluginOptions } from "../image_optimizer/index.js";
 
 import { autoDynamicPagesPlugin, type AutoDynamicPagesPluginOptions } from "./auto_dynamic_pages_plugin.js";
+import { vinextRouteWiringFixPlugin, type VinextRouteWiringFixPluginOptions } from "./vinext_route_wiring_fix.js";
 
 export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
     /**
@@ -49,6 +50,14 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
      * @default true
      */
     imageOptimizer?: boolean | ImageOptimizerPluginOptions;
+
+    /**
+     * Patch Vinext to fix route-wiring, route-matching, and optimistic-routing bugs around
+     * nested loading boundaries and leading `:locale` segments. Pass an options object to
+     * disable individual parts, or `false` to disable all of them.
+     * @default true
+     */
+    vinextRouteWiringFix?: boolean | VinextRouteWiringFixPluginOptions;
 }
 
 export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plugin[] {
@@ -85,6 +94,14 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
 
     if (options.userAgentStub !== false) {
         plugins.push(userAgentStubPlugin());
+    }
+
+    if (options.vinextRouteWiringFix !== false) {
+        plugins.push(
+            vinextRouteWiringFixPlugin(
+                typeof options.vinextRouteWiringFix === "object" ? options.vinextRouteWiringFix : {},
+            ),
+        );
     }
 
     if (options.localeFiles !== false) {

@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.45] - 2026-09-05
+
+### Added
+
+- New `vinextRouteWiringFix` plugin (on by default). Patches Vinext's route wiring (route-specific loading boundaries take precedence over root/ancestor skeletons for prefetch loading shells and nested route Suspense), route matching, and optimistic routing (leading `:locale` segment tried against the active locale first). Pass `vinextRouteWiringFix: false` to disable entirely, or `{ routeWiring, routeMatching, optimisticRouting }` (each `boolean`, default `true`) to disable individual parts.
+
 ## [0.9.44] - 2026-09-04
 
 ### Changed

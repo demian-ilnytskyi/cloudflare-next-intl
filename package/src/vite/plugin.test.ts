@@ -6,7 +6,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
     it("returns array of plugins by default", () => {
         const plugins = cloudflareNextIntl();
         expect(Array.isArray(plugins)).toBe(true);
-        expect(plugins.length).toBe(6);
+        expect(plugins.length).toBe(7);
 
         const pluginNames = plugins.map((p) => p.name);
         expect(pluginNames).toContain("cloudflare-next-intl-auto-dynamic-pages");
@@ -14,6 +14,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(pluginNames).toContain("cfni:build-id-asset");
         expect(pluginNames).toContain("cfni:cf-workers-client-stub");
         expect(pluginNames).toContain("cfni:user-agent-stub");
+        expect(pluginNames).toContain("cfni:vinext-route-wiring-fix");
         expect(pluginNames).toContain("cfni:locale-file");
     });
 
@@ -24,6 +25,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             buildIdAsset: false,
             cfWorkersClientStub: false,
             userAgentStub: false,
+            vinextRouteWiringFix: false,
             localeFiles: false,
         });
 
@@ -37,6 +39,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             buildIdAsset: "CUSTOM_BUILD_ID",
             cfWorkersClientStub: false,
             userAgentStub: false,
+            vinextRouteWiringFix: false,
             localeFiles: false,
         });
 
@@ -54,6 +57,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             buildIdAsset: false,
             cfWorkersClientStub: false,
             userAgentStub: false,
+            vinextRouteWiringFix: false,
             localeFiles: false,
         });
 
@@ -71,11 +75,27 @@ describe("cloudflareNextIntl (main plugin)", () => {
             buildIdAsset: false,
             cfWorkersClientStub: false,
             userAgentStub: false,
+            vinextRouteWiringFix: false,
             localeFiles: false,
         });
 
         expect(plugins.length).toBe(1);
         expect(plugins[0].name).toBe("cloudflare-next-intl-auto-dynamic-pages");
+    });
+
+    it("supports vinextRouteWiringFix enabled exclusively", () => {
+        const plugins = cloudflareNextIntl({
+            autoDynamicPages: false,
+            imageOptimizer: false,
+            buildIdAsset: false,
+            cfWorkersClientStub: false,
+            userAgentStub: false,
+            vinextRouteWiringFix: true,
+            localeFiles: false,
+        });
+
+        expect(plugins.length).toBe(1);
+        expect(plugins[0].name).toBe("cfni:vinext-route-wiring-fix");
     });
 
     it("exports plugin aliases and index exports", () => {
@@ -89,5 +109,6 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(typeof viteIndex.localeFilePlugin).toBe("function");
         expect(typeof viteIndex.userAgentStubPlugin).toBe("function");
         expect(typeof viteIndex.cfWorkersClientStubPlugin).toBe("function");
+        expect(typeof viteIndex.vinextRouteWiringFixPlugin).toBe("function");
     });
 });
