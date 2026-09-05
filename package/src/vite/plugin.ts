@@ -6,9 +6,20 @@ import { localeFilePlugin, type LocaleFilePluginOptions } from "./locale_file_pl
 import { imageOptimizerPlugin, type ImageOptimizerPluginOptions } from "../image_optimizer/index.js";
 
 import { autoDynamicPagesPlugin, type AutoDynamicPagesPluginOptions } from "./auto_dynamic_pages_plugin.js";
+import { autoLocaleParamsPlugin, type AutoLocaleParamsPluginOptions } from "./auto_locale_params_plugin.js";
 import { vinextRouteWiringFixPlugin, type VinextRouteWiringFixPluginOptions } from "./vinext_route_wiring_fix.js";
+import { lucideOptimizerPlugin, type LucideOptimizerPluginOptions } from "./lucide_optimizer_plugin.js";
 
 export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
+    /**
+     * Automatically optimize `lucide-react` by rewriting icon imports to direct deep module paths,
+     * preventing network resource exhaustion (net::ERR_INSUFFICIENT_RESOURCES) from ~1750 icon requests in dev,
+     * and normalize Next.js .js import specifiers to prevent mid-session re-optimizations.
+     * Auto-enabled if `lucide-react` is detected in the project. Set `false` to disable.
+     * @default true
+     */
+    lucideOptimizer?: boolean | LucideOptimizerPluginOptions;
+
     /**
      * Automatically run `checkDynamicPages({ mode: 'fix', target: 'vinext' })` during Vite setup
      * to insert `export const dynamic = "force-static"` for static SSG pages.
@@ -58,10 +69,49 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
      * @default true
      */
     vinextRouteWiringFix?: boolean | VinextRouteWiringFixPluginOptions;
+
+    /**
+     * Automatically run `checkLocaleParams({ mode: 'fix' })` during Vite
+     * setup to insert the `{ params }: { params: Promise<{ locale: Language }> }`
+     * prop and locale resolution (`setLocale`) into `[locale]`-scoped
+     * page/layout/loading files that are missing it. Pass an options object
+     * or set `false` to disable.
+     * @default true
+     */
+    autoLocaleParams?: boolean | AutoLocaleParamsPluginOptions;
 }
 
 export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plugin[] {
     const plugins: Plugin[] = [];
+
+    if (options.lucideOptimizer !== false) {
+        plugins.push(
+            lucideOptimizerPlugin(
+                typeof options.lucideOptimizer === "object"
+                    ? options.lucideOptimizer
+                    : { root: options.root }
+            )
+        );
+    }
+
+    // autoLocaleParams runs BEFORE autoDynamicPages: it can insert a
+    // `setLocale(locale)` call into a page/layout/loading file that
+    // previously had none, which removes the "cookie-derived locale" signal
+    // `detectDynamicUsage` would otherwise report for that file's
+    // `getTranslations()`/`useTranslations()` call. Scanning for
+    // dynamic-API usage AFTER that insertion means a page whose only
+    // dynamic signal was the missing locale setup correctly comes out
+    // static instead of being flagged dynamic against its own about-to-be-
+    // fixed state.
+    if (options.autoLocaleParams !== false) {
+        plugins.push(
+            autoLocaleParamsPlugin(
+                typeof options.autoLocaleParams === "object"
+                    ? options.autoLocaleParams
+                    : undefined
+            )
+        );
+    }
 
     if (options.autoDynamicPages !== false) {
         plugins.push(

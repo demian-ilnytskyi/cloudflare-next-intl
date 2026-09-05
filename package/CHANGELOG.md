@@ -3,6 +3,19 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.48] - 2026-09-05
+
+### Added
+
+- New `autoLocaleParams` plugin (on by default, via `checkLocaleParams` in `cloudflare-next-intl/checkLocaleParams`, or the `cfni-check-locale-params` CLI bin) — scans `page`/`layout`/`loading` files under a `[locale]`-scoped route and inserts the `locale` param from `params` plus a `setLocale(locale)` call wherever `getTranslations()`/`useTranslations()` is used without one. Fixes the common case of a page implicitly depending on the `NEXT_LOCALE` cookie (defeating `force-static`) despite never calling `cookies()` itself. Registered to run before `autoDynamicPages` so a page it fixes no longer trips the dynamic-pages cookie-derived-locale signal.
+- `detectDynamicUsage` (`checkDynamicPages`) now recognizes a no-locale-arg `getTranslations()`/`useTranslations()` call (with no `setLocale`/`setLocaleAsync` call anywhere in the file) as a new `'getTranslations()/useTranslations() (cookie-derived locale)'` dynamic signal; `find_page_files.ts`'s `PAGE_FILE_NAMES` now also includes `loading.tsx/ts/jsx/js`.
+- New `lucideOptimizer` plugin (on by default, auto-detects `lucide-react`) — rewrites named `lucide-react` imports into direct per-icon deep imports (`lucide-react/dist/esm/icons/<icon>.mjs`) to avoid the dev-server socket exhaustion (`ERR_INSUFFICIENT_RESOURCES`) caused by Vite dep-optimizing the full ~1750-export barrel, and normalizes `next/*.js` specifiers (e.g. `next/dynamic.js` → `next/dynamic`) to prevent mid-session Vite re-optimization/React dispatcher splitting.
+- New shared `build_write_restore_stack.ts` (`registerBuildWriteRestore`) — LIFO restore-on-exit stack so multiple build-time plugins (`autoDynamicPages`, `autoLocaleParams`) that each write files during `vite build` are unwound in reverse registration order on process exit/`SIGINT`/`SIGTERM`, instead of one plugin's restore clobbering another's. `autoDynamicPagesPlugin` now uses this shared stack instead of its own duplicated restore logic.
+
+### Fixed
+
+- `checkDynamicPages`'s per-file log rows now include a `fileKind` (`page`/`layout`/`loading`/`route`) tag and append the kind to the printed route for non-page/route kinds, so a flagged `loading.tsx` is distinguishable from its sibling `page.tsx` in output.
+
 ## [0.9.47] - 2026-09-05
 
 ### Fixed

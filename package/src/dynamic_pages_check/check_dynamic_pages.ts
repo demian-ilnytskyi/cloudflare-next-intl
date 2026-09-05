@@ -170,10 +170,26 @@ function displayPath(file: string): string {
 }
 
 /**
+ * The file's own kind — `page`, `loading`, or `route` — read off its
+ * basename. A `page.tsx` and a `loading.tsx` in the same folder derive the
+ * identical route AND the identical human label (`derivePageLabel` drops
+ * the filename entirely), so two rows can otherwise be indistinguishable in
+ * the log unless a reader happens to notice a signal's own `at <path>` line
+ * naming one of them — and a row with no signals of its own (e.g.
+ * `already-declared`) would carry no distinguishing text at all.
+ */
+function fileKind(file: string): string {
+    const match = /([a-z]+)\.(?:tsx|ts|jsx|js)$/.exec(file);
+    return match ? match[1]! : file;
+}
+
+/**
  * One row per page — `├`/`└` tree connector, `λ`/`ƒ`/`○`/etc glyph, route,
- * and human label, the same shape as vinext/Next's own build-time route
- * table — followed by its signals (if any) indented under a `│`/` `
- * continuation so they visually belong to that row and not the next one.
+ * human label, and file kind (`page`/`loading`/`route`, see `fileKind` —
+ * disambiguates a `page.tsx` from a `loading.tsx` sharing the same route
+ * and label), the same shape as vinext/Next's own build-time route table —
+ * followed by its signals (if any) indented under a `│`/` ` continuation so
+ * they visually belong to that row and not the next one.
  */
 function logReports(
     reports: readonly CheckDynamicPagesReport[],
@@ -186,8 +202,13 @@ function logReports(
         const branch = isLast ? '└' : '├';
         const isApi = isApiRoute(report.file);
         const glyph = actionGlyph(report, isApi);
-        const route = deriveRoute(appDir, report.file);
-        console.log(`${branch} ${glyph} ${route}  ${pageLabel(report.file)}  — ${actionDetail(report, isApi)}`);
+        const kind = fileKind(report.file);
+        // `page`/`route` are the route's own address — no suffix. Anything
+        // else (`loading`, `layout`, ...) is a boundary belonging to that
+        // route, so it's appended the way Next's own conventions describe
+        // it (`/property-profile/loading`), not just tagged after the fact.
+        const route = deriveRoute(appDir, report.file) + (kind === 'page' || kind === 'route' ? '' : `/${kind}`);
+        console.log(`${branch} ${glyph} ${route}  ${pageLabel(report.file)} [${kind}]  — ${actionDetail(report, isApi)}`);
         const continuation = isLast ? ' ' : '│';
         for (const signal of report.signals ?? []) {
             const location = `${displayPath(signal.file)}:${signal.line}`;

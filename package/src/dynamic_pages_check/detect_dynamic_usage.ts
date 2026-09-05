@@ -76,6 +76,9 @@ export function stripComments(sourceText: string): string {
 // `getAuthUser()` internally (`db/context.ts`'s `resolveUserId`), the same
 // text-invisible dependency, so it's flagged unconditionally rather than
 // trying to detect whether a given call site happens to pass `uid` itself.
+// `getTranslations()`/`useTranslations()` are handled separately below
+// (`TRANSLATIONS_CALL_NO_LOCALE`) since whether they're cookie-dependent
+// depends on whether the file calls `setLocale`/`setLocaleAsync` first.
 /** One `{ name, pattern }` dynamic-API check — the shape both the built-in list and `extraChecks` use. */
 export interface DynamicApiCheck {
     /** Human-readable name this check reports as a signal, e.g. `'myCustomAuthHelper()'`. */
@@ -107,6 +110,21 @@ const DYNAMIC_API_CHECKS: DynamicApiCheck[] = [
 // call there can only be the client hook — checked separately from
 // `DYNAMIC_API_CHECKS` so it can be skipped based on that directive.
 const USE_AUTH_USER_CALL = /\buseAuthUser\s*\(/;
+
+// `getTranslations(namespace)` / `useTranslations(namespace)` (both exported
+// by `cloudflare-next-intl`) resolve their locale via `getLocale()` when no
+// second `locale` argument is passed — which, absent an explicit
+// `setLocale`/`setLocaleAsync` call earlier in the same file, falls through
+// to reading the `NEXT_LOCALE`-style cookie (see
+// `server/functions/server.ts`'s `iGetLocale`). A page that never resolves
+// its own locale from route params is therefore cookie-dependent even
+// though the literal text `cookies(` never appears in it. Detected only
+// when: (a) the call has a single argument (no explicit `locale`), and (b)
+// no `setLocale(`/`setLocaleAsync(` call appears anywhere earlier in the
+// file — a page that resolves locale from params first is genuinely
+// static.
+const TRANSLATIONS_CALL_NO_LOCALE = /\b(?:getTranslations|useTranslations)\s*\(\s*(?:['"][^'"]*['"]|[A-Za-z_$][\w$]*)\s*\)/;
+const SET_LOCALE_CALL = /\bsetLocale(?:Async)?\s*\(/;
 
 /**
  * Matches a leading `"use client"` directive. Exported so
@@ -144,6 +162,10 @@ export function detectDynamicUsage(sourceText: string, extraChecks: readonly Dyn
     if (!USE_CLIENT_DIRECTIVE.test(sourceText)) {
         const found = USE_AUTH_USER_CALL.exec(code);
         if (found !== null) matches.push({ name: 'useAuthUser()', line: lineOf(sourceText, found.index) });
+    }
+    if (!SET_LOCALE_CALL.test(code)) {
+        const found = TRANSLATIONS_CALL_NO_LOCALE.exec(code);
+        if (found !== null) matches.push({ name: 'getTranslations()/useTranslations() (cookie-derived locale)', line: lineOf(sourceText, found.index) });
     }
     return {
         hasExplicitDynamicExport: EXPLICIT_DYNAMIC_EXPORT.test(code),

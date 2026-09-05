@@ -202,3 +202,53 @@ describe('readExplicitDynamicValue', () => {
         expect(readExplicitDynamicValue(`// export const dynamic = "force-static";\nexport default function Page() {}`)).toBeNull();
     });
 });
+
+describe('detectDynamicUsage: getTranslations()/useTranslations() cookie-derived locale', () => {
+    it('flags getTranslations(namespace) with no explicit locale and no setLocale call', () => {
+        const result = detectDynamicUsage(
+            `import { getTranslations } from "cloudflare-next-intl";\nexport default async function Page() {\n    const t = await getTranslations("HomePage");\n}`,
+        );
+        expect(result.detectedDynamicApis).toContain('getTranslations()/useTranslations() (cookie-derived locale)');
+    });
+
+    it('flags useTranslations(namespace) the same way', () => {
+        const result = detectDynamicUsage(
+            `import { useTranslations } from "cloudflare-next-intl";\nfunction Widget() {\n    const t = useTranslations("Widget");\n}`,
+        );
+        expect(result.detectedDynamicApis).toContain('getTranslations()/useTranslations() (cookie-derived locale)');
+    });
+
+    it('does not flag getTranslations(namespace, locale) — explicit locale means no cookie read', () => {
+        const result = detectDynamicUsage(
+            `export default async function Page({ params }) {\n    const { locale } = await params;\n    const t = await getTranslations("HomePage", locale);\n}`,
+        );
+        expect(result.detectedDynamicApis).not.toContain('getTranslations()/useTranslations() (cookie-derived locale)');
+    });
+
+    it('does not flag getTranslations(namespace) when setLocale(locale) runs earlier in the same file', () => {
+        const result = detectDynamicUsage(
+            `import { setLocale, getTranslations } from "cloudflare-next-intl";\nexport default async function Page({ params }) {\n    const { locale } = await params;\n    setLocale(locale);\n    const t = await getTranslations("HomePage");\n}`,
+        );
+        expect(result.detectedDynamicApis).not.toContain('getTranslations()/useTranslations() (cookie-derived locale)');
+    });
+
+    it('does not flag getTranslations(namespace) when setLocaleAsync(params) runs earlier in the same file', () => {
+        const result = detectDynamicUsage(
+            `import { setLocaleAsync, getTranslations } from "cloudflare-next-intl";\nexport default async function Page({ params }) {\n    await setLocaleAsync(params);\n    const t = await getTranslations("HomePage");\n}`,
+        );
+        expect(result.detectedDynamicApis).not.toContain('getTranslations()/useTranslations() (cookie-derived locale)');
+    });
+
+    it('ignores getTranslations() mentioned only in a comment', () => {
+        const result = detectDynamicUsage(`// const t = await getTranslations("HomePage");\nexport default function Page() {}`);
+        expect(result.detectedDynamicApis).not.toContain('getTranslations()/useTranslations() (cookie-derived locale)');
+    });
+
+    it('reports the correct line number for the flagged call', () => {
+        const result = detectDynamicUsage(
+            `import { getTranslations } from "cloudflare-next-intl";\n\nexport default async function Page() {\n    const t = await getTranslations("HomePage");\n}`,
+        );
+        const match = result.matches.find((m) => m.name === 'getTranslations()/useTranslations() (cookie-derived locale)');
+        expect(match?.line).toBe(4);
+    });
+});
