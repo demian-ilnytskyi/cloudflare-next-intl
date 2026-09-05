@@ -186,11 +186,12 @@ if (!isPrefetchLoadingShell && treePosition < routeSegments.length && !routeLoad
     it("runs syncPatchVinextOnDisk in configResolved hook", () => {
         const plugin = vinextRouteWiringFixPlugin();
         expect(typeof plugin.configResolved).toBe("function");
+        const configResolvedHook = plugin.configResolved as (this: unknown, config: { root?: string }) => void;
         expect(() => {
-            (plugin.configResolved as any)({ root: "/non-existent-directory" });
+            configResolvedHook.call({}, { root: "/non-existent-directory" });
         }).not.toThrow();
         expect(() => {
-            (plugin.configResolved as any)({});
+            configResolvedHook.call({}, {});
         }).not.toThrow();
     });
 });
