@@ -6,7 +6,6 @@ import {
     patchRouteMatching,
     isRouteMatchingFile,
     isRouteMatchingAlreadyFixed,
-    resolveVinextRouteMatchingPath,
     isOptimisticRoutingFile,
     isOptimisticRoutingAlreadyFixed,
     patchOptimisticRouting,
@@ -462,7 +461,7 @@ function matchRouteWithTrieRawPathname(url, routes, cache) {
 describe("vinextRouteWiringFixPlugin with route matching", () => {
     it("transforms route-matching.js via plugin transform hook", () => {
         const plugin = vinextRouteWiringFixPlugin();
-        const transformHook = plugin.transform as Function;
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string; map: null } | undefined;
 
         const buggy = `
 function matchRouteWithTrie(url, routes, cache) {
@@ -559,7 +558,7 @@ function resolveOptimisticNavigationParams(options) {
 describe("vinextRouteWiringFixPlugin with optimistic routing", () => {
     it("transforms app-optimistic-routing.js via plugin transform hook", () => {
         const plugin = vinextRouteWiringFixPlugin();
-        const transformHook = plugin.transform as Function;
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string; map: null } | undefined;
 
         const buggy = `
 function matchOptimisticRouteManifestRoute(options) {
