@@ -8,6 +8,7 @@ All notable changes to this package are documented here. Format follows
 ### Fixed
 
 - `vinextRouteWiringFixPlugin`'s optimistic-routing patch (`patchOptimisticRouting`) now matches vinext's actual installed `matchOptimisticRouteManifestRoute` shape (inlined `getRouteTrie(...)` call, early-return on `null`) — the previous regex only matched a shape with a separate `const trie = ...` statement and silently no-opped against the real one, so the locale-prefix fix for optimistic (click-time) route matching never took effect.
+- Fix: `vinextRouteWiringFixPlugin` now clears Vite's `optimizeDeps` cache (`deps`/`deps_ssr`/`deps_rsc` under `cacheDir`) whenever it actually patches a vinext file on disk — previously a patch could land in `node_modules/vinext` while the browser/RSC runtime kept executing an already-pre-bundled, pre-patch copy of the same code until the cache was cleared by some unrelated means.
 
 ## [0.9.45] - 2026-09-05
 

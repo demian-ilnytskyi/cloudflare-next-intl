@@ -1,5 +1,5 @@
 import type { Plugin } from "vite";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 
 const PREFETCH_LOADING_FN_RE =
@@ -394,6 +394,41 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
     return changed;
 }
 
+/**
+ * Removes Vite's `optimizeDeps` pre-bundle caches (`deps`, `deps_ssr`,
+ * `deps_rsc`) under `cacheDir`. Vite's optimizer keys its cache off a
+ * config/lockfile hash, not the byte content of files a plugin rewrites
+ * out-of-band — patching `vinext`'s source on disk (via
+ * `syncPatchVinextOnDisk`) does NOT by itself invalidate an
+ * already-built pre-bundle. Confirmed live: `route-matching.js` is
+ * pulled into a shared chunk by other optimized vinext entries (its
+ * client-side shims import it as a deep sub-path, a different specifier
+ * from the bare `"vinext"` package excluded in a consumer's
+ * `optimizeDeps.exclude`), so a patch applied after that chunk was built
+ * silently never reaches the browser or RSC runtime until the cache is
+ * cleared and Vite re-bundles from the patched source.
+ *
+ * Call this ONLY when a patch actually changed a file this run (see
+ * `syncPatchVinextOnDisk`'s return value) — unconditionally wiping these
+ * directories on every dev-server boot forces a full re-optimize every
+ * time, a real ongoing cost this function exists to avoid outside of an
+ * actual patch event.
+ */
+export function bustVinextOptimizeDepsCache(cacheDir: string): boolean {
+    let removed = false;
+    for (const sub of ["deps", "deps_ssr", "deps_rsc"]) {
+        const dir = resolve(cacheDir, sub);
+        if (!existsSync(dir)) continue;
+        try {
+            rmSync(dir, { recursive: true, force: true });
+            removed = true;
+        } catch {
+            // Failed remove — leave it, next successful patch run retries
+        }
+    }
+    return removed;
+}
+
 export interface VinextRouteWiringFixPluginOptions {
     /**
      * Fix prefetch loading shell and nested route Suspense boundary wiring so
@@ -436,7 +471,15 @@ export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOp
         enforce: "pre",
         configResolved(config) {
             const root = config.root || process.cwd();
-            syncPatchVinextOnDisk(root, { routeWiring, routeMatching, optimisticRouting, prefetchLearning });
+            const changed = syncPatchVinextOnDisk(root, { routeWiring, routeMatching, optimisticRouting, prefetchLearning });
+            if (changed) {
+                const cacheDir = config.cacheDir || resolve(root, "node_modules/.vite");
+                const busted = bustVinextOptimizeDepsCache(cacheDir);
+                if (busted) {
+                    // eslint-disable-next-line no-console
+                    console.log("[cfni:vinext-route-wiring-fix] patched vinext on disk and cleared its stale Vite optimizeDeps cache — dependencies will re-bundle on next request.");
+                }
+            }
         },
         transform(code, id) {
             if (routeWiring && isAppPageRouteWiringFile(id)) {

@@ -200,12 +200,13 @@ if (!isPrefetchLoadingShell && treePosition < routeSegments.length && !routeLoad
     });
 });
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
     resolveVinextAppPageRouteWiringPath,
     syncPatchVinextOnDisk,
+    bustVinextOptimizeDepsCache,
 } from "./vinext_route_wiring_fix.js";
 
 describe("syncPatchVinextOnDisk & resolveVinextAppPageRouteWiringPath", () => {
@@ -762,5 +763,57 @@ describe("syncPatchVinextOnDisk browser entry", () => {
 
         expect(syncPatchVinextOnDisk(diskTempDir, { prefetchLearning: false })).toBe(false);
         expect(readFileSync(filePath, "utf8")).toBe(BUGGY_BROWSER_ENTRY);
+    });
+});
+
+describe("bustVinextOptimizeDepsCache", () => {
+    let cacheTempDir: string;
+
+    beforeEach(() => {
+        cacheTempDir = mkdtempSync(join(tmpdir(), "cfni-vite-cache-"));
+    });
+
+    afterEach(() => {
+        try {
+            rmSync(cacheTempDir, { recursive: true, force: true });
+        } catch {
+            // Ignore
+        }
+    });
+
+    it("removes deps, deps_ssr, and deps_rsc when present, and returns true", () => {
+        for (const sub of ["deps", "deps_ssr", "deps_rsc"]) {
+            const dir = join(cacheTempDir, sub);
+            mkdirSync(dir, { recursive: true });
+            writeFileSync(join(dir, "route-matching-ABC123.js"), "stale content", "utf8");
+        }
+
+        const result = bustVinextOptimizeDepsCache(cacheTempDir);
+
+        expect(result).toBe(true);
+        expect(existsSync(join(cacheTempDir, "deps"))).toBe(false);
+        expect(existsSync(join(cacheTempDir, "deps_ssr"))).toBe(false);
+        expect(existsSync(join(cacheTempDir, "deps_rsc"))).toBe(false);
+    });
+
+    it("removes only the subdirectories that exist", () => {
+        mkdirSync(join(cacheTempDir, "deps"), { recursive: true });
+        writeFileSync(join(cacheTempDir, "deps", "entry.js"), "x", "utf8");
+
+        const result = bustVinextOptimizeDepsCache(cacheTempDir);
+
+        expect(result).toBe(true);
+        expect(existsSync(join(cacheTempDir, "deps"))).toBe(false);
+    });
+
+    it("returns false and does not throw when the cache dir has none of the subdirectories", () => {
+        expect(() => bustVinextOptimizeDepsCache(cacheTempDir)).not.toThrow();
+        expect(bustVinextOptimizeDepsCache(cacheTempDir)).toBe(false);
+    });
+
+    it("returns false and does not throw when cacheDir itself does not exist", () => {
+        const missing = join(cacheTempDir, "does-not-exist");
+        expect(() => bustVinextOptimizeDepsCache(missing)).not.toThrow();
+        expect(bustVinextOptimizeDepsCache(missing)).toBe(false);
     });
 });
