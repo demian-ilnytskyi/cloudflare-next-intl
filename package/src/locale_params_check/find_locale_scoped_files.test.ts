@@ -9,6 +9,7 @@ describe('findLocaleScopedFiles', () => {
     it('keeps only files under appDir/[locale]/, dropping route.* and unrelated dynamic segments', () => {
         vi.spyOn(findPageFilesModule, 'findPageFiles').mockReturnValue([
             `${APP_DIR}${sep}[locale]${sep}page.tsx`,
+            `${APP_DIR}${sep}[locale]${sep}(app)${sep}property-profile${sep}page.tsx`,
             `${APP_DIR}${sep}[locale]${sep}(app)${sep}property-profile${sep}loading.tsx`,
             `${APP_DIR}${sep}[locale]${sep}layout.tsx`,
             `${APP_DIR}${sep}api${sep}[locale]${sep}route.ts`,
@@ -17,10 +18,12 @@ describe('findLocaleScopedFiles', () => {
         const result = findLocaleScopedFiles(APP_DIR, 'locale');
         expect(result).toEqual([
             `${APP_DIR}${sep}[locale]${sep}page.tsx`,
+            `${APP_DIR}${sep}[locale]${sep}(app)${sep}property-profile${sep}page.tsx`,
             `${APP_DIR}${sep}[locale]${sep}(app)${sep}property-profile${sep}loading.tsx`,
             `${APP_DIR}${sep}[locale]${sep}layout.tsx`,
         ]);
         vi.restoreAllMocks();
+
     });
 
     it('respects a custom localeParam name', () => {

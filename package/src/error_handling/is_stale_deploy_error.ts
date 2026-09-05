@@ -6,6 +6,16 @@ export const defaultStaleDeployPatterns: readonly string[] = [
     'connection closed',
     'rsc payload',
     'minified react error #412',
+    'minified react error #418',
+    'minified react error #419',
+    'minified react error #421',
+    'minified react error #422',
+    'minified react error #423',
+    'minified react error #425',
+    'minified react error #426',
+    'an error occurred in the server components render',
+    'server components render',
+    'digest property is included on this error instance',
     'the above error occurred in a react component',
     'the connection to the page was unexpectedly closed',
     'readablestream',
@@ -15,6 +25,7 @@ export const defaultStaleDeployPatterns: readonly string[] = [
     'server action not found',
     'unrecognizedactionerror',
 ];
+
 
 let activePatterns: readonly string[] = defaultStaleDeployPatterns;
 let activeLowercasedPatterns: readonly string[] = defaultStaleDeployPatterns.map((p) => p.toLowerCase());

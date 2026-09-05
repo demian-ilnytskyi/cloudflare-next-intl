@@ -19,6 +19,16 @@ describe('isStaleDeployError', () => {
             'connection closed',
             'rsc payload',
             'minified react error #412',
+            'minified react error #418',
+            'minified react error #419',
+            'minified react error #421',
+            'minified react error #422',
+            'minified react error #423',
+            'minified react error #425',
+            'minified react error #426',
+            'an error occurred in the server components render',
+            'server components render',
+            'digest property is included on this error instance',
             'the above error occurred in a react component',
             'the connection to the page was unexpectedly closed',
             'readablestream',
@@ -71,6 +81,14 @@ describe('isStaleDeployError', () => {
         expect(isStaleDeployError(new Error('Connection closed by server'))).toBe(true);
         expect(isStaleDeployError(new Error('Failed to parse RSC payload'))).toBe(true);
         expect(isStaleDeployError(new Error('Minified React error #412; visit ...'))).toBe(true);
+        expect(isStaleDeployError(new Error('Minified React error #419; visit https://react.dev/errors/419'))).toBe(true);
+        expect(
+            isStaleDeployError(
+                new Error(
+                    'Error: An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details.',
+                ),
+            ),
+        ).toBe(true);
         expect(
             isStaleDeployError(
                 new Error(

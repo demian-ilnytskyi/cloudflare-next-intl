@@ -37,6 +37,46 @@ const ROUTE_LOADING_GUARD_RE =
 const FIXED_ROUTE_LOADING_GUARD =
     "if (!isPrefetchLoadingShell && treePosition < routeSegments.length && !routeLoadingComponent) {";
 
+const PAGE_LOADING_FALLBACK_RE =
+    /fallback:\s*\/\*\s*@__PURE__\s*\*\/\s*jsx\s*\(\s*PageLoadingComponent\s*,\s*\{\s*\}\s*\)/;
+const FIXED_PAGE_LOADING_FALLBACK =
+    "fallback: /* @__PURE__ */ jsx(PageLoadingComponent, { params: options.makeThenableParams(options.matchedParams) })";
+
+const ANCESTOR_LOADING_FALLBACK_RE =
+    /fallback:\s*\/\*\s*@__PURE__\s*\*\/\s*jsx\s*\(\s*AncestorLoadingComponent\s*,\s*\{\s*\}\s*\)/;
+const FIXED_ANCESTOR_LOADING_FALLBACK =
+    "fallback: /* @__PURE__ */ jsx(AncestorLoadingComponent, { params: options.makeThenableParams(resolveAppPageSegmentParams(options.route.routeSegments, ancestorLoadingEntry.treePosition, options.matchedParams)) })";
+
+const BRANCH_LOADING_FALLBACK_RE =
+    /fallback:\s*\/\*\s*@__PURE__\s*\*\/\s*jsx\s*\(\s*(?<![A-Za-z0-9_$])LoadingComponent\s*,\s*\{\s*\}\s*\)/;
+const FIXED_BRANCH_LOADING_FALLBACK =
+    "fallback: /* @__PURE__ */ jsx(LoadingComponent, { params: options.makeThenableParams(slotParams) })";
+
+const OWNER_LOADING_FALLBACK_RE =
+    /fallback:\s*\/\*\s*@__PURE__\s*\*\/\s*jsx\s*\(\s*OwnerLoadingComponent\s*,\s*\{\s*\}\s*\)/;
+const FIXED_OWNER_LOADING_FALLBACK =
+    "fallback: /* @__PURE__ */ jsx(OwnerLoadingComponent, { params: options.makeThenableParams(resolveAppPageSegmentParams(options.route.routeSegments, ownerLoadingEntry.treePosition, options.matchedParams)) })";
+
+const PREFETCH_LOADING_CALL_RE =
+    /routeChildren\s*=\s*\/\*\s*@__PURE__\s*\*\/\s*jsx\s*\(\s*prefetchLoadingComponent\s*,\s*\{\s*\}\s*\)/;
+const FIXED_PREFETCH_LOADING_CALL =
+    "routeChildren = /* @__PURE__ */ jsx(prefetchLoadingComponent, { params: options.makeThenableParams(options.matchedParams) })";
+
+const ROUTE_LOADING_FALLBACK_RE =
+    /fallback:\s*\/\*\s*@__PURE__\s*\*\/\s*jsx\s*\(\s*routeLoadingComponent\s*,\s*\{\s*\}\s*\)/;
+const FIXED_ROUTE_LOADING_FALLBACK =
+    "fallback: /* @__PURE__ */ jsx(routeLoadingComponent, { params: options.makeThenableParams(options.matchedParams) })";
+
+const SEGMENT_LOADING_FALLBACK_RE =
+    /fallback:\s*\/\*\s*@__PURE__\s*\*\/\s*jsx\s*\(\s*segmentLoadingComponent\s*,\s*\{\s*\}\s*\)/;
+const FIXED_SEGMENT_LOADING_FALLBACK =
+    "fallback: /* @__PURE__ */ jsx(segmentLoadingComponent, { params: options.makeThenableParams(resolveAppPageSegmentParams(options.route.routeSegments, treePosition, options.matchedParams)) })";
+
+const PREFETCH_SLOT_LOADING_CALL_RE =
+    /slotElement\s*=\s*\/\*\s*@__PURE__\s*\*\/\s*jsx\s*\(\s*getDefaultExport\s*\(\s*prefetchSlotLoadingEntry\.loadingModule\s*\)\s*,\s*\{\s*\}\s*\)/;
+const FIXED_PREFETCH_SLOT_LOADING_CALL =
+    "slotElement = /* @__PURE__ */ jsx(getDefaultExport(prefetchSlotLoadingEntry.loadingModule), { params: options.makeThenableParams(slotParams) })";
+
 /**
  * Checks if the route wiring method is already fixed (either patched or fixed upstream).
  * If already fixed, the plugin will make no modifications.
@@ -46,7 +86,16 @@ export function isAppPageRouteWiringAlreadyFixed(code: string): boolean {
         code.includes("firstNestedEntry") &&
         PREFETCH_LOADING_FN_RE.test(code);
     const hasBuggySuspense = !code.includes("!routeLoadingComponent") && ROUTE_LOADING_GUARD_RE.test(code);
-    return !hasBuggyPrefetch && !hasBuggySuspense;
+    const hasEmptyLoadingProps =
+        PAGE_LOADING_FALLBACK_RE.test(code) ||
+        ANCESTOR_LOADING_FALLBACK_RE.test(code) ||
+        BRANCH_LOADING_FALLBACK_RE.test(code) ||
+        OWNER_LOADING_FALLBACK_RE.test(code) ||
+        PREFETCH_LOADING_CALL_RE.test(code) ||
+        ROUTE_LOADING_FALLBACK_RE.test(code) ||
+        SEGMENT_LOADING_FALLBACK_RE.test(code) ||
+        PREFETCH_SLOT_LOADING_CALL_RE.test(code);
+    return !hasBuggyPrefetch && !hasBuggySuspense && !hasEmptyLoadingProps;
 }
 
 /**
@@ -55,6 +104,8 @@ export function isAppPageRouteWiringAlreadyFixed(code: string): boolean {
  *    instead of the shallowest/root loading module.
  * 2. Guard nested layout Suspense wrappers so routes with their own loading boundary
  *    aren't incorrectly wrapped by ancestor fallback loading shells during full navigation.
+ * 3. Pass `{ params }` to loading components instead of `{}` so locale-scoped
+ *    loading boundaries (which expect `{ params }`) can resolve translations safely.
  *
  * If the method is already fixed or does not exhibit the buggy pattern, it leaves the code untouched.
  */
@@ -76,6 +127,31 @@ export function patchAppPageRouteWiring(code: string): string {
     const hasBuggySuspense = !result.includes("!routeLoadingComponent") && ROUTE_LOADING_GUARD_RE.test(result);
     if (hasBuggySuspense) {
         result = result.replace(ROUTE_LOADING_GUARD_RE, FIXED_ROUTE_LOADING_GUARD);
+    }
+
+    if (PAGE_LOADING_FALLBACK_RE.test(result)) {
+        result = result.replace(PAGE_LOADING_FALLBACK_RE, FIXED_PAGE_LOADING_FALLBACK);
+    }
+    while (ANCESTOR_LOADING_FALLBACK_RE.test(result)) {
+        result = result.replace(ANCESTOR_LOADING_FALLBACK_RE, FIXED_ANCESTOR_LOADING_FALLBACK);
+    }
+    if (BRANCH_LOADING_FALLBACK_RE.test(result)) {
+        result = result.replace(BRANCH_LOADING_FALLBACK_RE, FIXED_BRANCH_LOADING_FALLBACK);
+    }
+    if (OWNER_LOADING_FALLBACK_RE.test(result)) {
+        result = result.replace(OWNER_LOADING_FALLBACK_RE, FIXED_OWNER_LOADING_FALLBACK);
+    }
+    if (PREFETCH_LOADING_CALL_RE.test(result)) {
+        result = result.replace(PREFETCH_LOADING_CALL_RE, FIXED_PREFETCH_LOADING_CALL);
+    }
+    if (ROUTE_LOADING_FALLBACK_RE.test(result)) {
+        result = result.replace(ROUTE_LOADING_FALLBACK_RE, FIXED_ROUTE_LOADING_FALLBACK);
+    }
+    if (SEGMENT_LOADING_FALLBACK_RE.test(result)) {
+        result = result.replace(SEGMENT_LOADING_FALLBACK_RE, FIXED_SEGMENT_LOADING_FALLBACK);
+    }
+    if (PREFETCH_SLOT_LOADING_CALL_RE.test(result)) {
+        result = result.replace(PREFETCH_SLOT_LOADING_CALL_RE, FIXED_PREFETCH_SLOT_LOADING_CALL);
     }
 
     return result;
@@ -516,10 +592,20 @@ export function bustVinextOptimizeDepsCache(cacheDir: string): boolean {
     return removed;
 }
 
+/**
+ * Options for Vinext route wiring fix plugin.
+ *
+ * ⚠️ **DANGER / EXPERIMENTAL**: This plugin directly monkey-patches vinext code
+ * in `node_modules/vinext/dist` on disk. This is very dangerous and can break
+ * routing, layout rendering, or cause compatibility failures on dependency updates.
+ * Enable only if you explicitly need these fixes and understand the risks.
+ */
 export interface VinextRouteWiringFixPluginOptions {
     /**
      * Fix prefetch loading shell and nested route Suspense boundary wiring so
      * route-specific loading boundaries take precedence over root/ancestor skeletons.
+     *
+     * ⚠️ **DANGER**: Monkey-patches vinext server runtime on disk.
      * @default true
      */
     routeWiring?: boolean;
@@ -527,6 +613,8 @@ export interface VinextRouteWiringFixPluginOptions {
     /**
      * Fix route matching so a leading `:locale` segment is tried against the active
      * locale before falling back to a locale-less match.
+     *
+     * ⚠️ **DANGER**: Monkey-patches vinext server routing on disk.
      * @default true
      */
     routeMatching?: boolean;
@@ -534,6 +622,8 @@ export interface VinextRouteWiringFixPluginOptions {
     /**
      * Fix optimistic (client-side) routing so a leading `:locale` segment is tried
      * against the active locale before falling back to a locale-less match.
+     *
+     * ⚠️ **DANGER**: Monkey-patches vinext client router on disk.
      * @default true
      */
     optimisticRouting?: boolean;
@@ -542,12 +632,17 @@ export interface VinextRouteWiringFixPluginOptions {
      * Fix optimistic route-shell learning so a navigation whose target prefetch is
      * still in flight waits for it, instead of falling back to the full navigation
      * response and leaving the previous page on screen.
+     *
+     * ⚠️ **DANGER**: Monkey-patches vinext client route learning on disk.
      * @default true
      */
     prefetchLearning?: boolean;
 }
 
 export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOptions = {}): Plugin {
+    console.warn(
+        "[cloudflare-next-intl] WARNING: vinextRouteWiringFix is enabled. Monkey-patching vinext on disk is dangerous and can break routing or upstream compatibility.",
+    );
     const routeWiring = options.routeWiring !== false;
     const routeMatching = options.routeMatching !== false;
     const optimisticRouting = options.optimisticRouting !== false;

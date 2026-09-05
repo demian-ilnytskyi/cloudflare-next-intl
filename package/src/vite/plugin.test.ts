@@ -6,7 +6,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
     it("returns array of plugins by default", () => {
         const plugins = cloudflareNextIntl();
         expect(Array.isArray(plugins)).toBe(true);
-        expect(plugins.length).toBe(9);
+        expect(plugins.length).toBe(8);
 
         const pluginNames = plugins.map((p) => p.name);
         expect(pluginNames).toContain("cloudflare-next-intl-auto-dynamic-pages");
@@ -15,9 +15,15 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(pluginNames).toContain("cfni:build-id-asset");
         expect(pluginNames).toContain("cfni:cf-workers-client-stub");
         expect(pluginNames).toContain("cfni:user-agent-stub");
-        expect(pluginNames).toContain("cfni:vinext-route-wiring-fix");
+        expect(pluginNames).not.toContain("cfni:vinext-route-wiring-fix");
         expect(pluginNames).toContain("cfni:locale-file");
         expect(pluginNames).toContain("cloudflare-next-intl-lucide-optimizer");
+    });
+
+    it("includes vinext-route-wiring-fix when explicitly enabled", () => {
+        const plugins = cloudflareNextIntl({ vinextRouteWiringFix: true });
+        const pluginNames = plugins.map((p) => p.name);
+        expect(pluginNames).toContain("cfni:vinext-route-wiring-fix");
     });
 
     it("runs autoLocaleParams before autoDynamicPages, so an inserted setLocale is visible to the dynamic-usage scan", () => {
@@ -152,6 +158,26 @@ describe("cloudflareNextIntl (main plugin)", () => {
 
         expect(plugins.length).toBe(1);
         expect(plugins[0].name).toBe("cfni:vinext-route-wiring-fix");
+    });
+
+    it("supports experimentalRouteLoadingFixes enabling both vinext fix and dynamic pages includeLoading", () => {
+        const plugins = cloudflareNextIntl({
+            experimentalRouteLoadingFixes: true,
+        });
+        const pluginNames = plugins.map((p) => p.name);
+        expect(pluginNames).toContain("cfni:vinext-route-wiring-fix");
+        expect(pluginNames).toContain("cloudflare-next-intl-auto-dynamic-pages");
+    });
+
+    it("experimentalRouteLoadingFixes respects explicit overrides", () => {
+        const plugins = cloudflareNextIntl({
+            experimentalRouteLoadingFixes: true,
+            vinextRouteWiringFix: false,
+            autoDynamicPages: false,
+        });
+        const pluginNames = plugins.map((p) => p.name);
+        expect(pluginNames).not.toContain("cfni:vinext-route-wiring-fix");
+        expect(pluginNames).not.toContain("cloudflare-next-intl-auto-dynamic-pages");
     });
 
     it("supports lucideOptimizer with custom options", () => {

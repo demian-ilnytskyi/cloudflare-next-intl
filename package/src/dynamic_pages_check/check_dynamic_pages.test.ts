@@ -275,27 +275,91 @@ describe('checkDynamicPages', () => {
         logSpy.mockRestore();
     });
 
-    it('verbose: true includes a loading.tsx file, glyphed and labeled the same as a page.tsx', async () => {
+    it('excludes loading.tsx files by default (includeLoading: false)', async () => {
+        const { io, written } = makeIo({
+            '/app/[locale]/property-profile/loading.tsx': 'export default function Loading() { return null; }',
+            '/app/[locale]/property-profile/page.tsx': 'export default function Page() { return null; }',
+        });
+        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'fix', target: 'vinext' }, io);
+        expect(reports.length).toBe(1);
+        expect(reports[0].file).toBe('/app/[locale]/property-profile/page.tsx');
+        expect(written['/app/[locale]/property-profile/loading.tsx']).toBeUndefined();
+    });
+
+    it('emits warning and includes loading.tsx when includeLoading: true', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { io, written } = makeIo({
+            '/app/[locale]/property-profile/loading.tsx': 'export default function Loading() { return null; }',
+        });
+        const reports = await checkDynamicPages({ appDir: APP_DIR, mode: 'fix', target: 'vinext', includeLoading: true }, io);
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('[cloudflare-next-intl] WARNING: includeLoading is enabled'),
+        );
+        expect(reports.length).toBe(1);
+        expect(reports[0].file).toBe('/app/[locale]/property-profile/loading.tsx');
+        expect(written['/app/[locale]/property-profile/loading.tsx']).toBeDefined();
+        warnSpy.mockRestore();
+    });
+
+    it('emits warning when includeLoading: true and a loading file is not SSG', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { io } = makeIo({
+            '/app/[locale]/property-profile/loading.tsx': 'import { cookies } from "next/headers";\nexport default function Loading() { cookies(); return null; }',
+        });
+        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext', includeLoading: true }, io);
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Loading file is not static (SSG): /app/[locale]/property-profile/loading.tsx'),
+        );
+        warnSpy.mockRestore();
+    });
+
+    it('emits warning when loading file is already declared force-dynamic', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { io } = makeIo({
+            '/app/[locale]/property-profile/loading.tsx': 'export const dynamic = "force-dynamic";\nexport default function Loading() { return null; }',
+        });
+        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext', includeLoading: true }, io);
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Loading file is not static (SSG): /app/[locale]/property-profile/loading.tsx'),
+        );
+        warnSpy.mockRestore();
+    });
+
+    it('does not emit non-SSG warning when loading file is already declared force-static', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { io } = makeIo({
+            '/app/[locale]/property-profile/loading.tsx': 'export const dynamic = "force-static";\nexport default function Loading() { return null; }',
+        });
+        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext', includeLoading: true }, io);
+        const nonSsgWarn = warnSpy.mock.calls.find((call) => String(call[0]).includes('Loading file is not static (SSG)'));
+        expect(nonSsgWarn).toBeUndefined();
+        warnSpy.mockRestore();
+    });
+
+    it('verbose: true includes a loading.tsx file, glyphed and labeled the same as a page.tsx when includeLoading: true', async () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const { io } = makeIo({
             '/app/[locale]/property-profile/loading.tsx': 'export default function Loading() { return null; }',
         });
-        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext', verbose: true }, io);
+        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext', verbose: true, includeLoading: true }, io);
         const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
         expect(printed).toContain('/:locale/property-profile');
         expect(printed).toContain('Property Profile');
         expect(printed).toContain('○');
         expect(printed).toContain('Static (SSG) — would add');
         logSpy.mockRestore();
+        warnSpy.mockRestore();
     });
 
-    it('verbose: true distinguishes a page.tsx row from a loading.tsx row sharing the same route/label', async () => {
+    it('verbose: true distinguishes a page.tsx row from a loading.tsx row sharing the same route/label when includeLoading: true', async () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const { io } = makeIo({
             '/app/[locale]/(app)/property-profile/page.tsx': 'export default function Page() { return null; }',
             '/app/[locale]/(app)/property-profile/loading.tsx': 'export default function Loading() { return null; }',
         });
-        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext', verbose: true }, io);
+        await checkDynamicPages({ appDir: APP_DIR, mode: 'report', target: 'vinext', verbose: true, includeLoading: true }, io);
         const lines = logSpy.mock.calls.map((call) => String(call[0]));
         const rows = lines.filter((line) => line.includes('Property Profile'));
         expect(rows.length).toBe(2);
@@ -307,6 +371,7 @@ describe('checkDynamicPages', () => {
         expect(rows.some((line) => line.includes('/:locale/property-profile  '))).toBe(true);
         expect(rows.some((line) => line.includes('/:locale/property-profile/loading  '))).toBe(true);
         logSpy.mockRestore();
+        warnSpy.mockRestore();
     });
 
     it('verbose: true glyphs an already-declared non-literal dynamic export as = (value not evaluable)', async () => {

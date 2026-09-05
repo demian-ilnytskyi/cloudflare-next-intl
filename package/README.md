@@ -305,7 +305,8 @@ export default defineConfig({
             localeFiles: true,                    // Enable @locale-file & glob bundling (default: true)
             userAgentStub: true,                  // Enable regex-based user-agent stub (default: true)
             cfWorkersClientStub: true,            // Enable client cloudflare:workers stub (default: true)
-            vinextRouteWiringFix: true,           // Enable vinext route wiring, matching, and prefetch fixes (default: true, or options object)
+            vinextRouteWiringFix: false,          // ⚠️ DANGER: Monkey-patches vinext on disk (default: false, or options object)
+            experimentalRouteLoadingFixes: false, // ⚠️ DANGER: Unified switch enabling both vinextRouteWiringFix and SSG on loading.* (default: false)
             lucideOptimizer: true,                // Auto-optimize lucide-react deep imports and normalize next/*.js (default: true, or options object)
         }),
     ],

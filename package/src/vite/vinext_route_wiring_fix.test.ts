@@ -120,6 +120,28 @@ function renderTree() {
         );
     });
 
+    it("patches loading component calls to pass params", () => {
+        const loadingCode = `
+fallback: /* @__PURE__ */ jsx(PageLoadingComponent, {})
+fallback: /* @__PURE__ */ jsx(AncestorLoadingComponent, {})
+fallback: /* @__PURE__ */ jsx(LoadingComponent, {})
+fallback: /* @__PURE__ */ jsx(OwnerLoadingComponent, {})
+routeChildren = /* @__PURE__ */ jsx(prefetchLoadingComponent, {});
+fallback: /* @__PURE__ */ jsx(routeLoadingComponent, {})
+fallback: /* @__PURE__ */ jsx(segmentLoadingComponent, {})
+slotElement = /* @__PURE__ */ jsx(getDefaultExport(prefetchSlotLoadingEntry.loadingModule), {});
+`;
+        const patched = patchAppPageRouteWiring(loadingCode);
+        expect(patched).toContain("/* @__PURE__ */ jsx(PageLoadingComponent, { params: options.makeThenableParams(options.matchedParams) })");
+        expect(patched).toContain("/* @__PURE__ */ jsx(AncestorLoadingComponent, { params: options.makeThenableParams(resolveAppPageSegmentParams(options.route.routeSegments, ancestorLoadingEntry.treePosition, options.matchedParams)) })");
+        expect(patched).toContain("/* @__PURE__ */ jsx(LoadingComponent, { params: options.makeThenableParams(slotParams) })");
+        expect(patched).toContain("/* @__PURE__ */ jsx(OwnerLoadingComponent, { params: options.makeThenableParams(resolveAppPageSegmentParams(options.route.routeSegments, ownerLoadingEntry.treePosition, options.matchedParams)) })");
+        expect(patched).toContain("routeChildren = /* @__PURE__ */ jsx(prefetchLoadingComponent, { params: options.makeThenableParams(options.matchedParams) });");
+        expect(patched).toContain("/* @__PURE__ */ jsx(routeLoadingComponent, { params: options.makeThenableParams(options.matchedParams) })");
+        expect(patched).toContain("/* @__PURE__ */ jsx(segmentLoadingComponent, { params: options.makeThenableParams(resolveAppPageSegmentParams(options.route.routeSegments, treePosition, options.matchedParams)) })");
+        expect(patched).toContain("slotElement = /* @__PURE__ */ jsx(getDefaultExport(prefetchSlotLoadingEntry.loadingModule), { params: options.makeThenableParams(slotParams) });");
+    });
+
     it("does not change code if it is already fixed", () => {
         const patchedOnce = patchAppPageRouteWiring(sampleBuggyCode);
         const patchedTwice = patchAppPageRouteWiring(patchedOnce);

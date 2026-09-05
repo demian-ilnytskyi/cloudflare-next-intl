@@ -18,6 +18,16 @@ export interface AutoDynamicPagesPluginOptions {
      */
     target?: 'next' | 'vinext';
     /**
+     * Defaults to `false`. When `false`, `loading.*` files are excluded from
+     * `checkDynamicPages` and will never have `export const dynamic` injected.
+     *
+     * ⚠️ **DANGER / EXPERIMENTAL**: Setting this to `true` to force SSG on `loading.*`
+     * files is very dangerous and can break route rendering, hydration, streaming,
+     * or leak stale loading shells across routes.
+     * @default false
+     */
+    includeLoading?: boolean;
+    /**
      * Defaults to `false`. Passed straight through to `checkDynamicPages`'s
      * `syncErrorReportingAuthUser` option — see its docs. Opt-in separately
      * from this plugin's own default-on `autoDynamicPages` behavior, since
@@ -98,6 +108,7 @@ export function autoDynamicPagesPlugin(options: AutoDynamicPagesPluginOptions = 
                     appDir,
                     mode: options.mode ?? "fix",
                     target: options.target ?? "vinext",
+                    includeLoading: options.includeLoading ?? false,
                     syncErrorReportingAuthUser: options.syncErrorReportingAuthUser ?? false,
                     extraChecks: options.extraChecks ?? [],
                     verbose: options.verbose ?? false,

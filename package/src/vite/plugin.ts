@@ -64,9 +64,13 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
 
     /**
      * Patch Vinext to fix route-wiring, route-matching, and optimistic-routing bugs around
-     * nested loading boundaries and leading `:locale` segments. Pass an options object to
-     * disable individual parts, or `false` to disable all of them.
-     * @default true
+     * nested loading boundaries and leading `:locale` segments. Pass an options object or
+     * `true` to enable.
+     *
+     * ⚠️ **DANGER / EXPERIMENTAL**: This option is disabled by default (`false`).
+     * Enabling this monkey-patches installed vinext files on disk in `node_modules/vinext/dist`.
+     * This is very dangerous and can break routing, streaming, or upstream compatibility.
+     * @default false
      */
     vinextRouteWiringFix?: boolean | VinextRouteWiringFixPluginOptions;
 
@@ -79,6 +83,17 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
      * @default true
      */
     autoLocaleParams?: boolean | AutoLocaleParamsPluginOptions;
+
+    /**
+     * Unified switcher for experimental route & loading fixes:
+     * When `true`, enables both `vinextRouteWiringFix` (monkey-patching vinext route wiring on disk)
+     * and `autoDynamicPages: { includeLoading: true }` (injecting force-static SSG into loading.* files).
+     *
+     * ⚠️ **DANGER / EXPERIMENTAL**: Both fixes monkey-patch vinext or force SSG on loading boundaries,
+     * which can cause hydration errors or break routing. Off by default.
+     * @default false
+     */
+    experimentalRouteLoadingFixes?: boolean;
 }
 
 export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plugin[] {
@@ -113,14 +128,15 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
         );
     }
 
+    const enableRouteLoadingFixes = options.experimentalRouteLoadingFixes === true;
+
     if (options.autoDynamicPages !== false) {
-        plugins.push(
-            autoDynamicPagesPlugin(
-                typeof options.autoDynamicPages === "object"
-                    ? options.autoDynamicPages
-                    : undefined
-            )
-        );
+        const autoDynamicPagesOptions: AutoDynamicPagesPluginOptions =
+            typeof options.autoDynamicPages === "object" ? { ...options.autoDynamicPages } : {};
+        if (enableRouteLoadingFixes && autoDynamicPagesOptions.includeLoading === undefined) {
+            autoDynamicPagesOptions.includeLoading = true;
+        }
+        plugins.push(autoDynamicPagesPlugin(autoDynamicPagesOptions));
     }
 
     if (options.imageOptimizer !== false) {
@@ -146,7 +162,11 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
         plugins.push(userAgentStubPlugin());
     }
 
-    if (options.vinextRouteWiringFix !== false) {
+    const shouldEnableVinextFix = options.vinextRouteWiringFix !== undefined
+        ? Boolean(options.vinextRouteWiringFix)
+        : enableRouteLoadingFixes;
+
+    if (shouldEnableVinextFix) {
         plugins.push(
             vinextRouteWiringFixPlugin(
                 typeof options.vinextRouteWiringFix === "object" ? options.vinextRouteWiringFix : {},

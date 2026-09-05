@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.50] - 2026-09-05
+
+### Fixed
+
+- Excluded `loading.*` files from `findLocaleScopedFiles` in `autoLocaleParamsPlugin`. In Next.js / Vinext, `loading.tsx` is a Suspense fallback component rendered without props (`jsx(loadingComponent, {})`). Injecting `{ params }` and `await params` caused runtime `TypeError: Cannot destructure property 'locale' of 'undefined'` / React Error #419 on navigation.
+- Extended `defaultStaleDeployPatterns` in `is_stale_deploy_error.ts` to include React error #418, #419, #421, #422, #423, #425, #426, and Server Components render error messages (`'server components render'`, `'an error occurred in the server components render'`, `'digest property is included on this error instance'`), so stale deploys and server component render mismatches correctly trigger recovery reload instead of being left unhandled.
+
 ## [0.9.49] - 2026-09-05
 
 ### Fixed

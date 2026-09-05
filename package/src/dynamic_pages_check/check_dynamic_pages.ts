@@ -35,6 +35,20 @@ export interface CheckDynamicPagesOptions {
     /** File paths (as returned by `findPageFiles` — i.e. joined with `appDir`) to leave completely alone: not read, not written, not reported as anything but `'skipped'`. */
     skip?: readonly string[];
     /**
+     * Defaults to `false`. When `false`, `loading.*` files are excluded from
+     * `checkDynamicPages` scanning and will never have `export const dynamic`
+     * injected automatically.
+     *
+     * ⚠️ **DANGER / EXPERIMENTAL**: Setting this to `true` to force static SSG on
+     * `loading.*` files is dangerous and can break downstream route rendering or cause
+     * hydration/streaming errors, React errors (e.g. minified #419), or stale content
+     * leaks if the loading shell expects runtime params/context. Enable ONLY if you have
+     * verified that your loading boundaries are fully isolated, purely static, and
+     * explicitly supported by your bundler/runtime.
+     * @default false
+     */
+    includeLoading?: boolean;
+    /**
      * Defaults to `true`. When enabled, a page's dynamic-API signal search
      * also follows its local (relative/`aliases`-prefixed) imports —
      * transitively, cycle-safe, capped — so a signal in an imported
@@ -226,6 +240,16 @@ function defaultIsFile(path: string): boolean {
     }
 }
 
+function isSsgAction(report: CheckDynamicPagesReport): boolean {
+    if (report.action === 'added-force-static' || report.action === 'would-add-force-static') {
+        return true;
+    }
+    if (report.action === 'already-declared') {
+        return report.explicitValue === 'force-static';
+    }
+    return false;
+}
+
 export async function checkDynamicPages(
     options: CheckDynamicPagesOptions,
     io: CheckDynamicPagesIo = {},
@@ -234,6 +258,12 @@ export async function checkDynamicPages(
     if (mode === 'off') return [];
     const target = options.target ?? 'next';
     const resolveImports = options.resolveImports ?? true;
+    const includeLoading = options.includeLoading ?? false;
+    if (includeLoading) {
+        console.warn(
+            '[cloudflare-next-intl] WARNING: includeLoading is enabled. Forcing SSG on loading.* files is dangerous and can break route rendering, streaming, or hydration.',
+        );
+    }
 
     const findPageFiles = io.findPageFiles ?? findPageFilesImpl;
     const readFile = io.readFile ?? ((file: string) => readFileSync(file, 'utf8'));
@@ -247,6 +277,9 @@ export async function checkDynamicPages(
 
     const reports: (CheckDynamicPagesReport | SyncErrorReportingAuthUserReport)[] = [];
     for (const file of findPageFiles(options.appDir)) {
+        if (!includeLoading && fileKind(file) === 'loading') {
+            continue;
+        }
         if (skipSet.has(file)) {
             reports.push({ file, action: 'skipped' });
             continue;
@@ -287,6 +320,17 @@ export async function checkDynamicPages(
             reports.push({ file, action: 'added-force-dynamic', signals });
         } else {
             reports.push({ file, action: 'would-add-force-dynamic', signals });
+        }
+    }
+
+    if (includeLoading) {
+        for (const report of reports) {
+            const r = report as CheckDynamicPagesReport;
+            if (fileKind(r.file) === 'loading' && !isSsgAction(r)) {
+                console.warn(
+                    `[cloudflare-next-intl] WARNING: Loading file is not static (SSG): ${displayPath(r.file)}`,
+                );
+            }
         }
     }
 

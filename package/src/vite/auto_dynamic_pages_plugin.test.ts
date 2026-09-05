@@ -89,6 +89,24 @@ describe("autoDynamicPagesPlugin", () => {
         spy.mockRestore();
     });
 
+    it("passes includeLoading through to checkDynamicPages, defaulting to false", async () => {
+        const pagePath = resolve(TEST_DIR, "src/app/[locale]/page.tsx");
+        writeFileSync(pagePath, `export default function Page() { return <div>Hello</div>; }\n`, "utf8");
+
+        const checkDynamicPagesModule = await import("../dynamic_pages_check/index.js");
+        const spy = vi.spyOn(checkDynamicPagesModule, "checkDynamicPages");
+
+        const plugin = autoDynamicPagesPlugin({ includeLoading: true });
+        // @ts-expect-error Mock Vite configResolved hook call
+        await plugin.configResolved?.({ root: TEST_DIR, command: "build" });
+
+        expect(spy).toHaveBeenCalledWith(
+            expect.objectContaining({ includeLoading: true }),
+            expect.anything(),
+        );
+        spy.mockRestore();
+    });
+
     it("does nothing when appDir does not exist", async () => {
         const plugin = autoDynamicPagesPlugin({
             appDir: resolve(TEST_DIR, "non_existent_app_dir"),

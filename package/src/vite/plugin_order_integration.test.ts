@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { checkLocaleParams } from '../locale_params_check/check_locale_params.js';
 import { checkDynamicPages } from '../dynamic_pages_check/check_dynamic_pages.js';
 
@@ -15,16 +15,19 @@ const APP_DIR = '/app';
  */
 describe('autoLocaleParams before autoDynamicPages (plugin.ts registration order)', () => {
     it('a page missing setLocale is flagged dynamic on its own', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const source = `import { getTranslations } from "cloudflare-next-intl";\nexport default async function Loading() {\n    const t = await getTranslations('PropertyIntake');\n    return null;\n}\n`;
         const reports = await checkDynamicPages(
-            { appDir: APP_DIR, mode: 'report', target: 'vinext' },
+            { appDir: APP_DIR, mode: 'report', target: 'vinext', includeLoading: true },
             { findPageFiles: () => ['/app/[locale]/property-profile/loading.tsx'], readFile: () => source },
         );
         expect(reports[0]!.action).toBe('would-add-force-dynamic');
         expect(reports[0]!.signals?.some((s) => s.api.includes('cookie-derived locale'))).toBe(true);
+        warnSpy.mockRestore();
     });
 
     it('the same page, after checkLocaleParams fixes it first, is no longer flagged dynamic for that reason', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const original = `import { getTranslations } from "cloudflare-next-intl";\nexport default async function Loading() {\n    const t = await getTranslations('PropertyIntake');\n    return null;\n}\n`;
         let stored = original;
 
@@ -39,10 +42,11 @@ describe('autoLocaleParams before autoDynamicPages (plugin.ts registration order
         expect(stored).toContain('setLocale(locale)');
 
         const reports = await checkDynamicPages(
-            { appDir: APP_DIR, mode: 'report', target: 'vinext' },
+            { appDir: APP_DIR, mode: 'report', target: 'vinext', includeLoading: true },
             { findPageFiles: () => ['/app/[locale]/property-profile/loading.tsx'], readFile: () => stored },
         );
         expect(reports[0]!.action).toBe('would-add-force-static');
         expect(reports[0]!.signals ?? []).toEqual([]);
+        warnSpy.mockRestore();
     });
 });
