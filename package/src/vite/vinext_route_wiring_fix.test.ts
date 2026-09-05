@@ -714,8 +714,10 @@ describe("patchPrefetchLearning", () => {
         const patched = patchPrefetchLearning(BUGGY_BROWSER_ENTRY);
 
         expect(patched).toContain("isPendingNavigationTarget");
-        expect(patched).toContain("parsePrefetchCacheKey(cacheKey).rscUrl === options.targetRscUrl");
+        expect(patched).toContain("hasOptimisticTemplate");
+        expect(patched).toContain("stripRsc(parsePrefetchCacheKey(cacheKey).rscUrl) === stripRsc(options.targetRscUrl)");
         expect(patched).toContain("settledEntry.pending?.catch(() => {})");
+        expect(patched).toContain("targetHref: currentHref,");
         expect(patched).toContain("targetRscUrl: rscUrl,");
         expect(patched).not.toContain("if (!isSettledPrefetchCacheEntry(entry)) continue;");
     });
@@ -782,6 +784,7 @@ async function learnOptimisticRouteTemplatesFromPrefetchCache(options) {
 }
 await learnOptimisticRouteTemplatesFromPrefetchCache({
 	interceptionContext: requestInterceptionContext,
+	targetHref: currentHref,
 	targetRscUrl: rscUrl,
 	mountedSlotsHeader,
 	routeManifest

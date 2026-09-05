@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.47] - 2026-09-05
+
+### Fixed
+
+- `vinextRouteWiringFixPlugin`'s prefetch learning patch (`patchPrefetchLearning`) now checks if an optimistic route template has already been cached for the navigation target (`hasOptimisticTemplate` via `resolveOptimisticNavigationPayload(...) !== null`). If a template is already loaded, `isPendingNavigationTarget` evaluates to `false` and does not block the navigation waiting for an in-flight prefetch promise to resolve, eliminating multi-second navigation stalls and eliminating navigation asymmetry when alternating between routes.
+- `stripRsc` query hash normalizer added to `patchPrefetchLearning`: strips `_rsc` / `%5Frsc` query parameters when matching `parsePrefetchCacheKey(cacheKey).rscUrl` against `options.targetRscUrl`, ensuring query-hash-tagged prefetch keys match the navigation's target RSC URL cleanly.
+
 ## [0.9.46] - 2026-09-05
 
 ### Fixed

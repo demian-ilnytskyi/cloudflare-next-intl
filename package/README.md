@@ -266,6 +266,7 @@ export default defineConfig({
 4. **User-Agent Stub (`userAgentStub`)**: Prevents Next.js `user-agent` from importing `node:fs` during workerd runtime execution (which otherwise causes runtime 404 / 500 crashes in Workers proxy/middleware).
 5. **Cloudflare Workers Client Stub (`cfWorkersClientStub`)**: Stubs `cloudflare:workers` in client builds so shared modules can be referenced without client bundling errors.
 6. **Build ID Asset Emission (`buildIdAsset`)**: Emits `BUILD_ID` static asset in the client build directory from `process.env.__VINEXT_SHARED_BUILD_ID` or `process.env.__VINEXT_BUILD_ID`.
+7. **Vinext Route Wiring & Optimistic Prefetch Fix (`vinextRouteWiringFix`)**: Patches Vinext runtime route wiring, route matching, optimistic route template resolution, and prefetch learning so pending prefetches with already cached templates don't block navigation, and leading `:locale` segments route correctly.
 
 ##### Plugin Options
 All features are enabled by default, and can be individually configured or toggled off:
@@ -297,13 +298,14 @@ export default defineConfig({
             localeFiles: true,                    // Enable @locale-file & glob bundling (default: true)
             userAgentStub: true,                  // Enable regex-based user-agent stub (default: true)
             cfWorkersClientStub: true,            // Enable client cloudflare:workers stub (default: true)
+            vinextRouteWiringFix: true,           // Enable vinext route wiring, matching, and prefetch fixes (default: true, or options object)
         }),
     ],
 });
 ```
 
 Individual standalone plugins are also exported if you only need a specific feature:
-`imageOptimizerPlugin` (or `imageOptimizer`), `buildIdAsset`, `localeFilePlugin`, `userAgentStubPlugin`, `cfWorkersClientStubPlugin`.
+`imageOptimizerPlugin` (or `imageOptimizer`), `buildIdAsset`, `localeFilePlugin`, `userAgentStubPlugin`, `cfWorkersClientStubPlugin`, `vinextRouteWiringFixPlugin`.
 
 ##### Per-Image Optimizer Settings
 

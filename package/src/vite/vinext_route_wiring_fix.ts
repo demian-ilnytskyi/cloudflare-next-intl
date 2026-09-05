@@ -212,8 +212,8 @@ export function isPrefetchLearningFile(id: string): boolean {
 }
 
 export function isPrefetchLearningAlreadyFixed(code: string): boolean {
-    const hasFixedFunction = code.includes("isPendingNavigationTarget");
-    const hasFixedCallSite = code.includes("targetRscUrl: rscUrl,");
+    const hasFixedFunction = code.includes("stripRsc(parsePrefetchCacheKey(cacheKey).rscUrl)") && code.includes("hasOptimisticTemplate");
+    const hasFixedCallSite = code.includes("targetHref: currentHref,") && code.includes("targetRscUrl: rscUrl,") && !LEARN_TEMPLATES_CALL_RE.test(code);
     return hasFixedFunction && hasFixedCallSite;
 }
 
@@ -222,6 +222,24 @@ const LEARN_TEMPLATES_FN_RE =
 
 const FIXED_LEARN_TEMPLATES_FN = `async function learnOptimisticRouteTemplatesFromPrefetchCache(options) {
 	if (options.routeManifest === null) return;
+	const hasOptimisticTemplate = options.targetHref !== void 0 && resolveOptimisticNavigationPayload({
+		basePath: __basePath,
+		href: options.targetHref,
+		interceptionContext: options.interceptionContext,
+		mountedSlotsHeader: options.mountedSlotsHeader,
+		routeManifest: options.routeManifest,
+		templates: optimisticRouteTemplates
+	}) !== null;
+	const stripRsc = (u) => {
+		if (!u) return "";
+		const q = u.indexOf("?");
+		if (q === -1) return u;
+		const sp = new URLSearchParams(u.slice(q + 1));
+		sp.delete("_rsc");
+		sp.delete("%5Frsc");
+		const s = sp.toString();
+		return s ? \`\${u.slice(0, q)}?\${s}\` : u.slice(0, q);
+	};
 	const learning = [...optimisticRouteTemplateLearning.values()];
 	for (const [cacheKey, entry] of getPrefetchCache()) {
 		const sourceKey = getOptimisticPrefetchSourceKey({
@@ -232,7 +250,7 @@ const FIXED_LEARN_TEMPLATES_FN = `async function learnOptimisticRouteTemplatesFr
 		if (optimisticRouteTemplateSources.has(sourceKey)) continue;
 		if (optimisticRouteTemplateLearning.has(sourceKey)) continue;
 		if (entry.prefetchKind === "route-tree") continue;
-		const isPendingNavigationTarget = !isSettledPrefetchCacheEntry(entry) && entry.pending !== void 0 && options.targetRscUrl !== void 0 && parsePrefetchCacheKey(cacheKey).rscUrl === options.targetRscUrl;
+		const isPendingNavigationTarget = !hasOptimisticTemplate && !isSettledPrefetchCacheEntry(entry) && entry.pending !== void 0 && options.targetRscUrl !== void 0 && stripRsc(parsePrefetchCacheKey(cacheKey).rscUrl) === stripRsc(options.targetRscUrl);
 		if (!isSettledPrefetchCacheEntry(entry) && !isPendingNavigationTarget) continue;
 		const promise = (async () => {
 			let settledEntry = entry;
@@ -264,9 +282,15 @@ const FIXED_LEARN_TEMPLATES_FN = `async function learnOptimisticRouteTemplatesFr
 }`;
 
 const LEARN_TEMPLATES_CALL_RE =
-    /(await\s+learnOptimisticRouteTemplatesFromPrefetchCache\(\s*\{\s*)interceptionContext:\s*requestInterceptionContext,/;
+    /await\s+learnOptimisticRouteTemplatesFromPrefetchCache\(\s*\{\s*interceptionContext:\s*requestInterceptionContext,\s*(targetRscUrl:\s*rscUrl,\s*)?mountedSlotsHeader,[\s\S]*?routeManifest\s*\n\s*\}\);/;
 
-const FIXED_LEARN_TEMPLATES_CALL = "$1interceptionContext: requestInterceptionContext,\n\t\t\t\t\t\t\ttargetRscUrl: rscUrl,";
+const FIXED_LEARN_TEMPLATES_CALL = `await learnOptimisticRouteTemplatesFromPrefetchCache({
+							interceptionContext: requestInterceptionContext,
+							targetHref: currentHref,
+							targetRscUrl: rscUrl,
+							mountedSlotsHeader,
+							routeManifest
+						});`;
 
 /**
  * Patches Vinext's browser entry so a navigation whose target prefetch is still
@@ -291,10 +315,10 @@ export function patchPrefetchLearning(code: string): string {
     }
 
     let result = code;
-    if (!result.includes("isPendingNavigationTarget") && LEARN_TEMPLATES_FN_RE.test(result)) {
+    if (!result.includes("hasOptimisticTemplate") && LEARN_TEMPLATES_FN_RE.test(result)) {
         result = result.replace(LEARN_TEMPLATES_FN_RE, FIXED_LEARN_TEMPLATES_FN);
     }
-    if (!result.includes("targetRscUrl: rscUrl,") && LEARN_TEMPLATES_CALL_RE.test(result)) {
+    if (LEARN_TEMPLATES_CALL_RE.test(result)) {
         result = result.replace(LEARN_TEMPLATES_CALL_RE, FIXED_LEARN_TEMPLATES_CALL);
     }
     return result;
