@@ -29,3 +29,4 @@ jobs:
         vite/auto_dynamic_pages_plugin.ts:98
         vite/auto_locale_params_plugin.ts:98
         locale_params_check/insert_locale_params.ts:97
+        vite/vinext_route_wiring_fix.ts:98
