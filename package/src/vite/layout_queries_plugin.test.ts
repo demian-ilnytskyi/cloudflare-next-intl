@@ -5,6 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ResolvedConfig } from "vite";
 
+function callConfigResolved(plugin: ReturnType<typeof layoutQueriesPlugin>, config: ResolvedConfig): void {
+  const hook = plugin.configResolved;
+  if (typeof hook === "function") {
+    (hook as (config: ResolvedConfig) => void)(config);
+  }
+}
+
 describe("layoutQueriesPlugin", () => {
   it("runs during configResolved and warns on layout DB violations", () => {
     const tempDir = mkdtempSync(join(tmpdir(), "vite-layout-test-"));
@@ -25,9 +32,7 @@ describe("layoutQueriesPlugin", () => {
         root: tempDir,
       } as ResolvedConfig;
 
-      if (typeof plugin.configResolved === "function") {
-        (plugin.configResolved as any)(config);
-      }
+      callConfigResolved(plugin, config);
 
       expect(consoleWarnSpy).toHaveBeenCalled();
       const output = consoleWarnSpy.mock.calls.flat().join(" ");
@@ -58,9 +63,7 @@ describe("layoutQueriesPlugin", () => {
       } as ResolvedConfig;
 
       expect(() => {
-        if (typeof plugin.configResolved === "function") {
-          (plugin.configResolved as any)(config);
-        }
+        callConfigResolved(plugin, config);
       }).toThrow("Blocking database queries detected in layout tree");
     } finally {
       consoleWarnSpy.mockRestore();
@@ -79,7 +82,7 @@ describe("layoutQueriesPlugin", () => {
 
       const plugin = layoutQueriesPlugin();
       const config = { command: "build", root: tempDir } as ResolvedConfig;
-      (plugin.configResolved as any)(config);
+      callConfigResolved(plugin, config);
 
       expect(consoleWarnSpy).not.toHaveBeenCalled();
     } finally {
@@ -102,8 +105,8 @@ describe("layoutQueriesPlugin", () => {
 
       const plugin = layoutQueriesPlugin();
       const config = { command: "build", root: tempDir } as ResolvedConfig;
-      (plugin.configResolved as any)(config);
-      (plugin.configResolved as any)(config);
+      callConfigResolved(plugin, config);
+      callConfigResolved(plugin, config);
 
       expect(consoleWarnSpy).toHaveBeenCalledTimes(1);
     } finally {
@@ -126,7 +129,7 @@ describe("layoutQueriesPlugin", () => {
 
       const plugin = layoutQueriesPlugin({ runOnDev: false });
       const config = { command: "serve", root: tempDir } as ResolvedConfig;
-      (plugin.configResolved as any)(config);
+      callConfigResolved(plugin, config);
 
       expect(consoleWarnSpy).not.toHaveBeenCalled();
     } finally {
@@ -149,7 +152,7 @@ describe("layoutQueriesPlugin", () => {
 
       const plugin = layoutQueriesPlugin();
       const config = { command: "serve", root: tempDir } as ResolvedConfig;
-      (plugin.configResolved as any)(config);
+      callConfigResolved(plugin, config);
 
       expect(consoleWarnSpy).toHaveBeenCalled();
     } finally {
@@ -172,7 +175,7 @@ describe("layoutQueriesPlugin", () => {
 
       const plugin = layoutQueriesPlugin();
       const config = { command: "watch", root: tempDir } as unknown as ResolvedConfig;
-      (plugin.configResolved as any)(config);
+      callConfigResolved(plugin, config);
 
       expect(consoleWarnSpy).not.toHaveBeenCalled();
     } finally {
@@ -194,7 +197,7 @@ describe("layoutQueriesPlugin", () => {
       process.chdir(tempDir);
       const plugin = layoutQueriesPlugin();
       const config = { command: "build", root: "" } as unknown as ResolvedConfig;
-      (plugin.configResolved as any)(config);
+      callConfigResolved(plugin, config);
 
       expect(consoleWarnSpy).not.toHaveBeenCalled();
     } finally {
@@ -211,7 +214,7 @@ describe("layoutQueriesPlugin", () => {
     try {
       const plugin = layoutQueriesPlugin();
       const config = { command: "build", root: tempDir } as ResolvedConfig;
-      (plugin.configResolved as any)(config);
+      callConfigResolved(plugin, config);
 
       expect(consoleWarnSpy).not.toHaveBeenCalled();
     } finally {
@@ -234,7 +237,7 @@ describe("layoutQueriesPlugin", () => {
 
       const plugin = layoutQueriesPlugin({ appDir: customAppDir });
       const config = { command: "build", root: tempDir } as ResolvedConfig;
-      (plugin.configResolved as any)(config);
+      callConfigResolved(plugin, config);
 
       expect(consoleWarnSpy).toHaveBeenCalled();
     } finally {
