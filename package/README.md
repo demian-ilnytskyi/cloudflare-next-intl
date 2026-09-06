@@ -267,8 +267,9 @@ export default defineConfig({
 6. **User-Agent Stub (`userAgentStub`)**: Prevents Next.js `user-agent` from importing `node:fs` during workerd runtime execution (which otherwise causes runtime 404 / 500 crashes in Workers proxy/middleware).
 7. **Cloudflare Workers Client Stub (`cfWorkersClientStub`)**: Stubs `cloudflare:workers` in client builds so shared modules can be referenced without client bundling errors.
 8. **Build ID Asset Emission (`buildIdAsset`)**: Emits `BUILD_ID` static asset in the client build directory from `process.env.__VINEXT_SHARED_BUILD_ID` or `process.env.__VINEXT_BUILD_ID`.
-9. **Vinext Route Wiring & Optimistic Prefetch Fix (`vinextRouteWiringFix`)**: Patches Vinext runtime route wiring, route matching, optimistic route template resolution, and prefetch learning so pending prefetches with already cached templates don't block navigation, and leading `:locale` segments route correctly.
-10. **Lucide & Next.js Specifier Optimizer (`lucideOptimizer`)**: Auto-detects `lucide-react` in project dependencies, rewrites named imports to direct deep icon paths (`lucide-react/dist/esm/icons/<icon>.mjs`) to avoid browser socket exhaustion (`ERR_INSUFFICIENT_RESOURCES`), and normalizes Next.js `.js` specifiers (`next/dynamic.js` -> `next/dynamic`) to prevent mid-session Vite re-optimization and React dispatcher splitting.
+9. **Vinext Route Wiring & Optimistic Prefetch Fix (`vinextRouteWiringFix`)**: ⚠️ Monkey-patches Vinext's compiled runtime on disk (`node_modules/vinext/dist/**`) — **on by default** since 0.9.51 via `experimentalRouteLoadingFixes` (also defaulting to on). Fixes route wiring (a route-specific `loading.tsx` losing to an ancestor/root skeleton), route matching and optimistic (client-side) routing for leading `:locale` segments, prefetch learning (an in-flight prefetch losing the race so the previous page stays on screen), and a `refresh()` navigation cancelling an in-flight page-to-page navigation because both share the same counter. Every sub-patch is regex-based against vinext's exact compiled shape and checks that the vinext-internal identifiers it relies on (`makeThenableParams`, `trieMatch`, `getPrefetchCache`, …) are still present before touching a file — a future vinext release that renames or removes one is left unpatched (with a console warning) rather than being patched into a broken half-state. Set `experimentalRouteLoadingFixes: false` (or `vinextRouteWiringFix: false`) to opt out entirely; see **Plugin Options** below for the individual sub-patch flags (`routeWiring`, `routeMatching`, `optimisticRouting`, `prefetchLearning`, `suspenseProbe`, `renderDependency`, `optimisticLearningTimeout`, `pageInvokerSuspensionRelease`, `refreshDeferral`, `unblockRenderDependencies`, `unblockPageElementDependencies`).
+10. **Layout DB Query Check (`layoutQueriesCheck`)**: Scans each `layout.tsx`/`layout.ts` and its reachable server-component import tree (also usable standalone from `cloudflare-next-intl/checkLayoutQueries`, or via the `cfni-check-layout-queries` CLI bin) for blocking `withUserDb()` / `withPublicDb()` calls. A layout re-renders on every route transition within its group, so a DB query anywhere in that tree blocks every page switch under it — the scan stops at Client Components (`'use client'`), which don't block server layout streaming. Prints a visible terminal warning with concrete fixes (move to a Client Component, wrap in `unstable_cache`, or move the query out of the shared layout into the page) by default; pass `{ strict: true }` to fail the build instead, or `false` to disable.
+11. **Lucide & Next.js Specifier Optimizer (`lucideOptimizer`)**: Auto-detects `lucide-react` in project dependencies, rewrites named imports to direct deep icon paths (`lucide-react/dist/esm/icons/<icon>.mjs`) to avoid browser socket exhaustion (`ERR_INSUFFICIENT_RESOURCES`), and normalizes Next.js `.js` specifiers (`next/dynamic.js` -> `next/dynamic`) to prevent mid-session Vite re-optimization and React dispatcher splitting.
 
 ##### Plugin Options
 All features are enabled by default, and can be individually configured or toggled off:
@@ -299,22 +300,40 @@ export default defineConfig({
                 localeParam: "locale",             // Route param name to read (default: "locale")
                 skip: ["src/app/[locale]/(marketing)/**"], // Glob(s) to exclude from the scan
             },
+            layoutQueriesCheck: {                  // Flag blocking DB queries in the layout tree (or `false` to disable)
+                strict: false,                     // Fail the build on violations instead of just warning (default: false)
+                runOnDev: true,                    // Also run on `vite dev`, not just build (default: true)
+            },
             messagesDir: "./messages",            // Path to locale JSON files (default: './messages')
             intlConfigPath: "./src/l18n/intl_config.ts", // Path to intl config (auto-detected if omitted)
             buildIdAsset: true,                   // Emit BUILD_ID asset (or custom string filename, default: true)
             localeFiles: true,                    // Enable @locale-file & glob bundling (default: true)
             userAgentStub: true,                  // Enable regex-based user-agent stub (default: true)
             cfWorkersClientStub: true,            // Enable client cloudflare:workers stub (default: true)
-            vinextRouteWiringFix: false,          // ⚠️ DANGER: Monkey-patches vinext on disk (default: false, or options object)
-            experimentalRouteLoadingFixes: false, // ⚠️ DANGER: Unified switch enabling both vinextRouteWiringFix and SSG on loading.* (default: false)
+            vinextRouteWiringFix: {                // ⚠️ DANGER: Monkey-patches vinext on disk (default: follows experimentalRouteLoadingFixes, i.e. true; or options object)
+                routeWiring: true,                  // Route-specific loading.tsx wins over ancestor/root skeletons (default: true)
+                routeMatching: true,                // Leading `:locale` segment tried against active locale first (default: true)
+                optimisticRouting: true,            // Same fix client-side for optimistic (instant) navigation (default: true)
+                prefetchLearning: true,             // Wait for an in-flight prefetch of the nav target instead of giving up (default: true)
+                optimisticLearningTimeout: true,    // Lower the fixed safety-cap on that wait; pass a number for a custom ms cap (default: true → 200ms)
+                suspenseProbe: true,                // Respect <Suspense> boundaries when probing for async page dependencies (default: true)
+                renderDependency: true,             // Release a render dependency when its component suspends (default: true)
+                pageInvokerSuspensionRelease: true, // Same release, unconditionally, for the page component's own barrier (default: true)
+                refreshDeferral: true,              // Defer a refresh() navigation while a normal navigation is in flight (default: true)
+                unblockRenderDependencies: true,    // Strip layout/template/slot/route dependency ordering (default: true)
+                unblockPageElementDependencies: false, // Also strip it from the PAGE element itself (default: false — see warning below)
+            },
+            experimentalRouteLoadingFixes: true,  // ⚠️ DANGER: Unified switch enabling both vinextRouteWiringFix and SSG on loading.* (default: true)
             lucideOptimizer: true,                // Auto-optimize lucide-react deep imports and normalize next/*.js (default: true, or options object)
         }),
     ],
 });
 ```
 
+> **Note:** `unblockPageElementDependencies: true` was measured, in a real app, to make page-to-page navigation noticeably slower rather than faster — it strips ordering vinext's own page-element wiring relies on. Leave it off unless you've verified otherwise for your app.
+
 Individual standalone plugins are also exported if you only need a specific feature:
-`imageOptimizerPlugin` (or `imageOptimizer`), `autoLocaleParamsPlugin`, `buildIdAsset`, `localeFilePlugin`, `userAgentStubPlugin`, `cfWorkersClientStubPlugin`, `vinextRouteWiringFixPlugin`, `lucideOptimizerPlugin`.
+`imageOptimizerPlugin` (or `imageOptimizer`), `autoLocaleParamsPlugin`, `layoutQueriesPlugin` (or `layoutQueriesCheck`), `buildIdAsset`, `localeFilePlugin`, `userAgentStubPlugin`, `cfWorkersClientStubPlugin`, `vinextRouteWiringFixPlugin`, `lucideOptimizerPlugin`.
 
 ##### Per-Image Optimizer Settings
 

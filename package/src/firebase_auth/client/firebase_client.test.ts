@@ -40,10 +40,10 @@ vi.mock('@firebase/auth', () => ({
 }));
 const getToken = vi.fn(() => Promise.resolve({ token: 'app-check-token' }));
 
-const getPerformance = vi.fn(() => ({}));
+const initializePerformance = vi.fn(() => ({}));
 
 vi.mock('@firebase/performance', () => ({
-    getPerformance: (...args: unknown[]) => getPerformance(...args),
+    initializePerformance: (...args: unknown[]) => initializePerformance(...args),
 }));
 
 vi.mock('@firebase/app-check', () => ({
@@ -205,14 +205,14 @@ describe('getFirebaseAuthClient App Check', () => {
 describe('getFirebaseAuthClient Performance', () => {
     beforeEach(() => {
         vi.resetModules();
-        getPerformance.mockClear();
+        initializePerformance.mockClear();
     });
 
     it('automatically initializes performance monitoring by default on client', async () => {
         const { getFirebaseAuthClient, getFirebasePerformanceSync } = await import('./firebase_client.js');
         expect(getFirebasePerformanceSync()).toBeUndefined();
         await getFirebaseAuthClient();
-        expect(getPerformance).toHaveBeenCalled();
+        expect(initializePerformance).toHaveBeenCalledWith(expect.anything(), { instrumentationEnabled: false });
         expect(getFirebasePerformanceSync()).toBeDefined();
     });
 
@@ -227,7 +227,7 @@ describe('getFirebaseAuthClient Performance', () => {
         }));
         const { getFirebaseAuthClient, getFirebasePerformanceSync } = await import('./firebase_client.js');
         await getFirebaseAuthClient();
-        expect(getPerformance).not.toHaveBeenCalled();
+        expect(initializePerformance).not.toHaveBeenCalled();
         expect(getFirebasePerformanceSync()).toBeUndefined();
     });
 });

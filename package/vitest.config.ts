@@ -27,7 +27,7 @@ export default defineConfig({
             ],
             thresholds: {
                 perFile: true,
-                'src/**/!(general_functions|middleware|error_detail_view|auto_dynamic_pages_plugin|auto_locale_params_plugin|insert_locale_params).{ts,tsx}': { statements: 100, branches: 100, functions: 100, lines: 100 },
+                'src/**/!(general_functions|middleware|error_detail_view|auto_dynamic_pages_plugin|auto_locale_params_plugin|insert_locale_params|vinext_route_wiring_fix).{ts,tsx}': { statements: 100, branches: 100, functions: 100, lines: 100 },
                 // general_functions.ts: 3 branches are unreachable defensive dead code (post-loop null-check, type guard that cannot fail, loop-exit fallback). v8-ignore comments cannot suppress these — esbuild strips comments before vitest's coverage instrumentation sees them (confirmed via direct esbuild.transform test), so no comment-based approach works with this project's transform pipeline.
                 'src/general/general_functions.ts': { statements: 90.26, branches: 84.09, functions: 83.33, lines: 90.26 },
                 // middleware.ts: 2 branches are unreachable defensive/structural dead code (a `?? ''` fallback after an equivalent null-guard already returned, and an empty-string check on a value that can never be empty by construction).
@@ -40,6 +40,24 @@ export default defineConfig({
                 'src/vite/auto_locale_params_plugin.ts': { statements: 98.46, branches: 93.54, functions: 100, lines: 98.46 },
                 // insert_locale_params.ts: insertLocaleParamsSignature's `parensMatch === null` branch is unreachable — ZERO_ARG_DEFAULT_EXPORT's own `(?=\(\s*\))` lookahead guarantees the immediately-following ZERO_ARG_PARENS match always succeeds whenever the name match does (confirmed directly: slicing the source at the name match's end and re-running ZERO_ARG_PARENS on it always matches at index 0).
                 'src/locale_params_check/insert_locale_params.ts': { statements: 100, branches: 98.46, functions: 100, lines: 100 },
+                // vinext_route_wiring_fix.ts: (1) `hasRequiredSymbols`'s exported function-declaration
+                // line reports 0 hits under this project's esbuild+v8 coverage pipeline even though the
+                // function is called from dozens of tests and its own body line is covered — reproduced
+                // in isolation (a single-file run still shows the declaration line at 0 while the body
+                // line is 1), so it is a tool-level attribution quirk, not a real gap. (2) Three
+                // "shape may have changed" warn branches (renderDependency, optimisticLearningTimeout,
+                // pageInvokerSuspensionRelease) are unreachable: each of those three patches guards its
+                // own single regex with the SAME test in both "already fixed?" and "is this a no-op?",
+                // so whenever the file is reported as not-yet-fixed the patch is guaranteed to change
+                // something — the warn path those patches share can never fire. (3) Their matching
+                // "if (patched === code) return" bodies inside the plugin's `transform` hook are the
+                // same unreachable no-op for the same structural reason. (4) Two `catch` blocks around
+                // `statSync` in `isVinextOptimizeDepsCacheStale` guard a TOCTOU race (a file/dir that
+                // passes `existsSync` but fails the immediately-following `statSync`) — removing execute
+                // permission from the parent directory to force `statSync` to throw also makes the
+                // preceding `existsSync` report false, so the two checks can't be split apart from
+                // outside the module in a test.
+                'src/vite/vinext_route_wiring_fix.ts': { statements: 98.63, branches: 98.17, functions: 100, lines: 98.63 },
             },
         },
     },

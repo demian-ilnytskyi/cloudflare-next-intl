@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.9.50",
+  "version": "0.9.51",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,7 +12,8 @@
     "cfni-image-optimizer": "bin/image_optimizer.mjs",
     "optimize-images": "bin/image_optimizer.mjs",
     "cfni-check-dynamic-pages": "bin/check_dynamic_pages.mjs",
-    "cfni-check-locale-params": "bin/check_locale_params.mjs"
+    "cfni-check-locale-params": "bin/check_locale_params.mjs",
+    "cfni-check-layout-queries": "bin/check_layout_queries.mjs"
   },
   "files": [
     "dist",
@@ -242,6 +243,10 @@
     "./checkLocaleParams": {
       "types": "./dist/src/locale_params_check/index.d.ts",
       "import": "./dist/src/locale_params_check/index.js"
+    },
+    "./checkLayoutQueries": {
+      "types": "./dist/src/layout_queries_check/index.d.ts",
+      "import": "./dist/src/layout_queries_check/index.js"
     },
     "./db": {
       "types": "./dist/src/db/index.d.ts",

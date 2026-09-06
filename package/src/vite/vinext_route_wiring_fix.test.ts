@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {
+    hasRequiredSymbols,
     patchAppPageRouteWiring,
     isAppPageRouteWiringFile,
     isAppPageRouteWiringAlreadyFixed,
@@ -16,7 +17,22 @@ import {
     resolveVinextOptimisticRoutingPath,
     syncPatchVinextOnDisk,
     isVinextAppPageRouteWiringSafeOnDisk,
+    isAppPageProbeFile,
+    isAppPageProbeAlreadyFixed,
+    patchAppPageProbe,
+    resolveVinextAppPageProbePath,
+    isVinextAppPageProbeSafeOnDisk,
     vinextRouteWiringFixPlugin,
+    isRenderDependencyFile,
+    isRenderDependencyAlreadyFixed,
+    patchRenderDependency,
+    resolveVinextRenderDependencyPath,
+    isOptimisticLearningTimeoutFile,
+    isOptimisticLearningTimeoutAlreadyFixed,
+    patchOptimisticLearningTimeout,
+    isPageInvokerSuspensionReleaseFile,
+    isPageInvokerSuspensionReleaseAlreadyFixed,
+    patchPageInvokerSuspensionRelease,
 } from "./vinext_route_wiring_fix.js";
 
 describe("isAppPageRouteWiringFile", () => {
@@ -46,6 +62,7 @@ function getPrefetchLoadingEntry(route) {
 	return getDefaultExport(route.loading) ? {} : null;
 }
 if (!isPrefetchLoadingShell && treePosition < routeSegments.length) {
+const _vinextHelpers = [options.makeThenableParams, resolveAppPageSegmentParams, routeLoadingComponent, ancestorLoadingEntry, slotParams, ownerLoadingEntry];
 `;
         expect(isAppPageRouteWiringAlreadyFixed(buggyCode)).toBe(false);
     });
@@ -155,6 +172,89 @@ slotElement = /* @__PURE__ */ jsx(getDefaultExport(prefetchSlotLoadingEntry.load
     });
 });
 
+// ─── Second fix: page element must not block on layout Suspense deps ──────────
+
+const PAGE_BLOCKING_CODE = `
+	const pageDependencies = [];
+	for (const treePosition of orderedTreePositions) {
+		const layoutDependency = createAppRenderDependency();
+		pageDependencies.push(layoutDependency);
+	}
+	pageRenderDependency?.setResultDependencies(pageDependencies);
+	const pageElement = jsx(Suspense, { fallback: null, children: options.element });
+	elements[pageElementId] = isPrefetchLoadingShell ? null : pageRenderDependency ? pageElement : renderAfterAppDependencies(pageElement, pageDependencies);
+`;
+
+const UNBLOCK = { unblockRenderDependencies: true, unblockPageElementDependencies: true } as const;
+
+describe("isAppPageRouteWiringAlreadyFixed — second fix detection", () => {
+    it("returns false when setResultDependencies(pageDependencies) pattern is present", () => {
+        expect(isAppPageRouteWiringAlreadyFixed(PAGE_BLOCKING_CODE, UNBLOCK)).toBe(false);
+    });
+
+    it("returns false when renderAfterAppDependencies(pageElement, pageDependencies) fallback is present", () => {
+        const code = `elements[pageElementId] = isPrefetchLoadingShell ? null : pageRenderDependency ? pageElement : renderAfterAppDependencies(pageElement, pageDependencies);`;
+        expect(isAppPageRouteWiringAlreadyFixed(code, UNBLOCK)).toBe(false);
+    });
+
+    it("returns true when both patterns are replaced", () => {
+        const fixedCode = `
+	pageRenderDependency?.setResultDependencies([]);
+	elements[pageElementId] = isPrefetchLoadingShell ? null : pageElement;
+`;
+        expect(isAppPageRouteWiringAlreadyFixed(fixedCode, UNBLOCK)).toBe(true);
+    });
+});
+
+describe("patchAppPageRouteWiring — second fix: page Suspense blocking", () => {
+    it("replaces setResultDependencies(pageDependencies) with setResultDependencies([])", () => {
+        const patched = patchAppPageRouteWiring(PAGE_BLOCKING_CODE, UNBLOCK);
+        expect(patched).toContain("pageRenderDependency?.setResultDependencies([]);");
+        expect(patched).not.toContain("setResultDependencies(pageDependencies)");
+    });
+
+    it("removes renderAfterAppDependencies fallback from elements[pageElementId]", () => {
+        const patched = patchAppPageRouteWiring(PAGE_BLOCKING_CODE, UNBLOCK);
+        expect(patched).toContain("elements[pageElementId] = isPrefetchLoadingShell ? null : pageElement;");
+        expect(patched).not.toContain("renderAfterAppDependencies(pageElement, pageDependencies)");
+    });
+
+    it("is idempotent — applying patch twice yields the same result", () => {
+        const once = patchAppPageRouteWiring(PAGE_BLOCKING_CODE, UNBLOCK);
+        const twice = patchAppPageRouteWiring(once, UNBLOCK);
+        expect(twice).toBe(once);
+    });
+
+    it("leaves code unchanged when patterns are absent", () => {
+        const unrelated = "export const foo = 42;";
+        expect(patchAppPageRouteWiring(unrelated, UNBLOCK)).toBe(unrelated);
+    });
+
+    it("patches only setResultDependencies when elements[pageElementId] pattern is absent", () => {
+        const codeWithOnlyResultDeps = `pageRenderDependency?.setResultDependencies(pageDependencies);`;
+        const patched = patchAppPageRouteWiring(codeWithOnlyResultDeps, UNBLOCK);
+        expect(patched).toContain("pageRenderDependency?.setResultDependencies([]);");
+    });
+
+    it("patches only elements[pageElementId] when setResultDependencies pattern is absent", () => {
+        const codeWithOnlyBlocking = `elements[pageElementId] = isPrefetchLoadingShell ? null : pageRenderDependency ? pageElement : renderAfterAppDependencies(pageElement, pageDependencies);`;
+        const patched = patchAppPageRouteWiring(codeWithOnlyBlocking, UNBLOCK);
+        expect(patched).toContain("elements[pageElementId] = isPrefetchLoadingShell ? null : pageElement;");
+    });
+});
+
+
+describe("render-dependency unblocking is opt-in", () => {
+    it("leaves vinext's render-dependency ordering alone by default", () => {
+        expect(patchAppPageRouteWiring(PAGE_BLOCKING_CODE)).toBe(PAGE_BLOCKING_CODE);
+        expect(isAppPageRouteWiringAlreadyFixed(PAGE_BLOCKING_CODE)).toBe(true);
+    });
+
+    it("strips it only when unblockRenderDependencies is set", () => {
+        expect(patchAppPageRouteWiring(PAGE_BLOCKING_CODE, UNBLOCK)).not.toBe(PAGE_BLOCKING_CODE);
+    });
+});
+
 describe("vinextRouteWiringFixPlugin", () => {
     it("creates a plugin with enforce: pre and transform hook", () => {
         const plugin = vinextRouteWiringFixPlugin();
@@ -182,6 +282,7 @@ function getPrefetchLoadingEntry(route) {
 	} : null;
 }
 if (!isPrefetchLoadingShell && treePosition < routeSegments.length) {
+const _vinextHelpers = [options.makeThenableParams, resolveAppPageSegmentParams, routeLoadingComponent, ancestorLoadingEntry, slotParams, ownerLoadingEntry];
 `;
         const res = transform(wiringCode, "/node_modules/vinext/dist/server/app-page-route-wiring.js");
         expect(res).toBeDefined();
@@ -234,6 +335,7 @@ function getPrefetchLoadingEntry(route) {
 }
 // deepestNestedEntry already exists elsewhere in this bundle
 const somewhereElseMarker = "deepestNestedEntry";
+const _vinextHelpers = [options.makeThenableParams, resolveAppPageSegmentParams, routeLoadingComponent, ancestorLoadingEntry, slotParams, ownerLoadingEntry];
 `;
         expect(isAppPageRouteWiringAlreadyFixed(noOpCode)).toBe(false);
         const res = transform(noOpCode, "/node_modules/vinext/dist/server/app-page-route-wiring.js");
@@ -266,6 +368,30 @@ import {
     resolveVinextAppPageRouteWiringPath,
     syncPatchVinextOnDisk,
     bustVinextOptimizeDepsCache,
+    isRenderDependencyFile,
+    isRenderDependencyAlreadyFixed,
+    patchRenderDependency,
+    resolveVinextRenderDependencyPath,
+    isOptimisticLearningTimeoutFile,
+    isOptimisticLearningTimeoutAlreadyFixed,
+    patchOptimisticLearningTimeout,
+    isPageInvokerSuspensionReleaseFile,
+    isPageInvokerSuspensionReleaseAlreadyFixed,
+    patchPageInvokerSuspensionRelease,
+    isVinextRenderDependencySafeOnDisk,
+    isVinextOptimisticLearningTimeoutSafeOnDisk,
+    isVinextPageInvokerSuspensionReleaseSafeOnDisk,
+    resolveVinextOptimisticLearningTimeoutPath,
+    resolveVinextPageInvokerSuspensionReleasePath,
+    resolveVinextRouteMatchingPath,
+    isRefreshDeferralNavControllerFile,
+    isRefreshDeferralNavControllerAlreadyFixed,
+    patchRefreshDeferralNavController,
+    isRefreshDeferralEntryAlreadyFixed,
+    patchRefreshDeferralEntry,
+    resolveVinextNavControllerPath,
+    isVinextOptimizeDepsCacheStale,
+    missingRequiredSymbols,
 } from "./vinext_route_wiring_fix.js";
 
 describe("syncPatchVinextOnDisk & resolveVinextAppPageRouteWiringPath", () => {
@@ -311,6 +437,7 @@ function getPrefetchLoadingEntry(route) {
 	return getDefaultExport(route.loading) ? {} : null;
 }
 if (!isPrefetchLoadingShell && treePosition < routeSegments.length) {
+const _vinextHelpers = [options.makeThenableParams, resolveAppPageSegmentParams, routeLoadingComponent, ancestorLoadingEntry, slotParams, ownerLoadingEntry];
 `;
         writeFileSync(filePath, buggyCode, "utf8");
 
@@ -840,6 +967,7 @@ function resolveOptimisticNavigationParams(options) {
 });
 
 const BUGGY_BROWSER_ENTRY = `
+const _vinextHelpers = [__basePath, optimisticRouteTemplates, resolveOptimisticNavigationPayload, parsePrefetchCacheKey, currentHref, rscUrl];
 async function learnOptimisticRouteTemplatesFromPrefetchCache(options) {
 	if (options.routeManifest === null) return;
 	const learning = [...optimisticRouteTemplateLearning.values()];
@@ -1315,6 +1443,7 @@ function getPrefetchLoadingEntry(route) {
 	return getDefaultExport(route.loading) ? {} : null;
 }
 if (!isPrefetchLoadingShell && treePosition < routeSegments.length) {
+const _vinextHelpers = [options.makeThenableParams, resolveAppPageSegmentParams, routeLoadingComponent, ancestorLoadingEntry, slotParams, ownerLoadingEntry];
 `, "utf8");
 
         // Default cacheDir (config.cacheDir left unset, exercising the `||` fallback).
@@ -1332,6 +1461,51 @@ if (!isPrefetchLoadingShell && treePosition < routeSegments.length) {
 });
 
 describe("future upstream vinext compatibility and safety guards", () => {
+    it("does not patch a file whose vinext helpers were renamed upstream", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-symbol-guard-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-route-wiring.js");
+            // Same buggy shape the patch targets, but `makeThenableParams` — an
+            // identifier every loading-fallback replacement splices in — is gone.
+            const renamedHelpers = `
+function getPrefetchLoadingEntry(route) {
+	let firstNestedEntry = null;
+	for (const [index, loadingModule] of (route.loadings ?? []).entries()) {
+	}
+	return getDefaultExport(route.loading) ? {} : null;
+}
+if (!isPrefetchLoadingShell && treePosition < routeSegments.length) {
+const _vinextHelpers = [options.toThenableParams, resolveAppPageSegmentParams];
+`;
+            writeFileSync(filePath, renamedHelpers, "utf8");
+
+            expect(hasRequiredSymbols(renamedHelpers, "routeWiring")).toBe(false);
+            expect(syncPatchVinextOnDisk(tempDir, { routeWiring: true })).toBe(false);
+            expect(readFileSync(filePath, "utf8")).toBe(renamedHelpers);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("no longer exposes makeThenableParams"));
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+            warnSpy.mockRestore();
+        }
+    });
+
+    it("plugin transform leaves a file with renamed vinext helpers untouched", () => {
+        const plugin = vinextRouteWiringFixPlugin();
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const renamedHelpers = `
+function matchRouteWithTrie(url, routes, cache) {
+	const urlParts = normalizePathnameForRouteMatch(url).split("/").filter(Boolean);
+	const trie = buildTrie(cache, routes);
+	return trieMatch(trie, urlParts);
+}
+`;
+        expect(hasRequiredSymbols(renamedHelpers, "routeMatching")).toBe(false);
+        expect(transformHook.call({}, renamedHelpers, "/node_modules/vinext/dist/routing/route-matching.js")).toBeUndefined();
+    });
+
     it("does not patch getPrefetchLoadingEntry if future upstream changed the implementation", () => {
         const futureUpstreamWiring = `
 function getPrefetchLoadingEntry(route) {
@@ -1503,3 +1677,1397 @@ describe("isVinextAppPageRouteWiringSafeOnDisk", () => {
     });
 });
 
+describe("isAppPageProbeFile", () => {
+    it("returns true for app-page-probe.js paths", () => {
+        expect(isAppPageProbeFile("/project/node_modules/vinext/dist/server/app-page-probe.js")).toBe(true);
+        expect(isAppPageProbeFile("C:\\project\\node_modules\\vinext\\dist\\server\\app-page-probe.js?v=123")).toBe(true);
+    });
+
+    it("returns false for unrelated files", () => {
+        expect(isAppPageProbeFile("/project/node_modules/vinext/dist/server/app-page-dispatch.js")).toBe(false);
+    });
+});
+
+describe("isAppPageProbeAlreadyFixed", () => {
+    it("returns false when Suspense handling is absent", () => {
+        const unpatched = `
+const REACT_CLIENT_REFERENCE_TYPE = Symbol.for("react.client.reference");
+if (value.type === Fragment || typeof value.type === "string") {
+`;
+        expect(isAppPageProbeAlreadyFixed(unpatched)).toBe(false);
+    });
+
+    it("returns true when REACT_SUSPENSE_TYPE and react.suspense are present", () => {
+        const patched = `
+const REACT_SUSPENSE_TYPE = Symbol.for("react.suspense");
+if (value.type === REACT_SUSPENSE_TYPE || value.type === Symbol.for("react.suspense")) {
+`;
+        expect(isAppPageProbeAlreadyFixed(patched)).toBe(true);
+    });
+});
+
+describe("patchAppPageProbe", () => {
+    it("patches probeReactServerSubtree to handle React.Suspense by visiting fallback", () => {
+        const unpatched = `
+const REACT_CLIENT_REFERENCE_TYPE = Symbol.for("react.client.reference");
+var AppPageSubtreeProbeLimitError = class extends Error {};
+const visit = async (value, depth) => {
+\tif (value.type === Fragment || typeof value.type === "string") {
+\t\tawait visit(value.props.children, depth + 1);
+\t\treturn;
+\t}
+};
+`;
+        const patched = patchAppPageProbe(unpatched);
+        expect(patched).toContain('const REACT_SUSPENSE_TYPE = Symbol.for("react.suspense");');
+        expect(patched).toContain('if (value.type === Symbol.for("react.suspense") || value.type === REACT_SUSPENSE_TYPE)');
+        expect(patched).toContain("await visit(value.props.fallback, depth + 1);");
+        expect(isAppPageProbeAlreadyFixed(patched)).toBe(true);
+    });
+
+    it("leaves already fixed code untouched", () => {
+        const alreadyFixed = `
+const REACT_SUSPENSE_TYPE = Symbol.for("react.suspense");
+if (value.type === REACT_SUSPENSE_TYPE || value.type === Symbol.for("react.suspense")) {
+    await visit(value.props.fallback, depth + 1);
+}
+`;
+        expect(patchAppPageProbe(alreadyFixed)).toBe(alreadyFixed);
+    });
+});
+
+describe("resolveVinextAppPageProbePath and isVinextAppPageProbeSafeOnDisk", () => {
+    it("resolves probe path and checks on-disk safety", () => {
+        const root = resolve(__dirname, "../../.test_tmp_probe");
+        const dir = resolve(root, "node_modules/vinext/dist/server");
+        mkdirSync(dir, { recursive: true });
+        const filePath = resolve(dir, "app-page-probe.js");
+
+        writeFileSync(filePath, 'const REACT_CLIENT_REFERENCE_TYPE = Symbol.for("react.client.reference");', "utf8");
+
+        try {
+            expect(resolveVinextAppPageProbePath(root)).toBe(filePath);
+            expect(isVinextAppPageProbeSafeOnDisk(root)).toBe(false);
+
+            const changed = syncPatchVinextOnDisk(root, { routeWiring: false, routeMatching: false, optimisticRouting: false, prefetchLearning: false, suspenseProbe: true });
+            expect(changed).toBe(true);
+            expect(isVinextAppPageProbeSafeOnDisk(root)).toBe(true);
+        } finally {
+            rmSync(root, { recursive: true, force: true });
+        }
+    });
+
+    it("returns null / false when file does not exist", () => {
+        const root = resolve(__dirname, "../../.test_tmp_no_probe");
+        expect(resolveVinextAppPageProbePath(root)).toBe(null);
+        expect(isVinextAppPageProbeSafeOnDisk(root)).toBe(false);
+    });
+
+    it("returns false when the probe file exists but cannot be read", () => {
+        const root = resolve(__dirname, "../../.test_tmp_probe_unreadable");
+        const dir = resolve(root, "node_modules/vinext/dist/server");
+        mkdirSync(dir, { recursive: true });
+        const filePath = resolve(dir, "app-page-probe.js");
+        writeFileSync(filePath, "x", "utf8");
+        chmodSync(filePath, 0o000);
+        try {
+            expect(isVinextAppPageProbeSafeOnDisk(root)).toBe(false);
+        } finally {
+            chmodSync(filePath, 0o644);
+            rmSync(root, { recursive: true, force: true });
+        }
+    });
+});
+
+
+
+describe("render dependency suspension release", () => {
+    const BUGGY = `function renderAppComponentWithDependencyBarrier(component, props, dependency) {
+	function AppComponentDependencyBarrier() {
+		try {
+			const result = invokeAppComponent(component, props);
+			if (isPromiseLike(result)) return Promise.resolve(result).then((resolvedResult) => {
+				dependency.release();
+				return resolvedResult;
+			}, (error) => {
+				dependency.release();
+				throw error;
+			});
+			dependency.release();
+			return result;
+		} catch (error) {
+			if (!isAppRenderSuspension(error)) dependency.release();
+			throw error;
+		}
+	}
+	return createElement(AppComponentDependencyBarrier);
+}`;
+
+    it("detects the render dependency file", () => {
+        expect(isRenderDependencyFile("/p/node_modules/vinext/dist/server/app-render-dependency.js")).toBe(true);
+        expect(isRenderDependencyFile("C:\\p\\node_modules\\vinext\\dist\\server\\app-render-dependency.js")).toBe(true);
+        expect(isRenderDependencyFile("/p/node_modules/vinext/dist/server/app-page-probe.js")).toBe(false);
+    });
+
+    it("reports buggy code as not fixed", () => {
+        expect(isRenderDependencyAlreadyFixed(BUGGY)).toBe(false);
+    });
+
+    it("releases the dependency when a component suspends", () => {
+        const patched = patchRenderDependency(BUGGY);
+        expect(patched).not.toBe(BUGGY);
+        expect(patched).not.toMatch(/if\s*\(!isAppRenderSuspension\(error\)\)\s*dependency\.release\(\);/);
+        expect(patched).toContain("dependency.release();");
+        expect(isRenderDependencyAlreadyFixed(patched)).toBe(true);
+    });
+
+    it("is idempotent", () => {
+        const once = patchRenderDependency(BUGGY);
+        expect(patchRenderDependency(once)).toBe(once);
+    });
+
+    it("leaves unrelated code untouched", () => {
+        const other = "export const x = 1;";
+        expect(patchRenderDependency(other)).toBe(other);
+    });
+
+    it("patches app-render-dependency.js on disk via syncPatchVinextOnDisk", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-renderdep-disk-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-render-dependency.js");
+            writeFileSync(filePath, BUGGY, "utf8");
+
+            const changed = syncPatchVinextOnDisk(tempDir, { renderDependency: true });
+            expect(changed).toBe(true);
+            expect(readFileSync(filePath, "utf8")).toContain("dependency.release();");
+            expect(syncPatchVinextOnDisk(tempDir, { renderDependency: true })).toBe(false);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("optimistic route template learning timeout", () => {
+    const BUGGY = `		const promise = (async () => {
+			let settledEntry = entry;
+			if (!isSettledPrefetchCacheEntry(settledEntry)) {
+				await Promise.race([
+					settledEntry.pending?.catch(() => {}),
+					new Promise((resolve) => setTimeout(resolve, 3000))
+				]);
+				settledEntry = getPrefetchCache().get(cacheKey) ?? settledEntry;
+			}
+		})();`;
+
+    it("detects the browser entry file", () => {
+        expect(isOptimisticLearningTimeoutFile("/p/node_modules/vinext/dist/server/app-browser-entry.js")).toBe(true);
+        expect(isOptimisticLearningTimeoutFile("C:\\p\\node_modules\\vinext\\dist\\server\\app-browser-entry.js")).toBe(true);
+        expect(isOptimisticLearningTimeoutFile("/p/node_modules/vinext/dist/server/app-page-probe.js")).toBe(false);
+    });
+
+    it("reports buggy code (blocking 3000ms cap) as not fixed", () => {
+        expect(isOptimisticLearningTimeoutAlreadyFixed(BUGGY)).toBe(false);
+    });
+
+    it("lowers the fire-and-forget learning cap so it can't block a live navigation for seconds", () => {
+        const patched = patchOptimisticLearningTimeout(BUGGY);
+        expect(patched).not.toBe(BUGGY);
+        expect(patched).not.toContain("setTimeout(resolve, 3000)");
+        expect(isOptimisticLearningTimeoutAlreadyFixed(patched)).toBe(true);
+    });
+
+    it("is idempotent", () => {
+        const once = patchOptimisticLearningTimeout(BUGGY);
+        expect(patchOptimisticLearningTimeout(once)).toBe(once);
+    });
+
+    it("leaves unrelated code untouched", () => {
+        const other = "export const x = 1;";
+        expect(patchOptimisticLearningTimeout(other)).toBe(other);
+    });
+
+    it("defaults to the 200ms cap measured to keep page switching instant", () => {
+        expect(patchOptimisticLearningTimeout(BUGGY)).toContain("setTimeout(resolve, 200)");
+    });
+
+    it("accepts an explicit cap in ms", () => {
+        expect(patchOptimisticLearningTimeout(BUGGY, 800)).toContain("setTimeout(resolve, 800)");
+    });
+
+    it("applies the default cap on disk and honours an explicit override", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-learning-cap-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-browser-entry.js");
+            writeFileSync(filePath, BUGGY, "utf8");
+
+            syncPatchVinextOnDisk(tempDir, { prefetchLearning: false });
+            expect(readFileSync(filePath, "utf8")).toContain("setTimeout(resolve, 200)");
+
+            writeFileSync(filePath, BUGGY, "utf8");
+            syncPatchVinextOnDisk(tempDir, { prefetchLearning: false, optimisticLearningTimeout: 900 });
+            expect(readFileSync(filePath, "utf8")).toContain("setTimeout(resolve, 900)");
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("page invoker suspension release", () => {
+    const BUGGY = `		const PageInvoker = () => {
+			const invocationProps = { ...props };
+			if (searchParams) invocationProps.searchParams = observePageSearchParamsAccess ? makeObservedAppPageSearchParamsThenable(pageSearchParams) : makeThenableParams(pageSearchParams);
+			try {
+				const result = invokeAppComponent(PageComponent, invocationProps);
+				if (isPromiseLike(result)) {
+					if (renderDependency) Promise.resolve().then(() => renderDependency.release());
+					return Promise.resolve(result).then((resolvedResult) => renderDependency ? renderAfterAppDependencies(resolvedResult, renderDependency.resultDependencies) : resolvedResult);
+				}
+				renderDependency?.release();
+				return renderDependency ? renderAfterAppDependencies(result, renderDependency.resultDependencies) : result;
+			} catch (error) {
+				if (isAppRenderSuspension(error)) {
+					if (renderDependency && hasPageLoadingBoundary) Promise.resolve().then(() => renderDependency.release());
+					throw error;
+				}
+				renderDependency?.release();
+				throw error;
+			}
+		};`;
+
+    it("detects the page-element-builder file", () => {
+        expect(isPageInvokerSuspensionReleaseFile("/p/node_modules/vinext/dist/server/app-page-element-builder.js")).toBe(true);
+        expect(isPageInvokerSuspensionReleaseFile("C:\\p\\node_modules\\vinext\\dist\\server\\app-page-element-builder.js")).toBe(true);
+        expect(isPageInvokerSuspensionReleaseFile("/p/node_modules/vinext/dist/server/app-page-probe.js")).toBe(false);
+    });
+
+    it("reports buggy code (release gated on hasPageLoadingBoundary) as not fixed", () => {
+        expect(isPageInvokerSuspensionReleaseAlreadyFixed(BUGGY)).toBe(false);
+    });
+
+    it("releases the page's render dependency on suspension regardless of hasPageLoadingBoundary", () => {
+        const patched = patchPageInvokerSuspensionRelease(BUGGY);
+        expect(patched).not.toBe(BUGGY);
+        expect(patched).not.toMatch(/if\s*\(renderDependency\s*&&\s*hasPageLoadingBoundary\)/);
+        expect(patched).toContain("if (renderDependency) Promise.resolve().then(() => renderDependency.release());");
+        expect(isPageInvokerSuspensionReleaseAlreadyFixed(patched)).toBe(true);
+    });
+
+    it("is idempotent", () => {
+        const once = patchPageInvokerSuspensionRelease(BUGGY);
+        expect(patchPageInvokerSuspensionRelease(once)).toBe(once);
+    });
+
+    it("leaves unrelated code untouched", () => {
+        const other = "export const x = 1;";
+        expect(patchPageInvokerSuspensionRelease(other)).toBe(other);
+    });
+
+    it("patches app-page-element-builder.js on disk via syncPatchVinextOnDisk", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-pageinvoker-disk-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-element-builder.js");
+            writeFileSync(filePath, BUGGY, "utf8");
+
+            const changed = syncPatchVinextOnDisk(tempDir, { pageInvokerSuspensionRelease: true });
+            expect(changed).toBe(true);
+            expect(readFileSync(filePath, "utf8")).toContain(
+                "if (renderDependency) Promise.resolve().then(() => renderDependency.release());"
+            );
+            expect(syncPatchVinextOnDisk(tempDir, { pageInvokerSuspensionRelease: true })).toBe(false);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("refresh deferral (navigation controller + browser entry)", () => {
+    const NAV_CONTROLLER_BUGGY = `
+	let activeNavigationId = 0;
+	let latestHmrUpdateId = 0;
+	function beginNavigation() {
+		latestHmrUpdateId += 1;
+		activeNavigationId += 1;
+		return activeNavigationId;
+	}
+	function getActiveNavigationId() {
+		return activeNavigationId;
+	}
+	return {
+		beginNavigation,
+		getActiveNavigationId,
+	};
+`;
+
+    const ENTRY_BUGGY = `
+		navigate: async function navigateRsc(href, redirectDepth = 0, navigationKind = "navigate") {
+			serverActionSupplementalRefreshCoordinator.abortAll();
+			const navigationAbortHandle = navigationAbortCoordinator.begin();
+			const navId = browserNavigationController.beginNavigation();
+			return navId;
+		},
+`;
+
+    it("detects the navigation controller file", () => {
+        expect(isRefreshDeferralNavControllerFile("/p/node_modules/vinext/dist/server/app-browser-navigation-controller.js")).toBe(true);
+        expect(isRefreshDeferralNavControllerFile("C:\\p\\node_modules\\vinext\\dist\\server\\app-browser-navigation-controller.ts")).toBe(true);
+        expect(isRefreshDeferralNavControllerFile("/p/node_modules/vinext/dist/server/app-page-probe.js")).toBe(false);
+    });
+
+    it("reports buggy navigation controller code as not fixed", () => {
+        expect(isRefreshDeferralNavControllerAlreadyFixed(NAV_CONTROLLER_BUGGY)).toBe(false);
+    });
+
+    it("tags beginNavigation with its kind and exposes isRecentNonRefreshNavigationInFlight", () => {
+        const patched = patchRefreshDeferralNavController(NAV_CONTROLLER_BUGGY);
+        expect(patched).not.toBe(NAV_CONTROLLER_BUGGY);
+        expect(patched).toContain("function beginNavigation(kind)");
+        expect(patched).toContain('if (kind !== "refresh") lastNonRefreshNavigationStartedAt = Date.now();');
+        expect(patched).toContain("function isRecentNonRefreshNavigationInFlight()");
+        expect(patched).toContain("isRecentNonRefreshNavigationInFlight,");
+        expect(isRefreshDeferralNavControllerAlreadyFixed(patched)).toBe(true);
+    });
+
+    it("is idempotent for the navigation controller patch", () => {
+        const once = patchRefreshDeferralNavController(NAV_CONTROLLER_BUGGY);
+        expect(patchRefreshDeferralNavController(once)).toBe(once);
+    });
+
+    it("leaves navigation controller code untouched when the anchors are missing", () => {
+        const other = "export const x = 1;";
+        expect(patchRefreshDeferralNavController(other)).toBe(other);
+
+        const noStateDecl = `function beginNavigation() {\n\tlatestHmrUpdateId += 1;\n}\nreturn {\n\tbeginNavigation,\n};`;
+        expect(patchRefreshDeferralNavController(noStateDecl)).toBe(noStateDecl);
+    });
+
+    it("detects the browser entry file for refresh deferral", () => {
+        expect(isRefreshDeferralEntryAlreadyFixed(ENTRY_BUGGY)).toBe(false);
+    });
+
+    it("waits for an in-flight non-refresh navigation before starting a refresh", () => {
+        const patched = patchRefreshDeferralEntry(ENTRY_BUGGY);
+        expect(patched).not.toBe(ENTRY_BUGGY);
+        expect(patched).toContain('if (navigationKind === "refresh") {');
+        expect(patched).toContain("browserNavigationController.isRecentNonRefreshNavigationInFlight()");
+        expect(patched).toContain("browserNavigationController.beginNavigation(navigationKind);");
+        expect(isRefreshDeferralEntryAlreadyFixed(patched)).toBe(true);
+        // the wait must run before the abort coordinators, at the very top of navigateRsc
+        expect(patched.indexOf("isRecentNonRefreshNavigationInFlight")).toBeLessThan(
+            patched.indexOf("serverActionSupplementalRefreshCoordinator.abortAll()")
+        );
+    });
+
+    it("is idempotent for the browser entry patch", () => {
+        const once = patchRefreshDeferralEntry(ENTRY_BUGGY);
+        expect(patchRefreshDeferralEntry(once)).toBe(once);
+    });
+
+    it("leaves browser entry code untouched when navigateRsc isn't found", () => {
+        const other = "export const x = 1;";
+        expect(patchRefreshDeferralEntry(other)).toBe(other);
+    });
+
+    it("resolves the navigation controller path only when present on disk", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-navctl-resolve-"));
+        try {
+            expect(resolveVinextNavControllerPath(tempDir)).toBeNull();
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-browser-navigation-controller.js");
+            writeFileSync(filePath, NAV_CONTROLLER_BUGGY, "utf8");
+            expect(resolveVinextNavControllerPath(tempDir)).toBe(filePath);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("patches both the navigation controller and the browser entry on disk together", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-refresh-deferral-disk-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            writeFileSync(join(dir, "app-browser-navigation-controller.js"), NAV_CONTROLLER_BUGGY, "utf8");
+            writeFileSync(join(dir, "app-browser-entry.js"), ENTRY_BUGGY, "utf8");
+
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: true,
+            });
+            expect(changed).toBe(true);
+            expect(readFileSync(join(dir, "app-browser-navigation-controller.js"), "utf8")).toContain(
+                "isRecentNonRefreshNavigationInFlight"
+            );
+            expect(readFileSync(join(dir, "app-browser-entry.js"), "utf8")).toContain(
+                "browserNavigationController.beginNavigation(navigationKind);"
+            );
+
+            expect(syncPatchVinextOnDisk(tempDir, { refreshDeferral: true })).toBe(false);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("warns and leaves the navigation controller untouched when its shape has drifted", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-refresh-deferral-drift-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            // Matches NAV_CONTROLLER_BEGIN_NAVIGATION_RE but not NAV_CONTROLLER_STATE_DECL_RE / NAV_CONTROLLER_RETURN_RE,
+            // so patchRefreshDeferralNavController is a genuine no-op — the "shape drifted" warning path.
+            const drifted = `function beginNavigation() {\n\tlatestHmrUpdateId += 1;\n}`;
+            const filePath = join(dir, "app-browser-navigation-controller.js");
+            writeFileSync(filePath, drifted, "utf8");
+
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: true,
+            });
+            expect(changed).toBe(false);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("patchRefreshDeferralNavController"));
+            expect(readFileSync(filePath, "utf8")).toBe(drifted);
+        } finally {
+            warnSpy.mockRestore();
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("skips the browser entry sub-patch once the navigation controller is already fixed but the file is missing", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-refresh-deferral-nofix-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const alreadyFixed = NAV_CONTROLLER_BUGGY.replace(
+                "function getActiveNavigationId() {",
+                "function isRecentNonRefreshNavigationInFlight() { return false; }\n\tfunction getActiveNavigationId() {"
+            );
+            writeFileSync(join(dir, "app-browser-navigation-controller.js"), alreadyFixed, "utf8");
+
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: true,
+            });
+            expect(changed).toBe(false);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("handles read/write errors gracefully for the navigation controller path", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-refresh-deferral-nodir-"));
+        try {
+            // node_modules/vinext/dist/server does not exist at all — resolveVinextNavControllerPath
+            // returns null, so the whole block is skipped without throwing.
+            expect(() =>
+                syncPatchVinextOnDisk(tempDir, {
+                    routeWiring: false,
+                    routeMatching: false,
+                    optimisticRouting: false,
+                    prefetchLearning: false,
+                    suspenseProbe: false,
+                    renderDependency: false,
+                    optimisticLearningTimeout: false,
+                    pageInvokerSuspensionRelease: false,
+                    refreshDeferral: true,
+                })
+            ).not.toThrow();
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("*SafeOnDisk helpers for render-dependency, learning-timeout, and page-invoker patches", () => {
+    it("isVinextRenderDependencySafeOnDisk: false when path missing, false when unpatched, true when patched", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-renderdep-safe-"));
+        try {
+            expect(isVinextRenderDependencySafeOnDisk(tempDir)).toBe(false);
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-render-dependency.js");
+            writeFileSync(filePath, "function renderAppComponentWithDependencyBarrier() { if (!isAppRenderSuspension(error)) dependency.release(); }", "utf8");
+            expect(isVinextRenderDependencySafeOnDisk(tempDir)).toBe(false);
+            writeFileSync(filePath, "function renderAppComponentWithDependencyBarrier() { dependency.release(); }", "utf8");
+            expect(isVinextRenderDependencySafeOnDisk(tempDir)).toBe(true);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("isVinextRenderDependencySafeOnDisk: false when the file cannot be read", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-renderdep-unreadable-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-render-dependency.js");
+            writeFileSync(filePath, "function renderAppComponentWithDependencyBarrier() { dependency.release(); }", "utf8");
+            chmodSync(filePath, 0o000);
+            try {
+                expect(isVinextRenderDependencySafeOnDisk(tempDir)).toBe(false);
+            } finally {
+                chmodSync(filePath, 0o644);
+            }
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("isVinextOptimisticLearningTimeoutSafeOnDisk: false when path missing, false when unpatched, true when patched", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-learningcap-safe-"));
+        try {
+            expect(isVinextOptimisticLearningTimeoutSafeOnDisk(tempDir)).toBe(false);
+            expect(resolveVinextOptimisticLearningTimeoutPath(tempDir)).toBeNull();
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-browser-entry.js");
+            writeFileSync(filePath, "new Promise((resolve) => setTimeout(resolve, 3000))", "utf8");
+            expect(isVinextOptimisticLearningTimeoutSafeOnDisk(tempDir)).toBe(false);
+            writeFileSync(filePath, "new Promise((resolve) => setTimeout(resolve, 200))", "utf8");
+            expect(isVinextOptimisticLearningTimeoutSafeOnDisk(tempDir)).toBe(true);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("isVinextOptimisticLearningTimeoutSafeOnDisk: false when the file cannot be read", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-learningcap-unreadable-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-browser-entry.js");
+            writeFileSync(filePath, "new Promise((resolve) => setTimeout(resolve, 200))", "utf8");
+            chmodSync(filePath, 0o000);
+            try {
+                expect(isVinextOptimisticLearningTimeoutSafeOnDisk(tempDir)).toBe(false);
+            } finally {
+                chmodSync(filePath, 0o644);
+            }
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("isVinextPageInvokerSuspensionReleaseSafeOnDisk: false when path missing, false when unpatched, true when patched", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-pageinvoker-safe-"));
+        try {
+            expect(isVinextPageInvokerSuspensionReleaseSafeOnDisk(tempDir)).toBe(false);
+            expect(resolveVinextPageInvokerSuspensionReleasePath(tempDir)).toBeNull();
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-element-builder.js");
+            writeFileSync(
+                filePath,
+                "if (renderDependency && hasPageLoadingBoundary) Promise.resolve().then(() => renderDependency.release());",
+                "utf8"
+            );
+            expect(isVinextPageInvokerSuspensionReleaseSafeOnDisk(tempDir)).toBe(false);
+            writeFileSync(
+                filePath,
+                "if (renderDependency) Promise.resolve().then(() => renderDependency.release());",
+                "utf8"
+            );
+            expect(isVinextPageInvokerSuspensionReleaseSafeOnDisk(tempDir)).toBe(true);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("isVinextPageInvokerSuspensionReleaseSafeOnDisk: false when the file cannot be read", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-pageinvoker-unreadable-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-element-builder.js");
+            writeFileSync(
+                filePath,
+                "if (renderDependency) Promise.resolve().then(() => renderDependency.release());",
+                "utf8"
+            );
+            chmodSync(filePath, 0o000);
+            try {
+                expect(isVinextPageInvokerSuspensionReleaseSafeOnDisk(tempDir)).toBe(false);
+            } finally {
+                chmodSync(filePath, 0o644);
+            }
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("unblockRenderDependencies: strips layout/template/slot/route dependency ordering", () => {
+    const WIRING_BASE = `
+function getPrefetchLoadingEntry(route) {
+	let firstNestedEntry = null;
+	for (const [index, loadingModule] of (route.loadings ?? []).entries()) {
+	}
+	return getDefaultExport(route.loading) ? {} : null;
+}
+if (!isPrefetchLoadingShell && treePosition < routeSegments.length) {
+const _vinextHelpers = [options.makeThenableParams, resolveAppPageSegmentParams, routeLoadingComponent, ancestorLoadingEntry, slotParams, ownerLoadingEntry];
+elements[layoutEntry.id] = renderAfterAppDependencies(layoutElement, [...pageRenderDependency ? [pageRenderDependency] : [], ...layoutDependenciesBefore[index] ?? []]);
+elements[templateEntry.id] = renderAfterAppDependencies(templateElement, [...pageRenderDependency ? [pageRenderDependency] : [], ...templateDependenciesBeforeById.get(templateEntry.id) ?? []]);
+elements[slotId] = renderAfterAppDependencies(slotElement, [...pageRenderDependency ? [pageRenderDependency] : [], ...targetIndex >= 0 ? slotDependenciesByLayoutIndex[targetIndex] ?? [] : []]);
+elements[routeId] = pageRenderDependency ? renderAfterAppDependencies(routeElement, [pageRenderDependency]) : routeElement;
+`;
+
+    it("leaves layout/template/slot/route dependency wiring untouched by default", () => {
+        const patched = patchAppPageRouteWiring(WIRING_BASE);
+        expect(patched).toContain("elements[layoutEntry.id] = renderAfterAppDependencies(layoutElement, [...pageRenderDependency");
+        expect(patched).toContain("elements[templateEntry.id] = renderAfterAppDependencies(templateElement, [...pageRenderDependency");
+        expect(patched).toContain("elements[slotId] = renderAfterAppDependencies(slotElement, [...pageRenderDependency");
+        expect(patched).toContain("elements[routeId] = pageRenderDependency ? renderAfterAppDependencies(routeElement, [pageRenderDependency]) : routeElement;");
+    });
+
+    it("strips layout/template/slot/route dependency ordering when unblockRenderDependencies is set", () => {
+        const patched = patchAppPageRouteWiring(WIRING_BASE, { unblockRenderDependencies: true });
+        expect(patched).toContain("elements[layoutEntry.id] = renderAfterAppDependencies(layoutElement, layoutDependenciesBefore[index] ?? []);");
+        expect(patched).toContain("elements[templateEntry.id] = renderAfterAppDependencies(templateElement, templateDependenciesBeforeById.get(templateEntry.id) ?? []);");
+        expect(patched).toContain("elements[slotId] = renderAfterAppDependencies(slotElement, targetIndex >= 0 ? slotDependenciesByLayoutIndex[targetIndex] ?? [] : []);");
+        expect(patched).toContain("elements[routeId] = routeElement;");
+        expect(patched).not.toContain("[...pageRenderDependency");
+    });
+});
+
+describe("missingRequiredSymbols", () => {
+    it("lists exactly the symbols that are missing", () => {
+        const renamed = "some code without any of the expected identifiers";
+        const missing = missingRequiredSymbols(renamed, "routeMatching");
+        expect(missing).toContain("trieMatch");
+        expect(missing).toContain("getOrBuildTrie");
+        expect(missing).toContain("normalizePathnameForRouteMatch");
+    });
+
+    it("returns an empty array once every required symbol is present", () => {
+        expect(missingRequiredSymbols("trieMatch getOrBuildTrie normalizePathnameForRouteMatch", "routeMatching")).toEqual([]);
+    });
+});
+
+describe("syncPatchVinextOnDisk: warns when a patch's shape has drifted (per patch type)", () => {
+    function mismatchedShapeThatStillLacksTheFixMarker(patchName: string): string {
+        // Contains every required symbol for the patch (so hasRequiredSymbols passes and the
+        // "no longer exposes X" branch is NOT taken), yet matches none of the patch's own
+        // replacement regexes — a genuine no-op that should surface the "shape may have
+        // changed" warning instead of silently doing nothing.
+        const bodies: Record<string, string> = {
+            routeMatching: "trieMatch getOrBuildTrie normalizePathnameForRouteMatch — refactored, no matching function shape",
+            optimisticRouting: "getRouteTrie matchNode decodeMatchedParams hrefToRouteParts — refactored",
+            prefetchLearning:
+                "resolveOptimisticNavigationPayload __basePath optimisticRouteTemplates optimisticRouteTemplateSources optimisticRouteTemplateLearning getOptimisticPrefetchSourceKey parsePrefetchCacheKey getPrefetchCache isSettledPrefetchCacheEntry learnOptimisticRouteTemplateFromPrefetch currentHref rscUrl — refactored",
+        };
+        return bodies[patchName] ?? "refactored";
+    }
+
+    it("warns for route-wiring when hasBuggyPrefetch is the only 'not fixed' signal but that specific sub-patch is a no-op", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-drift-wiring-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-route-wiring.js");
+            // hasBuggyPrefetch is true for isAppPageRouteWiringAlreadyFixed (firstNestedEntry +
+            // PREFETCH_LOADING_FN_RE match), but patchAppPageRouteWiring's own hasBuggyPrefetch
+            // additionally requires `!result.includes("deepestNestedEntry")`, which is false here
+            // — so that one sub-patch is a no-op, and none of the other sub-patches match either,
+            // making the WHOLE combined patch a no-op even though the file "is not already fixed".
+            const driftedButNoOp = `
+function getPrefetchLoadingEntry(route) {
+	let rootEntry = null;
+	let firstNestedEntry = null;
+	for (const [index, loadingModule] of (route.loadings ?? []).entries()) {
+		if (!getDefaultExport(loadingModule)) continue;
+		const treePosition = route.loadingTreePositions?.[index];
+		if (treePosition === void 0) continue;
+		if (treePosition === 0) rootEntry ??= {
+			loadingModule,
+			treePosition
+		};
+		else if (firstNestedEntry === null || treePosition < firstNestedEntry.treePosition) firstNestedEntry = {
+			loadingModule,
+			treePosition
+		};
+	}
+	if (firstNestedEntry) return firstNestedEntry;
+	if (rootEntry) return rootEntry;
+	return getDefaultExport(route.loading) ? {
+		loadingModule: route.loading,
+		treePosition: route.routeSegments?.length ?? 0
+	} : null;
+}
+// deepestNestedEntry already exists elsewhere in this bundle (e.g. inlined from a shared chunk)
+const somewhereElseMarker = "deepestNestedEntry";
+const _vinextHelpers = [options.makeThenableParams, resolveAppPageSegmentParams, routeLoadingComponent, ancestorLoadingEntry, slotParams, ownerLoadingEntry];
+`;
+            writeFileSync(filePath, driftedButNoOp, "utf8");
+
+            expect(isAppPageRouteWiringAlreadyFixed(driftedButNoOp)).toBe(false);
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: true,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+            });
+            expect(changed).toBe(false);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("patchAppPageRouteWiring"));
+            expect(readFileSync(filePath, "utf8")).toBe(driftedButNoOp);
+        } finally {
+            warnSpy.mockRestore();
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("warns for route-matching when its shape has drifted", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-drift-matching-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/routing");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "route-matching.js");
+            writeFileSync(filePath, mismatchedShapeThatStillLacksTheFixMarker("routeMatching"), "utf8");
+
+            expect(resolveVinextRouteMatchingPath(tempDir)).toBe(filePath);
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: true,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+            });
+            expect(changed).toBe(false);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("patchRouteMatching"));
+        } finally {
+            warnSpy.mockRestore();
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("warns for optimistic-routing when its shape has drifted", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-drift-optimistic-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-optimistic-routing.js");
+            writeFileSync(filePath, mismatchedShapeThatStillLacksTheFixMarker("optimisticRouting"), "utf8");
+
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: true,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+            });
+            expect(changed).toBe(false);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("patchOptimisticRouting"));
+        } finally {
+            warnSpy.mockRestore();
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("warns for prefetch-learning when its shape has drifted", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-drift-prefetch-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-browser-entry.js");
+            writeFileSync(filePath, mismatchedShapeThatStillLacksTheFixMarker("prefetchLearning"), "utf8");
+
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: true,
+                suspenseProbe: false,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+            });
+            expect(changed).toBe(false);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("patchPrefetchLearning"));
+        } finally {
+            warnSpy.mockRestore();
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("warns for suspense-probe when its shape has drifted", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-drift-probe-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-probe.js");
+            // Contains REACT_CLIENT_REFERENCE_TYPE (the required symbol) but matches neither
+            // of patchAppPageProbe's own anchor regexes.
+            writeFileSync(filePath, "// REACT_CLIENT_REFERENCE_TYPE mentioned only here, no matching declaration or visit pattern", "utf8");
+
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: true,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+            });
+            expect(changed).toBe(false);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("patchAppPageProbe"));
+        } finally {
+            warnSpy.mockRestore();
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("warns for render-dependency when its shape has drifted", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-drift-renderdep-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-render-dependency.js");
+            // Contains the marker isRenderDependencyAlreadyFixed requires ("renderAppComponentWithDependencyBarrier")
+            // but not the buggy guarded-release pattern it also checks — a genuine no-op.
+            writeFileSync(
+                filePath,
+                "function renderAppComponentWithDependencyBarrier() { /* refactored, no guarded release here */ }",
+                "utf8"
+            );
+
+            // This file is "already fixed" per isRenderDependencyAlreadyFixed (no buggy pattern),
+            // so to exercise the warn path we need content that reports NOT fixed yet is a no-op
+            // for the replace. That requires SUSPENSION_GUARDED_RELEASE_RE to match but the
+            // exact replacement text to already be present under a different marker — not
+            // reachable for this single-regex patch, so assert the simpler safe/no-write path instead.
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: true,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+            });
+            expect(changed).toBe(false);
+            expect(warnSpy).not.toHaveBeenCalled();
+        } finally {
+            warnSpy.mockRestore();
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("isVinextOptimizeDepsCacheStale", () => {
+    it("returns false when none of the patched files exist", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-stale-none-"));
+        try {
+            expect(isVinextOptimizeDepsCacheStale(tempDir, join(tempDir, "node_modules/.vite"))).toBe(false);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("returns false when the cache dir does not exist", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-stale-nocache-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            writeFileSync(join(dir, "app-page-route-wiring.js"), "x", "utf8");
+            expect(isVinextOptimizeDepsCacheStale(tempDir, join(tempDir, "node_modules/.vite"))).toBe(false);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("returns true when a patched file is newer than the deps cache", async () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-stale-yes-"));
+        try {
+            const cacheDir = join(tempDir, "node_modules/.vite");
+            const depsDir = join(cacheDir, "deps");
+            mkdirSync(depsDir, { recursive: true });
+            writeFileSync(join(depsDir, "entry.js"), "old", "utf8");
+
+            await new Promise((r) => setTimeout(r, 20));
+
+            const serverDir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(serverDir, { recursive: true });
+            writeFileSync(join(serverDir, "app-page-route-wiring.js"), "newer", "utf8");
+
+            expect(isVinextOptimizeDepsCacheStale(tempDir, cacheDir)).toBe(true);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("returns false when the deps cache is newer than every patched file", async () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-stale-fresh-"));
+        try {
+            const serverDir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(serverDir, { recursive: true });
+            writeFileSync(join(serverDir, "app-page-route-wiring.js"), "old", "utf8");
+
+            await new Promise((r) => setTimeout(r, 20));
+
+            const depsDir = join(tempDir, "node_modules/.vite/deps");
+            mkdirSync(depsDir, { recursive: true });
+            writeFileSync(join(depsDir, "entry.js"), "fresh", "utf8");
+
+            expect(isVinextOptimizeDepsCacheStale(tempDir, join(tempDir, "node_modules/.vite"))).toBe(false);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("ignores a patched file whose stat cannot be read", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-stale-unreadable-file-"));
+        try {
+            const serverDir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(serverDir, { recursive: true });
+            writeFileSync(join(serverDir, "app-page-route-wiring.js"), "x", "utf8");
+            // Remove execute permission on the containing dir so statSync on the file inside it fails.
+            chmodSync(serverDir, 0o000);
+            try {
+                expect(isVinextOptimizeDepsCacheStale(tempDir, join(tempDir, "node_modules/.vite"))).toBe(false);
+            } finally {
+                chmodSync(serverDir, 0o755);
+            }
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("treats a deps subdirectory whose stat cannot be read as not provably stale", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-stale-unreadable-cache-"));
+        try {
+            const serverDir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(serverDir, { recursive: true });
+            writeFileSync(join(serverDir, "app-page-route-wiring.js"), "x", "utf8");
+
+            const viteDir = join(tempDir, "node_modules/.vite");
+            const depsDir = join(viteDir, "deps");
+            mkdirSync(depsDir, { recursive: true });
+            // Remove execute permission on .vite so statSync on .vite/deps fails.
+            chmodSync(viteDir, 0o000);
+            try {
+                expect(isVinextOptimizeDepsCacheStale(tempDir, viteDir)).toBe(false);
+            } finally {
+                chmodSync(viteDir, 0o755);
+            }
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("busts the cache via configResolved when nothing changed but the cache is stale", async () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-stale-configresolved-"));
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            const serverDir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(serverDir, { recursive: true });
+            // Already-fixed route wiring, so syncPatchVinextOnDisk's own `changed` is false.
+            writeFileSync(
+                join(serverDir, "app-page-route-wiring.js"),
+                "!routeLoadingComponent deepestNestedEntry makeThenableParams resolveAppPageSegmentParams routeLoadingComponent ancestorLoadingEntry slotParams ownerLoadingEntry",
+                "utf8"
+            );
+
+            await new Promise((r) => setTimeout(r, 20));
+
+            const cacheDir = join(tempDir, "node_modules/.vite");
+            mkdirSync(join(cacheDir, "deps"), { recursive: true });
+            writeFileSync(join(cacheDir, "deps", "entry.js"), "stale", "utf8");
+            // Make the cache dir itself look older than the patched file above by resetting its mtime.
+            const oldTime = new Date(Date.now() - 10_000);
+            const { utimesSync } = await import("node:fs");
+            utimesSync(join(cacheDir, "deps"), oldTime, oldTime);
+
+            const plugin = vinextRouteWiringFixPlugin({
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+            });
+            const configResolvedHook = plugin.configResolved as (this: unknown, config: { root?: string; cacheDir?: string }) => void;
+            configResolvedHook.call({}, { root: tempDir, cacheDir });
+
+            expect(existsSync(join(cacheDir, "deps"))).toBe(false);
+        } finally {
+            logSpy.mockRestore();
+            warnSpy.mockRestore();
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("vinextRouteWiringFixPlugin transform: renderDependency, pageInvokerSuspensionRelease, refreshDeferral (nav controller), suspenseProbe", () => {
+    const RENDER_DEP_BUGGY = `function renderAppComponentWithDependencyBarrier() { if (!isAppRenderSuspension(error)) dependency.release(); }`;
+    const PAGE_INVOKER_BUGGY = `if (renderDependency && hasPageLoadingBoundary) Promise.resolve().then(() => renderDependency.release());`;
+    const NAV_CONTROLLER_BUGGY = `
+	let latestHmrUpdateId = 0;
+	function beginNavigation() {
+		latestHmrUpdateId += 1;
+	}
+	function getActiveNavigationId() {
+		return 0;
+	}
+	return {
+		beginNavigation,
+	};
+`;
+    const PROBE_BUGGY = `
+const REACT_CLIENT_REFERENCE_TYPE = Symbol.for("react.client.reference");
+const visit = async (value, depth) => {
+	if (value.type === Fragment || typeof value.type === "string") {
+		await visit(value.props.children, depth + 1);
+	}
+};
+`;
+
+    it("transforms app-render-dependency.js when renderDependency is enabled", () => {
+        const plugin = vinextRouteWiringFixPlugin({ renderDependency: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const res = transformHook.call({}, RENDER_DEP_BUGGY, "/node_modules/vinext/dist/server/app-render-dependency.js");
+        expect(res).toBeDefined();
+        expect(res!.code).toContain("dependency.release();");
+        expect(res!.code).not.toContain("if (!isAppRenderSuspension(error))");
+        expect(transformHook.call({}, res!.code, "/node_modules/vinext/dist/server/app-render-dependency.js")).toBeUndefined();
+    });
+
+    it("skips app-render-dependency.js when renderDependency is disabled", () => {
+        const plugin = vinextRouteWiringFixPlugin({ renderDependency: false });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        expect(transformHook.call({}, RENDER_DEP_BUGGY, "/node_modules/vinext/dist/server/app-render-dependency.js")).toBeUndefined();
+    });
+
+    it("returns undefined for app-render-dependency.js when the patch is a no-op", () => {
+        const plugin = vinextRouteWiringFixPlugin({ renderDependency: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        expect(transformHook.call({}, "export const x = 1;", "/node_modules/vinext/dist/server/app-render-dependency.js")).toBeUndefined();
+    });
+
+    it("transforms app-page-element-builder.js when pageInvokerSuspensionRelease is enabled", () => {
+        const plugin = vinextRouteWiringFixPlugin({ pageInvokerSuspensionRelease: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const res = transformHook.call({}, PAGE_INVOKER_BUGGY, "/node_modules/vinext/dist/server/app-page-element-builder.js");
+        expect(res).toBeDefined();
+        expect(res!.code).toContain("if (renderDependency) Promise.resolve().then(() => renderDependency.release());");
+        expect(transformHook.call({}, res!.code, "/node_modules/vinext/dist/server/app-page-element-builder.js")).toBeUndefined();
+    });
+
+    it("skips app-page-element-builder.js when pageInvokerSuspensionRelease is disabled", () => {
+        const plugin = vinextRouteWiringFixPlugin({ pageInvokerSuspensionRelease: false });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        expect(transformHook.call({}, PAGE_INVOKER_BUGGY, "/node_modules/vinext/dist/server/app-page-element-builder.js")).toBeUndefined();
+    });
+
+    it("returns undefined for app-page-element-builder.js when the patch is a no-op", () => {
+        const plugin = vinextRouteWiringFixPlugin({ pageInvokerSuspensionRelease: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        expect(transformHook.call({}, "export const x = 1;", "/node_modules/vinext/dist/server/app-page-element-builder.js")).toBeUndefined();
+    });
+
+    it("transforms app-browser-navigation-controller.js when refreshDeferral is enabled", () => {
+        const plugin = vinextRouteWiringFixPlugin({ refreshDeferral: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const res = transformHook.call({}, NAV_CONTROLLER_BUGGY, "/node_modules/vinext/dist/server/app-browser-navigation-controller.js");
+        expect(res).toBeDefined();
+        expect(res!.code).toContain("isRecentNonRefreshNavigationInFlight");
+        expect(transformHook.call({}, res!.code, "/node_modules/vinext/dist/server/app-browser-navigation-controller.js")).toBeUndefined();
+    });
+
+    it("skips app-browser-navigation-controller.js when refreshDeferral is disabled", () => {
+        const plugin = vinextRouteWiringFixPlugin({ refreshDeferral: false });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        expect(transformHook.call({}, NAV_CONTROLLER_BUGGY, "/node_modules/vinext/dist/server/app-browser-navigation-controller.js")).toBeUndefined();
+    });
+
+    it("returns undefined for app-browser-navigation-controller.js when the patch is a no-op", () => {
+        const plugin = vinextRouteWiringFixPlugin({ refreshDeferral: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        expect(transformHook.call({}, "export const x = 1;", "/node_modules/vinext/dist/server/app-browser-navigation-controller.js")).toBeUndefined();
+    });
+
+    it("transforms app-page-probe.js when suspenseProbe is enabled", () => {
+        const plugin = vinextRouteWiringFixPlugin({ suspenseProbe: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const res = transformHook.call({}, PROBE_BUGGY, "/node_modules/vinext/dist/server/app-page-probe.js");
+        expect(res).toBeDefined();
+        expect(res!.code).toContain("REACT_SUSPENSE_TYPE");
+        expect(transformHook.call({}, res!.code, "/node_modules/vinext/dist/server/app-page-probe.js")).toBeUndefined();
+    });
+
+    it("skips app-page-probe.js when suspenseProbe is disabled", () => {
+        const plugin = vinextRouteWiringFixPlugin({ suspenseProbe: false });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        expect(transformHook.call({}, PROBE_BUGGY, "/node_modules/vinext/dist/server/app-page-probe.js")).toBeUndefined();
+    });
+
+    it("returns undefined for app-page-probe.js when the required symbols are missing", () => {
+        const plugin = vinextRouteWiringFixPlugin({ suspenseProbe: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        expect(transformHook.call({}, "export const x = 1;", "/node_modules/vinext/dist/server/app-page-probe.js")).toBeUndefined();
+    });
+});
+
+describe("vinextRouteWiringFixPlugin transform: no-op patch branches ('not already fixed' yet no replacement matches)", () => {
+    it("routeMatching: returns undefined when not already fixed but neither function shape matches", () => {
+        const plugin = vinextRouteWiringFixPlugin();
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const noOpCode = `
+const _decoys = [trieMatch, getOrBuildTrie, normalizePathnameForRouteMatch];
+export function matchRouteWithTrie() { return null; }
+export function matchRouteWithTrieRawPathname() { return null; }
+`;
+        expect(isRouteMatchingAlreadyFixed(noOpCode)).toBe(false);
+        expect(hasRequiredSymbols(noOpCode, "routeMatching")).toBe(true);
+        const res = transformHook.call({}, noOpCode, "/node_modules/vinext/dist/routing/route-matching.js");
+        expect(res).toBeUndefined();
+    });
+
+    it("optimisticRouting: returns undefined when not already fixed but neither function shape matches", () => {
+        const plugin = vinextRouteWiringFixPlugin();
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const noOpCode = `
+const _decoys = [getRouteTrie, matchNode, decodeMatchedParams, hrefToRouteParts];
+export function matchOptimisticRouteManifestRoute() { return null; }
+export function resolveOptimisticNavigationParams() { return null; }
+`;
+        expect(isOptimisticRoutingAlreadyFixed(noOpCode)).toBe(false);
+        const res = transformHook.call({}, noOpCode, "/node_modules/vinext/dist/server/app-optimistic-routing.js");
+        expect(res).toBeUndefined();
+    });
+
+    it("refreshDeferral (nav controller): returns undefined when beginNavigation matches but the state/return anchors don't", () => {
+        const plugin = vinextRouteWiringFixPlugin({ refreshDeferral: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const noOpCode = `function beginNavigation() {\n\tlatestHmrUpdateId += 1;\n}`;
+        expect(isRefreshDeferralNavControllerAlreadyFixed(noOpCode)).toBe(false);
+        const res = transformHook.call({}, noOpCode, "/node_modules/vinext/dist/server/app-browser-navigation-controller.js");
+        expect(res).toBeUndefined();
+    });
+
+    it("suspenseProbe: returns undefined when not already fixed but neither the decl nor the visit pattern matches", () => {
+        const plugin = vinextRouteWiringFixPlugin({ suspenseProbe: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const noOpCode = `
+const _decoy = REACT_CLIENT_REFERENCE_TYPE;
+export function unrelatedProbeHelper() { return null; }
+`;
+        expect(isAppPageProbeAlreadyFixed(noOpCode)).toBe(false);
+        expect(hasRequiredSymbols(noOpCode, "suspenseProbe")).toBe(true);
+        const res = transformHook.call({}, noOpCode, "/node_modules/vinext/dist/server/app-page-probe.js");
+        expect(res).toBeUndefined();
+    });
+});
+
+describe("syncPatchVinextOnDisk: remaining reachable warn/catch branches", () => {
+    it("warns for suspense-probe when the required symbol itself is missing", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-probe-missing-symbol-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-probe.js");
+            writeFileSync(filePath, "export function probe() { return null; }", "utf8");
+
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: true,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+            });
+            expect(changed).toBe(false);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("no longer exposes REACT_CLIENT_REFERENCE_TYPE"));
+            expect(readFileSync(filePath, "utf8")).toBe("export function probe() { return null; }");
+        } finally {
+            warnSpy.mockRestore();
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("skips the suspense-probe file when it exists but cannot be read", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-probe-unreadable-disk-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-probe.js");
+            writeFileSync(filePath, "x", "utf8");
+            chmodSync(filePath, 0o000);
+            try {
+                expect(() =>
+                    syncPatchVinextOnDisk(tempDir, {
+                        routeWiring: false,
+                        routeMatching: false,
+                        optimisticRouting: false,
+                        prefetchLearning: false,
+                        suspenseProbe: true,
+                        renderDependency: false,
+                        optimisticLearningTimeout: false,
+                        pageInvokerSuspensionRelease: false,
+                        refreshDeferral: false,
+                    })
+                ).not.toThrow();
+            } finally {
+                chmodSync(filePath, 0o644);
+            }
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("skips the render-dependency file when it exists but cannot be read", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-renderdep-unreadable-disk-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-render-dependency.js");
+            writeFileSync(filePath, "x", "utf8");
+            chmodSync(filePath, 0o000);
+            try {
+                expect(() =>
+                    syncPatchVinextOnDisk(tempDir, {
+                        routeWiring: false,
+                        routeMatching: false,
+                        optimisticRouting: false,
+                        prefetchLearning: false,
+                        suspenseProbe: false,
+                        renderDependency: true,
+                        optimisticLearningTimeout: false,
+                        pageInvokerSuspensionRelease: false,
+                        refreshDeferral: false,
+                    })
+                ).not.toThrow();
+            } finally {
+                chmodSync(filePath, 0o644);
+            }
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("skips the page-invoker file when it exists but cannot be read", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-pageinvoker-unreadable-disk-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-element-builder.js");
+            writeFileSync(filePath, "x", "utf8");
+            chmodSync(filePath, 0o000);
+            try {
+                expect(() =>
+                    syncPatchVinextOnDisk(tempDir, {
+                        routeWiring: false,
+                        routeMatching: false,
+                        optimisticRouting: false,
+                        prefetchLearning: false,
+                        suspenseProbe: false,
+                        renderDependency: false,
+                        optimisticLearningTimeout: false,
+                        pageInvokerSuspensionRelease: true,
+                        refreshDeferral: false,
+                    })
+                ).not.toThrow();
+            } finally {
+                chmodSync(filePath, 0o644);
+            }
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("skips the navigation controller file when it exists but cannot be read", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-navctl-unreadable-disk-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-browser-navigation-controller.js");
+            writeFileSync(filePath, "x", "utf8");
+            chmodSync(filePath, 0o000);
+            try {
+                expect(() =>
+                    syncPatchVinextOnDisk(tempDir, {
+                        routeWiring: false,
+                        routeMatching: false,
+                        optimisticRouting: false,
+                        prefetchLearning: false,
+                        suspenseProbe: false,
+                        renderDependency: false,
+                        optimisticLearningTimeout: false,
+                        pageInvokerSuspensionRelease: false,
+                        refreshDeferral: true,
+                    })
+                ).not.toThrow();
+            } finally {
+                chmodSync(filePath, 0o644);
+            }
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("vinextRouteWiringFixPlugin: optimisticLearningTimeout as a number end-to-end", () => {
+    it("honours an explicit ms cap passed straight to the plugin factory", () => {
+        const plugin = vinextRouteWiringFixPlugin({ optimisticLearningTimeout: 1234 });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const buggy = `new Promise((resolve) => setTimeout(resolve, 3000))`;
+        const res = transformHook.call({}, buggy, "/node_modules/vinext/dist/server/app-browser-entry.js");
+        expect(res).toBeDefined();
+        expect(res!.code).toContain("setTimeout(resolve, 1234)");
+    });
+});

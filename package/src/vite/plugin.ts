@@ -7,6 +7,7 @@ import { imageOptimizerPlugin, type ImageOptimizerPluginOptions } from "../image
 
 import { autoDynamicPagesPlugin, type AutoDynamicPagesPluginOptions } from "./auto_dynamic_pages_plugin.js";
 import { autoLocaleParamsPlugin, type AutoLocaleParamsPluginOptions } from "./auto_locale_params_plugin.js";
+import { layoutQueriesPlugin, type LayoutQueriesPluginOptions } from "./layout_queries_plugin.js";
 import { vinextRouteWiringFixPlugin, type VinextRouteWiringFixPluginOptions } from "./vinext_route_wiring_fix.js";
 import { lucideOptimizerPlugin, type LucideOptimizerPluginOptions } from "./lucide_optimizer_plugin.js";
 
@@ -67,10 +68,10 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
      * nested loading boundaries and leading `:locale` segments. Pass an options object or
      * `true` to enable.
      *
-     * ⚠️ **DANGER / EXPERIMENTAL**: This option is disabled by default (`false`).
-     * Enabling this monkey-patches installed vinext files on disk in `node_modules/vinext/dist`.
-     * This is very dangerous and can break routing, streaming, or upstream compatibility.
-     * @default false
+     * ⚠️ Monkey-patches installed vinext files on disk in `node_modules/vinext/dist`.
+     * Follows `experimentalRouteLoadingFixes` (on by default) unless set explicitly;
+     * set `false` to leave vinext untouched.
+     * @default true
      */
     vinextRouteWiringFix?: boolean | VinextRouteWiringFixPluginOptions;
 
@@ -85,19 +86,40 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
     autoLocaleParams?: boolean | AutoLocaleParamsPluginOptions;
 
     /**
-     * Unified switcher for experimental route & loading fixes:
-     * When `true`, enables both `vinextRouteWiringFix` (monkey-patching vinext route wiring on disk)
+     * Scan layout files and their component tree to flag blocking database queries
+     * (`withUserDb()`, `withPublicDb()`) that prevent fast client transitions.
+     * Enabled by default. Pass an options object to configure or `false` to disable.
+     * @default true
+     */
+    layoutQueriesCheck?: boolean | LayoutQueriesPluginOptions;
+
+    /**
+     * Unified switcher for route & loading fixes:
+     * When enabled, turns on both `vinextRouteWiringFix` (monkey-patching vinext route wiring on disk)
      * and `autoDynamicPages: { includeLoading: true }` (injecting force-static SSG into loading.* files).
      *
-     * ⚠️ **DANGER / EXPERIMENTAL**: Both fixes monkey-patch vinext or force SSG on loading boundaries,
-     * which can cause hydration errors or break routing. Off by default.
-     * @default false
+     * On by default: without it vinext renders a stale/ancestor `loading.tsx` instead of the
+     * target route's own one. Every individual patch is a no-op when the vinext code it targets
+     * no longer matches, and `includeLoading` self-disables unless the route-wiring patch verified
+     * on disk, so a future vinext release degrades to plain unpatched behaviour rather than breaking.
+     * Set `false` to opt out.
+     * @default true
      */
     experimentalRouteLoadingFixes?: boolean;
 }
 
 export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plugin[] {
     const plugins: Plugin[] = [];
+
+    if (options.layoutQueriesCheck !== false) {
+        plugins.push(
+            layoutQueriesPlugin(
+                typeof options.layoutQueriesCheck === "object"
+                    ? options.layoutQueriesCheck
+                    : undefined
+            )
+        );
+    }
 
     if (options.lucideOptimizer !== false) {
         plugins.push(
@@ -109,7 +131,7 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
         );
     }
 
-    const enableRouteLoadingFixes = options.experimentalRouteLoadingFixes === true;
+    const enableRouteLoadingFixes = options.experimentalRouteLoadingFixes !== false;
 
     const shouldEnableVinextFix = options.vinextRouteWiringFix !== undefined
         ? Boolean(options.vinextRouteWiringFix)

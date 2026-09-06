@@ -251,7 +251,20 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
                     }
                 }
                 if (perfModule) {
-                    cachedPerformance = perfModule.getPerformance(app);
+                    // `instrumentationEnabled: false`: Firebase's own automatic
+                    // instrumentation runs a SECOND, independent set of web-vitals
+                    // PerformanceObservers for its automatic page-load trace, racing
+                    // the ones `AutoFirebasePerformanceEvents` already registers via
+                    // `useReportWebVitals` below. Two observers over the same
+                    // LCP/CLS/INP entries can leave one of them reading a
+                    // just-cleared entry, throwing inside web-vitals' own internals
+                    // ("Cannot read properties of undefined (reading 'startTime')").
+                    // We already report the same metrics ourselves, so disabling
+                    // Firebase's redundant copy removes the race instead of only
+                    // hiding its symptom. Trade-off: this also turns off Firebase's
+                    // automatic network-request traces (bundled under the same
+                    // flag) — add those manually via `trace()` if needed.
+                    cachedPerformance = perfModule.initializePerformance(app, { instrumentationEnabled: false });
                 }
                 const auth = getAuth(app);
                 cached = { app, auth };

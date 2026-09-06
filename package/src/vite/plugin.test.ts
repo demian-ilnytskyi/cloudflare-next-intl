@@ -6,16 +6,17 @@ describe("cloudflareNextIntl (main plugin)", () => {
     it("returns array of plugins by default", () => {
         const plugins = cloudflareNextIntl();
         expect(Array.isArray(plugins)).toBe(true);
-        expect(plugins.length).toBe(8);
+        expect(plugins.length).toBe(10);
 
         const pluginNames = plugins.map((p) => p.name);
+        expect(pluginNames).toContain("cloudflare-next-intl-layout-queries-check");
         expect(pluginNames).toContain("cloudflare-next-intl-auto-dynamic-pages");
         expect(pluginNames).toContain("cloudflare-next-intl-auto-locale-params");
         expect(pluginNames).toContain("cloudflare-next-intl-image-optimizer");
         expect(pluginNames).toContain("cfni:build-id-asset");
         expect(pluginNames).toContain("cfni:cf-workers-client-stub");
         expect(pluginNames).toContain("cfni:user-agent-stub");
-        expect(pluginNames).not.toContain("cfni:vinext-route-wiring-fix");
+        expect(pluginNames).toContain("cfni:vinext-route-wiring-fix");
         expect(pluginNames).toContain("cfni:locale-file");
         expect(pluginNames).toContain("cloudflare-next-intl-lucide-optimizer");
     });
@@ -35,6 +36,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
 
     it("allows disabling specific plugins", () => {
         const plugins = cloudflareNextIntl({
+            layoutQueriesCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
             imageOptimizer: false,
@@ -51,6 +53,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
 
     it("supports custom buildIdAsset filename", () => {
         const plugins = cloudflareNextIntl({
+            layoutQueriesCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
             imageOptimizer: false,
@@ -68,6 +71,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
 
     it("supports custom imageOptimizer configuration", () => {
         const plugins = cloudflareNextIntl({
+            layoutQueriesCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
             imageOptimizer: {
@@ -86,8 +90,30 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(plugins[0].name).toBe("cloudflare-next-intl-image-optimizer");
     });
 
+    it("supports custom layoutQueriesCheck configuration", () => {
+        const plugins = cloudflareNextIntl({
+            layoutQueriesCheck: {
+                strict: true,
+                runOnDev: false,
+            },
+            autoDynamicPages: false,
+            autoLocaleParams: false,
+            imageOptimizer: false,
+            buildIdAsset: false,
+            cfWorkersClientStub: false,
+            userAgentStub: false,
+            vinextRouteWiringFix: false,
+            localeFiles: false,
+            lucideOptimizer: false,
+        });
+
+        expect(plugins.length).toBe(1);
+        expect(plugins[0].name).toBe("cloudflare-next-intl-layout-queries-check");
+    });
+
     it("supports custom autoDynamicPages configuration", () => {
         const plugins = cloudflareNextIntl({
+            layoutQueriesCheck: false,
             autoDynamicPages: {
                 mode: "report",
                 target: "next",
@@ -108,6 +134,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
 
     it("supports custom autoLocaleParams configuration", () => {
         const plugins = cloudflareNextIntl({
+            layoutQueriesCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: {
                 mode: "report",
@@ -128,6 +155,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
 
     it("supports vinextRouteWiringFix enabled exclusively", () => {
         const plugins = cloudflareNextIntl({
+            layoutQueriesCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
             imageOptimizer: false,
@@ -145,6 +173,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
 
     it("supports vinextRouteWiringFix with sub-option overrides", () => {
         const plugins = cloudflareNextIntl({
+            layoutQueriesCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
             imageOptimizer: false,
@@ -182,6 +211,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
 
     it("supports lucideOptimizer with custom options", () => {
         const plugins = cloudflareNextIntl({
+            layoutQueriesCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
             imageOptimizer: false,
@@ -211,5 +241,6 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(typeof viteIndex.cfWorkersClientStubPlugin).toBe("function");
         expect(typeof viteIndex.vinextRouteWiringFixPlugin).toBe("function");
         expect(typeof viteIndex.lucideOptimizerPlugin).toBe("function");
+        expect(typeof viteIndex.layoutQueriesPlugin).toBe("function");
     });
 });
