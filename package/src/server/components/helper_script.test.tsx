@@ -82,6 +82,35 @@ describe('HelperScript', () => {
         vi.unstubAllEnvs();
     });
 
+    it('the early-catch script writes the shared throttle timestamp and re-arms after the window', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+
+        localStorage.setItem('buildId', 'build-1');
+        sessionStorage.clear();
+        const reload = vi.fn();
+        Object.defineProperty(window, 'location', { value: { reload }, writable: true });
+
+        new Function(source)();
+        window.dispatchEvent(new ErrorEvent('error', { message: 'Failed to fetch dynamically imported module: x.js' }));
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(Number(sessionStorage.getItem('stale-deploy-recovery-time'))).toBeGreaterThan(0);
+
+        // A marker left over from an earlier page load, older than the throttle
+        // window, must not permanently block recovery on a fresh load.
+        sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 20_000));
+        const reload2 = vi.fn();
+        Object.defineProperty(window, 'location', { value: { reload: reload2 }, writable: true });
+        new Function(source)();
+        window.dispatchEvent(new ErrorEvent('error', { message: 'Failed to fetch dynamically imported module: z.js' }));
+        expect(reload2).toHaveBeenCalledTimes(1);
+
+        localStorage.removeItem('buildId');
+        sessionStorage.clear();
+        vi.unstubAllEnvs();
+    });
+
     it('the early-catch script never reloads more than once per page load, even in a burst', () => {
         vi.stubEnv('NODE_ENV', 'production');
         const { container: root } = render(<HelperScript />);
@@ -128,6 +157,59 @@ describe('HelperScript', () => {
 
         setItemSpy.mockRestore();
         errorSpy.mockRestore();
+        localStorage.removeItem('buildId');
+        sessionStorage.clear();
+        vi.unstubAllEnvs();
+    });
+
+    it('the early-catch script recovers from a MIME-blocked or 404 chunk resource error', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+
+        localStorage.setItem('buildId', 'build-1');
+        sessionStorage.clear();
+        const reload = vi.fn();
+        Object.defineProperty(window, 'location', { value: { reload }, writable: true });
+
+        new Function(source)();
+
+        // A module script blocked by MIME type fires a non-bubbling error event
+        // on the element, reaching window only in the capture phase, with no message.
+        const script = document.createElement('script');
+        script.src = 'https://example.test/_next/static/chunks/app-router-scroll-C76DZ2-L.js';
+        document.body.appendChild(script);
+        script.dispatchEvent(new Event('error', { bubbles: false }));
+
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(sessionStorage.getItem('stale-deploy-recovery-reloaded')).toBe('build-1');
+
+        script.remove();
+        localStorage.removeItem('buildId');
+        sessionStorage.clear();
+        vi.unstubAllEnvs();
+    });
+
+    it('the early-catch script ignores errors from non-chunk elements', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+
+        localStorage.setItem('buildId', 'build-1');
+        sessionStorage.clear();
+        const reload = vi.fn();
+        Object.defineProperty(window, 'location', { value: { reload }, writable: true });
+
+        new Function(source)();
+
+        const img = document.createElement('img');
+        img.src = 'https://example.test/broken.png';
+        document.body.appendChild(img);
+        img.dispatchEvent(new Event('error', { bubbles: false }));
+
+        expect(reload).not.toHaveBeenCalled();
+
+        img.remove();
         localStorage.removeItem('buildId');
         sessionStorage.clear();
         vi.unstubAllEnvs();

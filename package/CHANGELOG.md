@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.52] - 2026-09-07
+
+### Fixed
+
+- The `HelperScript` stale-deploy early-catch now also recovers from resource-load failures — a chunk `<script>`/`<link>` that 404s or is served with a disallowed MIME type fires a non-bubbling `error` event on the element itself (no `message`, reaches `window` only during the capture phase), which the previous message-based detection never saw. A capturing `window` listener now checks failed `script`/`link` elements' `src`/`href` and treats them as stale-deploy triggers; errors from non-chunk elements (e.g. a broken `<img>`) are ignored.
+- The early-catch's once-per-load throttle now also re-arms on a fresh page load: a `stale-deploy-recovery-time` marker is written alongside the existing per-`buildId` marker, and a matching `buildId` marker only skips the reload while within a 15s throttle window. Previously, a marker written on a page that then quickly reloaded again (e.g. a second stale chunk on the very next navigation) could permanently block recovery for that `buildId` until `sessionStorage` was cleared.
+
 ## [0.9.51] - 2026-09-06
 
 ### Added

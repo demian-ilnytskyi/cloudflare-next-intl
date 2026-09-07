@@ -60,6 +60,8 @@ export default function HelperScript(): Component | null {
                 try {
                 var patterns = ${JSON.stringify(defaultStaleDeployPatterns)};
                 var key = 'stale-deploy-recovery-reloaded';
+                var timeKey = 'stale-deploy-recovery-time';
+                var throttleMs = 15000;
                 var attemptedThisLoad = false;
                 function isStale(msg) {
                     if (msg === undefined || msg === null) return true;
@@ -77,12 +79,16 @@ export default function HelperScript(): Component | null {
                         if (!stale) return;
                         var buildId = localStorage.getItem('buildId') || 'unknown';
                         var marker = sessionStorage.getItem(key);
-                        if (marker === buildId) {
+                        var lastRaw = sessionStorage.getItem(timeKey);
+                        var last = lastRaw ? Number(lastRaw) : null;
+                        var throttled = last !== null && (Date.now() - last) < throttleMs;
+                        if (marker === buildId && throttled) {
                             console.warn('[StaleDeploy early-catch] Skipping reload, already attempted for buildId:', buildId);
                             return;
                         }
                         attemptedThisLoad = true;
                         sessionStorage.setItem(key, buildId);
+                        sessionStorage.setItem(timeKey, String(Date.now()));
                         try {
                             if (document.documentElement) {
                                 document.documentElement.style.backgroundColor = '#ffffff';
@@ -104,6 +110,21 @@ export default function HelperScript(): Component | null {
                     }
                 }
                 window.addEventListener('error', function(e) { recover(e.message, 'error-event'); });
+                // Resource-load failures (a chunk 404ing or served with a
+                // disallowed MIME type) fire a non-bubbling 'error' event on the
+                // element itself, so they only reach window during capture, and
+                // they carry no message. Treat a failed script/link as stale.
+                window.addEventListener('error', function(e) {
+                    try {
+                        var el = e.target;
+                        if (!el || el === window) return;
+                        var tag = (el.tagName || '').toLowerCase();
+                        if (tag !== 'script' && tag !== 'link') return;
+                        var src = el.src || el.href || '';
+                        if (!src) return;
+                        recover('chunk resource failed to load: ' + src, 'resource-error');
+                    } catch (err) {}
+                }, true);
                 window.addEventListener('unhandledrejection', function(e) {
                     recover(e.reason && (e.reason.message || e.reason), 'unhandledrejection');
                 });
