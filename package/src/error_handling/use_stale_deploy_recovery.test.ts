@@ -476,6 +476,60 @@ describe('useStaleDeployRecovery', () => {
         expect(result.current).toBe(false);
     });
 
+    it('treats attempts as 0 when sessionStorage.getItem throws inside currentAttempts', () => {
+        window.localStorage.setItem('buildId', 'build-attempts-throw');
+        Object.defineProperty(window, 'sessionStorage', {
+            value: {
+                getItem: (key: string) => {
+                    if (key === 'stale-deploy-recovery-count') throw new Error('SecurityError: Access denied');
+                    if (key === 'stale-deploy-recovery-reloaded') return 'build-attempts-throw';
+                    return null;
+                },
+                setItem: vi.fn(),
+                clear: vi.fn(),
+            },
+            configurable: true,
+        });
+
+        const { result } = renderHook(() => useStaleDeployRecovery(staleError, undefined, 500));
+
+        expect(result.current).toBe(true);
+        window.localStorage.removeItem('buildId');
+    });
+
+    it('treats a corrupted (non-numeric) stored attempt count as 0', () => {
+        window.localStorage.setItem('buildId', 'build-corrupt-count');
+        window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'build-corrupt-count');
+        window.sessionStorage.setItem('stale-deploy-recovery-count', 'not-a-number');
+
+        const { result } = renderHook(() => useStaleDeployRecovery(staleError, undefined, 500));
+
+        expect(result.current).toBe(true);
+        window.localStorage.removeItem('buildId');
+    });
+
+    it('honours a valid positive stored attempt count (2nd attempt still recovers)', () => {
+        window.localStorage.setItem('buildId', 'build-valid-count');
+        window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'build-valid-count');
+        window.sessionStorage.setItem('stale-deploy-recovery-count', '1');
+
+        const { result } = renderHook(() => useStaleDeployRecovery(staleError, undefined, 500));
+
+        expect(result.current).toBe(true);
+        window.localStorage.removeItem('buildId');
+    });
+
+    it('treats a negative stored attempt count as 0', () => {
+        window.localStorage.setItem('buildId', 'build-negative-count');
+        window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'build-negative-count');
+        window.sessionStorage.setItem('stale-deploy-recovery-count', '-1');
+
+        const { result } = renderHook(() => useStaleDeployRecovery(staleError, undefined, 500));
+
+        expect(result.current).toBe(true);
+        window.localStorage.removeItem('buildId');
+    });
+
     it('handles sessionStorage.setItem throwing an exception during recovery and still reloads', async () => {
         window.localStorage.setItem('buildId', 'build-storage-throw');
 

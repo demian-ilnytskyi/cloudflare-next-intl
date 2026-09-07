@@ -93,6 +93,32 @@ describe('installGlobalErrorOverride', () => {
         img.remove();
     });
 
+    it('ignores a script/link resource error with no src or href', async () => {
+        const { default: install } = await import('./install_global_error_override.js');
+        const onError = vi.fn();
+        install({ errorHandling: { overrideWindowErrors: true, onError } });
+
+        const script = document.createElement('script');
+        document.body.appendChild(script);
+        script.dispatchEvent(new Event('error', { bubbles: false }));
+
+        expect(onError).not.toHaveBeenCalled();
+        script.remove();
+    });
+
+    it('does not treat a plain window-targeted error as a resource error', async () => {
+        const { default: install } = await import('./install_global_error_override.js');
+        const onError = vi.fn();
+        install({ errorHandling: { overrideWindowErrors: true, onError } });
+        onError.mockClear();
+
+        const event = new Event('error');
+        Object.defineProperty(event, 'target', { value: window, configurable: true });
+        window.dispatchEvent(event);
+
+        expect(onError).not.toHaveBeenCalledWith(expect.objectContaining({ classOrMethodName: 'Global Resource Error Handler' }));
+    });
+
     it('is a no-op when window does not exist (server-side)', async () => {
         vi.stubGlobal('window', undefined);
         try {
