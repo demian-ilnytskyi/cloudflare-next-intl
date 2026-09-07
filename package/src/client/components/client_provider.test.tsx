@@ -91,6 +91,12 @@ describe('LocationzationClientProvider', () => {
         expect(setMessageForLocaleCache).toHaveBeenCalledWith('en', { Common: {} });
     });
 
+    // The "still loading" window itself (children render before the
+    // provider chunk resolves) is covered directly against a controllable
+    // loader in use_lazy_wrapping_provider.test.tsx — a mocked module here
+    // resolves within the same act() flush as render(), so there is no
+    // observable pending window to assert on at this level. This test
+    // instead confirms the eventual, settled state.
     it('wraps children in the client AuthUserProvider when firebaseAuth is configured', async () => {
         currentConfig = { firebaseAuth: {} };
         const { default: LocationzationClientProvider } = await import('./client_provider.js');
@@ -146,6 +152,8 @@ describe('LocationzationClientProvider', () => {
         expect(await screen.findByText('child')).toBeInTheDocument();
     });
 
+    // See the AuthUserProvider note above — the pending window is covered
+    // in use_lazy_wrapping_provider.test.tsx.
     it('wraps children in CookieConsentProvider when cookieConsent is configured, without analytics when no analytics resolve', async () => {
         currentConfig = { cookieConsent: {} };
         const { default: LocationzationClientProvider } = await import('./client_provider.js');
@@ -257,5 +265,26 @@ describe('LocationzationClientProvider', () => {
         );
         expect(screen.queryByTestId('cookie-consent-dialog')).not.toBeInTheDocument();
         expect(screen.queryByTestId('privacy-policy-update-dialog')).not.toBeInTheDocument();
+    });
+
+    it('routes every children-wrapping provider through useLazyWrappingProvider, not raw dynamic()', async () => {
+        // Guards against a future children-wrapping provider being declared
+        // via plain `dynamic()` again. `next/dynamic`'s `loading` option
+        // cannot see `children` (only isLoading/error/retry), so a
+        // dynamic()-wrapped provider that wraps `children` renders null
+        // while its chunk loads — unmounting the whole tree and
+        // reintroducing the white screen these tests cover above.
+        const fs = await import('node:fs/promises');
+        const path = await import('node:path');
+        const filePath = path.join(import.meta.dirname, 'client_provider.tsx');
+        const src = await fs.readFile(filePath, 'utf8');
+
+        const wrapping = ['AuthUserProvider', 'CookieConsentProvider'];
+        for (const name of wrapping) {
+            expect(src, `${name} must be destructured from a useLazyWrappingProvider(...) call inside the component body`)
+                .toMatch(new RegExp(`Provider: ${name}[^}]*\\} = useLazyWrappingProvider\\(`));
+            expect(src, `${name} must not be declared via next/dynamic's dynamic()`)
+                .not.toMatch(new RegExp(`const ${name} = dynamic\\(`));
+        }
     });
 });

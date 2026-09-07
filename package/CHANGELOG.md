@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.55] - 2026-09-07
+
+### Fixed
+
+- `LocationzationClientProvider` (both the normal and static variants) no longer white-screens the app while `AuthUserProvider`/`CookieConsentProvider` chunks are downloading. `next/dynamic`'s `loading` option can't receive `children`, so wrapping a provider that wraps `children` in `dynamic()` unmounted the whole tree until the chunk resolved. New `useLazyWrappingProvider` hook always keeps `children` mounted and only adds the real provider once its module has resolved (cached per loader so later mounts read it synchronously); siblings that depend on `useCookieConsent()` are now gated on the returned `isReady` flag so they don't render before the context is actually live.
+
 ## [0.9.54] - 2026-09-07
 
 ### Added

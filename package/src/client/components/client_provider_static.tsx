@@ -4,6 +4,7 @@ import type { TranslationObject } from "../../types/types.js";
 import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
 import { createContext, useMemo } from "react";
 import dynamic from "next/dynamic.js";
+import useLazyWrappingProvider from "./use_lazy_wrapping_provider.js";
 import config from "@intl-config";
 import type { CookieConsentAnalyticsConfig, AutoAnalyticsEventsConfig } from "../../types/types.js";
 import type { CookieConsentDialogProps } from "../../cookie_consent/client/components/cookie_consent_dialog.js";
@@ -26,7 +27,13 @@ export const LocaleContext = createContext<LocaleContextType | undefined>(undefi
 // import entirely — not just skipping its use at runtime — is what keeps
 // `output: 'export'` builds from failing. See `server_provider_static.tsx`
 // for the full explanation.
-const CookieConsentProvider = dynamic(() => import("../../cookie_consent/client/cookie_consent_provider.js"));
+// CookieConsentProvider WRAPS `children` below. `next/dynamic`'s `loading`
+// placeholder has no access to `children` (only isLoading/error/retry), so
+// it would unmount the whole tree while its chunk downloads, painting a
+// white screen on slow connections. `useLazyWrappingProvider` (used in the
+// component body) always renders `children` and only adds the provider
+// wrapper once its chunk has resolved.
+const loadCookieConsentProvider = () => import("../../cookie_consent/client/cookie_consent_provider.js");
 const CookieConsentAnalytics = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_analytics.js"));
 const AutoAnalyticsEvents = dynamic(() => import("../../cookie_consent/client/components/auto_analytics_events.js"));
 const CookieConsentDialog = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_dialog.js"));
@@ -69,14 +76,22 @@ export default function LocationzationClientProvider({
     installConsoleErrorOverride(config, true);
     installGlobalErrorOverride(config);
 
+    const { Provider: CookieConsentProvider, isReady: cookieConsentReady } = useLazyWrappingProvider(loadCookieConsentProvider);
+
     let providedChildren = children;
     if (config.cookieConsent) {
+        // The analytics/dialog siblings below call useCookieConsent(), which
+        // throws when rendered outside a live CookieConsentProvider context.
+        // CookieConsentProvider keeps `providedChildren` mounted even before
+        // its own chunk resolves (see useLazyWrappingProvider) — so gate
+        // these siblings on `cookieConsentReady` rather than just on JSX
+        // nesting, or they would crash during that pending window.
         providedChildren = <CookieConsentProvider requiresConsent={requiresConsent}>
             {providedChildren}
-            {analyticsConfig && <CookieConsentAnalytics config={analyticsConfig} />}
-            {analyticsConfig && (analyticsConfig.googleAnalyticsId || analyticsConfig.googleAdsId) && <AutoAnalyticsEvents config={autoAnalyticsEventsConfig} />}
-            {autoWireDialogs && <CookieConsentDialog {...dialogProps} />}
-            {autoWireDialogs && <PrivacyPolicyUpdateDialog {...updateDialogProps} />}
+            {cookieConsentReady && analyticsConfig && <CookieConsentAnalytics config={analyticsConfig} />}
+            {cookieConsentReady && analyticsConfig && (analyticsConfig.googleAnalyticsId || analyticsConfig.googleAdsId) && <AutoAnalyticsEvents config={autoAnalyticsEventsConfig} />}
+            {cookieConsentReady && autoWireDialogs && <CookieConsentDialog {...dialogProps} />}
+            {cookieConsentReady && autoWireDialogs && <PrivacyPolicyUpdateDialog {...updateDialogProps} />}
         </CookieConsentProvider>;
     }
 

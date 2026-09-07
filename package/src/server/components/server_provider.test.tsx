@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import * as React from 'react';
 
 vi.mock('next/dynamic', () => ({
@@ -160,7 +160,16 @@ describe('LocationzationProvider', () => {
         const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(resolveAuthUserAndRedirect).not.toHaveBeenCalled();
-        expect(await screen.findByText('child')).toBeInTheDocument();
+        // AuthUserProvider is lazy-loaded and wraps `children` once its chunk
+        // resolves — that transition is a one-time reconciliation remount
+        // (see use_lazy_wrapping_provider.tsx), so a *captured* element
+        // reference from `findByText` can race that remount and end up
+        // pointing at an already-detached node. `waitFor` + `getByText`
+        // re-queries the live DOM on every poll instead of trusting one
+        // resolved reference, so it settles correctly regardless of timing.
+        await waitFor(() => {
+            expect(screen.getByText('child')).toBeInTheDocument();
+        });
     });
 
     it('does not call resolveAuthUserAndRedirect when staticSafe is true', async () => {
@@ -170,7 +179,10 @@ describe('LocationzationProvider', () => {
         const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, staticSafe: true, children: <span>child</span> }));
         expect(resolveAuthUserAndRedirect).not.toHaveBeenCalled();
-        expect(await screen.findByText('child')).toBeInTheDocument();
+        // See the note above — re-query rather than trust a captured node.
+        await waitFor(() => {
+            expect(screen.getByText('child')).toBeInTheDocument();
+        });
     });
 
     it('warns when staticSafe is true and middlewareEnabled is false', async () => {

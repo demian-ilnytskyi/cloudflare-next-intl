@@ -111,6 +111,10 @@ describe('LocationzationClientProvider (static)', () => {
         expect(screen.queryByTestId('cookie-consent-analytics')).not.toBeInTheDocument();
     });
 
+    // The "still loading" window (children render before the provider chunk
+    // resolves) is covered directly against a controllable loader in
+    // use_lazy_wrapping_provider.test.tsx.
+
     it('renders CookieConsentAnalytics when analyticsConfig resolves', async () => {
         currentConfig = { cookieConsent: {} };
         const { default: LocationzationClientProvider } = await import('./client_provider_static.js');
