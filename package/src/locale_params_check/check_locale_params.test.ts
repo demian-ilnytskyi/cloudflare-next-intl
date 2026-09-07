@@ -83,6 +83,33 @@ describe('checkLocaleParams', () => {
         expect(written).toEqual({});
     });
 
+it('mode "fix" wraps a sync default export reusing a { params } prop typed with a named (non-inline-Promise-object) type', async () => {
+        // extractParamsPromiseType only recognizes an inline `Promise<{ ... }>`
+        // shape; a named type alias here means it returns null, so
+        // wrapSyncDefaultExportWithParams gets undefined for existingParamsType
+        // (falls back to a params-only type, per its own docs).
+        const source = 'export default function Page({ params }: { params: PageParams }) {\n    return null;\n}';
+        const { io, written } = makeIo({ '/app/[locale]/page.tsx': source });
+        const reports = await checkLocaleParams({ appDir: APP_DIR, mode: 'fix' }, io);
+        expect(reports).toEqual([{ file: '/app/[locale]/page.tsx', action: 'added-locale-params' }]);
+        const result = written['/app/[locale]/page.tsx']!;
+        expect(result).toContain('export default async function Page({ params }: {');
+        expect(result).toContain('params: Promise<{ locale: Language }>;');
+    });
+
+    it('reports "needs-manual-edit" for a zero-arg sync default export whose body wrapSyncDefaultExportWithParams cannot locate (no opening brace)', async () => {
+        // checkLocaleParams' own ZERO_ARG_DEFAULT_EXPORT check only looks at
+        // the signature, so this still qualifies as isZeroArg; the wrapper
+        // itself bails (no `{` to anchor a function body) and returns the
+        // source unchanged, which checkLocaleParams must surface as a report
+        // instead of silently "writing" the unchanged source.
+        const source = 'export default function Page()';
+        const { io, written } = makeIo({ '/app/[locale]/page.tsx': source });
+        const reports = await checkLocaleParams({ appDir: APP_DIR, mode: 'fix' }, io);
+        expect(reports).toEqual([{ file: '/app/[locale]/page.tsx', action: 'needs-manual-edit' }]);
+        expect(written).toEqual({});
+    });
+
     it('reports "needs-manual-edit" for a layout with the Readonly<{...}> multi-prop shape (example/[locale]/layout.tsx)', async () => {
         const source = `export default async function RootLayout({\n  children,\n  params,\n}: Readonly<{\n  children: React.ReactNode;\n  params: Promise<{ locale: string }>;\n}>): Promise<Component> {\n  const result = await params;\n  const locale = result?.locale ?? "en";\n}`;
         const { io, written } = makeIo({ '/app/[locale]/layout.tsx': source });
@@ -290,6 +317,19 @@ describe('checkLocaleParams', () => {
             expect(printed).toContain(pageFile);
             logSpy.mockRestore();
         });
+
+        it('mode "fix" writes through the real fs.writeFileSync fallback when no io override is given', async () => {
+            const localeDir = join(dir, '[locale]');
+            mkdirSync(localeDir, { recursive: true });
+            const pageFile = join(localeDir, 'page.tsx');
+            writeFileSync(pageFile, 'export default function Page() {\n    return null;\n}', 'utf8');
+
+            const reports = await checkLocaleParams({ appDir: dir, mode: 'fix' });
+
+            expect(reports).toEqual([{ file: pageFile, action: 'added-locale-params' }]);
+            const result = readFileSync(pageFile, 'utf8');
+            expect(result).toContain('setLocale(locale);');
+        });
     });
 
     it('verbose: true labels a needs-manual-edit file with its own reason', async () => {
@@ -301,5 +341,71 @@ describe('checkLocaleParams', () => {
         expect(printed).toContain('?');
         expect(printed).toContain('needs a manual edit');
         logSpy.mockRestore();
+    });
+
+    describe('sync default exports are split (Content + async wrapper) instead of getting async added in place', () => {
+        it('mode "fix" splits a sync zero-arg page — real UPTA comment/loading.tsx build failure (`await` is only allowed within async functions)', async () => {
+            const source = `import CommentLoading from "@/shared/components/comment/comment_loading";\n\nexport default function CommentPageLoading(): Component {\n    return <CommentLoading />;\n}`;
+            const { io, written } = makeIo({ '/app/[locale]/comment/loading.tsx': source });
+            const reports = await checkLocaleParams({ appDir: APP_DIR, mode: 'fix' }, io);
+            expect(reports).toEqual([{ file: '/app/[locale]/comment/loading.tsx', action: 'added-locale-params' }]);
+            const result = written['/app/[locale]/comment/loading.tsx']!;
+            expect(result).toContain('function CommentPageLoadingContentCloudflareNextIntl() {');
+            expect(result).toContain('return <CommentLoading />;');
+            expect(result).toContain('export default async function CommentPageLoading({ params }: {');
+            expect(result).toContain('const { locale } = await params;');
+            expect(result).toContain('return <CommentPageLoadingContentCloudflareNextIntl />;');
+            expect(result).not.toContain('async function CommentPageLoadingContentCloudflareNextIntl');
+        });
+
+        it('mode "fix" splits a sync page with an existing unrelated prop (canAddParamsKey path) — forwards the prop by name instead of making the original body async', async () => {
+            const source = `export default function Page({ test }: { test: string }) {\n    return <div>{test}</div>;\n}`;
+            const { io, written } = makeIo({ '/app/[locale]/property-profile/loading.tsx': source });
+            const reports = await checkLocaleParams({ appDir: APP_DIR, mode: 'fix' }, io);
+            expect(reports).toEqual([{ file: '/app/[locale]/property-profile/loading.tsx', action: 'added-locale-params' }]);
+            const result = written['/app/[locale]/property-profile/loading.tsx']!;
+            expect(result).toContain('function PageContentCloudflareNextIntl({ test }: { test: string }) {');
+            expect(result).toContain('return <div>{test}</div>;');
+            expect(result).toContain('export default async function Page({ test, params }: {');
+            expect(result).toContain('return <PageContentCloudflareNextIntl test={test} />;');
+            expect(result).not.toContain('async function PageContentCloudflareNextIntl');
+        });
+
+        it('mode "fix" splits a sync page reusing an existing { params } prop typed for a different key (canReuseExistingParams path) — real CRV property-profile/[ownerId]/loading.tsx shape if it were sync', async () => {
+            const source = `export default function ContractorPropertyProfileLoading({ params }: {\n    params: Promise<{ ownerId: string }>;\n}) {\n    return <div>loading</div>;\n}`;
+            const { io, written } = makeIo({ '/app/[locale]/property-profile/[ownerId]/loading.tsx': source });
+            const reports = await checkLocaleParams({ appDir: APP_DIR, mode: 'fix' }, io);
+            expect(reports).toEqual([{ file: '/app/[locale]/property-profile/[ownerId]/loading.tsx', action: 'added-locale-params' }]);
+            const result = written['/app/[locale]/property-profile/[ownerId]/loading.tsx']!;
+            // Content keeps its OWN { params } prop, unchanged — still typed for ownerId only.
+            expect(result).toContain('function ContractorPropertyProfileLoadingContentCloudflareNextIntl({ params }: {\n    params: Promise<{ ownerId: string }>;\n}) {');
+            expect(result).toContain('return <div>loading</div>;');
+            // The wrapper's own params type is widened to include both keys.
+            expect(result).toContain('export default async function ContractorPropertyProfileLoading({ params }: {');
+            expect(result).toContain('params: Promise<{ ownerId: string; locale: Language }>;');
+            expect(result).toContain('const { locale } = await params;');
+            // The same params promise the wrapper awaited is re-forwarded to Content.
+            expect(result).toContain('return <ContractorPropertyProfileLoadingContentCloudflareNextIntl params={params} />;');
+            expect(result).not.toContain('async function ContractorPropertyProfileLoadingContentCloudflareNextIntl');
+        });
+
+        it('an already-async function still takes the ordinary in-place path (no Content split) — real CRV loading.tsx shapes, all already async', async () => {
+            const source = `import { getTranslations } from "cloudflare-next-intl";\nexport default async function AppLoading(): Promise<Component> {\n    const t = await getTranslations('PropertyIntake');\n    return null;\n}`;
+            const { io, written } = makeIo({ '/app/[locale]/(app)/loading.tsx': source });
+            const reports = await checkLocaleParams({ appDir: APP_DIR, mode: 'fix' }, io);
+            expect(reports).toEqual([{ file: '/app/[locale]/(app)/loading.tsx', action: 'added-locale-params' }]);
+            const result = written['/app/[locale]/(app)/loading.tsx']!;
+            expect(result).not.toContain('Content');
+            expect(result).toContain('export default async function AppLoading({ params }: {');
+            expect(result).toContain('const { locale } = await params;');
+        });
+
+        it('mode "report" reports "would-add-locale-params" for a sync page without writing (no split happens in report mode)', async () => {
+            const source = `export default function Page() {\n    return null;\n}`;
+            const { io, written } = makeIo({ '/app/[locale]/page.tsx': source });
+            const reports = await checkLocaleParams({ appDir: APP_DIR, mode: 'report' }, io);
+            expect(reports).toEqual([{ file: '/app/[locale]/page.tsx', action: 'would-add-locale-params' }]);
+            expect(written).toEqual({});
+        });
     });
 });

@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { detectLocaleParams } from './detect_locale_params.js';
-import { insertLocaleParamsSignature, insertLocaleParamsBody, ensureLocaleInParamsType, addParamsPropToExistingDestructure, ensureSetLocaleImport } from './insert_locale_params.js';
+import { insertLocaleParamsSignature, insertLocaleParamsBody, ensureLocaleInParamsType, addParamsPropToExistingDestructure, ensureSetLocaleImport, wrapSyncDefaultExportWithParams, extractParamsPromiseType } from './insert_locale_params.js';
 import { findLocaleScopedFiles } from './find_locale_scoped_files.js';
 import { deriveRoute, makePageLabeler, type PageLabelStyle } from '../dynamic_pages_check/derive_page_label.js';
 
@@ -65,6 +65,8 @@ export interface CheckLocaleParamsIo {
 }
 
 const ZERO_ARG_DEFAULT_EXPORT = /export\s+default\s+(async\s+)?function\s+[A-Za-z_$][\w$]*\s*\(\s*\)/;
+/** Whether the file's default-exported function is a plain (non-`async`) `function` — the ordinary in-place path can safely add its own `await` only when this is `false`; when `true`, `wrapSyncDefaultExportWithParams` is used instead (see its docs for why a sync function gets a wrapper rather than an in-place `async`). */
+const SYNC_DEFAULT_EXPORT = /export\s+default\s+function\s+[A-Za-z_$][\w$]*\s*\(/;
 
 const LEGEND = '✓ Set up   + Added   ? Needs manual edit   · Skipped';
 
@@ -210,6 +212,30 @@ export async function checkLocaleParams(
 
         if (mode === 'report') {
             reports.push({ file, action: 'would-add-locale-params' });
+            continue;
+        }
+
+        // `hasInlineDestructure` means the file already has a working
+        // `await params` in its body — which only compiles today if the
+        // function is already `async` — so that path never needs the
+        // wrapper; it's exclusive to the three signature-editing paths
+        // below, each of which can hit a genuinely sync function.
+        const isSyncDefaultExport = !detection.hasInlineDestructure && SYNC_DEFAULT_EXPORT.test(source);
+        if (isSyncDefaultExport && (isZeroArg || canAddParamsKey || canReuseExistingParams)) {
+            // A sync default export gets split into an unexported
+            // `NameContent` (original signature and body untouched) plus a
+            // new `async` wrapper that awaits `params` and forwards
+            // whatever props `Content` already had — see
+            // `wrapSyncDefaultExportWithParams`'s docs for why this doesn't
+            // just add `async` to the original function in place.
+            const existingParamsType = canReuseExistingParams ? extractParamsPromiseType(source) ?? undefined : undefined;
+            const wrapped = wrapSyncDefaultExportWithParams(source, localeParam, existingParamsType);
+            if (wrapped === source) {
+                reports.push({ file, action: 'needs-manual-edit' });
+                continue;
+            }
+            writeFile(file, ensureSetLocaleImport(wrapped));
+            reports.push({ file, action: 'added-locale-params' });
             continue;
         }
 

@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.54] - 2026-09-07
+
+### Added
+
+- `checkLocaleParams` (the `locale_params_check` fixer) now handles a plain (non-`async`) `export default function` — whether zero-arg, an unrelated destructured prop, or an existing `params` typed for a different key. Rather than adding `async`/`await` in place (which a sync default export's own body may not support), the original function is renamed to an unexported `NameContentCloudflareNextIntl` with its signature and body byte-for-byte untouched, and a new `export default async function Name(...)` wrapper is generated that awaits `params`, calls `setLocale`, and forwards the original props through by name to `NameContentCloudflareNextIntl`. New exports `wrapSyncDefaultExportWithParams` and `extractParamsPromiseType` in `insert_locale_params.ts` back this.
+
 ## [0.9.53] - 2026-09-07
 
 ### Added

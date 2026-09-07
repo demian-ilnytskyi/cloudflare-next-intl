@@ -45,25 +45,43 @@ describe("imageOptimizerPlugin", () => {
     });
 
     it("runs the buildStart optimizer scan during dev when dev: true is passed explicitly", async () => {
-        const plugin = imageOptimizerPlugin({ dirs: [], dev: true });
-        const configResolved = plugin.configResolved as (config: { command: string }) => void;
-        configResolved({ command: "serve" });
+        // `run()` defaults to `onlyUsed: true`, which scans `process.cwd()`'s
+        // `public/` dir for actually-referenced images; without isolating cwd
+        // to an empty temp dir, this scans the whole real package directory
+        // (node_modules included) and can blow past the test timeout.
+        const root = await makeTempDir();
+        const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(root);
+        try {
+            const plugin = imageOptimizerPlugin({ dirs: [], dev: true });
+            const configResolved = plugin.configResolved as (config: { command: string }) => void;
+            configResolved({ command: "serve" });
 
-        const mockContext = { info: vi.fn() };
-        const buildStart = plugin.buildStart as (this: typeof mockContext) => Promise<void>;
-        await buildStart.call(mockContext);
-        expect(mockContext.info).toHaveBeenCalled();
+            const mockContext = { info: vi.fn() };
+            const buildStart = plugin.buildStart as (this: typeof mockContext) => Promise<void>;
+            await buildStart.call(mockContext);
+            expect(mockContext.info).toHaveBeenCalled();
+        } finally {
+            cwdSpy.mockRestore();
+            await cleanup(root);
+        }
     });
 
     it("runs the buildStart optimizer scan during a real build (command: 'build') regardless of dev option", async () => {
-        const plugin = imageOptimizerPlugin({ dirs: [] });
-        const configResolved = plugin.configResolved as (config: { command: string }) => void;
-        configResolved({ command: "build" });
+        const root = await makeTempDir();
+        const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(root);
+        try {
+            const plugin = imageOptimizerPlugin({ dirs: [] });
+            const configResolved = plugin.configResolved as (config: { command: string }) => void;
+            configResolved({ command: "build" });
 
-        const mockContext = { info: vi.fn() };
-        const buildStart = plugin.buildStart as (this: typeof mockContext) => Promise<void>;
-        await buildStart.call(mockContext);
-        expect(mockContext.info).toHaveBeenCalled();
+            const mockContext = { info: vi.fn() };
+            const buildStart = plugin.buildStart as (this: typeof mockContext) => Promise<void>;
+            await buildStart.call(mockContext);
+            expect(mockContext.info).toHaveBeenCalled();
+        } finally {
+            cwdSpy.mockRestore();
+            await cleanup(root);
+        }
     });
 
     it("resolves virtual image shim ID and checks getShimPath with .js", async () => {

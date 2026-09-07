@@ -41,7 +41,249 @@ export function insertLocaleParamsSignature(sourceText: string, localeParam: str
     return sourceText.slice(0, parensStart) + replacement + sourceText.slice(parensEnd);
 }
 
+/**
+ * Matches a non-`async` `export default function Name(` — the exact
+ * function keyword `wrapSyncDefaultExportWithParams` rewrites. Deliberately
+ * excludes `async` (an already-async function is handled by the ordinary
+ * `insertLocaleParamsSignature`/`addParamsPropToExistingDestructure`/
+ * `ensureLocaleInParamsType` + `insertLocaleParamsBody` combination, which
+ * can safely add its own `await` in place).
+ */
+const SYNC_DEFAULT_EXPORT_FUNCTION = /export\s+default\s+function\s+([A-Za-z_$][\w$]*)\s*\(/;
+
+/**
+ * Finds a name derived from `baseName` (`${baseName}ContentCloudflareNextIntl`,
+ * then `${baseName}ContentCloudflareNextIntl2`, `...3`, ...) that doesn't
+ * already appear as a word anywhere in `sourceText` — so the generated
+ * inner component can never collide with an identifier the file already
+ * uses (an import, another local component, a variable). The
+ * `CloudflareNextIntl` suffix (not just `Content`, a name plenty of
+ * projects already have their own component or prop called) makes a first-
+ * try collision unlikely before the numeric fallback ever has to kick in.
+ */
+function findUnusedContentName(sourceText: string, baseName: string): string {
+    let candidate = `${baseName}ContentCloudflareNextIntl`;
+    let suffix = 2;
+    while (new RegExp(`\\b${candidate}\\b`).test(sourceText)) {
+        candidate = `${baseName}ContentCloudflareNextIntl${suffix}`;
+        suffix += 1;
+    }
+    return candidate;
+}
+
 const DEFAULT_EXPORT_FUNCTION_OPEN_PAREN = /export\s+default\s+(?:async\s+)?function\s+[A-Za-z_$][\w$]*\s*\(/;
+
+/**
+ * The default-exported function's own parameter-list text, `(...)`
+ * INCLUDING the parens — e.g. `()`, `({ ownerId }: { ownerId: string })`,
+ * or `({ params }: { params: Promise<{ ownerId: string }> })`. Brace-depth
+ * aware past the open paren so a destructured object type doesn't get
+ * mistaken for the closing paren.
+ */
+function findParamListSpan(sourceText: string): { start: number; end: number } | null {
+    const openParenMatch = DEFAULT_EXPORT_FUNCTION_OPEN_PAREN.exec(sourceText);
+    if (openParenMatch === null) return null;
+    const start = openParenMatch.index + openParenMatch[0].length - 1;
+    let depth = 0;
+    for (let i = start; i < sourceText.length; i++) {
+        if (sourceText[i] === '(') depth++;
+        else if (sourceText[i] === ')') {
+            depth--;
+            if (depth === 0) return { start, end: i + 1 };
+        }
+    }
+    return null;
+}
+
+/**
+ * Splits a destructured object pattern's inner text (between its `{` and
+ * `}`, e.g. `'ownerId, page = 1'` or `'params'`) into its top-level key
+ * names — depth-aware so a default value containing `,` or `{}` (`page =
+ * {}`) doesn't get split as if it were another key, and taking the bound
+ * name before any `:` alias or `=` default. Returns `[]` for an empty or
+ * unparseable pattern (e.g. a rest element `...rest`, which this scan
+ * doesn't forward) rather than guessing.
+ */
+function destructuredKeyNames(inner: string): string[] {
+    const names: string[] = [];
+    let depth = 0;
+    let start = 0;
+    const parts: string[] = [];
+    for (let i = 0; i <= inner.length; i++) {
+        const char = inner[i];
+        if (i === inner.length || (char === ',' && depth === 0)) {
+            parts.push(inner.slice(start, i));
+            start = i + 1;
+            continue;
+        }
+        if (char === '{' || char === '(' || char === '[') depth++;
+        else if (char === '}' || char === ')' || char === ']') depth--;
+    }
+    for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed === '' || trimmed.startsWith('...')) continue;
+        const key = trimmed.split(':')[0]!.split('=')[0]!.trim();
+        if (/^[A-Za-z_$][\w$]*$/.test(key)) names.push(key);
+    }
+    return names;
+}
+
+/**
+ * Rewrites a non-`async` `export default function Name(...) { ... }` —
+ * whatever its own parameter list is: none, an unrelated destructured prop
+ * (`{ ownerId }: { ownerId: string }`), or an existing `{ params }` already
+ * typed for a different key — into a plain (unexported, still sync)
+ * `function NameContentCloudflareNextIntl(...) { ... }` with that SAME parameter list and
+ * body byte-for-byte untouched, followed by a NEW `export default async
+ * function Name({ ...originalKeys, params }: { ...originalType; params:
+ * Promise<{ <localeParam>: Language }> }) { const { <localeParam> } =
+ * await params; setLocale(<localeParam>); return <NameContentCloudflareNextIntl
+ * ownerId={ownerId} ... />; }` — i.e. the wrapper takes on whatever props
+ * the original function had (plus `params`) purely to forward them
+ * unchanged by name, never reading them itself.
+ *
+ * Why a wrapper instead of making the original function `async` in place
+ * (what the ordinary in-place path does for an already-`async` function):
+ * a sync Server Component can call React's synchronous `use()`-based
+ * helpers (this package's own `useTranslations`/`useLocale` from the
+ * `cloudflare-next-intl/use` subpath's `react-server` condition, or a
+ * project's own `use()`-based helper) in ways that assume the enclosing
+ * component's own render is still synchronous relative to its caller;
+ * forcing `async` onto a function this scan didn't write, just to host one
+ * `await params`, risks changing behavior this text-based scan cannot fully
+ * verify is safe. Splitting confines the new `await` to a wrapper that does
+ * nothing else, leaving the original function — and everything it does —
+ * exactly as written, just renamed and no longer the default export.
+ *
+ * The generated inner name is `${OriginalName}ContentCloudflareNextIntl` (see
+ * `findUnusedContentName` for the collision-avoidance suffix).
+ *
+ * @param existingParamsType When the original signature already
+ * destructures `{ params }` (reusing an existing `params: Promise<{ ... }>`
+ * prop for an unrelated key, e.g. `Promise<{ ownerId: string }>`), pass
+ * that inner type body (`'ownerId: string'`) so the wrapper's own `params`
+ * type is widened to include both keys — `<localeParam>` is otherwise
+ * indistinguishable from a second, colliding `params` prop. `Content` keeps
+ * its OWN `{ params }` prop unchanged (still the same `Promise`, still
+ * typed for only the original key — a `Promise` can be `await`ed more than
+ * once, so re-forwarding the same one the wrapper itself just awaited is
+ * safe) rather than being handed a resolved value for it, since the
+ * wrapper doesn't know what `Content`'s own body does with the rest of
+ * that promise, only that `<localeParam>` isn't part of it yet. `undefined`
+ * for every other shape (no existing `params` prop to merge with).
+ *
+ * Returns the source unchanged if no non-`async` default-exported function
+ * is found, or if its parameter list isn't a plain top-level destructure
+ * this scan can safely re-derive forwarding props from.
+ */
+export function wrapSyncDefaultExportWithParams(
+    sourceText: string,
+    localeParam: string,
+    existingParamsType?: string,
+): string {
+    const nameMatch = SYNC_DEFAULT_EXPORT_FUNCTION.exec(sourceText);
+    if (nameMatch === null) return sourceText;
+    const name = nameMatch[1]!;
+
+    const paramList = findParamListSpan(sourceText);
+    if (paramList === null) return sourceText;
+    const bodyStart = findFunctionBodyStart(sourceText);
+    if (bodyStart === null) return sourceText;
+    const bodyEnd = findMatchingBraceEnd(sourceText, bodyStart - 1);
+    if (bodyEnd === null) return sourceText;
+
+    const contentName = findUnusedContentName(sourceText, name);
+    const originalParams = sourceText.slice(paramList.start, paramList.end);
+    const originalBody = sourceText.slice(bodyStart, bodyEnd - 1);
+
+    // The keys the wrapper needs to accept-and-forward: every top-level
+    // destructured key from the original signature — including `params`
+    // itself when reusing an existing `{ params }` prop, since `Content`
+    // keeps its own copy of that same `Promise` (see the
+    // `existingParamsType` doc above) — except when the pattern isn't a
+    // plain object destructure this scan recognizes at all (an aliased
+    // single non-destructured argument, e.g. `(props)`). Brace-depth aware
+    // (via `findMatchingBraceEnd`, not a greedy regex) so a following type
+    // annotation's own `{ ... }` — which can itself contain `,`/`}` inside
+    // a nested type — is never mistaken for part of the destructure.
+    let forwardKeys: string[] = [];
+    // The plain inline type text for each forwarded key (e.g. `'test:
+    // string'`), taken from the SAME `: { ... }` type annotation the
+    // destructure came from — needed so the wrapper's own signature stays
+    // fully typed (`{ test, params }: { test: string; params: ... }`)
+    // rather than silently dropping every forwarded key's type, which
+    // would leave `test` an implicit-`any`/type error in the wrapper. Left
+    // `[]` (falls back to a `params`-only type) for a destructure with no
+    // following plain inline object type this scan can parse (`Readonly<{
+    // ... }>`, a named type, no annotation at all) — the same "don't guess"
+    // rule `findDestructuredObjectWithInlineType` documents.
+    let forwardKeyTypes: string[] = [];
+    if (originalParams !== '()') {
+        const openBrace = originalParams.indexOf('{');
+        if (openBrace === -1) return sourceText;
+        const keysEnd = findMatchingBraceEnd(originalParams, openBrace);
+        if (keysEnd === null) return sourceText;
+        forwardKeys = destructuredKeyNames(originalParams.slice(openBrace + 1, keysEnd - 1));
+
+        let j = keysEnd;
+        while (j < originalParams.length && /\s/.test(originalParams[j]!)) j++;
+        if (originalParams[j] === ':') {
+            j++;
+            while (j < originalParams.length && /\s/.test(originalParams[j]!)) j++;
+            if (originalParams[j] === '{') {
+                const typeEnd = findMatchingBraceEnd(originalParams, j);
+                if (typeEnd !== null) {
+                    const typeBody = originalParams.slice(j + 1, typeEnd - 1).trim();
+                    forwardKeyTypes = typeBody === '' ? [] : typeBody.split(';').map((s) => s.trim()).filter(Boolean);
+                }
+            }
+        }
+    }
+    // `params` is always in the wrapper's OWN signature (it's the thing
+    // being resolved), so it's never duplicated into the forwarded-props
+    // list even when it's also one of Content's original keys.
+    const otherForwardKeys = forwardKeys.filter((key) => key !== 'params');
+    const otherForwardKeyTypes = forwardKeyTypes.filter((type) => !/^params\s*:/.test(type));
+
+    const contentFunction = `function ${contentName}${originalParams} {${originalBody}}`;
+    // Merge with an existing type rather than blindly appending — a file
+    // whose `{ params }` prop is already typed for `<localeParam>` itself
+    // (e.g. the reuse-path source already had `Promise<{ locale: Language
+    // }>` before this scan touched it) would otherwise end up with the
+    // same key listed twice.
+    const alreadyHasLocaleParam = existingParamsType !== undefined && new RegExp(`\\b${localeParam}\\b`).test(existingParamsType);
+    const wrapperParamsType = existingParamsType === undefined
+        ? `${localeParam}: Language`
+        : alreadyHasLocaleParam
+            ? existingParamsType
+            : `${existingParamsType.replace(/;?\s*$/, '')}; ${localeParam}: Language`;
+    const wrapperSignature = otherForwardKeys.length === 0 ? `{ params }` : `{ ${otherForwardKeys.join(', ')}, params }`;
+    const forwardedJsx = forwardKeys.map((key) => (key === 'params' ? ` params={params}` : ` ${key}={${key}}`)).join('');
+    // Each forwarded key needs its own line in the wrapper's type too — a
+    // wrapper signature that destructures `test` but only types `params`
+    // is a `tsc` error (`Property 'test' does not exist...`) even though
+    // vinext/esbuild's own build (a JS transform, not a type-checker) lets
+    // it through silently.
+    const forwardedTypeLines = otherForwardKeyTypes.map((type) => `    ${type.replace(/;?\s*$/, '')};`);
+    const wrapperFunction = [
+        `// Auto-inserted by cloudflare-next-intl's checkLocaleParams (mode: "fix") — `
+        + `"${name}" was split into this async wrapper plus the sync "${contentName}" above `
+        + `it (see that function's own body, unchanged) so \`await params\` never lands in a `
+        + `function this scan didn't confirm was safe to make async. To opt this file out on a `
+        + `later run, pass it in checkLocaleParams' \`skip\` list instead of hand-editing here.`,
+        `export default async function ${name}(${wrapperSignature}: {`,
+        ...forwardedTypeLines,
+        `    params: Promise<{ ${wrapperParamsType} }>;`,
+        `}) {`,
+        `    const { ${localeParam} } = await params;`,
+        `    setLocale(${localeParam});`,
+        ``,
+        `    return <${contentName}${forwardedJsx} />;`,
+        `}`,
+    ].join('\n');
+
+    return sourceText.slice(0, nameMatch.index) + contentFunction + '\n\n' + wrapperFunction + sourceText.slice(bodyEnd);
+}
 
 /**
  * Brace-depth-aware match end — see `detect_locale_params.ts`'s identical
@@ -154,6 +396,17 @@ export function insertLocaleParamsBody(sourceText: string, localeParam: string, 
 }
 
 const PARAMS_PROMISE_TYPE = /params\s*:\s*Promise<\{([^}]*)\}>/;
+
+/**
+ * The inner type body of the FIRST `params: Promise<{ ... }>` found in the
+ * file (e.g. `'ownerId: string'` for `Promise<{ ownerId: string }>`), or
+ * `null` if no such type is present — the same match `ensureLocaleInParamsType`
+ * widens in place, exposed standalone so `wrapSyncDefaultExportWithParams`'s
+ * caller can pass it through as `existingParamsType` without re-deriving it.
+ */
+export function extractParamsPromiseType(sourceText: string): string | null {
+    return PARAMS_PROMISE_TYPE.exec(sourceText)?.[1]?.trim() ?? null;
+}
 
 /**
  * Ensures the existing `params: Promise<{ ... }>` type includes

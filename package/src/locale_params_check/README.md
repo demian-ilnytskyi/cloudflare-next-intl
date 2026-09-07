@@ -2,12 +2,17 @@
 
 Scans your `app/` directory's `[<localeParam>]`-scoped `page.*`/`layout.*`/
 `loading.*` files and, for every one missing locale-param setup, inserts it:
-a `{ params }: { params: Promise<{ locale: Language }> }` prop (added only
-to a zero-argument `export default (async) function`; an existing `params`
-prop of any shape is left alone) plus a `const { locale } = await
-params;`/`setLocale(locale);` pair as the function's first statement — or,
-if the file already destructures `locale` from `params` inline but never
-calls `setLocale`, just the missing `setLocale(locale)` call.
+a `{ params }: { params: Promise<{ locale: Language }> }` prop (added to a
+zero-argument `export default (async) function`, or merged into an existing
+`params`/other-props destructure of any shape) plus a `const { locale } =
+await params;`/`setLocale(locale);` pair as the function's first statement —
+or, if the file already destructures `locale` from `params` inline but never
+calls `setLocale`, just the missing `setLocale(locale)` call. A plain
+(non-`async`) `export default function` can't take an in-place `await`, so
+it's split instead: the original function (signature and body untouched)
+becomes an unexported `NameContentCloudflareNextIntl`, and a new `export
+default async function Name(...)` wrapper awaits `params`, calls
+`setLocale`, and forwards the original props through by name.
 
 This matters because `getTranslations()`/`useTranslations()` called with no
 explicit `locale` argument fall back to reading a `NEXT_LOCALE`-style
