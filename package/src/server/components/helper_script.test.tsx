@@ -169,20 +169,53 @@ describe('HelperScript', () => {
 
         localStorage.setItem('buildId', 'build-1');
         sessionStorage.clear();
+        const origin = 'http://localhost:3000';
         const reload = vi.fn();
-        Object.defineProperty(window, 'location', { value: { reload }, writable: true });
+        const replace = vi.fn();
+        Object.defineProperty(window, 'location', { value: { origin, href: origin + '/', reload, replace }, writable: true });
 
         new Function(source)();
 
         // A module script blocked by MIME type fires a non-bubbling error event
         // on the element, reaching window only in the capture phase, with no message.
         const script = document.createElement('script');
-        script.src = 'https://example.test/_next/static/chunks/app-router-scroll-C76DZ2-L.js';
+        script.src = origin + '/_next/static/chunks/app-router-scroll-C76DZ2-L.js';
         document.body.appendChild(script);
         script.dispatchEvent(new Event('error', { bubbles: false }));
 
-        expect(reload).toHaveBeenCalledTimes(1);
+        expect(replace).toHaveBeenCalledTimes(1);
         expect(sessionStorage.getItem('stale-deploy-recovery-reloaded')).toBe('build-1');
+
+        script.remove();
+        localStorage.removeItem('buildId');
+        sessionStorage.clear();
+        vi.unstubAllEnvs();
+    });
+
+    it('the early-catch script ignores a failed third-party script', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+
+        localStorage.setItem('buildId', 'build-1');
+        sessionStorage.clear();
+        const origin = 'http://localhost:3000';
+        const reload = vi.fn();
+        const replace = vi.fn();
+        Object.defineProperty(window, 'location', { value: { origin, href: origin + '/', reload, replace }, writable: true });
+
+        new Function(source)();
+
+        // A cross-origin script (analytics, reCAPTCHA) failing to load cannot
+        // break the React module graph, so it must never force a reload.
+        const script = document.createElement('script');
+        script.src = 'https://www.google.com/recaptcha/api.js';
+        document.body.appendChild(script);
+        script.dispatchEvent(new Event('error', { bubbles: false }));
+
+        expect(replace).not.toHaveBeenCalled();
+        expect(reload).not.toHaveBeenCalled();
+        expect(sessionStorage.getItem('stale-deploy-recovery-reloaded')).toBeNull();
 
         script.remove();
         localStorage.removeItem('buildId');
@@ -210,6 +243,52 @@ describe('HelperScript', () => {
         expect(reload).not.toHaveBeenCalled();
 
         img.remove();
+        localStorage.removeItem('buildId');
+        sessionStorage.clear();
+        vi.unstubAllEnvs();
+    });
+
+    it('the early-catch script allows two attempts per build id, then stops', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+
+        localStorage.setItem('buildId', 'build-1');
+        sessionStorage.clear();
+        const origin = 'http://localhost:3000';
+        const chunk = origin + '/_next/static/chunks/app.js';
+
+        const fire = () => {
+            const replace = vi.fn();
+            Object.defineProperty(window, 'location', {
+                value: { origin, href: origin + '/', reload: vi.fn(), replace },
+                writable: true,
+            });
+            // Each new Function(source) call models a fresh page load.
+            new Function(source)();
+            const script = document.createElement('script');
+            script.src = chunk;
+            document.body.appendChild(script);
+            script.dispatchEvent(new Event('error', { bubbles: false }));
+            script.remove();
+            return replace;
+        };
+
+        // Loads 1 and 2 each recover; the throttle must not block load 2, so
+        // age the timestamp past the window between them.
+        expect(fire()).toHaveBeenCalledTimes(1);
+        sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 20_000));
+        expect(fire()).toHaveBeenCalledTimes(1);
+        expect(sessionStorage.getItem('stale-deploy-recovery-count')).toBe('2');
+
+        // Load 3 on the same build id must fall through to the error UI.
+        sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 20_000));
+        expect(fire()).not.toHaveBeenCalled();
+
+        // A new deploy re-arms the counter.
+        localStorage.setItem('buildId', 'build-2');
+        expect(fire()).toHaveBeenCalledTimes(1);
+
         localStorage.removeItem('buildId');
         sessionStorage.clear();
         vi.unstubAllEnvs();

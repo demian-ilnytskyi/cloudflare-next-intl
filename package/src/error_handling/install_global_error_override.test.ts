@@ -61,6 +61,38 @@ describe('installGlobalErrorOverride', () => {
         expect(onError).toHaveBeenCalledWith(expect.objectContaining({ error: reason, classOrMethodName: 'Global Unhandled Rejection Handler', isClient: true }));
     });
 
+    it('reports a failed script resource that only reaches window during capture', async () => {
+        const { default: install } = await import('./install_global_error_override.js');
+        const onError = vi.fn();
+        install({ errorHandling: { overrideWindowErrors: true, onError } });
+
+        const script = document.createElement('script');
+        script.src = 'https://example.test/chunks/app.js';
+        document.body.appendChild(script);
+        script.dispatchEvent(new Event('error', { bubbles: false }));
+
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+            error: 'Failed to load script resource: https://example.test/chunks/app.js',
+            classOrMethodName: 'Global Resource Error Handler',
+            isClient: true,
+        }));
+        script.remove();
+    });
+
+    it('ignores resource errors from elements that cannot break the module graph', async () => {
+        const { default: install } = await import('./install_global_error_override.js');
+        const onError = vi.fn();
+        install({ errorHandling: { overrideWindowErrors: true, onError } });
+
+        const img = document.createElement('img');
+        img.src = 'https://example.test/broken.png';
+        document.body.appendChild(img);
+        img.dispatchEvent(new Event('error', { bubbles: false }));
+
+        expect(onError).not.toHaveBeenCalled();
+        img.remove();
+    });
+
     it('is a no-op when window does not exist (server-side)', async () => {
         vi.stubGlobal('window', undefined);
         try {

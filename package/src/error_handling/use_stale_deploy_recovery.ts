@@ -6,6 +6,8 @@ import clearClientCache from './clear_client_cache.js';
 
 const RECOVERY_RELOAD_KEY = 'stale-deploy-recovery-reloaded';
 const RECOVERY_TIME_KEY = 'stale-deploy-recovery-time';
+const RECOVERY_COUNT_KEY = 'stale-deploy-recovery-count';
+const MAX_RECOVERY_ATTEMPTS = 2;
 const BUILD_ID_KEY = 'buildId';
 const BUILD_ID_SET_AT_KEY = 'buildIdSetAt';
 const RECENT_BUILD_WINDOW_MS = 60_000;
@@ -50,17 +52,41 @@ export function shouldRecoverFromStaleDeploy(
     reloadTime: number | null = null,
     now: number = Date.now(),
     throttleMs = RELOAD_THROTTLE_MS,
+    attempts = 0,
+    maxAttempts = MAX_RECOVERY_ATTEMPTS,
 ): boolean {
     if (!isStaleDeployError(error)) return false;
 
     const isRecentlyReloaded = reloadTime !== null && now - reloadTime < throttleMs;
     const isSameBuildMarker = marker !== null && marker !== '' && (buildId === 'unknown' || marker === buildId);
 
+    // Attempts are counted per build id: the 1st and 2nd page load may each
+    // recover, the 3rd falls through to the error UI. A new deploy resets it.
+    if (isSameBuildMarker && attempts >= maxAttempts) {
+        return false;
+    }
+
     if (isSameBuildMarker && isRecentlyReloaded && !recentBuild) {
         return false;
     }
 
     return true;
+}
+
+/**
+ * Recovery attempts already spent on this build id. A marker from a different
+ * build means the count belongs to an older deploy and starts over at 0.
+ */
+function currentAttempts(buildId: string, marker: string | null): number {
+    if (marker === null || marker === '') return 0;
+    if (buildId !== 'unknown' && marker !== buildId) return 0;
+    try {
+        const raw = sessionStorage.getItem(RECOVERY_COUNT_KEY);
+        const parsed = raw ? Number(raw) : 0;
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    } catch {
+        return 0;
+    }
 }
 
 function canRecover(error: unknown): boolean {
@@ -72,6 +98,7 @@ function canRecover(error: unknown): boolean {
         const marker = sessionStorage.getItem(RECOVERY_RELOAD_KEY);
         const isRecent = isRecentBuild(buildIdSetAt(), Date.now());
         const isStale = isStaleDeployError(error);
+        const attempts = currentAttempts(bId, marker);
         const result = shouldRecoverFromStaleDeploy(
             error,
             bId,
@@ -79,6 +106,8 @@ function canRecover(error: unknown): boolean {
             isRecent,
             reloadTime,
             Date.now(),
+            RELOAD_THROTTLE_MS,
+            attempts,
         );
         console.warn('[useStaleDeployRecovery]', {
             error,
@@ -87,6 +116,7 @@ function canRecover(error: unknown): boolean {
             marker,
             isRecent,
             reloadTime,
+            attempts,
             result,
         });
         return result;
@@ -132,7 +162,10 @@ export default function useStaleDeployRecovery(
             Promise.all([initialOnRecover?.().catch(() => undefined), clearClientCache().catch(() => undefined)])
                 .finally(() => {
                     try {
+                        const marker = sessionStorage.getItem(RECOVERY_RELOAD_KEY);
+                        const spent = currentAttempts(buildId, marker);
                         sessionStorage.setItem(RECOVERY_RELOAD_KEY, buildId);
+                        sessionStorage.setItem(RECOVERY_COUNT_KEY, String(spent + 1));
                         sessionStorage.setItem(RECOVERY_TIME_KEY, String(Date.now()));
                     } catch { /* storage unavailable */ }
                     performCacheBustReload();

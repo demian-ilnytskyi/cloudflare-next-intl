@@ -61,6 +61,8 @@ export default function HelperScript(): Component | null {
                 var patterns = ${JSON.stringify(defaultStaleDeployPatterns)};
                 var key = 'stale-deploy-recovery-reloaded';
                 var timeKey = 'stale-deploy-recovery-time';
+                var countKey = 'stale-deploy-recovery-count';
+                var maxAttempts = 2;
                 var throttleMs = 15000;
                 var attemptedThisLoad = false;
                 function isStale(msg) {
@@ -82,12 +84,27 @@ export default function HelperScript(): Component | null {
                         var lastRaw = sessionStorage.getItem(timeKey);
                         var last = lastRaw ? Number(lastRaw) : null;
                         var throttled = last !== null && (Date.now() - last) < throttleMs;
-                        if (marker === buildId && throttled) {
-                            console.warn('[StaleDeploy early-catch] Skipping reload, already attempted for buildId:', buildId);
+                        // Attempts are counted per build id: the 1st and 2nd
+                        // page load may each recover, the 3rd falls through to
+                        // the error UI. A new deploy resets the count.
+                        var sameBuild = marker === buildId;
+                        var attempts = 0;
+                        if (sameBuild) {
+                            var rawCount = sessionStorage.getItem(countKey);
+                            attempts = rawCount ? Number(rawCount) : 0;
+                            if (!(attempts >= 0)) attempts = 0;
+                        }
+                        if (sameBuild && attempts >= maxAttempts) {
+                            console.warn('[StaleDeploy early-catch] Skipping reload, attempts exhausted for buildId:', buildId, attempts);
+                            return;
+                        }
+                        if (sameBuild && throttled) {
+                            console.warn('[StaleDeploy early-catch] Skipping reload, throttled for buildId:', buildId);
                             return;
                         }
                         attemptedThisLoad = true;
                         sessionStorage.setItem(key, buildId);
+                        sessionStorage.setItem(countKey, String(attempts + 1));
                         sessionStorage.setItem(timeKey, String(Date.now()));
                         try {
                             if (document.documentElement) {
@@ -122,6 +139,12 @@ export default function HelperScript(): Component | null {
                         if (tag !== 'script' && tag !== 'link') return;
                         var src = el.src || el.href || '';
                         if (!src) return;
+                        // Only our own build output can break the React module
+                        // graph. A failed third-party script (analytics,
+                        // reCAPTCHA) must never trigger a reload.
+                        var sameOrigin = false;
+                        try { sameOrigin = new URL(src, window.location.href).origin === window.location.origin; } catch (err2) { return; }
+                        if (!sameOrigin) return;
                         recover('chunk resource failed to load: ' + src, 'resource-error');
                     } catch (err) {}
                 }, true);

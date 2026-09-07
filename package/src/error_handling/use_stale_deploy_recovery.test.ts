@@ -10,6 +10,29 @@ const dynamicImportError = new Error('Failed to fetch dynamically imported modul
 const genericError = new Error('Database connection failed');
 
 describe('shouldRecoverFromStaleDeploy', () => {
+    describe('attempt counting per build id', () => {
+        const err = new Error('Failed to fetch dynamically imported module: x.js');
+
+        it('allows the 1st and 2nd attempt, refuses the 3rd, for the same build id', () => {
+            const old = Date.now() - 60_000;
+            expect(shouldRecoverFromStaleDeploy(err, 'b1', 'b1', false, old, Date.now(), 15_000, 0)).toBe(true);
+            expect(shouldRecoverFromStaleDeploy(err, 'b1', 'b1', false, old, Date.now(), 15_000, 1)).toBe(true);
+            expect(shouldRecoverFromStaleDeploy(err, 'b1', 'b1', false, old, Date.now(), 15_000, 2)).toBe(false);
+            expect(shouldRecoverFromStaleDeploy(err, 'b1', 'b1', false, old, Date.now(), 15_000, 5)).toBe(false);
+        });
+
+        it('resets the count when the build id changes', () => {
+            const old = Date.now() - 60_000;
+            // Marker belongs to an older deploy, so a spent count must not carry over.
+            expect(shouldRecoverFromStaleDeploy(err, 'b2', 'b1', false, old, Date.now(), 15_000, 2)).toBe(true);
+        });
+
+        it('still refuses an exhausted build id even on a recent build', () => {
+            const old = Date.now() - 60_000;
+            expect(shouldRecoverFromStaleDeploy(err, 'b1', 'b1', true, old, Date.now(), 15_000, 2)).toBe(false);
+        });
+    });
+
     it('recovers when the current build has not spent its reload (marker is null)', () => {
         expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', null)).toBe(true);
     });

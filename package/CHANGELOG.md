@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.53] - 2026-09-07
+
+### Added
+
+- `installGlobalErrorOverride` now also listens for resource-load `error` events during the capture phase and reports failed same-tree `script`/`link` loads (404 or blocked MIME type) via `reportError` — these fire a non-bubbling, message-less `error` event on the element itself, so they previously surfaced as an empty error or not at all.
+
+### Changed
+
+- Stale-deploy recovery (both `useStaleDeployRecovery` and the `HelperScript` early-catch) now caps recovery at 2 attempts per build id instead of relying solely on the 15s throttle — a 3rd stale-deploy error for the same build id falls through to the error UI instead of reloading again. The count resets once a new build id is seen.
+- The `HelperScript` early-catch's resource-error recovery now only fires for same-origin `script`/`link` failures. A failed third-party resource (analytics, reCAPTCHA, etc.) can no longer trigger a reload — only failures in the app's own build output can break its module graph.
+
 ## [0.9.52] - 2026-09-07
 
 ### Fixed
