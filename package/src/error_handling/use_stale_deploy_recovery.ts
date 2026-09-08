@@ -11,7 +11,11 @@ const MAX_RECOVERY_ATTEMPTS = 2;
 const BUILD_ID_KEY = 'buildId';
 const BUILD_ID_SET_AT_KEY = 'buildIdSetAt';
 const RECENT_BUILD_WINDOW_MS = 60_000;
-const RELOAD_THROTTLE_MS = 15_000;
+// Just long enough to stop a same-tick reload storm. The early-catch script
+// probes the failed asset and only reloads once it is readable, so a longer
+// clock-based window would strand the visitor on the error UI while the deploy
+// has already settled. `MAX_RECOVERY_ATTEMPTS` is the real loop guard.
+const RELOAD_THROTTLE_MS = 1_000;
 
 function currentBuildId(): string {
     try {
@@ -41,7 +45,7 @@ export function isRecentBuild(setAt: number | null, now: number, windowMs = RECE
 
 /**
  * Determines whether a stale deploy error should trigger a recovery reload.
- * Throttles reloads for the same build ID to once per `throttleMs` (15s) to prevent
+ * Throttles reloads for the same build ID to once per `throttleMs` (1s) to prevent
  * rapid infinite reload loops, while ensuring fresh HTML is fetched.
  */
 export function shouldRecoverFromStaleDeploy(

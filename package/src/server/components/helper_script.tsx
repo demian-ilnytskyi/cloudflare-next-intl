@@ -63,9 +63,7 @@ export default function HelperScript(): Component | null {
                 var timeKey = 'stale-deploy-recovery-time';
                 var countKey = 'stale-deploy-recovery-count';
                 var maxAttempts = 3;
-                var throttleMs = 15000;
                 var attemptedThisLoad = false;
-                var retryScheduled = false;
                 // Set by the resource-error listener: the first same-origin
                 // chunk that failed. Reloading is pointless until that URL
                 // answers with real JavaScript again, so it doubles as the
@@ -137,11 +135,8 @@ export default function HelperScript(): Component | null {
                         if (!stale) return;
                         var buildId = localStorage.getItem('buildId') || 'unknown';
                         var marker = sessionStorage.getItem(key);
-                        var lastRaw = sessionStorage.getItem(timeKey);
-                        var last = lastRaw ? Number(lastRaw) : null;
-                        var throttled = last !== null && (Date.now() - last) < throttleMs;
-                        // Attempts are counted per build id: the 1st and 2nd
-                        // page load may each recover, the 3rd falls through to
+                        // Attempts are counted per build id: the first few
+                        // page loads may each recover, then it falls through to
                         // the error UI. A new deploy resets the count.
                         var sameBuild = marker === buildId;
                         var attempts = 0;
@@ -154,22 +149,12 @@ export default function HelperScript(): Component | null {
                             console.warn('[StaleDeploy early-catch] Skipping reload, attempts exhausted for buildId:', buildId, attempts);
                             return;
                         }
-                        // A reload that lands inside the same throttle window
-                        // means the previous recovery did not help: the assets
-                        // are momentarily unreadable at the edge rather than
-                        // stale. Waiting out the window and retrying lets the
-                        // page heal itself instead of stranding the visitor on
-                        // the error UI.
-                        if (sameBuild && throttled) {
-                            if (retryScheduled) return;
-                            retryScheduled = true;
-                            var wait = throttleMs - (Date.now() - last);
-                            if (!(wait > 0)) wait = 0;
-                            console.warn('[StaleDeploy early-catch] Throttled for buildId:', buildId, '- retrying in', wait, 'ms');
-                            showOverlay();
-                            setTimeout(function() { retryScheduled = false; recover(msg, source); }, wait + 250);
-                            return;
-                        }
+                        // No time-based throttle: the probe below already
+                        // paces the retry and refuses to reload until the asset
+                        // is readable, so a clock-based wait only strands the
+                        // visitor on the overlay for the rest of the window.
+                        // attemptedThisLoad stops a burst within one load and
+                        // maxAttempts stops a reload loop across loads.
                         attemptedThisLoad = true;
                         sessionStorage.setItem(key, buildId);
                         sessionStorage.setItem(countKey, String(attempts + 1));

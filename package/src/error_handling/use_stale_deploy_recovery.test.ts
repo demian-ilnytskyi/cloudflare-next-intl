@@ -41,12 +41,12 @@ describe('shouldRecoverFromStaleDeploy', () => {
         expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', '')).toBe(true);
     });
 
-    it('does not recover when this build already reloaded recently (<15s ago)', () => {
+    it('does not recover when this build already reloaded recently (<1s ago)', () => {
         const now = 100_000;
-        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', false, now - 5_000, now)).toBe(false);
+        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', false, now - 500, now)).toBe(false);
     });
 
-    it('recovers when the last reload for this build was >15s ago', () => {
+    it('recovers when the last reload for this build was >1s ago', () => {
         const now = 100_000;
         expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', false, now - 20_000, now)).toBe(true);
     });
@@ -105,7 +105,7 @@ describe('isRecentBuild', () => {
 describe('shouldRecoverFromStaleDeploy with recentBuild', () => {
     it('does not recover when reload marker matches buildId AND was reloaded recently', () => {
         const now = Date.now();
-        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', false, now - 5_000, now)).toBe(false);
+        expect(shouldRecoverFromStaleDeploy(staleError, 'build-a', 'build-a', false, now - 500, now)).toBe(false);
     });
 
     it('recovers when recentBuild is true even if marker matches buildId and reloaded recently', () => {
@@ -115,8 +115,8 @@ describe('shouldRecoverFromStaleDeploy with recentBuild', () => {
 
     it('recovers when buildId is unknown and marker matches unknown', () => {
         const now = Date.now();
-        expect(shouldRecoverFromStaleDeploy(staleError, 'unknown', 'unknown', false, now - 5_000, now)).toBe(false);
-        expect(shouldRecoverFromStaleDeploy(staleError, 'unknown', 'unknown', true, now - 5_000, now)).toBe(true);
+        expect(shouldRecoverFromStaleDeploy(staleError, 'unknown', 'unknown', false, now - 500, now)).toBe(false);
+        expect(shouldRecoverFromStaleDeploy(staleError, 'unknown', 'unknown', true, now - 500, now)).toBe(true);
     });
 
     it('recovers when marker is different buildId', () => {
@@ -229,10 +229,10 @@ describe('useStaleDeployRecovery', () => {
         expect(reloadMock).not.toHaveBeenCalled();
     });
 
-    it('returns false when current build has already spent its reload marker in sessionStorage recently (<15s ago)', async () => {
+    it('returns false when current build has already spent its reload marker in sessionStorage recently (<1s ago)', async () => {
         window.localStorage.setItem('buildId', 'v1.0.0');
         window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
-        window.sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 5_000));
+        window.sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 500));
 
         const onRecover = vi.fn().mockResolvedValue(undefined);
         const { result } = renderHook(() => useStaleDeployRecovery(staleError, onRecover, 1000));
@@ -248,7 +248,7 @@ describe('useStaleDeployRecovery', () => {
         expect(reloadMock).not.toHaveBeenCalled();
     });
 
-    it('returns true and recovers when previous reload for this build was >15s ago', async () => {
+    it('returns true and recovers when previous reload for this build was >1s ago', async () => {
         window.localStorage.setItem('buildId', 'v1.0.0');
         window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
         window.sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 20_000));
@@ -263,7 +263,7 @@ describe('useStaleDeployRecovery', () => {
         window.localStorage.setItem('buildId', 'v1.0.0');
         window.localStorage.setItem('buildIdSetAt', '');
         window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
-        window.sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 2_000));
+        window.sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 200));
 
         const { result } = renderHook(() => useStaleDeployRecovery(staleError, undefined, 1000));
 

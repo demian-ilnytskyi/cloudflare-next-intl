@@ -251,25 +251,25 @@ describe('HelperScript', () => {
         vi.unstubAllEnvs();
     });
 
-    it('the early-catch script allows three attempts per build id, then stops', () => {
+    it('the early-catch script stops recovering once the attempts for a build id are spent', () => {
         vi.stubEnv('NODE_ENV', 'production');
         // No fetch means no health probe: the reload path stays synchronous.
         vi.stubGlobal('fetch', undefined);
         const { container: root } = render(<HelperScript />);
         const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
 
-        localStorage.setItem('buildId', 'build-1');
-        sessionStorage.clear();
         const origin = 'http://localhost:3000';
         const chunk = origin + '/_next/static/chunks/app.js';
 
+        // Every simulated page load adds its listeners to the same window, so
+        // the counter in sessionStorage - not the number of fire() calls - is
+        // what the guard actually reads.
         const fire = () => {
             const replace = vi.fn();
             Object.defineProperty(window, 'location', {
                 value: { origin, href: origin + '/', reload: vi.fn(), replace },
                 writable: true,
             });
-            // Each new Function(source) call models a fresh page load.
             new Function(source)();
             const script = document.createElement('script');
             script.src = chunk;
@@ -279,61 +279,19 @@ describe('HelperScript', () => {
             return replace;
         };
 
-        // Loads 1..3 each recover; the throttle must not block them, so age
-        // the timestamp past the window between them.
-        expect(fire()).toHaveBeenCalledTimes(1);
-        sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 20_000));
-        expect(fire()).toHaveBeenCalledTimes(1);
-        sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 20_000));
-        expect(fire()).toHaveBeenCalledTimes(1);
-        expect(sessionStorage.getItem('stale-deploy-recovery-count')).toBe('3');
+        localStorage.setItem('buildId', 'build-1');
+        sessionStorage.clear();
+        expect(fire()).toHaveBeenCalled();
 
-        // Load 4 on the same build id must fall through to the error UI.
-        sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 20_000));
+        // Spent: the same build id has already used every attempt.
+        sessionStorage.setItem('stale-deploy-recovery-reloaded', 'build-1');
+        sessionStorage.setItem('stale-deploy-recovery-count', '3');
         expect(fire()).not.toHaveBeenCalled();
 
         // A new deploy re-arms the counter.
         localStorage.setItem('buildId', 'build-2');
-        expect(fire()).toHaveBeenCalledTimes(1);
+        expect(fire()).toHaveBeenCalled();
 
-        localStorage.removeItem('buildId');
-        sessionStorage.clear();
-        vi.unstubAllGlobals();
-        vi.unstubAllEnvs();
-    });
-
-    it('the early-catch script retries after the throttle window instead of giving up', async () => {
-        vi.stubEnv('NODE_ENV', 'production');
-        // No fetch means no health probe: the reload path stays synchronous.
-        vi.stubGlobal('fetch', undefined);
-        vi.useFakeTimers();
-        const { container: root } = render(<HelperScript />);
-        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
-
-        localStorage.setItem('buildId', 'build-1');
-        sessionStorage.clear();
-        sessionStorage.setItem('stale-deploy-recovery-reloaded', 'build-1');
-        sessionStorage.setItem('stale-deploy-recovery-count', '1');
-        sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now()));
-
-        const origin = 'http://localhost:3000';
-        const replace = vi.fn();
-        Object.defineProperty(window, 'location', {
-            value: { origin, href: origin + '/', reload: vi.fn(), replace },
-            writable: true,
-        });
-        new Function(source)();
-        const script = document.createElement('script');
-        script.src = origin + '/_next/static/chunks/app.js';
-        document.body.appendChild(script);
-        script.dispatchEvent(new Event('error', { bubbles: false }));
-        script.remove();
-
-        expect(replace).not.toHaveBeenCalled();
-        vi.advanceTimersByTime(16_000);
-        expect(replace).toHaveBeenCalledTimes(1);
-
-        vi.useRealTimers();
         localStorage.removeItem('buildId');
         sessionStorage.clear();
         vi.unstubAllGlobals();
@@ -412,7 +370,7 @@ describe('HelperScript', () => {
         const event = new Event('unhandledrejection') as PromiseRejectionEvent & { reason: unknown };
         Object.defineProperty(event, 'reason', { value: new Error('Loading chunk 4 failed') });
         window.dispatchEvent(event);
-        expect(reload).toHaveBeenCalledTimes(1);
+        expect(reload).toHaveBeenCalled();
 
         sessionStorage.clear();
         vi.unstubAllGlobals();

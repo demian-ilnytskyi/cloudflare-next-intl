@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.58] - 2026-09-08
+
+### Changed
+
+- Stale-deploy recovery no longer waits out a clock-based throttle window. `RELOAD_THROTTLE_MS` drops from 15s to 1s (just enough to stop a same-tick reload storm), and the early-catch script's throttle-and-retry branch is gone entirely. The asset-health probe already refuses to reload until the failed chunk serves real JavaScript again, so the timer only stranded the visitor on the overlay after the deploy had settled. `attemptedThisLoad` guards a burst within one load and `MAX_RECOVERY_ATTEMPTS` (per build id) remains the loop guard.
+
 ## [0.9.57] - 2026-09-08
 
 ### Fixed
