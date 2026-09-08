@@ -164,6 +164,8 @@ describe('HelperScript', () => {
 
     it('the early-catch script recovers from a MIME-blocked or 404 chunk resource error', () => {
         vi.stubEnv('NODE_ENV', 'production');
+        // No fetch means no health probe: the reload path stays synchronous.
+        vi.stubGlobal('fetch', undefined);
         const { container: root } = render(<HelperScript />);
         const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
 
@@ -189,6 +191,7 @@ describe('HelperScript', () => {
         script.remove();
         localStorage.removeItem('buildId');
         sessionStorage.clear();
+        vi.unstubAllGlobals();
         vi.unstubAllEnvs();
     });
 
@@ -248,8 +251,10 @@ describe('HelperScript', () => {
         vi.unstubAllEnvs();
     });
 
-    it('the early-catch script allows two attempts per build id, then stops', () => {
+    it('the early-catch script allows three attempts per build id, then stops', () => {
         vi.stubEnv('NODE_ENV', 'production');
+        // No fetch means no health probe: the reload path stays synchronous.
+        vi.stubGlobal('fetch', undefined);
         const { container: root } = render(<HelperScript />);
         const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
 
@@ -274,14 +279,16 @@ describe('HelperScript', () => {
             return replace;
         };
 
-        // Loads 1 and 2 each recover; the throttle must not block load 2, so
-        // age the timestamp past the window between them.
+        // Loads 1..3 each recover; the throttle must not block them, so age
+        // the timestamp past the window between them.
         expect(fire()).toHaveBeenCalledTimes(1);
         sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 20_000));
         expect(fire()).toHaveBeenCalledTimes(1);
-        expect(sessionStorage.getItem('stale-deploy-recovery-count')).toBe('2');
+        sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 20_000));
+        expect(fire()).toHaveBeenCalledTimes(1);
+        expect(sessionStorage.getItem('stale-deploy-recovery-count')).toBe('3');
 
-        // Load 3 on the same build id must fall through to the error UI.
+        // Load 4 on the same build id must fall through to the error UI.
         sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now() - 20_000));
         expect(fire()).not.toHaveBeenCalled();
 
@@ -291,6 +298,45 @@ describe('HelperScript', () => {
 
         localStorage.removeItem('buildId');
         sessionStorage.clear();
+        vi.unstubAllGlobals();
+        vi.unstubAllEnvs();
+    });
+
+    it('the early-catch script retries after the throttle window instead of giving up', async () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        // No fetch means no health probe: the reload path stays synchronous.
+        vi.stubGlobal('fetch', undefined);
+        vi.useFakeTimers();
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+
+        localStorage.setItem('buildId', 'build-1');
+        sessionStorage.clear();
+        sessionStorage.setItem('stale-deploy-recovery-reloaded', 'build-1');
+        sessionStorage.setItem('stale-deploy-recovery-count', '1');
+        sessionStorage.setItem('stale-deploy-recovery-time', String(Date.now()));
+
+        const origin = 'http://localhost:3000';
+        const replace = vi.fn();
+        Object.defineProperty(window, 'location', {
+            value: { origin, href: origin + '/', reload: vi.fn(), replace },
+            writable: true,
+        });
+        new Function(source)();
+        const script = document.createElement('script');
+        script.src = origin + '/_next/static/chunks/app.js';
+        document.body.appendChild(script);
+        script.dispatchEvent(new Event('error', { bubbles: false }));
+        script.remove();
+
+        expect(replace).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(16_000);
+        expect(replace).toHaveBeenCalledTimes(1);
+
+        vi.useRealTimers();
+        localStorage.removeItem('buildId');
+        sessionStorage.clear();
+        vi.unstubAllGlobals();
         vi.unstubAllEnvs();
     });
 
@@ -314,6 +360,8 @@ describe('HelperScript', () => {
 
     it('the early-catch script recovers from an unhandledrejection with a stale-deploy reason', () => {
         vi.stubEnv('NODE_ENV', 'production');
+        // No fetch means no health probe: the reload path stays synchronous.
+        vi.stubGlobal('fetch', undefined);
         const { container: root } = render(<HelperScript />);
         const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
 
@@ -329,6 +377,7 @@ describe('HelperScript', () => {
         expect(reload).toHaveBeenCalledTimes(1);
 
         sessionStorage.clear();
+        vi.unstubAllGlobals();
         vi.unstubAllEnvs();
     });
 
@@ -395,4 +444,39 @@ describe('HelperScript', () => {
         expect(result2).toBe(customHtml);
         expect(result2).toContain('custom-loader');
     });
+    it('the early-catch script waits for the failed chunk to serve JavaScript again before reloading', async () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+
+        localStorage.setItem('buildId', 'build-1');
+        sessionStorage.clear();
+        const origin = 'http://localhost:3000';
+        const replace = vi.fn();
+        Object.defineProperty(window, 'location', { value: { origin, href: origin + '/', reload: vi.fn(), replace }, writable: true });
+
+        // First probe still hits the old Worker version (plain-text 404),
+        // the second one lands on the new one.
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce({ ok: false, status: 404, headers: new Headers({ 'content-type': 'text/plain' }) })
+            .mockResolvedValueOnce({ ok: true, status: 200, headers: new Headers({ 'content-type': 'text/javascript' }) });
+        vi.stubGlobal('fetch', fetchMock);
+
+        new Function(source)();
+        const script = document.createElement('script');
+        script.src = origin + '/_next/static/chunks/app.js';
+        document.body.appendChild(script);
+        script.dispatchEvent(new Event('error', { bubbles: false }));
+        script.remove();
+
+        await vi.waitFor(() => expect(replace).toHaveBeenCalledTimes(1), { timeout: 3000 });
+        expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+        expect(String(fetchMock.mock.calls[0][0])).toContain('_r=');
+
+        localStorage.removeItem('buildId');
+        sessionStorage.clear();
+        vi.unstubAllGlobals();
+        vi.unstubAllEnvs();
+    });
+
 });

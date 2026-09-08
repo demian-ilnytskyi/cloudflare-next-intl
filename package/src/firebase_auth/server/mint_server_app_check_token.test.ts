@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const fa: Record<string, unknown> = {};
 vi.mock('@intl-config', () => ({ default: { firebaseAuth: fa } }));
 
-const reportError = vi.fn(async () => {});
+const reportError = vi.fn(async (..._args: unknown[]) => {});
 vi.mock('../../error_handling/report_error', () => ({
     default: (...args: unknown[]) => reportError(...args),
 }));
@@ -37,8 +37,10 @@ vi.mock('./sign_custom_token_remote', () => ({
 }));
 
 describe('mintServerAppCheckToken', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
+        const { missingCredentialsReportState } = await import('./mint_server_app_check_token.js');
+        missingCredentialsReportState.reported = false;
     });
 
     it('returns undefined when clientEmail/appId are missing, or neither privateKey nor the OAuth triple is set', async () => {
@@ -52,6 +54,28 @@ describe('mintServerAppCheckToken', () => {
         })).toBeUndefined();
         expect(fetchMock).not.toHaveBeenCalled();
         expect(signCustomTokenRemote).not.toHaveBeenCalled();
+    });
+
+    it('reports the missing credential once per process, listing every missing field', async () => {
+        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token.js');
+        expect(await mintServerAppCheckToken('proj', 'key', { clientEmail: 'a@b.com', appId: '1:1:web:1' })).toBeUndefined();
+        expect(reportError).toHaveBeenCalledTimes(1);
+        expect(reportError.mock.calls[0]![1]).toMatchObject({
+            classOrMethodName: 'mintServerAppCheckToken',
+            dedupKey: 'mintServerAppCheckToken:missing-server-credentials',
+        });
+        expect((reportError.mock.calls[0]![1] as { error: Error }).error.message).toContain('privateKey (or the full');
+
+        expect(await mintServerAppCheckToken('proj', 'key', {})).toBeUndefined();
+        expect(reportError).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not report when reportMissingServerCredentials is false', async () => {
+        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token.js');
+        expect(await mintServerAppCheckToken('proj', 'key', {
+            clientEmail: 'a@b.com', appId: '1:1:web:1', reportMissingServerCredentials: false,
+        })).toBeUndefined();
+        expect(reportError).not.toHaveBeenCalled();
     });
 
     it('signs a custom JWT and exchanges it for an App Check token', async () => {

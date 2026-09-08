@@ -22,6 +22,46 @@ const APP_CHECK_CUSTOM_TOKEN_AUDIENCE =
 // footgun with no working range above this default.
 const CUSTOM_TOKEN_LIFETIME = '5m';
 
+// Reported once per process, not once per request: the config can't change
+// between requests, so repeating it would flood `onError` (Sentry, Telegram)
+// with one identical event per cold navigation. Exported so tests can clear
+// it between cases.
+export const missingCredentialsReportState = { reported: false };
+
+/**
+ * Reports an `appCheck` block that is configured but can't actually mint a
+ * token server-side — missing `clientEmail`/`appId`, or neither of the two
+ * signing credentials (`privateKey` / the OAuth triple). Opt out with
+ * `appCheck.reportMissingServerCredentials: false`; on by default in dev
+ * and prod. Never throws — the caller still falls back to "no App Check
+ * token".
+ */
+async function reportMissingCredentials(
+    appCheck: FirebaseAppCheckConfig,
+    hasOauthTriple: boolean,
+): Promise<void> {
+    if (appCheck.reportMissingServerCredentials === false) return;
+    if (missingCredentialsReportState.reported) return;
+    missingCredentialsReportState.reported = true;
+
+    const missing: string[] = [];
+    if (!appCheck.clientEmail) missing.push('clientEmail');
+    if (!appCheck.appId) missing.push('appId');
+    if (!appCheck.privateKey && !hasOauthTriple) {
+        missing.push('privateKey (or the full oauthClientId/oauthClientSecret/oauthRefreshToken triple)');
+    }
+
+    await reportError(config, {
+        error: new Error(
+            `firebaseAuth.appCheck is configured but cannot mint an App Check token server-side — missing: ${missing.join(', ')}. `
+            + 'Signed-in users will render as signed-out on any cold navigation that arrives before the client writes the App Check cookie. '
+            + 'Set the missing service-account values, or pass `appCheck.reportMissingServerCredentials: false` to silence this.',
+        ),
+        classOrMethodName: 'mintServerAppCheckToken',
+        dedupKey: 'mintServerAppCheckToken:missing-server-credentials',
+    });
+}
+
 /**
  * Mints a fresh App Check token server-side via a service account, for use
  * when the client-written App Check cookie (see `appCheckTokenCookieName`)
@@ -55,9 +95,12 @@ export default async function mintServerAppCheckToken(
     apiKey: string,
     appCheck: FirebaseAppCheckConfig | undefined,
 ): Promise<string | undefined> {
-    if (!appCheck?.clientEmail || !appCheck.appId) return undefined;
-    const hasOauthTriple = appCheck.oauthClientId && appCheck.oauthClientSecret && appCheck.oauthRefreshToken;
-    if (!appCheck.privateKey && !hasOauthTriple) return undefined;
+    if (!appCheck) return undefined;
+    const hasOauthTriple = Boolean(appCheck.oauthClientId && appCheck.oauthClientSecret && appCheck.oauthRefreshToken);
+    if (!appCheck.clientEmail || !appCheck.appId || (!appCheck.privateKey && !hasOauthTriple)) {
+        await reportMissingCredentials(appCheck, hasOauthTriple);
+        return undefined;
+    }
 
     try {
         const claims = {

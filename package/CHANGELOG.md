@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.56] - 2026-09-08
+
+### Added
+
+- `firebaseAuth.appCheck.reportMissingServerCredentials` (default `true`, dev and prod alike). When `appCheck` is configured but server-side App Check minting can't actually run — `clientEmail`/`appId` missing, or neither of the two signing credentials (`privateKey`, or the full `oauthClientId`/`oauthClientSecret`/`oauthRefreshToken` triple) complete — `mintServerAppCheckToken` now reports an error naming every missing field instead of silently returning `undefined`. Previously the only symptom was a signed-in user rendering as signed-out on any cold navigation that arrived before the client wrote the App Check cookie. Reported once per process (config can't change between requests) via `errorHandling.onError` + `console.error`; never throws, and the cookie-or-nothing fallback is unchanged. Set it to `false` to opt out.
+
 ## [0.9.55] - 2026-09-07
 
 ### Fixed

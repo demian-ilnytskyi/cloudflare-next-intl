@@ -62,9 +62,16 @@ export default function HelperScript(): Component | null {
                 var key = 'stale-deploy-recovery-reloaded';
                 var timeKey = 'stale-deploy-recovery-time';
                 var countKey = 'stale-deploy-recovery-count';
-                var maxAttempts = 2;
+                var maxAttempts = 3;
                 var throttleMs = 15000;
                 var attemptedThisLoad = false;
+                var retryScheduled = false;
+                // Set by the resource-error listener: the first same-origin
+                // chunk that failed. Reloading is pointless until that URL
+                // answers with real JavaScript again, so it doubles as the
+                // health probe below.
+                var probeUrl = null;
+                var maxProbes = 4;
                 function isStale(msg) {
                     if (msg === undefined || msg === null) return true;
                     msg = String(msg).toLowerCase();
@@ -72,6 +79,49 @@ export default function HelperScript(): Component | null {
                         if (msg.indexOf(patterns[i]) > -1) return true;
                     }
                     return false;
+                }
+                function showOverlay() {
+                    try {
+                        if (document.documentElement) {
+                            document.documentElement.style.backgroundColor = '#ffffff';
+                        }
+                        if (document.body) {
+                            document.body.style.backgroundColor = '#ffffff';
+                            document.body.innerHTML = ${JSON.stringify(reloadHtml)};
+                        }
+                    } catch (e) {}
+                }
+                function doReload() {
+                    try {
+                        var u = new URL(window.location.href);
+                        u.searchParams.set('_stale_reload', String(Date.now()));
+                        window.location.replace(u.toString());
+                    } catch (e) {
+                        try { window.location.reload(); } catch (e2) {}
+                    }
+                }
+                // A deploy swaps the Worker version colo by colo, so for a few
+                // seconds the document can come from the new version while a
+                // chunk request still lands on the old one, which answers with
+                // a plain-text 404 body instead of JavaScript. Reloading inside
+                // that window just reproduces the error, so poll the failed
+                // chunk with a cache-busted request until it is real
+                // JavaScript, then reload once. Give up after maxProbes and
+                // reload anyway rather than hanging on the overlay.
+                function probeThenReload(attempt) {
+                    if (!probeUrl || typeof fetch !== 'function') return doReload();
+                    var url = probeUrl + (probeUrl.indexOf('?') > -1 ? '&' : '?') + '_r=' + Date.now();
+                    fetch(url, { cache: 'reload', credentials: 'omit' }).then(function(r) {
+                        var ct = (r.headers.get('content-type') || '').toLowerCase();
+                        if (!r.ok || ct.indexOf('javascript') === -1) throw new Error('unhealthy: ' + r.status + ' ' + ct);
+                        doReload();
+                    }).catch(function(err) {
+                        if (attempt >= maxProbes) {
+                            console.warn('[StaleDeploy early-catch] Asset still unhealthy after', attempt + 1, 'probes - reloading anyway:', String(err));
+                            return doReload();
+                        }
+                        setTimeout(function() { probeThenReload(attempt + 1); }, 500 * Math.pow(2, attempt));
+                    });
                 }
                 function recover(msg, source) {
                     if (attemptedThisLoad) return;
@@ -98,30 +148,28 @@ export default function HelperScript(): Component | null {
                             console.warn('[StaleDeploy early-catch] Skipping reload, attempts exhausted for buildId:', buildId, attempts);
                             return;
                         }
+                        // A reload that lands inside the same throttle window
+                        // means the previous recovery did not help: the assets
+                        // are momentarily unreadable at the edge rather than
+                        // stale. Waiting out the window and retrying lets the
+                        // page heal itself instead of stranding the visitor on
+                        // the error UI.
                         if (sameBuild && throttled) {
-                            console.warn('[StaleDeploy early-catch] Skipping reload, throttled for buildId:', buildId);
+                            if (retryScheduled) return;
+                            retryScheduled = true;
+                            var wait = throttleMs - (Date.now() - last);
+                            if (!(wait > 0)) wait = 0;
+                            console.warn('[StaleDeploy early-catch] Throttled for buildId:', buildId, '- retrying in', wait, 'ms');
+                            showOverlay();
+                            setTimeout(function() { retryScheduled = false; recover(msg, source); }, wait + 250);
                             return;
                         }
                         attemptedThisLoad = true;
                         sessionStorage.setItem(key, buildId);
                         sessionStorage.setItem(countKey, String(attempts + 1));
                         sessionStorage.setItem(timeKey, String(Date.now()));
-                        try {
-                            if (document.documentElement) {
-                                document.documentElement.style.backgroundColor = '#ffffff';
-                            }
-                            if (document.body) {
-                                document.body.style.backgroundColor = '#ffffff';
-                                document.body.innerHTML = ${JSON.stringify(reloadHtml)};
-                            }
-                        } catch (e) {}
-                        try {
-                            var u = new URL(window.location.href);
-                            u.searchParams.set('_stale_reload', String(Date.now()));
-                            window.location.replace(u.toString());
-                        } catch (e) {
-                            window.location.reload();
-                        }
+                        showOverlay();
+                        probeThenReload(0);
                     } catch (e) {
                         console.error('Stale Deploy Early Catch Script Error:', e);
                     }
@@ -145,6 +193,7 @@ export default function HelperScript(): Component | null {
                         var sameOrigin = false;
                         try { sameOrigin = new URL(src, window.location.href).origin === window.location.origin; } catch (err2) { return; }
                         if (!sameOrigin) return;
+                        if (!probeUrl) probeUrl = src;
                         recover('chunk resource failed to load: ' + src, 'resource-error');
                     } catch (err) {}
                 }, true);

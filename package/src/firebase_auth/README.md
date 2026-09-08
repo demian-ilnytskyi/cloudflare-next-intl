@@ -89,6 +89,14 @@ call, same as the page-load/network traces above it.
     `client_id`/`client_secret` fields — safe to hardcode `oauthClientId` (it's
     Google's public gcloud CLI OAuth client, not a secret); treat
     `oauthRefreshToken` as sensitive as `privateKey`.
+
+  When `appCheck` is set but neither signing credential is complete (or
+  `clientEmail`/`appId` are missing), this is reported once per process via
+  `errorHandling.onError` + `console.error` — on by default in dev and prod,
+  since the symptom otherwise is a silent "signed-in user renders as
+  signed-out on cold navigation". Opt out with
+  `appCheck.reportMissingServerCredentials: false`. It never throws; the
+  cookie-or-nothing fallback is unchanged.
 - `middleware/update_session.ts` — refreshes the session cookie and drives
   the guest/auth-page/unverified-email redirects (`redirectAuthPath` /
   `homePath` / `verifyEmailPath`, the last checked via the session token's

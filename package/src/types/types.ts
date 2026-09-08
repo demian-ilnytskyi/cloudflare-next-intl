@@ -834,6 +834,23 @@ export interface FirebaseAppCheckConfig {
      * App Check registers apps separately.
      */
     appId: string;
+    /**
+     * Whether a missing/incomplete server-side signing credential is
+     * reported as an error. `appCheck` being configured means App Check
+     * enforcement is expected, but server-side minting additionally needs
+     * `clientEmail` + `appId` plus ONE of the two signing credentials
+     * (`privateKey`, or the full `oauthClientId`/`oauthClientSecret`/
+     * `oauthRefreshToken` triple). Without one of those,
+     * `mintServerAppCheckToken` silently returns `undefined` and every
+     * cold navigation of a signed-in user renders as signed-out — a
+     * misconfiguration that is invisible until then.
+     *
+     * Defaults to `true` in every environment (dev and prod alike): the
+     * error is reported once per process via `errorHandling.onError` and
+     * `console.error`, and never throws. Set to `false` to opt out when
+     * you intentionally rely on the client-written App Check cookie only.
+     */
+    reportMissingServerCredentials?: boolean;
 }
 
 export interface CookieAttributes {
