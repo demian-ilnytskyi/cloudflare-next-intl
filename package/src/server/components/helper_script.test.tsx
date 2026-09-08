@@ -340,6 +340,44 @@ describe('HelperScript', () => {
         vi.unstubAllEnvs();
     });
 
+    it('the early-catch script covers the page instead of wiping it', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        vi.stubGlobal('fetch', undefined);
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+
+        localStorage.setItem('buildId', 'build-overlay');
+        sessionStorage.clear();
+        const origin = 'http://localhost:3000';
+        Object.defineProperty(window, 'location', {
+            value: { origin, href: origin + '/', reload: vi.fn(), replace: vi.fn() },
+            writable: true,
+        });
+
+        // React's tree must survive: it keeps rendering while the probe runs,
+        // and a removed node turns every commit into a DOMException.
+        const appRoot = document.createElement('main');
+        appRoot.id = 'app-root';
+        document.body.appendChild(appRoot);
+
+        new Function(source)();
+        const script = document.createElement('script');
+        script.src = origin + '/_next/static/chunks/app.js';
+        document.body.appendChild(script);
+        script.dispatchEvent(new Event('error', { bubbles: false }));
+        script.remove();
+
+        expect(document.getElementById('app-root')).not.toBeNull();
+        expect(document.getElementById('cfni-stale-deploy-overlay')).not.toBeNull();
+
+        appRoot.remove();
+        document.getElementById('cfni-stale-deploy-overlay')?.remove();
+        localStorage.removeItem('buildId');
+        sessionStorage.clear();
+        vi.unstubAllGlobals();
+        vi.unstubAllEnvs();
+    });
+
     it('the early-catch script ignores non-stale errors', () => {
         vi.stubEnv('NODE_ENV', 'production');
         const { container: root } = render(<HelperScript />);

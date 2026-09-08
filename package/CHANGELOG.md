@@ -3,6 +3,16 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.57] - 2026-09-08
+
+### Fixed
+
+- The stale-deploy early-catch script no longer wipes `document.body` when it shows its reload screen. That was safe only while a reload followed immediately; now that the asset-health probe can run for a few seconds first, React keeps rendering against the removed tree and every `removeChild`/`insertBefore` throws — crashing into the very error UI the screen was hiding. It now appends a fixed, full-viewport `#cfni-stale-deploy-overlay` on top of the page (idempotent) and leaves the app tree mounted.
+
+### Changed
+
+- Asset-health probe backoff tightened: 3 attempts (was 4) at `300ms * 2^attempt` (was `500ms`), so recovery decides faster while the overlay is up.
+
 ## [0.9.56] - 2026-09-08
 
 ### Added

@@ -71,7 +71,7 @@ export default function HelperScript(): Component | null {
                 // answers with real JavaScript again, so it doubles as the
                 // health probe below.
                 var probeUrl = null;
-                var maxProbes = 4;
+                var maxProbes = 3;
                 function isStale(msg) {
                     if (msg === undefined || msg === null) return true;
                     msg = String(msg).toLowerCase();
@@ -80,15 +80,21 @@ export default function HelperScript(): Component | null {
                     }
                     return false;
                 }
+                // Cover the page, never replace it. Wiping document.body used
+                // to be safe because a reload followed immediately; now that a
+                // probe can run for a few seconds first, React keeps rendering
+                // against the tree and every removeChild/insertBefore throws,
+                // which crashes it into the very error UI this is hiding.
+                var overlayId = 'cfni-stale-deploy-overlay';
                 function showOverlay() {
                     try {
-                        if (document.documentElement) {
-                            document.documentElement.style.backgroundColor = '#ffffff';
-                        }
-                        if (document.body) {
-                            document.body.style.backgroundColor = '#ffffff';
-                            document.body.innerHTML = ${JSON.stringify(reloadHtml)};
-                        }
+                        var root = document.documentElement;
+                        if (!root || document.getElementById(overlayId)) return;
+                        var el = document.createElement('div');
+                        el.id = overlayId;
+                        el.setAttribute('style', 'position:fixed;inset:0;z-index:2147483647;background:#ffffff;');
+                        el.innerHTML = ${JSON.stringify(reloadHtml)};
+                        (document.body || root).appendChild(el);
                     } catch (e) {}
                 }
                 function doReload() {
@@ -120,7 +126,7 @@ export default function HelperScript(): Component | null {
                             console.warn('[StaleDeploy early-catch] Asset still unhealthy after', attempt + 1, 'probes - reloading anyway:', String(err));
                             return doReload();
                         }
-                        setTimeout(function() { probeThenReload(attempt + 1); }, 500 * Math.pow(2, attempt));
+                        setTimeout(function() { probeThenReload(attempt + 1); }, 300 * Math.pow(2, attempt));
                     });
                 }
                 function recover(msg, source) {
