@@ -84,15 +84,24 @@ export default function HelperScript(): Component | null {
                 // against the tree and every removeChild/insertBefore throws,
                 // which crashes it into the very error UI this is hiding.
                 var overlayId = 'cfni-stale-deploy-overlay';
+                var overlayStyleId = 'cfni-stale-deploy-style';
                 var overlayWanted = false;
                 function showOverlay() {
                     overlayWanted = true;
                     try {
+                        // A chunk can fail while the parser is still inside
+                        // <head>, before <body> or the error UI exist. A style
+                        // rule can be installed right then and applies to
+                        // whatever the parser produces next, so the error UI
+                        // never gets a frame; the spinner is appended once
+                        // there is a <body> to hold it.
+                        if (!document.getElementById(overlayStyleId)) {
+                            var st = document.createElement('style');
+                            st.id = overlayStyleId;
+                            st.textContent = 'html{background:#ffffff !important}body>*:not(#' + overlayId + '){visibility:hidden !important}';
+                            (document.head || document.documentElement).appendChild(st);
+                        }
                         if (document.getElementById(overlayId)) return;
-                        // This script runs from <head>, and a chunk can fail
-                        // before the parser has opened <body>. An element
-                        // appended to <html> at that point is discarded, so the
-                        // error UI would paint uncovered until the reload.
                         if (!document.body) {
                             document.addEventListener('DOMContentLoaded', function() {
                                 if (overlayWanted) showOverlay();
@@ -196,6 +205,12 @@ export default function HelperScript(): Component | null {
                         var sameOrigin = false;
                         try { sameOrigin = new URL(src, window.location.href).origin === window.location.origin; } catch (err2) { return; }
                         if (!sameOrigin) return;
+                        // Cloudflare serves its bot-challenge scripts from the
+                        // site's own origin, so they pass the same-origin test
+                        // while having nothing to do with the build. Probing
+                        // one never yields JavaScript and a failed challenge
+                        // cannot break the module graph.
+                        try { if (new URL(src, window.location.href).pathname.indexOf('/cdn-cgi/') === 0) return; } catch (err3) { return; }
                         if (!probeUrl) probeUrl = src;
                         recover('chunk resource failed to load: ' + src, 'resource-error');
                     } catch (err) {}

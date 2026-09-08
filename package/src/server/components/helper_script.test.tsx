@@ -380,6 +380,78 @@ describe('HelperScript', () => {
         vi.unstubAllEnvs();
     });
 
+    it('the early-catch script ignores a failed Cloudflare challenge script', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        vi.stubGlobal('fetch', undefined);
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+
+        localStorage.setItem('buildId', 'build-cfcgi');
+        sessionStorage.clear();
+        const origin = 'http://localhost:3000';
+        const replace = vi.fn();
+        const reload = vi.fn();
+        Object.defineProperty(window, 'location', {
+            value: { origin, href: origin + '/', reload, replace },
+            writable: true,
+        });
+
+        new Function(source)();
+        const script = document.createElement('script');
+        script.src = origin + '/cdn-cgi/challenge-platform/scripts/precursor/main.js';
+        document.body.appendChild(script);
+        script.dispatchEvent(new Event('error', { bubbles: false }));
+        script.remove();
+
+        expect(replace).not.toHaveBeenCalled();
+        expect(reload).not.toHaveBeenCalled();
+
+        localStorage.removeItem('buildId');
+        sessionStorage.clear();
+        vi.unstubAllGlobals();
+        vi.unstubAllEnvs();
+    });
+
+    it('the early-catch script hides the page from <head>, before <body> exists', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        vi.stubGlobal('fetch', undefined);
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+
+        localStorage.setItem('buildId', 'build-headstyle');
+        sessionStorage.clear();
+        const origin = 'http://localhost:3000';
+        Object.defineProperty(window, 'location', {
+            value: { origin, href: origin + '/', reload: vi.fn(), replace: vi.fn() },
+            writable: true,
+        });
+
+        const realBody = document.body;
+        const bodyDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'body');
+        Object.defineProperty(document, 'body', { configurable: true, get: () => null });
+
+        new Function(source)();
+        const script = document.createElement('script');
+        script.src = origin + '/_next/static/chunks/app.js';
+        realBody.appendChild(script);
+        script.dispatchEvent(new Event('error', { bubbles: false }));
+        script.remove();
+
+        // The style lands even with no <body>, so the error UI the parser is
+        // about to produce never becomes visible.
+        const style = document.getElementById('cfni-stale-deploy-style');
+        expect(style).not.toBeNull();
+        expect(style?.textContent).toContain('visibility:hidden');
+
+        Object.defineProperty(document, 'body', bodyDescriptor!);
+        style?.remove();
+        document.getElementById('cfni-stale-deploy-overlay')?.remove();
+        localStorage.removeItem('buildId');
+        sessionStorage.clear();
+        vi.unstubAllGlobals();
+        vi.unstubAllEnvs();
+    });
+
     it('the early-catch script ignores non-stale errors', () => {
         vi.stubEnv('NODE_ENV', 'production');
         const { container: root } = render(<HelperScript />);

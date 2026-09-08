@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.60] - 2026-09-08
+
+### Fixed
+
+- The stale-deploy overlay now also covers a chunk failure that happens while the parser is still inside `<head>`, before `<body>` or the error UI exist. It installs a `#cfni-stale-deploy-style` rule (white `html` background, everything under `<body>` except the overlay hidden) the moment recovery starts — a rule applies to whatever the parser produces next, so the error UI never gets a frame — and appends the spinner once there is a `<body>` to hold it.
+- Resource errors from `/cdn-cgi/*` no longer trigger recovery. Cloudflare serves its bot-challenge scripts from the site's own origin, so they passed the same-origin test while having nothing to do with the build; probing one never yields JavaScript, and a failed challenge can't break the module graph.
+
 ## [0.9.59] - 2026-09-08
 
 ### Added
