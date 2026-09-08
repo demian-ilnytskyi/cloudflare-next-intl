@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.61] - 2026-09-08
+
+### Fixed
+
+- The head-phase stale-deploy style no longer leaves a blank (or, on a dark theme, black) screen while `<body>` has nowhere to hold the spinner. It now paints `html,body` white and draws the spinner as an `html:not(:has(#cfni-stale-deploy-overlay))::after` pseudo-element — no host element needed — which steps aside the moment the real overlay is in the document.
+
 ## [0.9.60] - 2026-09-08
 
 ### Fixed

@@ -442,6 +442,10 @@ describe('HelperScript', () => {
         const style = document.getElementById('cfni-stale-deploy-style');
         expect(style).not.toBeNull();
         expect(style?.textContent).toContain('visibility:hidden');
+        // The app's own dark background would otherwise show through as a
+        // black screen for as long as <body> has no spinner in it.
+        expect(style?.textContent).toContain('html,body{background:#ffffff !important}');
+        expect(style?.textContent).toContain('::after');
 
         Object.defineProperty(document, 'body', bodyDescriptor!);
         style?.remove();

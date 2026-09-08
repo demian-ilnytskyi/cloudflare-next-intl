@@ -98,7 +98,17 @@ export default function HelperScript(): Component | null {
                         if (!document.getElementById(overlayStyleId)) {
                             var st = document.createElement('style');
                             st.id = overlayStyleId;
-                            st.textContent = 'html{background:#ffffff !important}body>*:not(#' + overlayId + '){visibility:hidden !important}';
+                            st.textContent = [
+                                'html,body{background:#ffffff !important}',
+                                'body>*:not(#' + overlayId + '){visibility:hidden !important}',
+                                // Until <body> exists there is nowhere to put
+                                // the spinner element, and a blank screen reads
+                                // as a hang. A pseudo-element needs no host, so
+                                // it covers that gap and steps aside as soon as
+                                // the real overlay is in the document.
+                                'html:not(:has(#' + overlayId + '))::after{content:"";position:fixed;top:50%;left:50%;width:2.25rem;height:2.25rem;margin:-1.125rem 0 0 -1.125rem;border:0.1875rem solid #e5e7eb;border-top-color:#17181b;border-radius:50%;animation:cfni-spin 0.8s linear infinite;z-index:2147483647}',
+                                '@keyframes cfni-spin{to{transform:rotate(360deg)}}'
+                            ].join('');
                             (document.head || document.documentElement).appendChild(st);
                         }
                         if (document.getElementById(overlayId)) return;
