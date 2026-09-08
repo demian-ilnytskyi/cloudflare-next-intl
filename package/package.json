@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.9.58",
+  "version": "0.9.59",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -247,6 +247,10 @@
     "./checkLayoutQueries": {
       "types": "./dist/src/layout_queries_check/index.d.ts",
       "import": "./dist/src/layout_queries_check/index.js"
+    },
+    "./checkFirebaseAuthConfig": {
+      "types": "./dist/src/firebase_auth_check/index.d.ts",
+      "import": "./dist/src/firebase_auth_check/index.js"
     },
     "./db": {
       "types": "./dist/src/db/index.d.ts",

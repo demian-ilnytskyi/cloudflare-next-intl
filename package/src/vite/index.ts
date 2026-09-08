@@ -1,6 +1,7 @@
 export { autoDynamicPagesPlugin, type AutoDynamicPagesPluginOptions } from "./auto_dynamic_pages_plugin.js";
 export { autoLocaleParamsPlugin, type AutoLocaleParamsPluginOptions } from "./auto_locale_params_plugin.js";
 export { layoutQueriesPlugin, type LayoutQueriesPluginOptions } from "./layout_queries_plugin.js";
+export { firebaseAuthCheckPlugin, type FirebaseAuthCheckPluginOptions } from "./firebase_auth_check_plugin.js";
 export { buildIdAsset } from "./build_id_asset.js";
 export { userAgentStubPlugin, USER_AGENT_STUB_ID, USER_AGENT_STUB_CODE } from "./user_agent_stub.js";
 export { cfWorkersClientStubPlugin, CF_WORKERS_CLIENT_STUB_ID, CF_WORKERS_CLIENT_STUB_CODE } from "./cf_workers_client_stub.js";

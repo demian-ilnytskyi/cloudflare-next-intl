@@ -84,15 +84,27 @@ export default function HelperScript(): Component | null {
                 // against the tree and every removeChild/insertBefore throws,
                 // which crashes it into the very error UI this is hiding.
                 var overlayId = 'cfni-stale-deploy-overlay';
+                var overlayWanted = false;
                 function showOverlay() {
+                    overlayWanted = true;
                     try {
-                        var root = document.documentElement;
-                        if (!root || document.getElementById(overlayId)) return;
+                        if (document.getElementById(overlayId)) return;
+                        // This script runs from <head>, and a chunk can fail
+                        // before the parser has opened <body>. An element
+                        // appended to <html> at that point is discarded, so the
+                        // error UI would paint uncovered until the reload.
+                        if (!document.body) {
+                            document.addEventListener('DOMContentLoaded', function() {
+                                if (overlayWanted) showOverlay();
+                            }, { once: true });
+                            setTimeout(function() { if (overlayWanted) showOverlay(); }, 0);
+                            return;
+                        }
                         var el = document.createElement('div');
                         el.id = overlayId;
                         el.setAttribute('style', 'position:fixed;inset:0;z-index:2147483647;background:#ffffff;');
                         el.innerHTML = ${JSON.stringify(reloadHtml)};
-                        (document.body || root).appendChild(el);
+                        document.body.appendChild(el);
                     } catch (e) {}
                 }
                 function doReload() {

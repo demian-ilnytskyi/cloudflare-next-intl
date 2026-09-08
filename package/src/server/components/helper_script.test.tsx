@@ -336,6 +336,50 @@ describe('HelperScript', () => {
         vi.unstubAllEnvs();
     });
 
+    it('the early-catch script defers the overlay until <body> exists', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        vi.stubGlobal('fetch', undefined);
+        const { container: root } = render(<HelperScript />);
+        const source = root.querySelector('#stale-deploy-early-catch')?.textContent ?? '';
+
+        localStorage.setItem('buildId', 'build-nobody');
+        sessionStorage.clear();
+        const origin = 'http://localhost:3000';
+        Object.defineProperty(window, 'location', {
+            value: { origin, href: origin + '/', reload: vi.fn(), replace: vi.fn() },
+            writable: true,
+        });
+
+        // A chunk can fail while the parser is still inside <head>. An element
+        // appended to <html> then is discarded, so the overlay has to wait.
+        const realBody = document.body;
+        const bodyDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'body');
+        Object.defineProperty(document, 'body', { configurable: true, get: () => null });
+
+        new Function(source)();
+        const script = document.createElement('script');
+        script.src = origin + '/_next/static/chunks/app.js';
+        realBody.appendChild(script);
+        script.dispatchEvent(new Event('error', { bubbles: false }));
+        script.remove();
+
+        expect(document.getElementById('cfni-stale-deploy-overlay')).toBeNull();
+
+        // <body> arrives: the deferred overlay lands inside it.
+        Object.defineProperty(document, 'body', bodyDescriptor!);
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+
+        const overlay = document.getElementById('cfni-stale-deploy-overlay');
+        expect(overlay).not.toBeNull();
+        expect(overlay?.parentElement).toBe(document.body);
+
+        overlay?.remove();
+        localStorage.removeItem('buildId');
+        sessionStorage.clear();
+        vi.unstubAllGlobals();
+        vi.unstubAllEnvs();
+    });
+
     it('the early-catch script ignores non-stale errors', () => {
         vi.stubEnv('NODE_ENV', 'production');
         const { container: root } = render(<HelperScript />);

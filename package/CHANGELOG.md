@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.59] - 2026-09-08
+
+### Added
+
+- `firebaseAuthCheck` Vite plugin (on by default on both `vite dev` and `vite build`, part of `cloudflareNextIntl()`): statically validates the `firebaseAuth` block of the `@intl-config` file so a missing field or an unset `FIREBASE_SERVICE_ACCOUNT_*` env var is a terminal message during development instead of a production-only "signed-in user renders as signed-out". Errors on `apiKey`/`authDomain`/`projectId`/`appId`/`redirectAuthPath`/`homePath`; warns when `appCheck` is present but server-side minting can't run (`clientEmail` + `appId`, plus `privateKey` or the full `oauthClientId`/`oauthClientSecret`/`oauthRefreshToken` triple — a partial triple is reported field-by-field, and `appCheck.reportMissingServerCredentials: false` silences the whole group). Env-var-backed fields resolve against Vite's `loadEnv` (empty prefix, so server-only `.env*` secrets count) merged with `process.env`. Warns by default; `{ strict: true }` fails the build, `false` disables it, and it is a no-op when the config has no `firebaseAuth`.
+- `checkFirebaseAuthConfig` exported standalone from `cloudflare-next-intl/checkFirebaseAuthConfig`, plus `firebaseAuthCheckPlugin` from `cloudflare-next-intl/vite`. Source-text analysis, not evaluation (the config file reads `process.env` at module scope and imports app code, so it can't be imported from a plugin), and deliberately conservative: only an absent key, an empty literal, an `undefined`/`null` value, and a value whose only source is unset env vars are reported — a call, an imported constant, or a `??` fallback counts as present.
+
 ## [0.9.58] - 2026-09-08
 
 ### Changed

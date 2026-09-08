@@ -8,6 +8,7 @@ import { imageOptimizerPlugin, type ImageOptimizerPluginOptions } from "../image
 import { autoDynamicPagesPlugin, type AutoDynamicPagesPluginOptions } from "./auto_dynamic_pages_plugin.js";
 import { autoLocaleParamsPlugin, type AutoLocaleParamsPluginOptions } from "./auto_locale_params_plugin.js";
 import { layoutQueriesPlugin, type LayoutQueriesPluginOptions } from "./layout_queries_plugin.js";
+import { firebaseAuthCheckPlugin, type FirebaseAuthCheckPluginOptions } from "./firebase_auth_check_plugin.js";
 import { vinextRouteWiringFixPlugin, type VinextRouteWiringFixPluginOptions } from "./vinext_route_wiring_fix.js";
 import { lucideOptimizerPlugin, type LucideOptimizerPluginOptions } from "./lucide_optimizer_plugin.js";
 
@@ -94,6 +95,20 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
     layoutQueriesCheck?: boolean | LayoutQueriesPluginOptions;
 
     /**
+     * Statically validate the `firebaseAuth` block of the `@intl-config`
+     * file on `vite dev` and `vite build`: required Firebase fields, and —
+     * when `appCheck` is set — the server-side signing credentials
+     * (`clientEmail`/`appId` plus `privateKey` or the full OAuth triple).
+     * Env-var-backed fields are resolved against `.env*` + `process.env`, so
+     * a missing `FIREBASE_SERVICE_ACCOUNT_*` secret is caught before deploy
+     * instead of showing up as a signed-out render in production. Prints a
+     * warning by default; pass `{ strict: true }` to fail the build. No-op
+     * when the config has no `firebaseAuth`.
+     * @default true
+     */
+    firebaseAuthCheck?: boolean | FirebaseAuthCheckPluginOptions;
+
+    /**
      * Unified switcher for route & loading fixes:
      * When enabled, turns on both `vinextRouteWiringFix` (monkey-patching vinext route wiring on disk)
      * and `autoDynamicPages: { includeLoading: true }` (injecting force-static SSG into loading.* files).
@@ -117,6 +132,16 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
                 typeof options.layoutQueriesCheck === "object"
                     ? options.layoutQueriesCheck
                     : undefined
+            )
+        );
+    }
+
+    if (options.firebaseAuthCheck !== false) {
+        plugins.push(
+            firebaseAuthCheckPlugin(
+                typeof options.firebaseAuthCheck === "object"
+                    ? options.firebaseAuthCheck
+                    : { intlConfigPath: options.intlConfigPath }
             )
         );
     }
