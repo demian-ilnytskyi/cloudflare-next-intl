@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation.js';
 import usePathname from '../../client/hooks/use_path_name.js';
 import config from '@intl-config';
@@ -16,25 +16,10 @@ import getCookie from '../../client/functions/get_cookie.js';
 import clearSessionAction from '../server/clear_session_action.js';
 import type { AuthActionCodeSettings, AuthUser, SerializedAuthUser } from '../types.js';
 import type { User } from '@firebase/auth';
+import { AuthUserContext, type AuthUserContextType } from './auth_user_context.js';
 
-export interface AuthUserContextType {
-    /** Current Firebase user, or `null` if signed out (or not yet resolved while `loading`). */
-    user: AuthUser | null;
-    /** `true` until the initial auth state has resolved on the client. */
-    loading: boolean;
-    /** Force-refreshes the current user's ID token/claims and re-syncs the session cookie. */
-    reloadUser: () => Promise<void>;
-    /** Sends a verification email to the currently signed-in user. */
-    sendVerificationEmail: (actionCodeSettings?: AuthActionCodeSettings) => Promise<void>;
-    /** Signs out, clears the session cookie, and redirects to `firebaseAuth.redirectAuthPath`. */
-    logout: () => Promise<void>;
-}
-
-
-// `null` default (instead of a `{ loading: true, ... }` stand-in) lets
-// `useAuthUser` distinguish "not wrapped in AuthUserProvider" (throw) from
-// "wrapped, still loading" (`loading: true`).
-export const AuthUserContext = createContext<AuthUserContextType | null>(null);
+export { AuthUserContext };
+export type { AuthUserContextType };
 function writeSessionCookie(sessionCookieName: string, idToken: string, maxAge: number): void {
     setCookie({ name: sessionCookieName, value: idToken, maxAge });
 }

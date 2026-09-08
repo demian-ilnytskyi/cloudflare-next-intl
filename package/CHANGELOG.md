@@ -3,6 +3,16 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.62] - 2026-09-08
+
+### Fixed
+
+- A child calling `useAuthUser()` no longer throws "useAuthUser must be used within an AuthUserProvider" while `AuthUserProvider`'s chunk is still downloading. `useLazyWrappingProvider` deliberately keeps `children` mounted during that window, so the JSX nesting isn't a real context boundary yet and the consumer hit the context's `null` default — which the nearest error boundary turned into a flash of the error page on every page load. A new `AuthUserPendingProvider` now sits outside the lazy provider (so the tree shape never changes on resolution) and publishes the same seed value the real provider starts from (`user: initialUser`, `loading: initialUser === null`); the real provider shadows it once its chunk lands, with no state change for consumers.
+
+### Changed
+
+- `AuthUserContext` moved into its own `firebase_auth/client/auth_user_context.ts` module so `useAuthUser` and the pending stand-in can reach it without importing `auth_user_provider.js` — that module pulls in the Firebase client SDK, i.e. exactly the chunk being lazily loaded. Still re-exported from `auth_user_provider.tsx`, so imports are unchanged.
+
 ## [0.9.61] - 2026-09-08
 
 ### Fixed

@@ -12,6 +12,7 @@ import type { CookieConsentDialogProps } from "../../cookie_consent/client/compo
 import type { PrivacyPolicyUpdateDialogProps } from "../../cookie_consent/client/components/privacy_policy_update_dialog.js";
 import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
 import installGlobalErrorOverride from "../../error_handling/install_global_error_override.js";
+import AuthUserPendingProvider from "../../firebase_auth/client/auth_user_pending_provider.js";
 
 interface LocaleContextType {
     language: string;
@@ -96,10 +97,21 @@ export default function LocationzationClientProvider({
 
     let providedChildren = children;
     if (config.firebaseAuth && !skipAuthProvider) {
-        providedChildren = <AuthUserProvider initialUser={initialAuthUser}>
-            {children}
-            {config.firebaseAuth.performance !== false && <AutoFirebasePerformanceEvents />}
-        </AuthUserProvider>;
+        // `AuthUserProvider` keeps `children` mounted while its own chunk
+        // downloads (see useLazyWrappingProvider), so during that window the
+        // JSX nesting below is not yet a real context boundary — a child
+        // calling useAuthUser() would hit the `null` default, throw, and
+        // flash the error page until the chunk lands.
+        // `AuthUserPendingProvider` sits OUTSIDE (so the tree shape never
+        // changes on resolution) and publishes the same seed value the real
+        // provider starts from; once resolved, the inner real provider
+        // shadows it.
+        providedChildren = <AuthUserPendingProvider initialUser={initialAuthUser}>
+            <AuthUserProvider initialUser={initialAuthUser}>
+                {children}
+                {config.firebaseAuth.performance !== false && <AutoFirebasePerformanceEvents />}
+            </AuthUserProvider>
+        </AuthUserPendingProvider>;
     }
     if (config.cookieConsent) {
         // The analytics/dialog siblings below call useCookieConsent(), which
