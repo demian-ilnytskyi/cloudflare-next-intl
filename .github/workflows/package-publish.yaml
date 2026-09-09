@@ -12,4 +12,4 @@ jobs:
     uses: demian-ilnytskyi/workflows/.github/workflows/package_publish.yml@main
     secrets: inherit
     with:
-      working_directory: package
+      working_directory: packages/cloudflare-next-intl

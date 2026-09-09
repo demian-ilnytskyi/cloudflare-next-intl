@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "package/**"
+      - "packages/cloudflare-next-intl/**"
     branches: [main]
 
 concurrency:
@@ -17,7 +17,7 @@ jobs:
     secrets: inherit
     with:
       project_type: nextjs
-      working_directory: package
+      working_directory: packages/cloudflare-next-intl
       test_path: src
       min_coverage: 100
       min_overall_coverage: 99

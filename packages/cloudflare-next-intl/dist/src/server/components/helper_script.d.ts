@@ -1,0 +1,2 @@
+export declare const defaultReloadHtml = "<div style=\"position:fixed;inset:0;background:#ffffff;display:flex;align-items:center;justify-content:center;z-index:9999999;\"><div style=\"width:36px;height:36px;border:3px solid #e5e7eb;border-top-color:#17181b;border-radius:50%;animation:cfni-spin 0.8s linear infinite;\"></div><style>@keyframes cfni-spin{to{transform:rotate(360deg)}}</style></div>";
+export default function HelperScript(): Component | null;
