@@ -4,5 +4,5 @@ export {
     disconnectPostgres,
     resetConnectionState,
     withSessionLock,
-} from '@cloudflare-next-intl/db';
-export type { DbConfig } from '@cloudflare-next-intl/db';
+} from 'cloudflare-next-intl-db';
+export type { DbConfig } from 'cloudflare-next-intl-db';

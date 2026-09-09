@@ -1,1 +1,1 @@
-export { default } from '@cloudflare-next-intl/db/eslint';
+export { default } from 'cloudflare-next-intl-db/eslint';

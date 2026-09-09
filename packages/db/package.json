@@ -1,5 +1,5 @@
 {
-  "name": "@cloudflare-next-intl/db",
+  "name": "cloudflare-next-intl-db",
   "version": "0.1.0",
   "description": "Framework-agnostic Postgres/Drizzle/Supabase data-access layer extracted from cloudflare-next-intl — no React, Next.js, or Firebase dependency.",
   "main": "dist/src/index.js",
@@ -30,7 +30,6 @@
   "keywords": ["postgres", "drizzle", "supabase", "database", "cloudflare", "deno", "edge-functions"],
   "author": "Demian Ilnutskyi",
   "license": "MIT",
-  "publishConfig": { "access": "public" },
   "bugs": { "url": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/issues" },
   "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/tree/main/packages/db#readme",
   "dependencies": {

@@ -5,7 +5,7 @@ import type { CookieConsentDialogProps } from '../cookie_consent/client/componen
 import type { PrivacyPolicyUpdateDialogProps } from '../cookie_consent/client/components/privacy_policy_update_dialog.js';
 import type { ConsentValue } from '../cookie_consent/types.js';
 import type { User } from '@firebase/auth';
-import type { ConfigValue, FallibleConfigValue, DbRoutingConfig, SupabaseDbConfig } from '@cloudflare-next-intl/db';
+import type { ConfigValue, FallibleConfigValue, DbRoutingConfig, SupabaseDbConfig } from 'cloudflare-next-intl-db';
 
 /**
  * Custom middleware hook, run by `intlMiddleware` for your own logic
@@ -1006,7 +1006,7 @@ export interface IntlSitemap {
 }
 
 /**
- * See `@cloudflare-next-intl/db`'s own doc comments for field-level docs —
+ * See `cloudflare-next-intl-db`'s own doc comments for field-level docs —
  * duplicated there as the canonical source since this package now delegates
  * its entire `db` module to that package (see `src/db/index.ts`).
  */

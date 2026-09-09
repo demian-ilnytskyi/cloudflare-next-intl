@@ -1,1 +1,1 @@
-export * from '@cloudflare-next-intl/db/helpers';
+export * from 'cloudflare-next-intl-db/helpers';

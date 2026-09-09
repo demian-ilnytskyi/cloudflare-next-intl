@@ -357,8 +357,8 @@
   },
   "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl#readme",
   "dependencies": {
-    "@cloudflare-next-intl/db": "file:../db",
     "@microsoft/clarity": "^1.0.2",
+    "cloudflare-next-intl-db": "^0.1.0",
     "jose": "^6.2.8",
     "sharp": "^0.34.5 || ^0.35.0"
   },

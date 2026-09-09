@@ -4,7 +4,7 @@ const withPublicDbImpl = vi.fn(async (fn: (db: unknown) => unknown) => fn({}));
 const withUserDbImpl = vi.fn(async (fn: (db: unknown) => unknown) => fn({}));
 const resolveUserDbCredentialsImpl = vi.fn(async () => ({ uid: 'u1', accessToken: 't1', role: 'authenticated' }));
 
-vi.mock('@cloudflare-next-intl/db', () => ({
+vi.mock('cloudflare-next-intl-db', () => ({
     withPublicDb: withPublicDbImpl,
     withUserDb: withUserDbImpl,
     resolveUserDbCredentials: resolveUserDbCredentialsImpl,
@@ -16,7 +16,7 @@ vi.mock('./resolve_db_config.js', () => ({ default: resolveDbConfigMock }));
 const { withPublicDb, withUserDb, resolveUserDbCredentials } = await import('./context.js');
 
 describe('context.ts wrapper', () => {
-    it('withPublicDb resolves config via resolve_db_config then delegates to @cloudflare-next-intl/db', async () => {
+    it('withPublicDb resolves config via resolve_db_config then delegates to cloudflare-next-intl-db', async () => {
         const fn = vi.fn(async () => 'result');
         const result = await withPublicDb(fn, { connectionString: 'override' });
 

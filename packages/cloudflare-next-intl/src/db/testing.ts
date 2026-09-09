@@ -1,1 +1,1 @@
-export * from '@cloudflare-next-intl/db/testing';
+export * from 'cloudflare-next-intl-db/testing';

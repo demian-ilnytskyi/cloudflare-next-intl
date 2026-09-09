@@ -1,1 +1,1 @@
-export * from '@cloudflare-next-intl/db/schema';
+export * from 'cloudflare-next-intl-db/schema';

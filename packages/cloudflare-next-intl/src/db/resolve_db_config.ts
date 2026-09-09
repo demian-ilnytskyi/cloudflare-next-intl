@@ -1,4 +1,4 @@
-import type { DbRoutingConfig, DbConfig } from '@cloudflare-next-intl/db';
+import type { DbRoutingConfig, DbConfig } from 'cloudflare-next-intl-db';
 import type { RoutingConfig, Locales, LocalePrefixMode } from '../types/types.js';
 
 function buildAuthUserResolver(config: RoutingConfig<Locales, LocalePrefixMode>): DbConfig['resolveAuthUser'] {
