@@ -1,0 +1,13 @@
+# @cloudflare-next-intl/db
+
+Framework-agnostic Postgres/Drizzle/Supabase data-access layer, usable from
+Deno, Node, Cloudflare Workers, or any plain TypeScript project — no React,
+Next.js, or Firebase dependency.
+
+## Subpaths
+
+import { withPublicDb, withUserDb } from "@cloudflare-next-intl/db";
+import { excluded, onConflictSet, ago } from "@cloudflare-next-intl/db/helpers";
+import { pgTableBuilder } from "@cloudflare-next-intl/db/schema";
+import { makeFakeDb } from "@cloudflare-next-intl/db/testing";
+import dbEslintConfig from "@cloudflare-next-intl/db/eslint";
