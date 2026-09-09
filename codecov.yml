@@ -9,10 +9,10 @@ coverage:
         target: 100%
 
 ignore:
-  - "package/src/general/general_functions.ts"
-  - "package/src/config/middleware.ts"
-  - "package/src/errors_board/client/error_detail_view.tsx"
-  - "package/src/vite/auto_dynamic_pages_plugin.ts"
-  - "package/src/vite/auto_locale_params_plugin.ts"
-  - "package/src/locale_params_check/insert_locale_params.ts"
-  - "package/src/vite/vinext_route_wiring_fix.ts"
+  - "packages/cloudflare-next-intl/src/general/general_functions.ts"
+  - "packages/cloudflare-next-intl/src/config/middleware.ts"
+  - "packages/cloudflare-next-intl/src/errors_board/client/error_detail_view.tsx"
+  - "packages/cloudflare-next-intl/src/vite/auto_dynamic_pages_plugin.ts"
+  - "packages/cloudflare-next-intl/src/vite/auto_locale_params_plugin.ts"
+  - "packages/cloudflare-next-intl/src/locale_params_check/insert_locale_params.ts"
+  - "packages/cloudflare-next-intl/src/vite/vinext_route_wiring_fix.ts"
