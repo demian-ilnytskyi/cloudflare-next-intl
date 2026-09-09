@@ -70,7 +70,14 @@ describe('installGlobalErrorOverride', () => {
         const onError = vi.fn();
         currentConfig = configWithOnError(onError);
         install({ errorHandling: { overrideConsoleError: true, overrideWindowErrors: false } });
+        // No listener is installed with `overrideWindowErrors: false`, so jsdom would
+        // otherwise surface this dispatch as an unhandled page error. A throwaway
+        // listener that calls `preventDefault()` suppresses that reporting without
+        // affecting the assertion below.
+        const suppressUnhandled = (event: Event) => event.preventDefault();
+        window.addEventListener('error', suppressUnhandled);
         window.dispatchEvent(Object.assign(new Event('error'), { message: 'boom', error: new Error('boom') }));
+        window.removeEventListener('error', suppressUnhandled);
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(onError).not.toHaveBeenCalled();
     });
