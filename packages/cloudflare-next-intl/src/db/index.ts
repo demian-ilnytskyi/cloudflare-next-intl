@@ -7,6 +7,11 @@
  * argument to {@link withPublicDb}/{@link withUserDb} instead of configuring
  * `@intl-config`, e.g. from Firebase Functions or any plain TS project.
  *
+ * Implemented on top of `@cloudflare-next-intl/db` — this package layers
+ * `@intl-config` auto-resolution and Firebase Auth wiring over that
+ * package's framework-agnostic primitives. Call `@cloudflare-next-intl/db`
+ * directly if you have neither Next.js nor `@intl-config`.
+ *
  * Pick a wrapper by who is allowed to see the rows:
  * - {@link withPublicDb} — anonymous role, for data any visitor may read.
  * - {@link withUserDb} — the signed-in user, with RLS applied to their id.

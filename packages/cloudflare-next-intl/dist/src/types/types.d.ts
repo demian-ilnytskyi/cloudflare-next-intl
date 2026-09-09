@@ -5,6 +5,7 @@ import type { CookieConsentDialogProps } from '../cookie_consent/client/componen
 import type { PrivacyPolicyUpdateDialogProps } from '../cookie_consent/client/components/privacy_policy_update_dialog.js';
 import type { ConsentValue } from '../cookie_consent/types.js';
 import type { User } from '@firebase/auth';
+import type { ConfigValue, FallibleConfigValue, DbRoutingConfig, SupabaseDbConfig } from '@cloudflare-next-intl/db';
 export type MiddlewareCustomHandler = (locale: string, rewriteUrl: URL | undefined, redirectUrl: URL | undefined) => NextResponse<unknown> | null | Promise<NextResponse<unknown> | null>;
 export type Locales = readonly string[];
 export type LocalePrefixMode = 'always' | 'as-needed' | 'never';
@@ -205,23 +206,4 @@ export interface IntlSitemap {
     lastModified: Date | string | undefined;
     videos?: Videos[] | undefined;
 }
-export type ConfigValue<T> = T | (() => T | Promise<T>);
-export type FallibleConfigValue<T> = ConfigValue<T | null | undefined>;
-export interface SupabaseDbConfig {
-    url?: FallibleConfigValue<string>;
-    anonKey?: FallibleConfigValue<string>;
-    execFunction?: string;
-    rawSql?: boolean;
-}
-export interface DbRoutingConfig {
-    connectionString?: FallibleConfigValue<string>;
-    autoHyperdrive?: boolean;
-    autoHyperdriveSkipUrls?: string[];
-    disconnectAfterRequest?: boolean;
-    authenticatedRole?: string | (() => string | Promise<string>);
-    authenticatedRoleClaim?: string | false;
-    getUserId?: () => Promise<string | null> | string | null;
-    disconnectTimeoutMs?: number;
-    supabase?: SupabaseDbConfig;
-    getAccessToken?: () => Promise<string | null> | string | null;
-}
+export type { ConfigValue, FallibleConfigValue, DbRoutingConfig, SupabaseDbConfig };

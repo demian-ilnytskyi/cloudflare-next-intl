@@ -24,6 +24,10 @@ export default defineConfig({
                 'src/test_utils/**',
                 'src/**/*.bench.ts',
                 'src/**/*.bench.tsx',
+                'src/db/schema.ts',
+                'src/db/eslint_config.ts',
+                'src/db/testing.ts',
+                'src/db/helpers.ts',
             ],
             thresholds: {
                 perFile: true,

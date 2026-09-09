@@ -5,6 +5,7 @@ import type { CookieConsentDialogProps } from '../cookie_consent/client/componen
 import type { PrivacyPolicyUpdateDialogProps } from '../cookie_consent/client/components/privacy_policy_update_dialog.js';
 import type { ConsentValue } from '../cookie_consent/types.js';
 import type { User } from '@firebase/auth';
+import type { ConfigValue, FallibleConfigValue, DbRoutingConfig, SupabaseDbConfig } from '@cloudflare-next-intl/db';
 
 /**
  * Custom middleware hook, run by `intlMiddleware` for your own logic
@@ -1005,156 +1006,8 @@ export interface IntlSitemap {
 }
 
 /**
- * A config value that may be given directly, or as a sync/async function
- * resolved at use time. The function form lets a value come from a secret
- * store, a Cloudflare binding, or any other source that isn't available when
- * the config object is first created.
+ * See `@cloudflare-next-intl/db`'s own doc comments for field-level docs —
+ * duplicated there as the canonical source since this package now delegates
+ * its entire `db` module to that package (see `src/db/index.ts`).
  */
-export type ConfigValue<T> = T | (() => T | Promise<T>);
-
-/**
- * A {@link ConfigValue} whose function form may also return `null` to mean
- * "this source has nothing — fall through to the next one" (an env var
- * default, or another resolver), the same way `getUserId`/`getAccessToken`
- * already do. `undefined` means the same thing; both are treated
- * identically by every resolver that reads one of these.
- */
-export type FallibleConfigValue<T> = ConfigValue<T | null | undefined>;
-
-export interface SupabaseDbConfig {
-    /**
-     * Supabase project URL, e.g. `https://abc.supabase.co`. Defaults to
-     * `process.env.NEXT_PUBLIC_SUPABASE_URL`. May be a function (sync or
-     * async) resolved on each use — return `null`/`undefined` from it to
-     * fall through to the environment variable instead of erroring.
-     */
-    url?: FallibleConfigValue<string>;
-    /**
-     * Supabase anon (publishable) key. Defaults to
-     * `process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY`. This is the only key the
-     * `db` module ever needs — never put a service-role key here. May be a
-     * function (sync or async) resolved on each use — return
-     * `null`/`undefined` from it to fall through to the environment variable
-     * instead of erroring.
-     */
-    anonKey?: FallibleConfigValue<string>;
-    /**
-     * Name of the Postgres function that runs the generated SQL. Defaults to
-     * `'cfni_exec'` — the function shipped in `supabase/cfni_exec.sql`.
-     */
-    execFunction?: string;
-    /**
-     * Set to `false` when `cfni_exec` is not installed and cannot be. The
-     * `db` wrappers then serve only the statements they can translate into
-     * PostgREST calls (single-table select/insert/update/delete, `on
-     * conflict`, `returning`) and throw for anything else — joins,
-     * aggregates, CTEs, transactions — naming the construct that needs raw
-     * SQL. Defaults to `true`.
-     *
-     * Also gates Supabase-mode `db.transaction(...)`: its `cfni_exec_batch`
-     * function ships in the same `supabase/cfni_exec.sql` file and needs
-     * `cfni_exec` itself to run each statement, so batching is on whenever
-     * this is (there is no separate flag for it) and throws the same
-     * install-or-use-`connectionString` error when this is `false`.
-     */
-    rawSql?: boolean;
-}
-
-export interface DbRoutingConfig {
-    /**
-     * Postgres connection string, or a function (sync or async) returning one,
-     * resolved on each connect. The function form is how you reach a value that
-     * isn't available at module scope — e.g. a Cloudflare Hyperdrive binding:
-     * `connectionString: async () => (await getCloudflareContext({ async: true
-     * })).env.HYPERDRIVE.connectionString`. Return `null`/`undefined` from it
-     * when there is nothing to give — both surface the same "could not
-     * resolve a Postgres connection string" error as leaving this unset.
-     */
-    connectionString?: FallibleConfigValue<string>;
-    /**
-     * When `true` (the default) and `connectionString` is unset, `withPublicDb`/
-     * `withUserDb` try `env.HYPERDRIVE.connectionString` (via `generate.env`)
-     * before falling through to `supabase`. Set `false` to disable this and
-     * go straight to `supabase` (or the "no connection string" error) instead
-     * — e.g. when a `HYPERDRIVE` binding exists in `wrangler.toml` for
-     * something else and should not be treated as this app's Postgres.
-     */
-    autoHyperdrive?: boolean;
-    /**
-     * Connection strings treated as "no connection" when found on
-     * `env.HYPERDRIVE.connectionString` (e.g. `wrangler dev`'s unconfigured
-     * placeholder). Defaults to `['postgresql://user:pass@localhost:5432/db']`.
-     */
-    autoHyperdriveSkipUrls?: string[];
-    /**
-     * Whether the pooled client is closed once the last in-flight
-     * `withPublicDb`/`withUserDb` call of the request finishes.
-     *
-     * @deprecated Ignored since 0.8.23. Every `withPublicDb`/`withUserDb` call
-     * now opens and closes its own client, so no connection survives a call to
-     * be kept open. `true` and `false` behave identically; the only difference
-     * is that `false` awaits the close instead of deferring it to
-     * `ctx.waitUntil`. Hyperdrive pools the server-side connection.
-     */
-    disconnectAfterRequest?: boolean;
-    /**
-     * Postgres role assumed inside `withUserDb`'s transaction, used when
-     * {@link authenticatedRoleClaim} doesn't resolve one (e.g. `firebaseAuth`
-     * isn't configured, or the claim is absent). May be a string or a
-     * sync/async function resolved on each call. Defaults to `'authenticated'`
-     * (the Supabase RLS convention).
-     */
-    authenticatedRole?: string | (() => string | Promise<string>);
-    /**
-     * Name of the Firebase custom-claims field read for the Postgres role
-     * inside `withUserDb`, taking priority over {@link authenticatedRole}
-     * when present on the signed-in user's ID token. Defaults to `'role'`.
-     * Only consulted when `firebaseAuth` is configured; set `false` to skip
-     * reading claims entirely and always use `authenticatedRole`.
-     */
-    authenticatedRoleClaim?: string | false;
-    /**
-     * Resolves the user id injected as `request.jwt.claims->>'sub'` inside
-     * `withUserDb`. Omit when `firebaseAuth` is configured — the uid then
-     * comes from this package's own `getAuthUser()` automatically. Provide it
-     * to use a different auth source (or when `firebaseAuth` is absent).
-     */
-    getUserId?: () => Promise<string | null> | string | null;
-    /**
-     * Milliseconds `disconnectPostgres` waits for `client.end()` before giving up.
-     *
-     * @deprecated Ignored since 0.8.23. Client teardown is awaited or deferred
-     * to `ctx.waitUntil` without a timeout.
-     */
-    disconnectTimeoutMs?: number;
-    /**
-     * Reaches Postgres through the Supabase Data API instead of a direct
-     * connection, using only your project URL and anon key. Set this when you
-     * have no Postgres password to give the package — `withPublicDb` and
-     * `withUserDb` behave the same either way, so switching is a config change
-     * with no app-code change.
-     *
-     * Ignored when `connectionString` is set: a direct
-     * connection always wins, so adding this block cannot silently reroute
-     * live traffic. Requires the `cfni_exec` function from
-     * `supabase/cfni_exec.sql` to be installed in your database.
-     *
-     * Each statement inside a plain `withUserDb` callback is its own
-     * round-trip — no shared session. Call `.transaction(...)` on the handle
-     * for atomicity across statements instead: it batches them into one
-     * `cfni_exec_batch` call, though (unlike connection-string mode) a later
-     * statement in the callback cannot read an earlier one's result — see
-     * the `db` entry point's module doc.
-     */
-    supabase?: SupabaseDbConfig;
-    /**
-     * Resolves the JWT sent as `Authorization: Bearer` for `withUserDb` in
-     * Supabase mode, which is what makes PostgREST resolve the caller as
-     * `authenticated` and apply RLS. Omit when `firebaseAuth` is configured —
-     * the signed-in user's Firebase ID token is then used automatically.
-     *
-     * Unused in connection-string mode, which identifies the user with
-     * `getUserId` and `set_config` instead.
-     */
-    getAccessToken?: () => Promise<string | null> | string | null;
-}
+export type { ConfigValue, FallibleConfigValue, DbRoutingConfig, SupabaseDbConfig };

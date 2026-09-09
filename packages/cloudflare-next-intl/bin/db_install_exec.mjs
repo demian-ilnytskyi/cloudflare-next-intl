@@ -1,16 +1,13 @@
 #!/usr/bin/env node
-// Installs cfni_exec.sql (and its pgTAP test file) into the consuming
-// project — the same step cfni-db-codegen runs after a successful
-// generation, exposed standalone for when you only want this and nothing
-// else (no drizzle-kit pull, no live Postgres needed).
-//
-// Usage: cfni-db-install-exec [--rpc-dir=…] [--rpc-file-name=…] [--tests-dir=…] [--tests-file-name=…] [--force]
-//
-// Gated on the project's `db.supabase.rawSql` (read from `next.config.*`'s
-// `@intl-config` alias) the same way cfni-db-codegen's step is — pass
-// `--force`/CFNI_DB_FORCE_EXEC=true to overwrite an existing, differing file.
-import resolveCodegenPaths from '../dist/src/db/codegen_paths.js';
-import { runInstallExecStep } from './install_exec_step.mjs';
+// Re-exec shim: `cfni-db-install-exec` now lives in @cloudflare-next-intl/db,
+// installed as this package's dependency. Kept here so existing consumers'
+// `npx cfni-db-install-exec` invocations keep working with no changes needed.
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dirname, join } from 'node:path';
 
-const paths = resolveCodegenPaths(process.argv.slice(2), process.env, process.cwd());
-runInstallExecStep(paths, process.cwd());
+// Resolve via the package's root export (".") — its exports map doesn't
+// declare "./package.json", so that can't be resolved directly. The root
+// export ("dist/src/index.js") sits two directories below the package root.
+const indexPath = fileURLToPath(import.meta.resolve('@cloudflare-next-intl/db'));
+const dbPackageRoot = join(dirname(indexPath), '..', '..');
+await import(pathToFileURL(join(dbPackageRoot, 'bin', 'db_install_exec.mjs')).href);

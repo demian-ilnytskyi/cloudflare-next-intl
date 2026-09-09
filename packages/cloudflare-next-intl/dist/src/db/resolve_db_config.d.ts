@@ -1,3 +1,2 @@
-import type { DbRoutingConfig } from '../types/types.js';
-import type { DbConfig } from './connection.js';
+import type { DbRoutingConfig, DbConfig } from '@cloudflare-next-intl/db';
 export default function resolveDbConfig(dbOverride?: DbRoutingConfig): Promise<DbConfig>;
