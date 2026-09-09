@@ -42,6 +42,7 @@ jobs:
       test_path: src
       min_coverage: 100
       min_overall_coverage: 100
+      run_bench: true
       send_notifications: false
 
   notify:

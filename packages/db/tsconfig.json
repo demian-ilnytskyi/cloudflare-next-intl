@@ -13,5 +13,12 @@
     "outDir": "./dist/src"
   },
   "include": ["./**/*.ts", "./**/*.d.ts"],
-  "exclude": ["**/*.test.ts", "**/*.bench.ts", "vitest.setup.ts", "vitest.config.ts", "dist/**"]
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.bench.ts",
+    "vitest.setup.ts",
+    "vitest.config.ts",
+    "vitest.bench.config.ts",
+    "dist/**"
+  ]
 }
