@@ -119,7 +119,7 @@ packages/cloudflare-next-intl/                              # cloudflare-next-in
 **Interfaces:**
 - Produces: `packages/db/package.json` with `"exports"` containing `"./schema": { "types": "./dist/src/schema.d.ts", "import": "./dist/src/schema.js" }` — later tasks add more subpaths to this same map. Package name: `@cloudflare-next-intl/db`, version `0.1.0`.
 
-- [ ] **Step 1: Copy `schema.ts` + its test verbatim**
+- [x] **Step 1: Copy `schema.ts` + its test verbatim**
 
 ```bash
 mkdir -p packages/db/src
@@ -135,7 +135,7 @@ grep -n "^import" packages/db/src/schema.ts
 
 Expected: only `drizzle-orm` imports, nothing under `../`.
 
-- [ ] **Step 2: Write `packages/db/package.json`**
+- [x] **Step 2: Write `packages/db/package.json`**
 
 ```json
 {
@@ -191,7 +191,7 @@ Expected: only `drizzle-orm` imports, nothing under `../`.
 }
 ```
 
-- [ ] **Step 3: Write `packages/db/tsconfig.json` and `tsconfig.build.json`**
+- [x] **Step 3: Write `packages/db/tsconfig.json` and `tsconfig.build.json`**
 
 `packages/db/tsconfig.json` (same as `packages/cloudflare-next-intl/tsconfig.json` minus `jsx`/`@intl-config`/`@locale-file` paths — this package has no JSX and no `@intl-config`):
 
@@ -229,7 +229,7 @@ Expected: only `drizzle-orm` imports, nothing under `../`.
 }
 ```
 
-- [ ] **Step 4: Write `packages/db/vitest.config.ts`**
+- [x] **Step 4: Write `packages/db/vitest.config.ts`**
 
 Same coverage-threshold shape as `packages/cloudflare-next-intl/vitest.config.ts`, no `@intl-config` alias (this package never uses one):
 
@@ -250,7 +250,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 5: Copy `write_dist_type.mjs`, adapt `check_exports.mjs` and `check_size.mjs`**
+- [x] **Step 5: Copy `write_dist_type.mjs`, adapt `check_exports.mjs` and `check_size.mjs`**
 
 ```bash
 mkdir -p packages/db/scripts
@@ -308,7 +308,7 @@ if (failures.length > 0) {
 console.log(`OK: ${Object.keys(pkg.dependencies ?? {}).length} dependencies, no banned packages, README.md + llms.txt ship.`);
 ```
 
-- [ ] **Step 6: Write `packages/db/README.md`, `packages/db/llms.txt`, copy `LICENSE`/`.gitignore`, add `index.ts` re-exporting `schema.ts`**
+- [x] **Step 6: Write `packages/db/README.md`, `packages/db/llms.txt`, copy `LICENSE`/`.gitignore`, add `index.ts` re-exporting `schema.ts`**
 
 `packages/db/README.md` (minimal, expanded in later tasks as subpaths land):
 
@@ -371,7 +371,7 @@ export * from './schema.js';
 EOF
 ```
 
-- [ ] **Step 7: Install, build, test, run publish checks**
+- [x] **Step 7: Install, build, test, run publish checks**
 
 ```bash
 cd packages/db && npm install && npm run build && npm test && npm run check:exports && npm run check:size
@@ -379,7 +379,7 @@ cd packages/db && npm install && npm run build && npm test && npm run check:expo
 
 Expected: `tsc` emits `dist/index.js` + `dist/src/schema.js` cleanly, `vitest run --coverage` passes with 100% coverage on `schema.ts` (its existing test already does this in `packages/cloudflare-next-intl/`), `check:exports` reports `OK: 2/2 export targets import cleanly` (no `@intl-config` skip line — there is none in this package), `check:size` reports `OK: 5 dependencies, no banned packages, README.md + llms.txt ship.`
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/db
@@ -398,7 +398,7 @@ git commit -m "feat(packages/db): scaffold @cloudflare-next-intl/db, move schema
 **Interfaces:**
 - Produces: `packages/db/src/types.ts` exporting `DbRoutingConfig`, `SupabaseDbConfig`, `FallibleConfigValue<T>`, `ConfigValue<T>`, `GenerateRoutingConfig` (trimmed — `env`/`ctx`/`getCloudflareContext` only), `ErrorHandlingRoutingConfig` (trimmed — the fields `report_error.ts` actually reads), `ErrorHandlingParams`, `AuthUserResolverResult`. Later tasks (`connection.ts`, `context.ts`, `resolve_mode.ts`, `rest_client.ts`, `access_token.ts`, `resolve_hyperdrive_connection_string.ts`) import types from here instead of `../types/types.js`.
 
-- [ ] **Step 1: Write `packages/db/src/types.ts`**
+- [x] **Step 1: Write `packages/db/src/types.ts`**
 
 ```ts
 /**
@@ -497,7 +497,7 @@ export interface DbConfig {
 }
 ```
 
-- [ ] **Step 2: Move `require_config.ts` + test**
+- [x] **Step 2: Move `require_config.ts` + test**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/require_config.ts packages/db/src/require_config.ts
@@ -513,7 +513,7 @@ to:
 import type { DbRoutingConfig } from './types.js';
 ```
 
-- [ ] **Step 3: Move `resolve_config_value.ts` + test**
+- [x] **Step 3: Move `resolve_config_value.ts` + test**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/resolve_config_value.ts packages/db/src/resolve_config_value.ts
@@ -529,7 +529,7 @@ to:
 import type { FallibleConfigValue } from './types.js';
 ```
 
-- [ ] **Step 4: Build and test**
+- [x] **Step 4: Build and test**
 
 ```bash
 cd packages/db && npm run build && npm test
@@ -542,7 +542,7 @@ Edit `packages/db/vitest.config.ts`'s `coverage.exclude` array to:
 exclude: ['src/**/*.test.ts', 'src/**/index.ts', 'src/types.ts'],
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/db
@@ -567,7 +567,7 @@ This is the task that removes the `react` dependency. `resolve_mode.ts` and `res
 - Produces: `memoizeByRef<Args extends unknown[], R>(fn: (...args: Args) => Promise<R>): (...args: Args) => Promise<R>` — memoizes by the identity of `args[0]` (a `WeakMap` keyed on the first argument, which in every call site here is the `db`/`generate` config object itself — a stable reference for the lifetime of one request, exactly matching what `cache()` bought). Consumed by `resolve_mode.ts` and (Task 6) `rest_client.ts`.
 - Produces: `resolveEnv(generate?: GenerateRoutingConfig): Promise<Record<string, unknown> | undefined>` — same contract as the main package's `server/functions/geo.ts#resolveEnv`, minus the `@intl-config` fallback (this package never has one) and minus React memoization (uses `memoizeByRef` instead).
 
-- [ ] **Step 1: Write the failing test for `memoizeByRef`**
+- [x] **Step 1: Write the failing test for `memoizeByRef`**
 
 ```ts
 // packages/db/src/memoize_by_ref.test.ts
@@ -614,7 +614,7 @@ describe('memoizeByRef', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 ```bash
 cd packages/db && npx vitest run src/memoize_by_ref.test.ts
@@ -622,7 +622,7 @@ cd packages/db && npx vitest run src/memoize_by_ref.test.ts
 
 Expected: FAIL — `Cannot find module './memoize_by_ref.js'`.
 
-- [ ] **Step 3: Implement `memoize_by_ref.ts`**
+- [x] **Step 3: Implement `memoize_by_ref.ts`**
 
 ```ts
 /**
@@ -655,7 +655,7 @@ export default function memoizeByRef<Args extends [object, ...unknown[]], R>(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 cd packages/db && npx vitest run src/memoize_by_ref.test.ts
@@ -663,7 +663,7 @@ cd packages/db && npx vitest run src/memoize_by_ref.test.ts
 
 Expected: PASS, 3/3.
 
-- [ ] **Step 5: Write the failing test for `resolveEnv`**
+- [x] **Step 5: Write the failing test for `resolveEnv`**
 
 ```ts
 // packages/db/src/resolve_env.test.ts
@@ -714,7 +714,7 @@ describe('resolveEnv', () => {
 });
 ```
 
-- [ ] **Step 6: Run it to verify it fails**
+- [x] **Step 6: Run it to verify it fails**
 
 ```bash
 cd packages/db && npx vitest run src/resolve_env.test.ts
@@ -722,7 +722,7 @@ cd packages/db && npx vitest run src/resolve_env.test.ts
 
 Expected: FAIL — module not found.
 
-- [ ] **Step 7: Implement `resolve_env.ts`**
+- [x] **Step 7: Implement `resolve_env.ts`**
 
 ```ts
 import memoizeByRef from './memoize_by_ref.js';
@@ -781,7 +781,7 @@ export default async function resolveEnv(
 }
 ```
 
-- [ ] **Step 8: Run test to verify it passes**
+- [x] **Step 8: Run test to verify it passes**
 
 ```bash
 cd packages/db && npx vitest run src/resolve_env.test.ts
@@ -789,7 +789,7 @@ cd packages/db && npx vitest run src/resolve_env.test.ts
 
 Expected: PASS, 7/7.
 
-- [ ] **Step 9: Move `resolve_hyperdrive_connection_string.ts` + test**
+- [x] **Step 9: Move `resolve_hyperdrive_connection_string.ts` + test**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/resolve_hyperdrive_connection_string.ts packages/db/src/resolve_hyperdrive_connection_string.ts
@@ -809,7 +809,7 @@ import type { GenerateRoutingConfig } from './types.js';
 
 Edit `packages/db/src/resolve_hyperdrive_connection_string.test.ts` — update its mock target from `'../server/functions/geo.js'` to `'./resolve_env.js'` (check the file for `vi.mock(...)` calls and update the path string; the exported member is a default export here, `resolveEnv`, vs. the main package's named export — update `vi.mock('./resolve_env.js', () => ({ default: vi.fn(...) }))` accordingly).
 
-- [ ] **Step 10: Move `resolve_mode.ts` + test, drop `react`**
+- [x] **Step 10: Move `resolve_mode.ts` + test, drop `react`**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/resolve_mode.ts packages/db/src/resolve_mode.ts
@@ -839,7 +839,7 @@ const resolveDbMode = memoizeByRef(resolveDbModeUncached);
 
 Edit `packages/db/src/resolve_mode.test.ts` — remove any `vi.mock('react', ...)` setup if present; since `memoizeByRef` is real (not mocked) and pure, the existing per-call-count assertions ("memoized per request") continue to work unchanged against the real `memoizeByRef`.
 
-- [ ] **Step 11: Build and test**
+- [x] **Step 11: Build and test**
 
 ```bash
 cd packages/db && npm run build && npm test
@@ -853,7 +853,7 @@ grep -rln "from 'react'" packages/db/src
 
 Expected: no output.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add packages/db
@@ -871,7 +871,7 @@ git commit -m "feat(packages/db): replace React cache() with memoizeByRef, add l
 **Interfaces:**
 - Produces: `reportError(config: ReportErrorConfig | undefined, params: ErrorHandlingParams): Promise<void>` at `packages/db/src/error_handling/report_error.ts`, same signature as the main package's version. Consumed by `connection.ts` (Task 5).
 
-- [ ] **Step 1: Copy the four files and their tests verbatim**
+- [x] **Step 1: Copy the four files and their tests verbatim**
 
 ```bash
 mkdir -p packages/db/src/error_handling
@@ -881,7 +881,7 @@ for f in report_error format_error_message stringify_unknown default_ignored_con
 done
 ```
 
-- [ ] **Step 2: Fix `report_error.ts`'s one cross-boundary import**
+- [x] **Step 2: Fix `report_error.ts`'s one cross-boundary import**
 
 `packages/cloudflare-next-intl/src/error_handling/report_error.ts` imports:
 ```ts
@@ -895,7 +895,7 @@ import type { ErrorHandlingParams, ErrorHandlingRoutingConfig, GenerateRoutingCo
 
 `format_error_message.ts`, `stringify_unknown.ts`, `default_ignored_console_errors.ts` have no cross-file imports at all (confirmed: `report_error.ts` only imports these three siblings plus the one types import above) — copy them unedited.
 
-- [ ] **Step 3: Build and test**
+- [x] **Step 3: Build and test**
 
 ```bash
 cd packages/db && npm run build && npm test
@@ -903,7 +903,7 @@ cd packages/db && npm run build && npm test
 
 Expected: green. `report_error.ts`'s existing test suite already covers `enable: false`, `consent`, dedup, `ctx.waitUntil`, and `logToConsole` branches at 100% — no new tests needed, this is a verbatim move.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/db
@@ -925,7 +925,7 @@ git commit -m "feat(packages/db): duplicate report_error and its pure dependenci
 - Produces: `withDbClient<T>(config: DbConfig, queryFn) => Promise<T>`, `connectToPostgres(config: DbConfig) => Promise<Client>`, `disconnectPostgres`, `resetConnectionState`, `withSessionLock` — same signatures as today, `DbConfig` now imported from `./types.js` instead of being locally declared in `connection.ts` (it moved to `types.ts` in Task 2). Consumed by `context.ts` (Task 7).
 - Produces: `resolveAccessToken(config: DbConfig): Promise<string>` — same signature, now reads `config.resolveAuthUser` instead of `config.firebaseAuth` + a dynamic import. Consumed by `context.ts` (Task 7).
 
-- [ ] **Step 1: Move `connection.ts` + test**
+- [x] **Step 1: Move `connection.ts` + test**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/connection.ts packages/db/src/connection.ts
@@ -960,7 +960,7 @@ Every other line in `connection.ts` (`resolveConnectionString`, `resetSessionSta
 
 Edit `packages/db/src/connection.test.ts` — update any `vi.mock('../error_handling/report_error.js', ...)` to `vi.mock('./error_handling/report_error.js', ...)`, and any `vi.mock('../types/types.js', ...)`/local `DbConfig` type-only construction sites to import from `./types.js`. Remove any test case that specifically exercises `firebaseAuth`-related behavior inside `connection.ts` — grep confirms `connection.ts` itself never reads `config.firebaseAuth` (only `context.ts`/`access_token.ts` do), so no such test case should exist here; if `connection.test.ts` builds a `DbConfig` fixture that includes a `firebaseAuth` field for realism, just drop that field from the fixture object.
 
-- [ ] **Step 2: Run connection tests**
+- [x] **Step 2: Run connection tests**
 
 ```bash
 cd packages/db && npx vitest run src/connection.test.ts
@@ -968,7 +968,7 @@ cd packages/db && npx vitest run src/connection.test.ts
 
 Expected: PASS at 100% coverage — this file's logic is unchanged, only import paths moved.
 
-- [ ] **Step 3: Write the failing test for the rewritten `access_token.ts`**
+- [x] **Step 3: Write the failing test for the rewritten `access_token.ts`**
 
 ```ts
 // packages/db/src/access_token.test.ts (replaces the moved copy)
@@ -1014,7 +1014,7 @@ describe('resolveAccessToken', () => {
 });
 ```
 
-- [ ] **Step 4: Run it to verify it fails**
+- [x] **Step 4: Run it to verify it fails**
 
 ```bash
 cd packages/db && npx vitest run src/access_token.test.ts
@@ -1022,7 +1022,7 @@ cd packages/db && npx vitest run src/access_token.test.ts
 
 Expected: FAIL — module not found (file not yet moved/rewritten).
 
-- [ ] **Step 5: Move and rewrite `access_token.ts`**
+- [x] **Step 5: Move and rewrite `access_token.ts`**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/access_token.ts packages/db/src/access_token.ts
@@ -1067,7 +1067,7 @@ export default async function resolveAccessToken(config: DbConfig): Promise<stri
 }
 ```
 
-- [ ] **Step 6: Run test to verify it passes**
+- [x] **Step 6: Run test to verify it passes**
 
 ```bash
 cd packages/db && npx vitest run src/access_token.test.ts
@@ -1075,13 +1075,13 @@ cd packages/db && npx vitest run src/access_token.test.ts
 
 Expected: PASS, 5/5, 100% coverage.
 
-- [ ] **Step 7: Build full package**
+- [x] **Step 7: Build full package**
 
 ```bash
 cd packages/db && npm run build && npm test
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/db
@@ -1102,7 +1102,7 @@ These 13 files' only cross-boundary import is `../types/types.js` (or, for `rest
 **Interfaces:**
 - Produces: `createRestClient`, `RestClient`, `RestQueryBuilder`, `RestQueryResult<T>` (`rest_client.ts`); `createSupabaseTransport`, `ExecResult` (`supabase_transport.ts`); `resolveSupabaseEndpoint` (`supabase_config.ts`); `runTransactionBatch`, `BatchQuery` (`transaction_batch.ts`); `inlineParams` (`inline_params.ts`) — all consumed by `context.ts` (Task 7).
 
-- [ ] **Step 1: Move the 12 files whose only change is the types import path**
+- [x] **Step 1: Move the 12 files whose only change is the types import path**
 
 ```bash
 for f in encode_param inline_params sql_tokens parse_composite parse_where parse_statement unsupported_sql rest_filters rest_execute supabase_config supabase_transport transaction_batch resolve_raw_sql; do
@@ -1119,7 +1119,7 @@ grep -l "from '\.\./types/types.js'" packages/db/src/*.ts
 
 and for every match, replace `from '../types/types.js'` with `from './types.js'` (this is every file in this list that has a type-only import at all — confirmed against the source repo's import list; several of these files, like `encode_param.ts`, `inline_params.ts`, `sql_tokens.ts`, `parse_composite.ts`, `parse_where.ts`, `unsupported_sql.ts`, `rest_execute.ts`, have **no** cross-boundary import at all and need no edit — verify per-file with the same `grep` before editing, don't blind-`sed` files that don't match).
 
-- [ ] **Step 2: Move and edit `rest_client.ts` + test**
+- [x] **Step 2: Move and edit `rest_client.ts` + test**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/rest_client.ts packages/db/src/rest_client.ts
@@ -1139,7 +1139,7 @@ import type { SupabaseDbConfig } from './types.js';
 
 Find the `cache(...)`-wrapped function later in the file (per the `db.md` docs, this backs "per request reuses of the `@supabase/supabase-js` client") and change its wrapping call from `cache(...)` to `memoizeByRef(...)`, same substitution pattern as Task 3 Step 10. Update `rest_client.test.ts` the same way Task 3's `resolve_mode.test.ts` was updated (drop any `react` mock, keep the call-count assertions against the real `memoizeByRef`).
 
-- [ ] **Step 3: Build and test**
+- [x] **Step 3: Build and test**
 
 ```bash
 cd packages/db && npm run build && npm test
@@ -1147,7 +1147,7 @@ cd packages/db && npm run build && npm test
 
 Expected: green, 100% coverage across all 14 files.
 
-- [ ] **Step 4: Confirm zero remaining `react`/`../types/types.js`/`../server/`/`../firebase_auth/`/`../config/` references anywhere in `packages/db/src`**
+- [x] **Step 4: Confirm zero remaining `react`/`../types/types.js`/`../server/`/`../firebase_auth/`/`../config/` references anywhere in `packages/db/src`**
 
 ```bash
 grep -rln "from 'react'\|from '\.\./types\|from '\.\./server\|from '\.\./firebase_auth\|from '\.\./config" packages/db/src
@@ -1155,7 +1155,7 @@ grep -rln "from 'react'\|from '\.\./types\|from '\.\./server\|from '\.\./firebas
 
 Expected: no output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/db
@@ -1181,11 +1181,11 @@ This is the last and largest logic change: `context.ts`'s three Firebase dynamic
 - Produces: `withPublicDb<T>(fn, dbConfig: DbConfig) => Promise<T>`, `withUserDb<T>(fn, auth, dbConfig: DbConfig) => Promise<T>`, `resolveUserDbCredentials(dbConfig: DbConfig) => Promise<UserDbCredentials>`, types `DrizzleDb`, `UserDbCredentials`, `TransactionResult` — **note the signature change**: the third/second parameter, `dbOverride?: DbRoutingConfig` in the current main-package code, becomes a **required** `dbConfig: DbConfig` here (this package has no `@intl-config` to fall back to). `packages/cloudflare-next-intl/src/db/context.ts` (Task 11) is what re-introduces the optional/`@intl-config`-backed signature existing consumers rely on.
 - Produces (barrel): `packages/db/src/index.ts` re-exports `withPublicDb`, `withUserDb`, `resolveUserDbCredentials`, `withDbClient`, `connectToPostgres`, `disconnectPostgres`, `resetConnectionState`, `withSessionLock`, and types `DrizzleDb`, `UserDbCredentials`, `TransactionResult`, `DbConfig`, `DbRoutingConfig`, `SupabaseDbConfig`, `AuthUserResolverResult`.
 
-- [ ] **Step 1: Delete `resolve_db_config.ts` from the move list — it is not moved**
+- [x] **Step 1: Delete `resolve_db_config.ts` from the move list — it is not moved**
 
 Confirm it is not copied — `packages/cloudflare-next-intl/src/db/resolve_db_config.ts`'s entire job is the `@intl-config` dynamic import, which has no equivalent in this package. `packages/db`'s `withPublicDb`/`withUserDb`/`resolveUserDbCredentials` all take a plain, already-resolved `DbConfig` object directly — there is nothing left for a `resolve_db_config.ts` in this package to do. (`packages/cloudflare-next-intl/src/db/resolve_db_config.ts` keeps existing, unchanged in its own package — Task 11.)
 
-- [ ] **Step 2: Write the failing test for the rewritten Firebase-auth call sites**
+- [x] **Step 2: Write the failing test for the rewritten Firebase-auth call sites**
 
 Add these cases to the moved `packages/db/src/context.test.ts` (find its existing `resolveUserDbCredentials`/`withUserDb` describe blocks and add alongside):
 
@@ -1231,7 +1231,7 @@ describe('resolveUserDbCredentials with resolveAuthUser', () => {
 
 (`withUserDb`'s own existing test cases that exercise `resolveUserId`/`resolveAuthenticatedRole` via `config.firebaseAuth` — grep `context.test.ts` for `firebaseAuth` — get their fixtures' `firebaseAuth: {...}` field replaced by an equivalent `resolveAuthUser: async () => ({...})` field, same assertions.)
 
-- [ ] **Step 3: Run to verify the new cases fail**
+- [x] **Step 3: Run to verify the new cases fail**
 
 ```bash
 cd packages/db && npx vitest run src/context.test.ts
@@ -1239,7 +1239,7 @@ cd packages/db && npx vitest run src/context.test.ts
 
 Expected: FAIL — `context.ts` not yet moved/rewritten (or, if run against the stale copy, the new `resolveAuthUser`-based fixtures don't match the still-`firebaseAuth`-based implementation).
 
-- [ ] **Step 4: Move `context.ts` and rewrite its three call sites**
+- [x] **Step 4: Move `context.ts` and rewrite its three call sites**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/context.ts packages/db/src/context.ts
@@ -1393,7 +1393,7 @@ export async function resolveUserDbCredentials(config: DbConfig): Promise<UserDb
 
 Everything below each of those three lines in every function is unchanged.
 
-- [ ] **Step 5: Update `context.test.ts` call sites for the new required-`config` signatures**
+- [x] **Step 5: Update `context.test.ts` call sites for the new required-`config` signatures**
 
 Every existing call in `context.test.ts` of the shape `withPublicDb(fn, { connectionString: '...' })` (passing a bare `DbRoutingConfig` as the old optional `dbOverride`) becomes `withPublicDb(fn, { db: { connectionString: '...' } })` (passing the full `DbConfig`). Grep and update each call site:
 
@@ -1409,7 +1409,7 @@ Also move `build_only_db.test.ts` unedited (it only exercises `buildOnlyDb`'s "a
 cp packages/cloudflare-next-intl/src/db/build_only_db.test.ts packages/db/src/build_only_db.test.ts
 ```
 
-- [ ] **Step 6: Run context tests to verify green**
+- [x] **Step 6: Run context tests to verify green**
 
 ```bash
 cd packages/db && npx vitest run src/context.test.ts src/build_only_db.test.ts
@@ -1417,7 +1417,7 @@ cd packages/db && npx vitest run src/context.test.ts src/build_only_db.test.ts
 
 Expected: PASS, 100% coverage on `context.ts`.
 
-- [ ] **Step 7: Move `testing.ts` and `helpers.ts` + tests (pure, no changes)**
+- [x] **Step 7: Move `testing.ts` and `helpers.ts` + tests (pure, no changes)**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/testing.ts packages/db/src/testing.ts
@@ -1434,7 +1434,7 @@ grep -n "^import" packages/db/src/testing.ts packages/db/src/helpers.ts
 
 Expected: `testing.ts` has no cross-file imports; `helpers.ts` only imports from `drizzle-orm` and `drizzle-orm/pg-core` (re-exports query-building primitives and helpers, no local relative imports). Both tests pass directly.
 
-- [ ] **Step 8: Write the barrel `packages/db/src/index.ts`**
+- [x] **Step 8: Write the barrel `packages/db/src/index.ts`**
 
 ```ts
 /**
@@ -1471,7 +1471,7 @@ export type {
 
 Delete the Task 1 stub content (`export * from './schema.js';`) — `schema` moves to its own `./schema` subpath (already declared in `package.json#exports` since Task 1), not the root barrel (matches the main package's own convention: `db.md`'s "Helper subpaths" are separate from the root `./db` barrel).
 
-- [ ] **Step 9: Move `index.test.ts`, adapt for the new barrel**
+- [x] **Step 9: Move `index.test.ts`, adapt for the new barrel**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/index.test.ts packages/db/src/index.test.ts
@@ -1479,7 +1479,7 @@ cp packages/cloudflare-next-intl/src/db/index.test.ts packages/db/src/index.test
 
 The main package's `src/db/index.test.ts` (462 bytes — likely just asserts the barrel exports the expected named exports) needs its expected-exports list updated to match the barrel above (drop nothing, the export names are identical — only the import path inside the test file, `from './index.js'`, needs no change since it already resolves within `packages/db`).
 
-- [ ] **Step 10: Full build + test + publish checks**
+- [x] **Step 10: Full build + test + publish checks**
 
 ```bash
 cd packages/db && npm run build && npm test && npm run check:exports && npm run check:size
@@ -1487,7 +1487,7 @@ cd packages/db && npm run build && npm test && npm run check:exports && npm run 
 
 Expected: all green, 100% coverage overall.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add packages/db
@@ -1508,7 +1508,7 @@ git commit -m "feat(packages/db): rewrite context.ts around resolveAuthUser, add
 **Interfaces:**
 - Produces: `installExecFile`, `InstallExecFile`, `InstallExecOutcome` (`install_exec.ts`) and codegen path-resolution helpers (`codegen_paths.ts`) — consumed by the moved `bin/db_codegen.mjs`/`bin/db_install_exec.mjs`.
 
-- [ ] **Step 1: Move `codegen_paths.ts` + test**
+- [x] **Step 1: Move `codegen_paths.ts` + test**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/codegen_paths.ts packages/db/src/codegen_paths.ts
@@ -1521,14 +1521,14 @@ grep -n "from '\.\./types/types.js'" packages/db/src/codegen_paths.ts
 ```
 If present, replace `'../types/types.js'` with `'./types.js'`.
 
-- [ ] **Step 2: Move `install_exec.ts` + test (unchanged — confirmed pure, `node:fs`/`node:path` only)**
+- [x] **Step 2: Move `install_exec.ts` + test (unchanged — confirmed pure, `node:fs`/`node:path` only)**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/install_exec.ts packages/db/src/install_exec.ts
 cp packages/cloudflare-next-intl/src/db/install_exec.test.ts packages/db/src/install_exec.test.ts
 ```
 
-- [ ] **Step 3: Move the 5 `bin/` scripts**
+- [x] **Step 3: Move the 5 `bin/` scripts**
 
 ```bash
 mkdir -p packages/db/bin
@@ -1545,7 +1545,7 @@ grep -n "require(\|import(\|from '\.\./" packages/db/bin/*.mjs
 
 For every reference of the form `../dist/src/db/<name>.js`, change to `../dist/src/<name>.js` (one fewer `db/` path segment, since `packages/db/src/*.ts` has no `db/` subfolder the way `packages/cloudflare-next-intl/src/db/*.ts` did). For every reference to `../supabase/cfni_exec.sql` or `../supabase/tests/cfni_exec.sql`, no change needed — that relative path is unchanged (`packages/db/supabase/...` sits at the same relative position to `packages/db/bin/...` as `packages/cloudflare-next-intl/supabase/...` did to `packages/cloudflare-next-intl/bin/...`).
 
-- [ ] **Step 4: Move `supabase/*.sql`**
+- [x] **Step 4: Move `supabase/*.sql`**
 
 ```bash
 mkdir -p packages/db/supabase/tests
@@ -1553,7 +1553,7 @@ cp packages/cloudflare-next-intl/supabase/cfni_exec.sql packages/db/supabase/cfn
 cp packages/cloudflare-next-intl/supabase/tests/cfni_exec.sql packages/db/supabase/tests/cfni_exec.sql
 ```
 
-- [ ] **Step 5: Move `cfni_exec.integration.test.ts` and `db_performance.bench.ts`**
+- [x] **Step 5: Move `cfni_exec.integration.test.ts` and `db_performance.bench.ts`**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/cfni_exec.integration.test.ts packages/db/src/cfni_exec.integration.test.ts
@@ -1562,7 +1562,7 @@ cp packages/cloudflare-next-intl/src/db/db_performance.bench.ts packages/db/src/
 
 Fix any `../types/types.js`/`../bin/`/`../supabase/` path references the same way as prior steps (grep first, edit only real matches).
 
-- [ ] **Step 6: Build and run the full test + bench + integration suite**
+- [x] **Step 6: Build and run the full test + bench + integration suite**
 
 ```bash
 cd packages/db && npm run build && npm test
@@ -1572,7 +1572,7 @@ node bin/db_install_exec.mjs --help
 
 Expected: `npm test` green at 100% coverage; both bin scripts print usage without crashing on a missing-arg path (confirms their internal relative imports resolve correctly post-move — this is the real regression risk in this task, since it's the one place a wrong relative path fails silently at require-time rather than at `tsc` build-time).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/db
@@ -1590,7 +1590,7 @@ git commit -m "feat(packages/db): move codegen/install-exec, bin scripts, and cf
 **Interfaces:**
 - Produces: default export `dbEslintConfig` (an ESLint flat-config array) at `@cloudflare-next-intl/db/eslint`.
 
-- [ ] **Step 1: Write the failing test for the updated pattern**
+- [x] **Step 1: Write the failing test for the updated pattern**
 
 Edit the moved `packages/db/src/eslint_config.test.ts`'s existing assertion that checks the `patterns` array (currently expecting `'cloudflare-next-intl/dist/*'`) to expect `'@cloudflare-next-intl/db/dist/*'` instead — find the relevant `expect(...)` line via:
 
@@ -1600,7 +1600,7 @@ grep -n "cloudflare-next-intl/dist" packages/cloudflare-next-intl/src/db/eslint_
 
 and change that literal string in the copied test to `'@cloudflare-next-intl/db/dist/*'`.
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 ```bash
 cp packages/cloudflare-next-intl/src/db/eslint_config.ts packages/db/src/eslint_config.ts
@@ -1611,7 +1611,7 @@ cd packages/db && npx vitest run src/eslint_config.test.ts
 
 Expected: FAIL — `packages/db/src/eslint_config.ts` still has the old pattern string.
 
-- [ ] **Step 3: Update `packages/db/src/eslint_config.ts`**
+- [x] **Step 3: Update `packages/db/src/eslint_config.ts`**
 
 Change:
 ```ts
@@ -1624,7 +1624,7 @@ to:
 
 (Keeping the old pattern too — a project that still imports the main package's `./db` re-export and reaches into its `dist/` directly should still be caught; the new pattern catches the same mistake against the new package directly.)
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 cd packages/db && npx vitest run src/eslint_config.test.ts
@@ -1632,13 +1632,13 @@ cd packages/db && npx vitest run src/eslint_config.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Build full package**
+- [x] **Step 5: Build full package**
 
 ```bash
 cd packages/db && npm run build && npm test && npm run check:exports && npm run check:size
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/db
@@ -1657,7 +1657,7 @@ git commit -m "feat(packages/db): move eslint_config.ts, restrict both package's
 **Interfaces:**
 - Produces: final `packages/db/package.json#exports` map — `.`, `./helpers`, `./schema`, `./testing`, `./eslint`, plus every `bin` entry already declared in Task 1.
 
-- [ ] **Step 1: Confirm the exports map already matches what was built**
+- [x] **Step 1: Confirm the exports map already matches what was built**
 
 Task 1 already declared `.`, `./helpers`, `./schema`, `./testing`, `./eslint` — no new subpaths were added in Tasks 2–9 (everything else moved is either an internal implementation file reached only via those five subpaths' barrels, or a `bin/` CLI script). Verify:
 
@@ -1667,7 +1667,7 @@ cd packages/db && npm run check:exports
 
 Expected: `OK: 5/5 export targets import cleanly` (no skips — this package has no `@intl-config`).
 
-- [ ] **Step 2: Expand `README.md` and `llms.txt` with real usage**
+- [x] **Step 2: Expand `README.md` and `llms.txt` with real usage**
 
 Append to `packages/db/README.md` (after the existing "Subpaths" section from Task 1):
 
@@ -1692,7 +1692,7 @@ second argument instead and skip `resolveAuthUser` entirely.
 
 Append the same example (without the markdown fencing) to `packages/db/llms.txt`.
 
-- [ ] **Step 3: Update GitHub Actions workflows to test/publish both packages**
+- [x] **Step 3: Update GitHub Actions workflows to test/publish both packages**
 
 Update the existing workflow files in `.github/workflows/` so each workflow handles both `packages/cloudflare-next-intl` and `packages/db` as two parallel/sequential jobs:
 
@@ -1818,7 +1818,7 @@ jobs:
       working_directory: packages/cloudflare-next-intl
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/db .github/workflows
@@ -1846,7 +1846,7 @@ This is the task that must not break anything. `packages/cloudflare-next-intl/sr
 - Consumes: `@cloudflare-next-intl/db`'s full barrel + `./helpers`/`./schema`/`./testing`/`./eslint` subpaths (Tasks 1–10).
 - Produces (unchanged from today): `withPublicDb<T>(fn, dbOverride?: DbRoutingConfig): Promise<T>`, `withUserDb<T>(fn, auth?, dbOverride?: DbRoutingConfig): Promise<T>`, `resolveUserDbCredentials(dbOverride?: DbRoutingConfig): Promise<UserDbCredentials>`, `withDbClient`, `connectToPostgres`, `disconnectPostgres`, `resetConnectionState` — every signature identical to the pre-extraction version; `DbRoutingConfig` re-exported (originally defined) from `types/types.ts`, now itself re-exported from `@cloudflare-next-intl/db`.
 
-- [ ] **Step 1: Add the dependency**
+- [x] **Step 1: Add the dependency**
 
 Edit `packages/cloudflare-next-intl/package.json`'s `dependencies` block — remove `@supabase/supabase-js`, `drizzle-kit`, `drizzle-orm`, `embedded-postgres`, `pg` (verified in plan research: every use of these 5 packages inside `packages/cloudflare-next-intl/src/**`/`packages/cloudflare-next-intl/bin/**` was inside `src/db/**` or `bin/db_codegen.mjs`/`bin/db_install_exec.mjs`/`bin/ephemeral_pg.mjs`, all now moved), add:
 
@@ -1867,7 +1867,7 @@ Resulting `dependencies` block:
 
 Also remove the now-unused `@types/pg` from `devDependencies` (it was only needed for `pg`'s types, used solely inside the old `src/db/connection.ts`).
 
-- [ ] **Step 2: Update `types/types.ts` to re-export from the sub-package**
+- [x] **Step 2: Update `types/types.ts` to re-export from the sub-package**
 
 Find `DbRoutingConfig`, `SupabaseDbConfig`, `FallibleConfigValue` in `packages/cloudflare-next-intl/src/types/types.ts` (lines ~1022, ~1024, ~1063 per plan research) and replace their local `export interface`/`export type` declarations with:
 
@@ -1877,7 +1877,7 @@ export type { DbRoutingConfig, SupabaseDbConfig, FallibleConfigValue } from '@cl
 
 placed at the same location in the file (keep every doc comment that preceded them — copy those comments up onto this one re-export line, condensed, since TypeDoc/IDE hover for consumers of `cloudflare-next-intl`'s own `DbRoutingConfig` re-export should still show useful docs — or leave the full original doc comments in `packages/db/src/types.ts` from Task 2 as the canonical source and just note here `/** See `@cloudflare-next-intl/db`'s `DbRoutingConfig` for field docs. */` above the re-export line, since duplicating every field doc comment twice is a maintenance trap).
 
-- [ ] **Step 3: Rewrite `packages/cloudflare-next-intl/src/db/resolve_db_config.ts` to also build `resolveAuthUser`**
+- [x] **Step 3: Rewrite `packages/cloudflare-next-intl/src/db/resolve_db_config.ts` to also build `resolveAuthUser`**
 
 Current file (unchanged so far):
 ```ts
@@ -1937,11 +1937,11 @@ export default async function resolveDbConfig(dbOverride?: DbRoutingConfig): Pro
 
 (`RoutingConfig` here is the main package's existing full top-level config type from `types/types.ts` — not shown in full in plan research but referenced throughout the codebase as the shape `@intl-config`'s default export satisfies; verify its exact export name via `grep -n "^export interface RoutingConfig" packages/cloudflare-next-intl/src/types/types.ts` before writing this import, in case it's named differently.)
 
-- [ ] **Step 4: Update `resolve_db_config.test.ts`**
+- [x] **Step 4: Update `resolve_db_config.test.ts`**
 
 Add a case asserting `resolveAuthUser` is set when `@intl-config`'s mock (`src/test_utils/mock_intl_config.ts`, aliased in `vitest.config.ts`) has `firebaseAuth` configured, and unset when it doesn't — mirroring the existing test's structure (it already mocks `@intl-config` per `vitest.config.ts`'s alias). Keep every existing assertion (dbOverride wins over `@intl-config`, empty base when the alias throws) unchanged.
 
-- [ ] **Step 5: Rewrite `packages/cloudflare-next-intl/src/db/connection.ts` as pure re-exports**
+- [x] **Step 5: Rewrite `packages/cloudflare-next-intl/src/db/connection.ts` as pure re-exports**
 
 Replace the entire file:
 
@@ -1958,13 +1958,13 @@ export type { DbConfig } from '@cloudflare-next-intl/db';
 
 Delete `packages/cloudflare-next-intl/src/db/connection.test.ts` (0% new logic to cover — a re-export file has no branches; add it to `vitest.config.ts`'s coverage `exclude`, same treatment as any other barrel file in this codebase per `structure.md`: "barrels are excluded from coverage").
 
-- [ ] **Step 6: Delete `packages/cloudflare-next-intl/src/db/access_token.ts` and its test**
+- [x] **Step 6: Delete `packages/cloudflare-next-intl/src/db/access_token.ts` and its test**
 
 ```bash
 rm packages/cloudflare-next-intl/src/db/access_token.ts packages/cloudflare-next-intl/src/db/access_token.test.ts
 ```
 
-- [ ] **Step 7: Rewrite `packages/cloudflare-next-intl/src/db/context.ts`**
+- [x] **Step 7: Rewrite `packages/cloudflare-next-intl/src/db/context.ts`**
 
 Replace the entire 446-line file with a thin wrapper around `resolveDbConfig`:
 
@@ -2011,7 +2011,7 @@ export async function resolveUserDbCredentials(dbOverride?: DbRoutingConfig): Pr
 }
 ```
 
-- [ ] **Step 8: Rewrite `packages/cloudflare-next-intl/src/db/context.test.ts`**
+- [x] **Step 8: Rewrite `packages/cloudflare-next-intl/src/db/context.test.ts`**
 
 Replace its ~42KB of transaction/session/proxy test coverage (now living in `packages/db/src/context.test.ts`, already 100%-covered there) with a small, focused suite proving the wrapper delegates correctly:
 
@@ -2060,7 +2060,7 @@ describe('context.ts wrapper', () => {
 });
 ```
 
-- [ ] **Step 9: Rewrite `helpers.ts`, `schema.ts`, `testing.ts`, `eslint_config.ts` as re-exports**
+- [x] **Step 9: Rewrite `helpers.ts`, `schema.ts`, `testing.ts`, `eslint_config.ts` as re-exports**
 
 ```bash
 cat > packages/cloudflare-next-intl/src/db/helpers.ts <<'EOF'
@@ -2079,7 +2079,7 @@ EOF
 
 Delete their old `.test.ts` files (100%-covered already inside `packages/db`) and add all four to `packages/cloudflare-next-intl/vitest.config.ts`'s coverage `exclude` list as barrel/re-export files.
 
-- [ ] **Step 10: Update `packages/cloudflare-next-intl/src/db/index.ts`**
+- [x] **Step 10: Update `packages/cloudflare-next-intl/src/db/index.ts`**
 
 The barrel's export list is unchanged — only its own doc comment's "load through dynamic `import()`" note needs one clause added, since that's now literally true one level removed (via `@cloudflare-next-intl/db`, not directly). Minimal edit: no code change to the `export { ... } from './context.js'` / `export { ... } from './connection.js'` lines at all (they already point at the right local files, which now re-export from the sub-package) — only append one sentence to the top doc comment:
 
@@ -2092,7 +2092,7 @@ The barrel's export list is unchanged — only its own doc comment's "load throu
 ```
 inserted right after the file's existing opening doc-comment paragraph.
 
-- [ ] **Step 11: Delete the now-redundant test files, update `index.test.ts`**
+- [x] **Step 11: Delete the now-redundant test files, update `index.test.ts`**
 
 ```bash
 cd packages/cloudflare-next-intl/src/db
@@ -2111,7 +2111,7 @@ cd -
 
 `packages/cloudflare-next-intl/src/db/index.test.ts` — its existing "does not accidentally export X" style assertions (matching `src/index.test.ts`'s pattern seen in plan research) need no change: it tests what `db/index.ts` exports, and that list is unchanged.
 
-- [ ] **Step 12: Move `packages/cloudflare-next-intl/bin/db_codegen.mjs` and `db_install_exec.mjs` to re-exec shims**
+- [x] **Step 12: Move `packages/cloudflare-next-intl/bin/db_codegen.mjs` and `db_install_exec.mjs` to re-exec shims**
 
 Replace `packages/cloudflare-next-intl/bin/db_codegen.mjs`:
 
@@ -2130,7 +2130,7 @@ await import(new URL('../bin/db_codegen.mjs', target).href);
 
 Replace `packages/cloudflare-next-intl/bin/db_install_exec.mjs` with the same shim pattern, importing `../bin/db_install_exec.mjs` relative to `@cloudflare-next-intl/db/package.json` instead.
 
-- [ ] **Step 13: Install, build, test everything**
+- [x] **Step 13: Install, build, test everything**
 
 ```bash
 cd package && npm install && npm run build && npm test
@@ -2138,7 +2138,7 @@ cd package && npm install && npm run build && npm test
 
 Expected: green. Coverage config note — `packages/cloudflare-next-intl/vitest.config.ts`'s per-file exception list (the one baked into `.github/workflows/package-test-coverage.yaml`'s `per_file_exceptions`) needs no new entries; every remaining file in `src/db/**` is either a re-export barrel (excluded from coverage, Step 5/9) or the new `context.ts`/`resolve_db_config.ts` (both fully covered by Steps 4/8's new tests).
 
-- [ ] **Step 14: Run the full package-level checks**
+- [x] **Step 14: Run the full package-level checks**
 
 ```bash
 npm run check:exports
@@ -2147,7 +2147,7 @@ npm run check:size
 
 Expected: `check:exports` still `OK: <N>/<N>` with the `@intl-config` skip line present (unchanged — this package still has `@intl-config`). `check:size` reports fewer `dependencies` than before (5 vs. the original 8: `@microsoft/clarity`, `jose`, `sharp`, plus the 4 `@firebase/*` scoped peer... wait peer deps aren't counted by this script — just confirms `pg`/`drizzle-orm`/`drizzle-kit`/`embedded-postgres`/`@supabase/supabase-js` no longer appear, and `@cloudflare-next-intl/db` is not itself banned).
 
-- [ ] **Step 15: Commit**
+- [x] **Step 15: Commit**
 
 ```bash
 git add package
@@ -2161,7 +2161,7 @@ git commit -m "refactor(db): delegate cloudflare-next-intl's db module to @cloud
 **Files:**
 - Modify: none expected (verification-only task) — if `example/` imports anything from `cloudflare-next-intl/db`, confirm it still resolves; if it doesn't, this task adds a minimal smoke usage.
 
-- [ ] **Step 1: Reinstall and build the example app against both local packages**
+- [x] **Step 1: Reinstall and build the example app against both local packages**
 
 ```bash
 cd example && rm -rf node_modules && npm install && npm run build
@@ -2169,7 +2169,7 @@ cd example && rm -rf node_modules && npm install && npm run build
 
 Expected: succeeds — `example/package.json`'s `"cloudflare-next-intl": "file:./package"` resolves `packages/cloudflare-next-intl/`'s own `"@cloudflare-next-intl/db": "file:../packages/db"` transitively; npm's nested `file:` resolution handles this without workspaces (confirms the plan's "no workspaces needed" architectural choice actually works end to end, not just in theory).
 
-- [ ] **Step 2: If `example/` has no existing db usage, add a minimal smoke import**
+- [x] **Step 2: If `example/` has no existing db usage, add a minimal smoke import**
 
 ```bash
 grep -rl "cloudflare-next-intl/db" example/src 2>/dev/null
@@ -2193,7 +2193,7 @@ export async function GET() {
 }
 ```
 
-- [ ] **Step 3: Rebuild and confirm the route compiles**
+- [x] **Step 3: Rebuild and confirm the route compiles**
 
 ```bash
 cd example && npm run build
@@ -2201,7 +2201,7 @@ cd example && npm run build
 
 Expected: build succeeds, confirming `cloudflare-next-intl/db`'s public import path still resolves through the new delegation chain in a real Next.js build (not just under `tsc`/Vitest).
 
-- [ ] **Step 4: Deno import smoke test for the new package (manual — cannot fully verify pre-publish)**
+- [x] **Step 4: Deno import smoke test for the new package (manual — cannot fully verify pre-publish)**
 
 ```bash
 cd packages/db && npm pack --dry-run 2>&1 | tail -5
@@ -2209,7 +2209,7 @@ cd packages/db && npm pack --dry-run 2>&1 | tail -5
 
 Note in the commit message / PR description that a real `npm:@cloudflare-next-intl/db` Deno import smoke test (`deno run --allow-net --allow-env` importing `withPublicDb`, confirming no `react`/`next`/`@firebase/*` appear in the resolved `node_modules`) must be run once this package is actually published — it cannot be verified against an unpublished `file:` dependency the same way the earlier local `npm:cloudflare-next-intl@0.9.62/db` spike was (that ran against the real published registry tarball). Track this as a follow-up manual step post-publish, not a task here.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add example
