@@ -11,3 +11,18 @@ import { excluded, onConflictSet, ago } from "@cloudflare-next-intl/db/helpers";
 import { pgTableBuilder } from "@cloudflare-next-intl/db/schema";
 import { makeFakeDb } from "@cloudflare-next-intl/db/testing";
 import dbEslintConfig from "@cloudflare-next-intl/db/eslint";
+
+## Usage outside Next.js — e.g. a Deno Supabase Edge Function
+
+import { withPublicDb } from "npm:@cloudflare-next-intl/db";
+
+const rows = await withPublicDb(
+  (db) => db.select().from(articles),
+  { db: { supabase: { url: Deno.env.get("SUPABASE_URL"), anonKey: Deno.env.get("SUPABASE_ANON_KEY") } } },
+);
+
+No resolveAuthUser is needed for withPublicDb. For withUserDb, pass a
+resolveAuthUser callback backed by whatever your own auth system already
+gives you — e.g. decode the caller's own JWT and return { uid, getIdToken,
+getIdTokenResult } — or pass an explicit UserDbCredentials as withUserDb's
+second argument instead and skip resolveAuthUser entirely.

@@ -18,3 +18,20 @@ this package directly when you have neither.
 
 See the parent package's `db.md` (`.agent/.sub-rules/packages/db.md`) for
 the transport pipeline and supported REST subset — unchanged by this split.
+
+## Usage outside Next.js — e.g. a Deno Supabase Edge Function
+
+```ts
+import { withPublicDb } from "npm:@cloudflare-next-intl/db";
+
+const rows = await withPublicDb(
+  (db) => db.select().from(articles),
+  { db: { supabase: { url: Deno.env.get("SUPABASE_URL"), anonKey: Deno.env.get("SUPABASE_ANON_KEY") } } },
+);
+```
+
+No `resolveAuthUser` is needed for `withPublicDb`. For `withUserDb`, pass a
+`resolveAuthUser` callback backed by whatever your own auth system already
+gives you — e.g. decode the caller's own JWT and return `{ uid, getIdToken,
+getIdTokenResult }` — or pass an explicit `UserDbCredentials` as `withUserDb`'s
+second argument instead and skip `resolveAuthUser` entirely.
