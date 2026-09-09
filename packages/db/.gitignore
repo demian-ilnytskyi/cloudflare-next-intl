@@ -50,3 +50,5 @@ boundled/
 
 # cfni-db-codegen ephemeral Postgres fallback
 /.drizzle-ephemeral-pg
+
+dist/

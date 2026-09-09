@@ -13,7 +13,9 @@
   "files": ["dist", "bin", "supabase", "LICENSE", "README.md", "llms.txt"],
   "exports": {
     ".": { "types": "./dist/src/index.d.ts", "import": "./dist/src/index.js" },
-    "./schema": { "types": "./dist/src/schema.d.ts", "import": "./dist/src/schema.js" }
+    "./helpers": { "types": "./dist/src/helpers.d.ts", "import": "./dist/src/helpers.js" },
+    "./schema": { "types": "./dist/src/schema.d.ts", "import": "./dist/src/schema.js" },
+    "./testing": { "types": "./dist/src/testing.d.ts", "import": "./dist/src/testing.js" }
   },
   "scripts": {
     "test": "vitest run --coverage",
