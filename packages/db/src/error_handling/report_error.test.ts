@@ -220,4 +220,49 @@ describe('reportError', () => {
         await reportError({ errorHandling: { onError } }, params);
         expect(onError).toHaveBeenCalledTimes(2);
     });
+
+    it('folds params.params into the dedup key, deduping calls that share it and separating calls that do not', async () => {
+        const onError = vi.fn();
+        const error = new Error('dedup-boom6');
+        await reportError(
+            { errorHandling: { onError } },
+            { error, classOrMethodName: 'dedupTest6', params: { a: 1 } },
+        );
+        await reportError(
+            { errorHandling: { onError } },
+            { error, classOrMethodName: 'dedupTest6', params: { a: 1 } },
+        );
+        expect(onError).toHaveBeenCalledTimes(1);
+        await reportError(
+            { errorHandling: { onError } },
+            { error, classOrMethodName: 'dedupTest6', params: { a: 2 } },
+        );
+        expect(onError).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe('ignore lists', () => {
+    it('skips both onError and the console log entirely when the error message matches ignoreConsoleErrors', async () => {
+        const onError = vi.fn();
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        await reportError(
+            { errorHandling: { onError, ignoreConsoleErrors: ['ignored-marker'] } },
+            { error: new Error('contains ignored-marker text'), classOrMethodName: 'x' },
+        );
+        expect(onError).not.toHaveBeenCalled();
+        expect(consoleErrorSpy).not.toHaveBeenCalled();
+        consoleErrorSpy.mockRestore();
+    });
+
+    it('skips both onError and the console log entirely when ignoreConsoleError(stringified) returns true', async () => {
+        const onError = vi.fn();
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        await reportError(
+            { errorHandling: { onError, ignoreConsoleError: () => true } },
+            { error: new Error('anything'), classOrMethodName: 'x' },
+        );
+        expect(onError).not.toHaveBeenCalled();
+        expect(consoleErrorSpy).not.toHaveBeenCalled();
+        consoleErrorSpy.mockRestore();
+    });
 });
