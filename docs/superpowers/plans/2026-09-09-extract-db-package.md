@@ -1692,26 +1692,47 @@ second argument instead and skip `resolveAuthUser` entirely.
 
 Append the same example (without the markdown fencing) to `packages/db/llms.txt`.
 
-- [ ] **Step 3: Add the three GitHub Actions workflow files**
+- [ ] **Step 3: Update GitHub Actions workflows to test/publish both packages**
 
-`.github/workflows/packages/db-test-coverage.yaml`:
+Update the existing workflow files in `.github/workflows/` so each workflow handles both `packages/cloudflare-next-intl` and `packages/db` as two parallel/sequential jobs:
+
+`.github/workflows/package-test-coverage.yaml`:
 
 ```yaml
-name: DB Package CI - Build and Test
+name: CI - Build and Test
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "packages/db/**"
+      - "packages/**"
     branches: [main]
 
 concurrency:
-  group: packages/db-ci-$
+  group: ci-$
   cancel-in-progress: true
 
 jobs:
-  build_tests:
+  build_tests_cloudflare_next_intl:
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
+    secrets: inherit
+    with:
+      project_type: nextjs
+      working_directory: packages/cloudflare-next-intl
+      test_path: src
+      min_coverage: 100
+      min_overall_coverage: 99
+      per_file_exceptions: |
+        general/general_functions.ts:87
+        config/middleware.ts:93
+        errors_board/client/error_detail_view.tsx:96
+        vite/auto_dynamic_pages_plugin.ts:98
+        vite/auto_locale_params_plugin.ts:98
+        locale_params_check/insert_locale_params.ts:97
+        vite/vinext_route_wiring_fix.ts:98
+      run_bench: true
+
+  build_tests_db:
     uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
     secrets: inherit
     with:
@@ -1723,25 +1744,43 @@ jobs:
       run_bench: true
 ```
 
-`.github/workflows/packages/db-push-code-coverage.yaml`:
+`.github/workflows/package-push-code-coverage.yaml`:
 
 ```yaml
-name: DB Package Push Code Coverage
+name: Push Code Coverage
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - "packages/db/**"
+      - "packages/**"
     branches:
       - main
 
 concurrency:
-  group: packages/db-generate-code-coverage
+  group: generate-code-coverage
   cancel-in-progress: true
 
 jobs:
-  push_code_coverage:
+  push_code_coverage_cloudflare_next_intl:
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_push_code_coverage.yml@main
+    secrets: inherit
+    with:
+      project_type: nextjs
+      working_directory: packages/cloudflare-next-intl
+      test_path: src
+      min_coverage: 100
+      min_overall_coverage: 99
+      per_file_exceptions: |
+        general/general_functions.ts:87
+        config/middleware.ts:93
+        errors_board/client/error_detail_view.tsx:96
+        vite/auto_dynamic_pages_plugin.ts:98
+        vite/auto_locale_params_plugin.ts:98
+        locale_params_check/insert_locale_params.ts:97
+        vite/vinext_route_wiring_fix.ts:98
+
+  push_code_coverage_db:
     uses: demian-ilnytskyi/workflows/.github/workflows/package_push_code_coverage.yml@main
     secrets: inherit
     with:
@@ -1752,33 +1791,38 @@ jobs:
       min_overall_coverage: 100
 ```
 
-`.github/workflows/packages/db-publish.yaml`:
+`.github/workflows/package-publish.yaml`:
 
 ```yaml
-name: DB Package CD - Publish
+name: CD - Publish Package
 
 on:
   workflow_dispatch:
 
 concurrency:
-  group: packages/db-cd-publish
+  group: cd-publish
   cancel-in-progress: false
 
 jobs:
-  publish:
+  publish_db:
     uses: demian-ilnytskyi/workflows/.github/workflows/package_publish.yml@main
     secrets: inherit
     with:
       working_directory: packages/db
-```
 
-`project_type: node` (not `nextjs`, the value the main package's workflows use) — confirm with whoever owns `demian-ilnytskyi/workflows` that `package_ci_build_and_test.yml`/`package_push_code_coverage.yml` support a plain-Node `project_type` before merging; if only `nextjs` is currently supported, this step blocks on a small change to that shared workflow repo first (out of scope for this plan — flag it, don't silently reuse `nextjs` for a package with no Next.js in it).
+  publish_cloudflare_next_intl:
+    needs: [publish_db]
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_publish.yml@main
+    secrets: inherit
+    with:
+      working_directory: packages/cloudflare-next-intl
+```
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add packages/db .github/workflows
-git commit -m "docs(packages/db): finalize README/llms.txt, add CI workflows"
+git commit -m "docs(packages/db): finalize README/llms.txt, update workflows for both packages"
 ```
 
 ---
