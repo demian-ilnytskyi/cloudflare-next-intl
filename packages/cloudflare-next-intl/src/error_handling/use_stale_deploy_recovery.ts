@@ -2,7 +2,30 @@
 
 import { useEffect, useState } from 'react';
 import isStaleDeployError from './is_stale_deploy_error.js';
+import { extractLowercaseMessage, messageMatchesAnyPattern } from './match_error_message.js';
 import clearClientCache from './clear_client_cache.js';
+
+/**
+ * A private refinement of `isStaleDeployError`, not a second public
+ * classifier — every consumer of this package still only ever calls
+ * `isStaleDeployError`. Exists because ONE of its patterns needs different
+ * handling than the rest, right here, and only here:
+ *
+ * Firefox's `Error in input stream` (an RSC stream read the browser itself
+ * aborted because a navigation is already replacing this tree) is correctly
+ * `isStaleDeployError`-true — same "show loading, don't report" contract as
+ * a real stale deploy — but reloading FOR it, this hook's actual job, would
+ * be actively wrong: it would re-fetch the page the visitor is already
+ * leaving, not the one a stale deploy actually broke. So this list is
+ * checked in ADDITION to `isStaleDeployError`, never instead of it, purely
+ * to decide `shouldReload` below.
+ */
+const NO_RELOAD_PATTERNS: readonly string[] = ['error in input stream'];
+
+function isRecoverableWithoutReload(error: unknown): boolean {
+    const message = extractLowercaseMessage(error);
+    return message !== null && messageMatchesAnyPattern(message, NO_RELOAD_PATTERNS);
+}
 
 const RECOVERY_RELOAD_KEY = 'stale-deploy-recovery-reloaded';
 const RECOVERY_TIME_KEY = 'stale-deploy-recovery-time';
@@ -142,10 +165,31 @@ export function performCacheBustReload(): void {
 }
 
 /**
+ * One `useState` initializer's worth of work: whether THIS error should show
+ * a loading state instead of the fallback UI, and — separately — whether
+ * that also means scheduling the reload below.
+ *
+ * `error in input stream` (see `isRecoverableWithoutReload` above) is
+ * ALWAYS `recovering: true`, with none of `canRecover`'s throttle/attempt
+ * bookkeeping applied to it: that machinery exists to eventually let a
+ * REAL, unrecoverable stale deploy fall through to the fallback UI rather
+ * than looping forever, and there is no equivalent point at which it would
+ * ever become correct to show that UI for a navigation the visitor already
+ * triggered themselves.
+ */
+function evaluateRecovery(error: unknown): { recovering: boolean; shouldReload: boolean } {
+    if (isRecoverableWithoutReload(error)) return { recovering: true, shouldReload: false };
+    const recovering = canRecover(error);
+    return { recovering, shouldReload: recovering };
+}
+
+/**
  * Detects a stale-deploy error and, once per build id (throttled to 15s), silently clears client
- * caches and reloads with cache-busting after `delayMs`. Returns whether a reload is pending so
- * the caller can render a loading state instead of the error UI while it
- * waits. `onRecover` runs before the reload (e.g. to clear server cookies via
+ * caches and reloads with cache-busting after `delayMs`. Also recognizes a
+ * navigation-cancelled error (see `evaluateRecovery` above) — same "show a
+ * loading state, don't report" contract, but never reloads for it. Returns
+ * whether to render a loading state instead of the error UI while it waits.
+ * `onRecover` runs before the reload (e.g. to clear server cookies via
  * a server action) and its rejection is ignored — cache clearing is
  * best-effort.
  */
@@ -154,12 +198,12 @@ export default function useStaleDeployRecovery(
     onRecover?: () => Promise<unknown>,
     delayMs = 1000,
 ): boolean {
-    const [recovering] = useState(() => canRecover(error));
+    const [{ recovering, shouldReload }] = useState(() => evaluateRecovery(error));
     const [initialOnRecover] = useState(() => onRecover);
     const [initialDelayMs] = useState(() => delayMs);
 
     useEffect(() => {
-        if (!recovering) return;
+        if (!shouldReload) return;
 
         const buildId = currentBuildId();
         const timeout = setTimeout(() => {
@@ -176,7 +220,7 @@ export default function useStaleDeployRecovery(
                 });
         }, initialDelayMs);
         return () => clearTimeout(timeout);
-    }, [recovering, initialOnRecover, initialDelayMs]);
+    }, [shouldReload, initialOnRecover, initialDelayMs]);
 
     return recovering;
 }

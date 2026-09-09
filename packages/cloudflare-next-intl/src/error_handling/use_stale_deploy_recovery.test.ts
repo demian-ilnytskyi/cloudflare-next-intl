@@ -598,6 +598,46 @@ describe('useStaleDeployRecovery', () => {
         expect(onRecover).toHaveBeenCalledTimes(1);
         expect(reloadMock).toHaveBeenCalledTimes(1);
     });
+
+    describe('navigation-cancelled errors — same "show loading, do not report" contract, but never reload', () => {
+        const navigationCancelledError = new TypeError('Error in input stream');
+
+        it('returns true immediately, with no build id / sessionStorage bookkeeping needed', async () => {
+            const onRecover = vi.fn().mockResolvedValue(undefined);
+            const { result } = renderHook(() => useStaleDeployRecovery(navigationCancelledError, onRecover, 1000));
+
+            expect(result.current).toBe(true);
+        });
+
+        it('never calls onRecover, clearClientCache, or reload — nothing is stale, so nothing needs fixing', async () => {
+            const onRecover = vi.fn().mockResolvedValue(undefined);
+            renderHook(() => useStaleDeployRecovery(navigationCancelledError, onRecover, 1000));
+
+            await act(async () => {
+                vi.advanceTimersByTime(5000);
+            });
+
+            expect(onRecover).not.toHaveBeenCalled();
+            expect(clearClientCacheSpy).not.toHaveBeenCalled();
+            expect(reloadMock).not.toHaveBeenCalled();
+        });
+
+        it('returns true even when the stale-deploy reload budget for this build is already exhausted', async () => {
+            window.localStorage.setItem('buildId', 'v1.0.0');
+            window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'v1.0.0');
+            window.sessionStorage.setItem('stale-deploy-recovery-count', '2');
+
+            const { result } = renderHook(() => useStaleDeployRecovery(navigationCancelledError, undefined, 1000));
+
+            expect(result.current).toBe(true);
+        });
+
+        it('is case-insensitive, matching isStaleDeployError\'s own contract', async () => {
+            const { result } = renderHook(() => useStaleDeployRecovery(new TypeError('ERROR IN INPUT STREAM'), undefined, 1000));
+
+            expect(result.current).toBe(true);
+        });
+    });
 });
 
 describe('performCacheBustReload', () => {

@@ -164,14 +164,25 @@ wire it as your `errorHandling.onError` in `intl_config.ts`, alongside
 
 ```ts
 import { recordError } from 'cloudflare-next-intl/errorsBoard';
+import { splitStringifiedError } from 'cloudflare-next-intl/errorHandling';
 
 async function onError(params) {
     const db = /* resolve env.ERRORS_DB same as getDb() above */;
+    // `params.error` is only ever a live `Error` for a server-side caller.
+    // A client-originated report (`reportClientError`) always arrives as a
+    // string — an `Error` instance cannot cross the report action's
+    // serialization boundary intact — so `instanceof Error` alone silently
+    // drops the stack for every client report. `splitStringifiedError`
+    // pulls it back out of the `name: message\n\nstack` string
+    // `stringifyUnknown` produced.
+    const { message, stack } = params.error instanceof Error
+        ? { message: params.error.message, stack: params.error.stack ?? null }
+        : splitStringifiedError(String(params.error));
     await recordError(db, {
         flavour: process.env.APP_FLAVOUR ?? 'local',
         caller: params.classOrMethodName,
-        message: params.error instanceof Error ? params.error.message : String(params.error),
-        stack: params.error instanceof Error ? params.error.stack ?? null : null,
+        message,
+        stack,
         params: params.params ? JSON.stringify(params.params) : null,
         isClient: params.isClient === true,
         userEmail: /* your own signed-in-user lookup, or null */,

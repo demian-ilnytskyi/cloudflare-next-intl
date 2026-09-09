@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import stringifyUnknown from './stringify_unknown.js';
+import stringifyUnknown, { splitStringifiedError } from './stringify_unknown.js';
 
 describe('stringifyUnknown', () => {
     afterEach(() => {
@@ -110,5 +110,38 @@ describe('stringifyUnknown', () => {
         const lazyWrapper = () => temporaryReference;
 
         expect(stringifyUnknown(lazyWrapper)).toBe('[React internal reference could not be resolved to a value]');
+    });
+});
+
+describe('splitStringifiedError', () => {
+    it('is the exact inverse of stringifyUnknown for an Error with a stack', () => {
+        const error = new Error('boom');
+        error.stack = 'Error: boom\n    at foo (file.ts:1:1)';
+
+        const { message, stack } = splitStringifiedError(stringifyUnknown(error));
+
+        expect(message).toBe('Error: boom');
+        expect(stack).toBe('Error: boom\n    at foo (file.ts:1:1)');
+    });
+
+    it('reports stack as null, not empty string, for an Error with no stack', () => {
+        const error = new Error('boom');
+        delete (error as { stack?: string }).stack;
+
+        const { message, stack } = splitStringifiedError(stringifyUnknown(error));
+
+        expect(message).toBe('Error: boom');
+        expect(stack).toBeNull();
+    });
+
+    it('splits only on the first occurrence, keeping a blank line inside the stack intact', () => {
+        const { message, stack } = splitStringifiedError('Error: boom\n\nat foo\n\nat bar');
+
+        expect(message).toBe('Error: boom');
+        expect(stack).toBe('at foo\n\nat bar');
+    });
+
+    it('returns the whole string as message with a null stack when there is no separator at all', () => {
+        expect(splitStringifiedError('plain string thrown')).toEqual({ message: 'plain string thrown', stack: null });
     });
 });

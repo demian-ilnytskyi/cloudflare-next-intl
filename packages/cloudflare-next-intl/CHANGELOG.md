@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.63] - 2026-09-10
+
+### Changed
+
+- `cloudflare-next-intl/db` and its `/dbHelpers`, `/dbTesting`, `/dbSchema`, `/dbEslint` subpaths now delegate to the standalone [`cloudflare-next-intl-db`](https://www.npmjs.com/package/cloudflare-next-intl-db) package instead of bundling the Postgres/Drizzle/Supabase data layer directly. This is an internal implementation change only — every export, import path, and runtime behavior stays the same; `cloudflare-next-intl-db` is pulled in automatically as a regular dependency.
+
 ## [0.9.62] - 2026-09-08
 
 ### Fixed

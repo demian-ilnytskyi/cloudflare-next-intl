@@ -174,6 +174,56 @@ describe('recordError', () => {
         const insertCall = db.calls.find((c) => c.sql.includes('INSERT INTO errors'));
         expect(insertCall!.bindings).toContain(null);
     });
+
+    describe('recovering a stack a caller failed to split out', () => {
+        it('splits message/stack back apart when stack is null and message looks like a stringifyUnknown Error', async () => {
+            const db = createFakeD1();
+            await recordError(db, {
+                flavour: 'prod',
+                caller: 'MyClass.method',
+                message: 'TypeError: boom\n\nTypeError: boom\n    at foo (file.ts:1:1)',
+                stack: null,
+                params: null,
+                isClient: true,
+                userEmail: null,
+            });
+            const insertCall = db.calls.find((c) => c.sql.includes('INSERT INTO errors'));
+            expect(insertCall!.bindings).toContain('TypeError: boom');
+            expect(insertCall!.bindings).toContain('TypeError: boom\n    at foo (file.ts:1:1)');
+        });
+
+        it('leaves message/stack untouched when the caller already split them', async () => {
+            const db = createFakeD1();
+            await recordError(db, {
+                flavour: 'prod',
+                caller: 'MyClass.method',
+                message: 'TypeError: boom',
+                stack: 'TypeError: boom\n    at foo (file.ts:1:1)',
+                params: null,
+                isClient: true,
+                userEmail: null,
+            });
+            const insertCall = db.calls.find((c) => c.sql.includes('INSERT INTO errors'));
+            expect(insertCall!.bindings).toContain('TypeError: boom');
+            expect(insertCall!.bindings).toContain('TypeError: boom\n    at foo (file.ts:1:1)');
+        });
+
+        it('stays null when stack is null and message genuinely has nothing to split off', async () => {
+            const db = createFakeD1();
+            await recordError(db, {
+                flavour: 'prod',
+                caller: 'MyClass.method',
+                message: 'TypeError: boom',
+                stack: null,
+                params: null,
+                isClient: true,
+                userEmail: null,
+            });
+            const insertCall = db.calls.find((c) => c.sql.includes('INSERT INTO errors'));
+            expect(insertCall!.bindings).toContain('TypeError: boom');
+            expect(insertCall!.bindings).toContain(null);
+        });
+    });
 });
 
 describe('listErrors', () => {

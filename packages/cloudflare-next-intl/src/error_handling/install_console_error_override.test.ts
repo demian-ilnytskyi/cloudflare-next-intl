@@ -1,5 +1,20 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { consoleOverrideState } from './report_error.js';
+import type { ReportErrorConfig } from './report_error.js';
+
+// Only the `isClient: true` path needs this: it now reports through
+// `reportClientError`, which reads `@intl-config` rather than the `config`
+// object `install(...)` was given. Mirrors `report_client_error.test.ts`'s
+// own harness.
+let currentConfig: ReportErrorConfig = {};
+vi.mock('@intl-config', () => ({
+    get default() {
+        return currentConfig;
+    },
+}));
+vi.mock('next/headers', () => ({
+    headers: vi.fn(async () => ({ get: () => null })),
+}));
 
 describe('installConsoleErrorOverride', () => {
     const originalConsoleError = console.error;
@@ -170,12 +185,13 @@ describe('installConsoleErrorOverride', () => {
         vi.resetModules();
         const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
+        currentConfig = { errorHandling: { onError, dedup: false } };
         const original = vi.fn();
         console.error = original;
-        install({ errorHandling: { overrideConsoleError: true, onError, suppressClientConsoleError: true } }, true);
+        install({ errorHandling: { overrideConsoleError: true, suppressClientConsoleError: true } }, true);
         console.error('oops');
         expect(original).not.toHaveBeenCalled();
-        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ error: 'oops' }));
+        await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(expect.objectContaining({ error: 'oops' })));
     });
 
     it('does not suppress console.error server-side even if suppressClientConsoleError is true (isClient omitted/false)', async () => {
@@ -194,11 +210,29 @@ describe('installConsoleErrorOverride', () => {
         vi.resetModules();
         const { default: install } = await import('./install_console_error_override.js');
         const onError = vi.fn();
+        currentConfig = { errorHandling: { onError, dedup: false } };
         const original = vi.fn();
         console.error = original;
-        install({ errorHandling: { overrideConsoleError: true, onError } }, true);
+        // No onError on the passed config — proves the client path reports
+        // through `reportClientError`/`@intl-config`, not this object.
+        install({ errorHandling: { overrideConsoleError: true } }, true);
         console.error('oops');
         expect(original).toHaveBeenCalledWith('oops');
-        expect(onError).toHaveBeenCalled();
+        await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+    });
+
+    it('on the client, reports through reportClientError so a server-only onError sink still gets it', async () => {
+        vi.resetModules();
+        const { default: install } = await import('./install_console_error_override.js');
+        const onError = vi.fn();
+        currentConfig = { errorHandling: { onError, dedup: false } };
+        console.error = vi.fn();
+        install({ errorHandling: { overrideConsoleError: true } }, true);
+        console.error(new Error('boom'), 'extra context');
+        await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+            error: expect.stringContaining('Error: boom'),
+            classOrMethodName: 'Global Console Error Handler',
+            isClient: true,
+        })));
     });
 });

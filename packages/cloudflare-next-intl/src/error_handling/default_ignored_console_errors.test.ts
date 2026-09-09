@@ -15,6 +15,14 @@ describe('defaultIgnoredConsoleErrors', () => {
         expect(defaultIgnoredConsoleErrors).toContain('FirebaseServerApp appCheckToken is invalid: the token has expired.');
     });
 
+    it('includes the four navigation-cancellation wordings confirmed via a live reproduction', () => {
+        expect(defaultIgnoredConsoleErrors).toContain('Error in input stream');
+        expect(defaultIgnoredConsoleErrors).toContain('NetworkError when attempting to fetch resource');
+        expect(defaultIgnoredConsoleErrors).toContain('AuthUserProvider: session sync failed');
+        expect(defaultIgnoredConsoleErrors).toContain('[vinext] RSC prefetch setup error:');
+        expect(defaultIgnoredConsoleErrors).toContain('[vinext] RSC navigation error:');
+    });
+
     it('does not include the generic unknown-error fallback', () => {
         expect(defaultIgnoredConsoleErrors).not.toContain('unknown');
     });

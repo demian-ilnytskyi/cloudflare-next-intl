@@ -15,7 +15,7 @@ vi.mock('next/headers', () => ({
     })),
 }));
 
-const { default: reportClientError } = await import('./report_client_error_action.js');
+const { default: reportClientError } = await import('./report_client_error.js');
 
 /** Every case below gets its own name and `dedup: false`, so the shared
  * dedup/throttle state in `reportError` (module-scope, on by default)
@@ -26,7 +26,7 @@ function configWithOnError(onError: (params: unknown) => void, extra: Record<str
     return { errorHandling: { onError, dedup: false, ...extra } };
 }
 
-describe('reportClientError (ready-made action, reads @intl-config)', () => {
+describe('reportClientError (public entry, stringifies before the action boundary)', () => {
     beforeEach(() => {
         headerValues.clear();
         currentConfig = {};
@@ -269,6 +269,97 @@ describe('reportClientError (ready-made action, reads @intl-config)', () => {
 
             expect(onError).toHaveBeenCalledWith(expect.objectContaining({ isClient: true }));
             expect(getCloudflareContext).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('what crosses the action boundary', () => {
+        it('hands the action a string, never a live Error — the whole reason this module exists', async () => {
+            const action = await import('./report_client_error_action.js');
+            const spy = vi.spyOn(action, 'default').mockResolvedValue(undefined);
+
+            await reportClientError(new Error('boom'), 'ClientComponent-boundary');
+
+            expect(typeof spy.mock.calls[0][0]).toBe('string');
+            expect(spy.mock.calls[0][0]).toContain('Error: boom');
+
+            spy.mockRestore();
+        });
+
+        it('keeps the stack, which a serialized Error loses', async () => {
+            const onError = vi.fn();
+            currentConfig = configWithOnError(onError);
+
+            await reportClientError(new Error('boom'), 'ClientComponent-stack');
+
+            expect(onError.mock.calls[0][0].error).toContain('report_client_error.test.ts');
+        });
+    });
+
+    describe('digest and cause, lifted into params before they are lost', () => {
+        it('carries a Server Component digest through', async () => {
+            const onError = vi.fn();
+            currentConfig = configWithOnError(onError);
+            const error = Object.assign(new Error('boom'), { digest: '2841029384' });
+
+            await reportClientError(error, 'ClientComponent-digest');
+
+            expect(onError.mock.calls[0][0].params).toEqual(expect.objectContaining({ digest: '2841029384' }));
+        });
+
+        it('stringifies cause rather than dropping the only useful half of a re-thrown error', async () => {
+            const onError = vi.fn();
+            currentConfig = configWithOnError(onError);
+            const error = new Error('wrapper failed', { cause: new Error('ECONNRESET') });
+
+            await reportClientError(error, 'ClientComponent-cause');
+
+            expect(onError.mock.calls[0][0].params.cause).toContain('Error: ECONNRESET');
+        });
+
+        it('merges the metadata into an object params instead of replacing it', async () => {
+            const onError = vi.fn();
+            currentConfig = configWithOnError(onError);
+            const error = Object.assign(new Error('boom'), { digest: 'abc' });
+
+            await reportClientError(error, 'ClientComponent-digestmerge', { userId: 'u1' });
+
+            expect(onError.mock.calls[0][0].params).toEqual({ userId: 'u1', digest: 'abc', requestContext: {} });
+        });
+
+        it('nests a non-object params alongside the metadata rather than destroying either', async () => {
+            const onError = vi.fn();
+            currentConfig = configWithOnError(onError);
+            const error = Object.assign(new Error('boom'), { digest: 'abc' });
+
+            await reportClientError(error, 'ClientComponent-digestnest', ['a']);
+
+            expect(onError.mock.calls[0][0].params).toEqual({ params: ['a'], digest: 'abc', requestContext: {} });
+        });
+
+        it('adds nothing when the error carries neither, so existing reports keep their exact shape', async () => {
+            const onError = vi.fn();
+            currentConfig = configWithOnError(onError);
+
+            await reportClientError(new Error('boom'), 'ClientComponent-nometadata');
+
+            expect(onError.mock.calls[0][0].params).toEqual({ requestContext: {} });
+        });
+
+        it('ignores an empty-string digest, which names no server render', async () => {
+            const onError = vi.fn();
+            currentConfig = configWithOnError(onError);
+
+            await reportClientError(Object.assign(new Error('boom'), { digest: '' }), 'ClientComponent-emptydigest');
+
+            expect(onError.mock.calls[0][0].params).toEqual({ requestContext: {} });
+        });
+
+        it('reads no metadata off a primitive, and does not throw trying', async () => {
+            const onError = vi.fn();
+            currentConfig = configWithOnError(onError);
+
+            await expect(reportClientError('plain string thrown', 'ClientComponent-primitivemeta')).resolves.toBeUndefined();
+            expect(onError.mock.calls[0][0].params).toEqual({ requestContext: {} });
         });
     });
 });

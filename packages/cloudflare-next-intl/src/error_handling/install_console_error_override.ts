@@ -1,4 +1,5 @@
 import reportError, { type ReportErrorConfig, consoleOverrideState } from './report_error.js';
+import reportClientError from './report_client_error.js';
 
 /**
  * Replaces the global `console.error` so every `console.error(...)` call is
@@ -101,15 +102,27 @@ export default function installConsoleErrorOverride(
             }
         }
 
-        void reportError(
-            config,
-            {
-                error: message,
-                classOrMethodName: 'Global Console Error Handler',
-                params: isEmptyCall ? [`${EMPTY_CONSOLE_ERROR_MESSAGE}${stack}`] : optionalParams,
-                isClient,
-            },
-        );
+        const params = isEmptyCall ? [`${EMPTY_CONSOLE_ERROR_MESSAGE}${stack}`] : optionalParams;
+
+        // `onError` (a consuming app's own D1/Sentry/etc. sink, wired as
+        // `config.errorHandling.onError`) routinely needs server-only
+        // capability — Cloudflare bindings, a database connection — that
+        // simply does not exist in the browser. Calling it directly from
+        // here on the client, the way the server-side install below still
+        // does, means every call silently no-ops the moment the sink
+        // touches anything server-only: `reportError`'s own error handling
+        // has nothing to catch, because reaching the sink at all was never
+        // the problem. `reportClientError` is the one path that actually
+        // gets a client-originated report to the server — it stringifies
+        // here, in the browser, then round-trips through the exact same
+        // `"use server"` action an explicit `reportClientError(error, ...)`
+        // call from application code already uses, landing on `onError`
+        // with a real request/Worker context behind it.
+        if (isClient) {
+            void reportClientError(message, 'Global Console Error Handler', params);
+        } else {
+            void reportError(config, { error: message, classOrMethodName: 'Global Console Error Handler', params, isClient });
+        }
     };
     override.__isErrorHandlingOverride = true;
     console.error = override;

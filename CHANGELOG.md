@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.63
+
+### Changed
+
+- `db` module (and its `/dbHelpers`, `/dbTesting`, `/dbSchema`, `/dbEslint` subpaths) now delegates to the standalone `cloudflare-next-intl-db` package instead of bundling the Postgres/Drizzle/Supabase data layer directly. Internal change only — public exports and behavior are unchanged.
+
 ## 0.9.35
 
 ### Added

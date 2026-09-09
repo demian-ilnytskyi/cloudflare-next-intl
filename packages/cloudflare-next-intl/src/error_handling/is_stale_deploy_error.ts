@@ -1,3 +1,5 @@
+import { extractLowercaseMessage, messageMatchesAnyPattern } from './match_error_message.js';
+
 export const defaultStaleDeployPatterns: readonly string[] = [
     'chunk',
     'dynamically imported module',
@@ -20,6 +22,15 @@ export const defaultStaleDeployPatterns: readonly string[] = [
     'the connection to the page was unexpectedly closed',
     'readablestream',
     'readable stream',
+    // Firefox's necko wording when an RSC stream read is aborted by the
+    // document navigating away mid-fetch — confirmed via a live
+    // reproduction and a direct read of the errors board, not a guess. No
+    // digest, and routinely no stack at all (an internal engine throw, not
+    // user code). `use_stale_deploy_recovery.ts` recognizes this exact
+    // wording separately too, to skip the RELOAD this match would otherwise
+    // trigger: reloading here would re-fetch the page the visitor is
+    // already leaving, not the one a stale deploy actually broke.
+    'error in input stream',
     'uncaught exception: undefined',
     'uncaught undefined',
     'server action not found',
@@ -51,22 +62,11 @@ export default function isStaleDeployError(
     // thrown error is never `undefined`.
     if (error === undefined) return true;
     if (!error) return false;
+    if (error instanceof Error && (error.name === 'ChunkLoadError' || error.name === 'UnrecognizedActionError')) return true;
 
-    let message = '';
-    if (error instanceof Error) {
-        if (error.name === 'ChunkLoadError' || error.name === 'UnrecognizedActionError') return true;
-        message = (error.message || '').toLowerCase();
-    } else if (typeof error === 'string') {
-        message = error.toLowerCase();
-    } else {
-        return false;
-    }
+    const message = extractLowercaseMessage(error);
+    if (message === null) return false;
 
     const list = patterns ? patterns.map((p) => p.toLowerCase()) : activeLowercasedPatterns;
-    for (const pattern of list) {
-        if (message.includes(pattern)) {
-            return true;
-        }
-    }
-    return false;
+    return messageMatchesAnyPattern(message, list);
 }

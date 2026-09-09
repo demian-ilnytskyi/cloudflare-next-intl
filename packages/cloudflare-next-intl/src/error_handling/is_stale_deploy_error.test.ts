@@ -33,6 +33,7 @@ describe('isStaleDeployError', () => {
             'the connection to the page was unexpectedly closed',
             'readablestream',
             'readable stream',
+            'error in input stream',
             'uncaught exception: undefined',
             'uncaught undefined',
             'server action not found',

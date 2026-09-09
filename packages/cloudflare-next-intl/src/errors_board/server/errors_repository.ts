@@ -1,3 +1,5 @@
+import { splitStringifiedError } from '../../error_handling/stringify_unknown.js';
+
 export const ERROR_STATUSES = ['new', 'investigating', 'resolved', 'muted'] as const;
 export type ErrorStatus = typeof ERROR_STATUSES[number];
 
@@ -43,7 +45,14 @@ export interface D1DatabaseLike {
 export interface RecordErrorInput {
     flavour: string;
     caller: string;
+    /** A caller that derived this with `error instanceof Error ? error.message
+     *  : String(error)` and left `stack` unset for the non-`Error` branch is
+     *  the exact bug `recordError` now guards against — see `stack` below. */
     message: string;
+    /** `null` when the caller has no stack to report. NOT the same as "the
+     *  caller forgot to derive one": `recordError` cannot tell those apart by
+     *  the field alone, which is why the guard below inspects `message`
+     *  itself rather than trusting a `null` here at face value. */
     stack: string | null;
     params: string | null;
     isClient: boolean;
@@ -176,8 +185,21 @@ export async function computeFingerprint(flavour: string, caller: string, messag
 
 export async function recordError(db: D1DatabaseLike, input: RecordErrorInput): Promise<void> {
     await ensureSchema(db);
-    const message = truncate(input.message, MAX_MESSAGE_LENGTH);
-    const stack = input.stack ? truncate(input.stack, MAX_STACK_LENGTH) : null;
+    // The README's own documented `onError` derives `message`/`stack` with
+    // `error instanceof Error`, which is never true for a client-originated
+    // report — `reportClientError` stringifies before the error crosses the
+    // report action's serialization boundary, since a live `Error` does not
+    // survive that crossing. A caller that copies the pattern without also
+    // reaching for `splitStringifiedError` passes `stack: null` with the
+    // whole `name: message\n\nstack` string sitting unsplit in `message`
+    // instead — the same silent stack loss `on_error.ts` had. Recovering it
+    // here, at the one write path every consuming app's `onError` funnels
+    // through, fixes it for every caller instead of relying on each of them
+    // getting the derivation right on their own.
+    const { message: recoveredMessage, stack: recoveredStack } =
+        input.stack === null ? splitStringifiedError(input.message) : { message: input.message, stack: input.stack };
+    const message = truncate(recoveredMessage, MAX_MESSAGE_LENGTH);
+    const stack = recoveredStack ? truncate(recoveredStack, MAX_STACK_LENGTH) : null;
     const params = input.params ? truncate(input.params, MAX_PARAMS_LENGTH) : null;
     const fingerprint = await computeFingerprint(input.flavour, input.caller, message);
     const now = Date.now();
