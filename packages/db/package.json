@@ -30,6 +30,7 @@
   "keywords": ["postgres", "drizzle", "supabase", "database", "cloudflare", "deno", "edge-functions"],
   "author": "Demian Ilnutskyi",
   "license": "MIT",
+  "publishConfig": { "access": "public" },
   "bugs": { "url": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/issues" },
   "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/tree/main/packages/db#readme",
   "dependencies": {
