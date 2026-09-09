@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "packages/cloudflare-next-intl/**"
+      - "packages/db/**"
     branches:
       - main
 
@@ -13,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  push_code_coverage:
+  push_code_coverage_cloudflare_next_intl:
     uses: demian-ilnytskyi/workflows/.github/workflows/package_push_code_coverage.yml@main
     secrets: inherit
     with:
@@ -30,3 +31,27 @@ jobs:
         vite/auto_locale_params_plugin.ts:98
         locale_params_check/insert_locale_params.ts:97
         vite/vinext_route_wiring_fix.ts:98
+      send_notifications: false
+
+  push_code_coverage_db:
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_push_code_coverage.yml@main
+    secrets: inherit
+    with:
+      project_type: nextjs
+      working_directory: packages/db
+      test_path: src
+      min_coverage: 100
+      min_overall_coverage: 100
+      send_notifications: false
+
+  notify:
+    if: always()
+    needs:
+      - push_code_coverage_cloudflare_next_intl
+      - push_code_coverage_db
+    uses: demian-ilnytskyi/workflows/.github/workflows/notification.yml@main
+    secrets: inherit
+    with:
+      job_status: ${{ (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && 'failure' || 'success' }}
+      workflow: ${{ github.workflow }}
+      dop_text: "cloudflare-next-intl ${{ needs.push_code_coverage_cloudflare_next_intl.result }}, db ${{ needs.push_code_coverage_db.result }}"
