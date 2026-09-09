@@ -2,6 +2,15 @@ name: CD - Publish Package
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_cloudflare_next_intl:
+        description: "Publish cloudflare-next-intl package"
+        type: boolean
+        default: true
+      publish_db:
+        description: "Publish db package"
+        type: boolean
+        default: false
 
 concurrency:
   group: cd-publish
@@ -9,6 +18,7 @@ concurrency:
 
 jobs:
   publish_cloudflare_next_intl:
+    if: ${{ inputs.publish_cloudflare_next_intl }}
     uses: demian-ilnytskyi/workflows/.github/workflows/package_publish.yml@main
     secrets: inherit
     with:
@@ -16,6 +26,7 @@ jobs:
       send_notifications: false
 
   publish_db:
+    if: ${{ inputs.publish_db }}
     uses: demian-ilnytskyi/workflows/.github/workflows/package_publish.yml@main
     secrets: inherit
     with:
@@ -32,4 +43,4 @@ jobs:
     with:
       job_status: ${{ (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && 'failure' || 'success' }}
       workflow: ${{ github.workflow }}
-      dop_text: "cloudflare-next-intl ${{ needs.publish_cloudflare_next_intl.result }}, db ${{ needs.publish_db.result }}"
+      dop_text: "cloudflare-next-intl ${{ inputs.publish_cloudflare_next_intl && needs.publish_cloudflare_next_intl.result || 'skipped' }}, db ${{ inputs.publish_db && needs.publish_db.result || 'skipped' }}"
