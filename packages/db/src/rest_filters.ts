@@ -103,14 +103,18 @@ export default function applyWhere<T extends FilterTarget>(builder: T, node: Whe
     }
     if (node.kind === 'compare') {
         const value = resolveValue(node.value, params);
-        // Scalar comparisons go through `.filter()` with the same encoding the
-        // serialized `or()` path uses. The dedicated methods (`.eq()` and
-        // friends) interpolate the value raw, which sends a `Date`'s
-        // `toString()`, `undefined`, or `[object Object]` to PostgREST as if
-        // it were a legitimate value, and lets a bare `null`/`true`/`''`
-        // string change the filter's meaning.
+        // Scalar comparisons go through `.filter()`, same as `.eq()`/`.gt()`/
+        // etc. — PostgREST does not strip quotes on a plain `column=op.value`
+        // filter (unlike `or()`/`in()`, which need the `"..."` list-literal
+        // syntax to delimit values), so quoting one here would send the
+        // literal quote characters as part of the value and match nothing.
+        // Still reject what a plain string/number/boolean interpolation can't
+        // represent: a `Date`'s `toString()`, `undefined`, `[object Object]`,
+        // or an array joined with commas would otherwise reach PostgREST
+        // looking like a legitimate value instead of failing loudly.
         if (SCALAR_OPERATORS.has(node.operator)) {
-            builder.filter(node.column, FILTER_CODES[node.operator], encodeFilterValue(value));
+            requireScalarOperand(node.operator, value);
+            builder.filter(node.column, FILTER_CODES[node.operator], value);
             return builder;
         }
         // The array/range operators take structured operands the builder
@@ -132,6 +136,18 @@ const SCALAR_OPERATORS = new Set<CompareOperator>([
 
 /** Operators accepting an array or a JSON object as well as a string literal. */
 const ARRAY_OR_JSON_OPERATORS = new Set<CompareOperator>(['contains', 'containedBy']);
+
+function requireScalarOperand(operator: CompareOperator, value: unknown): void {
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return;
+    // `IS DISTINCT FROM NULL` is meaningful SQL and the whole reason
+    // `isDistinct` exists instead of plain `eq`/`neq` (which can't compare
+    // against NULL at all) — unlike every other scalar operator here, a null
+    // operand is a real, intentional filter for it, not a mistranslation.
+    if (value === null && operator === 'isDistinct') return;
+    throw new UnsupportedSqlError(
+        `\`${operator}\` against a value of type ${value === null ? 'null' : typeof value}`,
+    );
+}
 
 function requireStructuredOperand(operator: CompareOperator, value: unknown): void {
     if (typeof value === 'string') return;

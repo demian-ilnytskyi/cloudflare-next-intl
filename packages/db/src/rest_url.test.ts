@@ -113,8 +113,8 @@ describe('URL rendering — in / not in', () => {
     });
 
     it('renders a single-value not in with its parentheses', async () => {
-        // The original production bug: `not.in.Scouting Reports`, unparenthesized.
-        expect(await filters('"t"."a" not in ($1)', ['Scouting Reports'])).toBe('a=not.in.("Scouting Reports")');
+        // The original production bug: `not.in.Breaking News`, unparenthesized.
+        expect(await filters('"t"."a" not in ($1)', ['Breaking News'])).toBe('a=not.in.("Breaking News")');
     });
 
     it('quotes list values containing PostgREST-reserved characters', async () => {
@@ -130,8 +130,8 @@ describe('URL rendering — in / not in', () => {
     });
 
     it('combines in and not in on one column', async () => {
-        expect(await filters('("t"."a" in ($1) and "t"."a" not in ($2))', ['Insights', 'Scouting Reports']))
-            .toBe('a=in.(Insights)&a=not.in.("Scouting Reports")');
+        expect(await filters('("t"."a" in ($1) and "t"."a" not in ($2))', ['News', 'Breaking News']))
+            .toBe('a=in.(News)&a=not.in.("Breaking News")');
     });
 });
 
@@ -181,41 +181,67 @@ describe('URL rendering — boolean structure', () => {
     });
 });
 
-describe('URL rendering — value encoding hazards', () => {
+describe('URL rendering — value encoding hazards inside or()/in() (quoted paths)', () => {
     it('quotes a string that would otherwise read as SQL NULL', async () => {
-        expect(await filters('"t"."a" = $1', ['null'])).toBe('a=eq."null"');
         expect(await filters('("t"."a" = $1 or "t"."b" = $2)', ['null', 'z'])).toBe('or=(a.eq."null",b.eq.z)');
         expect(await filters('"t"."a" in ($1)', ['null'])).toBe('a=in.("null")');
     });
 
-    it('quotes strings that would otherwise read as booleans', async () => {
-        expect(await filters('"t"."a" = $1', ['true'])).toBe('a=eq."true"');
-        expect(await filters('"t"."a" = $1', ['false'])).toBe('a=eq."false"');
-    });
-
     it('quotes the empty string', async () => {
-        expect(await filters('"t"."a" = $1', [''])).toBe('a=eq.""');
         expect(await filters('"t"."a" in ($1, $2)', ['', 'z'])).toBe('a=in.("",z)');
-    });
-
-    it('quotes a leading * so it is not read as a wildcard', async () => {
-        expect(await filters('"t"."a" = $1', ['*'])).toBe('a=eq."*"');
     });
 
     it('escapes backslashes so a value cannot break out of its quoting', async () => {
         // Without escaping the backslash, PostgREST reads `\"` as a literal
         // quote, the value terminates early, and the rest of the string is
         // parsed as sibling filters — filter injection.
-        expect(await filters('"t"."a" = $1', ['a\\",d.eq.pwned,e.eq.\\"x']))
-            .toBe('a=eq."a\\\\\\",d.eq.pwned,e.eq.\\\\\\"x"');
         expect(await filters('"t"."a" in ($1)', ['a\\",z),(a.eq.pwned']))
             .toBe('a=in.("a\\\\\\",z),(a.eq.pwned")');
     });
 
     it('quotes values containing spaces, dots and parentheses', async () => {
-        expect(await filters('"t"."a" = $1', ['hello world'])).toBe('a=eq."hello world"');
-        expect(await filters('"t"."a" = $1', ['a.b'])).toBe('a=eq."a.b"');
-        expect(await filters('"t"."a" = $1', ['f(x)'])).toBe('a=eq."f(x)"');
+        expect(await filters('("t"."a" = $1 or "t"."b" = $2)', ['hello world', 'a.b'])).toBe('or=(a.eq."hello world",b.eq."a.b")');
+        expect(await filters('"t"."a" in ($1)', ['f(x)'])).toBe('a=in.("f(x)")');
+    });
+});
+
+describe('URL rendering — a plain scalar filter never quotes its value', () => {
+    // A plain `column=op.value` filter has exactly one value and no
+    // delimiter to protect, so PostgREST does not support (or strip) the
+    // `"..."` quoting `or()`/`in()` need — it takes the value verbatim. A
+    // string like `'null'`, `''`, or one containing a space, comma, or quote
+    // is therefore sent through byte-for-byte, same as postgrest-js's own
+    // `.eq()` always did; quoting it here would send the literal quote
+    // characters as part of the value and stop it matching anything.
+    it('sends a string that would otherwise read as SQL NULL as-is', async () => {
+        expect(await filters('"t"."a" = $1', ['null'])).toBe('a=eq.null');
+    });
+
+    it('sends strings that would otherwise read as booleans as-is', async () => {
+        expect(await filters('"t"."a" = $1', ['true'])).toBe('a=eq.true');
+        expect(await filters('"t"."a" = $1', ['false'])).toBe('a=eq.false');
+    });
+
+    it('sends the empty string as-is', async () => {
+        expect(await filters('"t"."a" = $1', [''])).toBe('a=eq.');
+    });
+
+    it('sends a leading * as-is', async () => {
+        expect(await filters('"t"."a" = $1', ['*'])).toBe('a=eq.*');
+    });
+
+    it('sends spaces, dots, parentheses, commas and quotes as-is', async () => {
+        expect(await filters('"t"."a" = $1', ['hello world'])).toBe('a=eq.hello world');
+        expect(await filters('"t"."a" = $1', ['a.b'])).toBe('a=eq.a.b');
+        expect(await filters('"t"."a" = $1', ['f(x)'])).toBe('a=eq.f(x)');
+        expect(await filters('"t"."a" = $1', ['x,y'])).toBe('a=eq.x,y');
+        expect(await filters('"t"."a" = $1', ['a"b'])).toBe('a=eq.a"b');
+    });
+
+    it('applies no quoting to every scalar operator, not just eq', async () => {
+        expect(await filters('"t"."a" <> $1', ['null'])).toBe('a=neq.null');
+        expect(await filters('"t"."a" > $1', ['a.b'])).toBe('a=gt.a.b');
+        expect(await filters('"t"."a" like $1', ['%a,b%'])).toBe('a=like.%a,b%');
     });
 });
 
@@ -270,9 +296,9 @@ describe('URL rendering — insert, update, delete', () => {
             .toBe('columns="a"&select=a');
     });
 
-    it('applies the same value encoding on update and delete filters', async () => {
+    it('applies the same value encoding on update and delete filters as select does', async () => {
         expect(await render('delete from "t" where "t"."a" = $1 returning "a"', ['null']))
-            .toBe('select=a&a=eq."null"');
+            .toBe('select=a&a=eq.null');
         expect(await render('update "t" set "a" = $1 where "t"."b" not in ($2) returning "a"', ['x', 'a,b']))
             .toBe('select=a&b=not.in.("a,b")');
     });

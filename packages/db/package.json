@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl-db",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Framework-agnostic Postgres/Drizzle/Supabase data-access layer extracted from cloudflare-next-intl — no React, Next.js, or Firebase dependency.",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",

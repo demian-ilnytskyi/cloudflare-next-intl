@@ -5,7 +5,7 @@
 -- checks the SQL function itself and its RLS interaction directly in
 -- Postgres, without going through the transport/JS parsing layer.
 begin;
-select plan(26);
+select plan(30);
 
 do $$
 begin
@@ -41,6 +41,37 @@ select is(
     cfni_exec('select array[1,2,3] as arr, true as b, 1.10::numeric as n, null as z'),
     '{"rows": ["(\"{1,2,3}\",t,1.10,)"], "rowCount": 1}'::jsonb,
     'array/boolean/numeric/null values use pg text form, not JSON re-encoding'
+);
+
+-- Postgres doubles backslashes (as well as quotes) when it writes a
+-- composite field to text, so a value carrying one is a distinct hazard
+-- from the quote-doubling case above. Each expected side is computed with
+-- the same `row(...)::text` cast `cfni_exec` itself uses, rather than a
+-- hand-typed literal, so these stay correct however Postgres happens to
+-- escape it — the client-side decoder (`parse_composite.ts`) is expected to
+-- exactly invert whatever this produces.
+select is(
+    cfni_exec($$select E'a\\b'::text as s$$),
+    jsonb_build_object('rows', jsonb_build_array(row(E'a\\b'::text)::text), 'rowCount', 1),
+    'a value containing a single backslash round-trips through the composite-literal text form'
+);
+
+select is(
+    cfni_exec($$select E'a\\"b'::text as s$$),
+    jsonb_build_object('rows', jsonb_build_array(row(E'a\\"b'::text)::text), 'rowCount', 1),
+    'a value containing a backslash immediately before a quote round-trips'
+);
+
+select is(
+    cfni_exec($$select E'a\\'::text as s$$),
+    jsonb_build_object('rows', jsonb_build_array(row(E'a\\'::text)::text), 'rowCount', 1),
+    'a value ending in a backslash round-trips without swallowing the closing quote'
+);
+
+select is(
+    cfni_exec($$select E'a\\\\b'::text as s$$),
+    jsonb_build_object('rows', jsonb_build_array(row(E'a\\\\b'::text)::text), 'rowCount', 1),
+    'a value containing consecutive backslashes round-trips'
 );
 
 select is(

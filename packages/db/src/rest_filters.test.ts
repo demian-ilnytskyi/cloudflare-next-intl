@@ -41,7 +41,7 @@ describe('applyWhere', () => {
         applyWhere(builder, node, ['x']);
         expect(calls).toEqual([
             'filter("a","eq","x")',
-            'filter("b","gte","3")',
+            'filter("b","gte",3)',
             'is("c",null)',
             'not("d","is",null)',
             'filter("e","in","(1,2)")',
@@ -95,6 +95,102 @@ describe('applyWhere', () => {
                 ],
             }, [{}]),
         ).toThrow(UnsupportedSqlError);
+    });
+});
+
+describe('applyWhere — scalar comparisons never quote their value', () => {
+    // Regression coverage for a fix that shipped and then had to be
+    // reverted: `.eq()`/`.filter(col,'eq',v)` interpolate the value raw —
+    // `${operator}.${value}` — with no quote-stripping on PostgREST's side.
+    // Quoting only means something inside `or()`/`and()`/`in.()`, which need
+    // it to delimit multiple values sharing one query param. Quoting a
+    // scalar `column=op.value` filter sends the literal quote characters as
+    // part of the value, so it stops matching the row it used to match.
+    it('forwards a string containing spaces unquoted', () => {
+        const { calls, builder } = recorder();
+        applyWhere(builder, { kind: 'compare', column: 'category', operator: 'eq', value: { kind: 'literal', value: 'Global Markets' } }, []);
+        expect(calls).toEqual(['filter("category","eq","Global Markets")']);
+    });
+
+    it('forwards a string containing a comma unquoted', () => {
+        const { calls, builder } = recorder();
+        applyWhere(builder, { kind: 'compare', column: 'a', operator: 'eq', value: { kind: 'literal', value: 'x,y' } }, []);
+        expect(calls).toEqual(['filter("a","eq","x,y")']);
+    });
+
+    it('forwards a string containing a quote unquoted', () => {
+        const { calls, builder } = recorder();
+        applyWhere(builder, { kind: 'compare', column: 'a', operator: 'eq', value: { kind: 'literal', value: 'a"b' } }, []);
+        expect(calls).toEqual(['filter("a","eq","a\\"b")']);
+    });
+
+    it('forwards the empty string and reserved-looking words unquoted', () => {
+        const { calls, builder } = recorder();
+        for (const value of ['', 'null', 'true', 'false', '*x']) {
+            applyWhere(builder, { kind: 'compare', column: 'a', operator: 'eq', value: { kind: 'literal', value } }, []);
+        }
+        expect(calls).toEqual([
+            'filter("a","eq","")',
+            'filter("a","eq","null")',
+            'filter("a","eq","true")',
+            'filter("a","eq","false")',
+            'filter("a","eq","*x")',
+        ]);
+    });
+
+    it('forwards numbers and booleans as themselves, not as strings', () => {
+        const { calls, builder } = recorder();
+        applyWhere(builder, { kind: 'compare', column: 'a', operator: 'gt', value: { kind: 'literal', value: 42 } }, []);
+        applyWhere(builder, { kind: 'compare', column: 'b', operator: 'eq', value: { kind: 'literal', value: true } }, []);
+        applyWhere(builder, { kind: 'compare', column: 'c', operator: 'lte', value: { kind: 'literal', value: -1.5 } }, []);
+        expect(calls).toEqual(['filter("a","gt",42)', 'filter("b","eq",true)', 'filter("c","lte",-1.5)']);
+    });
+
+    it('applies the same unquoted forwarding to every scalar operator, not just eq', () => {
+        const { calls, builder } = recorder();
+        const operators = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike'] as const;
+        for (const operator of operators) {
+            applyWhere(builder, { kind: 'compare', column: 'a', operator, value: { kind: 'literal', value: 'v w' } }, []);
+        }
+        expect(calls).toEqual(operators.map((operator) => `filter("a","${operator}","v w")`));
+    });
+
+    it('rejects a Date instead of sending its toString()', () => {
+        expect(() =>
+            applyWhere(recorder().builder, { kind: 'compare', column: 'a', operator: 'eq', value: { kind: 'param', index: 1 } }, [new Date('2020-01-02T03:04:05Z')]),
+        ).toThrow(UnsupportedSqlError);
+    });
+
+    it('rejects undefined instead of sending the string "undefined"', () => {
+        expect(() =>
+            applyWhere(recorder().builder, { kind: 'compare', column: 'a', operator: 'eq', value: { kind: 'param', index: 1 } }, [undefined]),
+        ).toThrow(UnsupportedSqlError);
+    });
+
+    it('rejects a plain object instead of sending "[object Object]"', () => {
+        expect(() =>
+            applyWhere(recorder().builder, { kind: 'compare', column: 'a', operator: 'eq', value: { kind: 'param', index: 1 } }, [{ a: 1 }]),
+        ).toThrow(UnsupportedSqlError);
+    });
+
+    it('rejects an array instead of sending its comma-joined toString()', () => {
+        expect(() =>
+            applyWhere(recorder().builder, { kind: 'compare', column: 'a', operator: 'eq', value: { kind: 'param', index: 1 } }, [[1, 2]]),
+        ).toThrow(UnsupportedSqlError);
+    });
+
+    it('rejects null for eq/neq/gt/like — they cannot express IS [NOT] NULL', () => {
+        for (const operator of ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike'] as const) {
+            expect(() =>
+                applyWhere(recorder().builder, { kind: 'compare', column: 'a', operator, value: { kind: 'literal', value: null } }, []),
+            ).toThrow(UnsupportedSqlError);
+        }
+    });
+
+    it('allows null for isDistinct — IS DISTINCT FROM NULL is real, intentional SQL', () => {
+        const { calls, builder } = recorder();
+        applyWhere(builder, { kind: 'compare', column: 'a', operator: 'isDistinct', value: { kind: 'literal', value: null } }, []);
+        expect(calls).toEqual(['filter("a","isdistinct",null)']);
     });
 });
 
@@ -176,10 +272,10 @@ describe('applyWhere — extended operators', () => {
         applyWhere(builder, {
             kind: 'in',
             column: 'category',
-            values: [{ kind: 'literal', value: 'Scouting Reports' }, { kind: 'literal', value: 'a,b' }],
+            values: [{ kind: 'literal', value: 'Breaking News' }, { kind: 'literal', value: 'a,b' }],
             negated: true,
         }, []);
-        expect(calls).toEqual(['not("category","in","(\\"Scouting Reports\\",\\"a,b\\")")']);
+        expect(calls).toEqual(['not("category","in","(\\"Breaking News\\",\\"a,b\\")")']);
     });
 
     it('serialises extended operators inside an or() string', () => {

@@ -35,7 +35,7 @@ codegen path. Install `cloudflare-next-intl-db-codegen` (or `npx
 ## Usage outside Next.js — e.g. a Deno Supabase Edge Function
 
 ```ts
-import { withPublicDb } from "npm:cloudflare-next-intl-db@0.2.0";
+import { withPublicDb } from "npm:cloudflare-next-intl-db@0.2.3";
 
 const rows = await withPublicDb(
   (db) => db.select().from(articles),
@@ -57,7 +57,7 @@ bearer token (mirroring how `withPublicDb` sends `anonKey`) — both the
 the whole call, so every RLS policy on every table it touches is bypassed.
 
 ```ts
-import { withServiceDb } from "npm:cloudflare-next-intl-db@0.2.0";
+import { withServiceDb } from "npm:cloudflare-next-intl-db@0.2.3";
 
 const allProfiles = await withServiceDb(
   (db) => db.select().from(profiles),
