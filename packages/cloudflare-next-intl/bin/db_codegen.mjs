@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-// Re-exec shim: `cfni-db-codegen` now lives in cloudflare-next-intl-db,
+// Re-exec shim: `cfni-db-codegen` now lives in cloudflare-next-intl-db-codegen,
 // installed as this package's dependency. Kept here so existing consumers'
 // `npx cfni-db-codegen` invocations keep working with no changes needed.
+import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
-// Resolve via the package's root export (".") — its exports map doesn't
-// declare "./package.json", so that can't be resolved directly. The root
-// export ("dist/src/index.js") sits two directories below the package root.
-const indexPath = fileURLToPath(import.meta.resolve('cloudflare-next-intl-db'));
-const dbPackageRoot = join(dirname(indexPath), '..', '..');
-await import(pathToFileURL(join(dbPackageRoot, 'bin', 'db_codegen.mjs')).href);
+// cloudflare-next-intl-db-codegen declares no "exports" map, so its
+// package.json (and therefore its package root) resolves directly —
+// unlike the runtime db package, this one isn't trying to restrict its
+// public surface to a curated set of subpaths.
+const pkgPath = createRequire(import.meta.url).resolve('cloudflare-next-intl-db-codegen/package.json');
+const codegenPackageRoot = dirname(fileURLToPath(pathToFileURL(pkgPath)));
+await import(pathToFileURL(join(codegenPackageRoot, 'bin', 'db_codegen.mjs')).href);
