@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl-db-codegen",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Drizzle schema codegen CLI for cloudflare-next-intl-db — introspects tracked SQL DDL (via embedded-postgres or a live Postgres) with drizzle-kit and generates typed Drizzle models. Extracted from cloudflare-next-intl-db so its runtime package never ships embedded-postgres's per-platform Postgres binaries.",
   "type": "module",
   "sideEffects": false,
@@ -23,6 +23,7 @@
   "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/tree/main/packages/db-codegen#readme",
   "dependencies": {
     "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2",
     "embedded-postgres": "^18.4.0-beta.17",
     "pg": "^8.23.0"
   },
