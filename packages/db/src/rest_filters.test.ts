@@ -117,10 +117,27 @@ describe('applyWhere — extended operators', () => {
         applyWhere(builder, { kind: 'textSearch', column: 'b', value: { kind: 'literal', value: 'cat' }, type: 'plain', config: 'english' }, []);
         applyWhere(builder, { kind: 'textSearch', column: 'c', value: { kind: 'literal', value: 'dog' } }, []);
         expect(calls).toEqual([
-            'not("a","in",[1])',
+            'not("a","in","(1)")',
             'textSearch("b","cat",{"type":"plain","config":"english"})',
             'textSearch("c","dog")',
         ]);
+    });
+
+    it('formats a negated `in` list as a PostgREST literal string, not a raw array', () => {
+        // Regression test: postgrest-js's `.not(column, operator, value)` does
+        // `${value}` with no array-aware formatting (unlike `.in()`), so a raw
+        // array here previously serialized via Array.prototype.toString
+        // (comma-joined, no parens) into an invalid filter PostgREST rejected
+        // with a 400. Multiple values, and a value needing quoting, both need
+        // to land inside one parenthesized, comma-joined literal.
+        const { calls, builder } = recorder();
+        applyWhere(builder, {
+            kind: 'in',
+            column: 'category',
+            values: [{ kind: 'literal', value: 'Scouting Reports' }, { kind: 'literal', value: 'a,b' }],
+            negated: true,
+        }, []);
+        expect(calls).toEqual(['not("category","in","(\\"Scouting Reports\\",\\"a,b\\")")']);
     });
 
     it('serialises extended operators inside an or() string', () => {

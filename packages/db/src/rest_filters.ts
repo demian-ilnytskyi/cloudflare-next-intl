@@ -79,7 +79,12 @@ export default function applyWhere<T extends FilterTarget>(builder: T, node: Whe
     }
     if (node.kind === 'in') {
         const values = node.values.map((value) => resolveValue(value, params));
-        if (node.negated) builder.not(node.column, 'in', values);
+        // `.not()` is generic — unlike `.in()`, it doesn't format an array for
+        // you, it just does `${value}` — so a raw array here would serialize
+        // via Array.prototype.toString (comma-joined, no parens), producing an
+        // invalid `not.in.<values>` filter PostgREST rejects. Build the
+        // `(a,b,c)` list literal ourselves, matching what `.in()` sends.
+        if (node.negated) builder.not(node.column, 'in', `(${values.map(encodeFilterValue).join(',')})`);
         else builder.in(node.column, values);
         return builder;
     }
