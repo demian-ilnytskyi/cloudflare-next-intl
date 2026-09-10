@@ -13,7 +13,8 @@
     "test": "vitest run --coverage",
     "prepare": "npm run build",
     "build": "rm -rf dist && tsc && node ../db/scripts/write_dist_type.mjs",
-    "prepublishOnly": "npm run build"
+    "check:size": "node scripts/check_size.mjs",
+    "prepublishOnly": "npm run build && npm run check:size"
   },
   "repository": { "type": "git", "url": "git+https://github.com/demian-ilnytskyi/cloudflare-next-intl.git" },
   "keywords": ["postgres", "drizzle", "supabase", "codegen", "cloudflare", "deno", "edge-functions"],
