@@ -43,4 +43,29 @@ describe('parseComposite', () => {
     it('parses an empty composite (no columns) as no fields', () => {
         expect(parseComposite('()')).toEqual([]);
     });
+
+    // Every literal below was captured from a real Postgres 18 instance via
+    // `select row($1::text, 'sentinel'::text)::text`, so they are exactly the
+    // bytes `cfni_exec`'s `r::text` cast produces — not hand-written guesses.
+    describe('backslash escaping (Postgres doubles `\\` as well as `"`)', () => {
+        it('un-doubles a single backslash', () => {
+            expect(parseComposite('("a\\\\b",sentinel)')).toEqual(['a\\b', 'sentinel']);
+        });
+
+        it('un-doubles consecutive backslashes', () => {
+            expect(parseComposite('("a\\\\\\\\b",sentinel)')).toEqual(['a\\\\b', 'sentinel']);
+        });
+
+        it('handles a backslash and a doubled quote in one field', () => {
+            expect(parseComposite('("a\\\\""b",sentinel)')).toEqual(['a\\"b', 'sentinel']);
+        });
+
+        it('handles a trailing backslash without swallowing the closing quote', () => {
+            expect(parseComposite('("a\\\\",sentinel)')).toEqual(['a\\', 'sentinel']);
+        });
+
+        it('leaves a lone backslash in a bare field alone', () => {
+            expect(parseComposite('(a,b)')).toEqual(['a', 'b']);
+        });
+    });
 });

@@ -39,7 +39,7 @@ describe('executeRest', () => {
             [0],
         );
         expect(from).toHaveBeenCalledWith('users');
-        expect(calls.map((call) => call.method)).toEqual(['select', 'gt', 'order', 'range']);
+        expect(calls.map((call) => call.method)).toEqual(['select', 'filter', 'order', 'range']);
         expect(calls[0]!.args[0]).toBe('id,userName:name');
         expect(calls[2]!.args).toEqual(['name', { ascending: false, nullsFirst: true }]);
         expect(calls[3]!.args).toEqual([5, 14]);

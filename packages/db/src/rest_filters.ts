@@ -18,6 +18,7 @@ export interface FilterTarget {
     in(column: string, values: readonly unknown[]): FilterTarget;
     not(column: string, operator: string, value: unknown): FilterTarget;
     or(filters: string): FilterTarget;
+    filter(column: string, operator: string, value: unknown): FilterTarget;
     regexMatch(column: string, pattern: string): FilterTarget;
     regexIMatch(column: string, pattern: string): FilterTarget;
     contains(column: string, value: unknown): FilterTarget;
@@ -69,7 +70,10 @@ export default function applyWhere<T extends FilterTarget>(builder: T, node: Whe
         return builder;
     }
     if (node.kind === 'or' || node.kind === 'not') {
-        builder.or(serialize(node, params));
+        // `.or(f)` already wraps its argument in `or=(f)`, so the top-level
+        // node's own `or(...)` wrapper would be doubled — every *nested* group
+        // still needs its wrapper, or the tree flattens and changes meaning.
+        builder.or(node.kind === 'or' ? serializeChildren(node, params) : serialize(node, params));
         return builder;
     }
     if (node.kind === 'is') {
@@ -78,18 +82,18 @@ export default function applyWhere<T extends FilterTarget>(builder: T, node: Whe
         return builder;
     }
     if (node.kind === 'in') {
-        const values = node.values.map((value) => resolveValue(value, params));
-        // `.not()` is generic — unlike `.in()`, it doesn't format an array for
-        // you, it just does `${value}` — so a raw array here would serialize
-        // via Array.prototype.toString (comma-joined, no parens), producing an
-        // invalid `not.in.<values>` filter PostgREST rejects. Build the
-        // `(a,b,c)` list literal ourselves, matching what `.in()` sends.
-        if (node.negated) builder.not(node.column, 'in', `(${values.map(encodeFilterValue).join(',')})`);
-        else builder.in(node.column, values);
+        // Neither builder method encodes a list the way this package needs:
+        // `.not()` is generic and just does `${value}`, so a raw array would
+        // arrive comma-joined with no parentheses; `.in()` does parenthesize
+        // but quotes only on `,()` and never escapes an inner `"`. Build the
+        // list literal here so both directions encode identically.
+        const list = `(${node.values.map((value) => encodeFilterValue(resolveValue(value, params))).join(',')})`;
+        if (node.negated) builder.not(node.column, 'in', list);
+        else builder.filter(node.column, 'in', list);
         return builder;
     }
     if (node.kind === 'textSearch') {
-        const query = String(resolveValue(node.value, params));
+        const query = encodeFilterValue(resolveValue(node.value, params));
         const opts: { type?: 'plain' | 'phrase' | 'websearch'; config?: string } = {};
         if (node.type) opts.type = node.type;
         if (node.config) opts.config = node.config;
@@ -98,10 +102,44 @@ export default function applyWhere<T extends FilterTarget>(builder: T, node: Whe
         return builder;
     }
     if (node.kind === 'compare') {
-        builder[node.operator](node.column, resolveValue(node.value, params) as never);
+        const value = resolveValue(node.value, params);
+        // Scalar comparisons go through `.filter()` with the same encoding the
+        // serialized `or()` path uses. The dedicated methods (`.eq()` and
+        // friends) interpolate the value raw, which sends a `Date`'s
+        // `toString()`, `undefined`, or `[object Object]` to PostgREST as if
+        // it were a legitimate value, and lets a bare `null`/`true`/`''`
+        // string change the filter's meaning.
+        if (SCALAR_OPERATORS.has(node.operator)) {
+            builder.filter(node.column, FILTER_CODES[node.operator], encodeFilterValue(value));
+            return builder;
+        }
+        // The array/range operators take structured operands the builder
+        // formats itself, so they keep their dedicated methods — but only for
+        // the operand types those methods can actually handle. `.overlaps()`
+        // calls `value.join()` on its non-string branch, so a null there threw
+        // a TypeError that escaped the driver instead of falling back to SQL.
+        requireStructuredOperand(node.operator, value);
+        builder[node.operator](node.column, value as never);
         return builder;
     }
     return builder;
+}
+
+/** Operators whose operand is a single scalar value. */
+const SCALAR_OPERATORS = new Set<CompareOperator>([
+    'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'regexMatch', 'regexIMatch', 'isDistinct',
+]);
+
+/** Operators accepting an array or a JSON object as well as a string literal. */
+const ARRAY_OR_JSON_OPERATORS = new Set<CompareOperator>(['contains', 'containedBy']);
+
+function requireStructuredOperand(operator: CompareOperator, value: unknown): void {
+    if (typeof value === 'string') return;
+    if (Array.isArray(value) && (operator === 'overlaps' || ARRAY_OR_JSON_OPERATORS.has(operator))) return;
+    if (value !== null && typeof value === 'object' && ARRAY_OR_JSON_OPERATORS.has(operator)) return;
+    throw new UnsupportedSqlError(
+        `\`${operator}\` against a value of type ${value === null ? 'null' : typeof value}`,
+    );
 }
 
 const FILTER_CODES: Record<CompareOperator, string> = {
@@ -128,11 +166,17 @@ const FILTER_CODES: Record<CompareOperator, string> = {
 
 const TEXT_SEARCH_CODES = { plain: 'plfts', phrase: 'phfts', websearch: 'wfts' } as const;
 
+function serializeChildren(node: Extract<WhereNode, { kind: 'and' | 'or' }>, params: unknown[]): string {
+    return node.children.map((child) => serialize(child, params)).join(',');
+}
+
 function serialize(node: WhereNode, params: unknown[]): string {
-    if (node.kind === 'and' || node.kind === 'or') {
-        const children = node.children.map((child) => serialize(child, params)).join(',');
-        return node.kind === 'and' ? `and(${children})` : children;
-    }
+    // Both groups must keep their wrapper. An `or` serialized bare is only
+    // correct as the argument of `.or()`; nested anywhere else its disjuncts
+    // merge into the enclosing group — `b AND (c OR d)` silently becomes
+    // `b AND c AND d`, and `not.` applied to a bare list negates only its
+    // first term.
+    if (node.kind === 'and' || node.kind === 'or') return `${node.kind}(${serializeChildren(node, params)})`;
     if (node.kind === 'not') return `not.${serialize(node.child, params)}`;
     if (node.kind === 'is') return node.negated ? `not.${node.column}.is.null` : `${node.column}.is.null`;
     if (node.kind === 'in') {
@@ -151,10 +195,31 @@ function serialize(node: WhereNode, params: unknown[]): string {
     throw new UnsupportedSqlError('unsupported where node');
 }
 
+/**
+ * Characters that end a value in PostgREST's filter grammar, plus the
+ * backslash that escapes them inside a quoted value.
+ */
+const NEEDS_QUOTING = /[,.():"\\\s]/;
+
+/** Bare words PostgREST reads as SQL values rather than as text. */
+const RESERVED_WORDS = /^(null|true|false|unknown)$/i;
+
 function encodeFilterValue(value: unknown): string {
     if (typeof value === 'number' || typeof value === 'boolean') return String(value);
     if (typeof value !== 'string') {
-        throw new UnsupportedSqlError(`value of type ${value === null ? 'null' : typeof value} inside an or()/not() filter`);
+        throw new UnsupportedSqlError(`value of type ${value === null ? 'null' : typeof value} in a filter`);
     }
-    return /[,.():"\s]/.test(value) ? `"${value.replace(/"/g, '\\"')}"` : value;
+    // An empty, reserved, or `*`-leading value has to be quoted even though it
+    // holds no delimiter: unquoted, PostgREST reads `null` as SQL NULL, `true`
+    // as a boolean, and `*` as a wildcard, so the text a caller asked for
+    // silently becomes a different filter.
+    const mustQuote = value === ''
+        || value.startsWith('*')
+        || RESERVED_WORDS.test(value)
+        || NEEDS_QUOTING.test(value);
+    if (!mustQuote) return value;
+    // Backslash first: escaping quotes before backslashes would re-escape the
+    // backslashes this step adds, and leaving backslashes raw lets a value
+    // ending in `\` terminate its own quoting and inject sibling filters.
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }

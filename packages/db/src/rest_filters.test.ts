@@ -40,11 +40,11 @@ describe('applyWhere', () => {
         };
         applyWhere(builder, node, ['x']);
         expect(calls).toEqual([
-            'eq("a","x")',
-            'gte("b",3)',
+            'filter("a","eq","x")',
+            'filter("b","gte","3")',
             'is("c",null)',
             'not("d","is",null)',
-            'in("e",[1,2])',
+            'filter("e","in","(1,2)")',
         ]);
     });
 
@@ -52,7 +52,7 @@ describe('applyWhere', () => {
         const { calls, builder } = recorder();
         applyWhere(builder, { kind: 'compare', column: 'a', operator: 'like', value: { kind: 'literal', value: '%x%' } }, []);
         applyWhere(builder, { kind: 'compare', column: 'a', operator: 'ilike', value: { kind: 'literal', value: '%x%' } }, []);
-        expect(calls).toEqual(['like("a","%x%")', 'ilike("a","%x%")']);
+        expect(calls).toEqual(['filter("a","like","%x%")', 'filter("a","ilike","%x%")']);
     });
 
     it('serialises or/not subtrees into one or() filter string', () => {
@@ -108,7 +108,49 @@ describe('applyWhere — extended operators', () => {
         for (const operator of operators) {
             applyWhere(builder, { kind: 'compare', column: 'a', operator, value: { kind: 'literal', value: 'v' } }, []);
         }
-        expect(calls).toEqual(operators.map((operator) => `${operator}("a","v")`));
+        // The scalar operators route through `.filter()` so their values get
+        // the same encoding the serialized `or()` path applies; the array and
+        // range operators keep the dedicated methods that format their own
+        // structured operands.
+        expect(calls).toEqual([
+            'filter("a","match","v")',
+            'filter("a","imatch","v")',
+            'contains("a","v")',
+            'containedBy("a","v")',
+            'overlaps("a","v")',
+            'rangeGt("a","v")',
+            'rangeGte("a","v")',
+            'rangeLt("a","v")',
+            'rangeLte("a","v")',
+            'rangeAdjacent("a","v")',
+            'filter("a","isdistinct","v")',
+        ]);
+    });
+
+    it('rejects operand types the array and range builder methods cannot format', () => {
+        for (const operator of ['contains', 'containedBy', 'overlaps', 'rangeGt'] as const) {
+            expect(() =>
+                applyWhere(recorder().builder, { kind: 'compare', column: 'a', operator, value: { kind: 'literal', value: null } }, []),
+            ).toThrow(UnsupportedSqlError);
+        }
+        // A range operator takes a range literal, never an array or an object.
+        for (const value of [['x'], { k: 1 }]) {
+            expect(() =>
+                applyWhere(recorder().builder, { kind: 'compare', column: 'a', operator: 'rangeGt', value: { kind: 'param', index: 1 } }, [value]),
+            ).toThrow(UnsupportedSqlError);
+        }
+        // `overlaps` takes an array but not a bare object — postgrest-js calls
+        // `.join()` on its non-string branch.
+        expect(() =>
+            applyWhere(recorder().builder, { kind: 'compare', column: 'a', operator: 'overlaps', value: { kind: 'param', index: 1 } }, [{ k: 1 }]),
+        ).toThrow(UnsupportedSqlError);
+
+        // Arrays and JSON objects stay valid where the builder handles them.
+        const { calls, builder } = recorder();
+        applyWhere(builder, { kind: 'compare', column: 'a', operator: 'overlaps', value: { kind: 'param', index: 1 } }, [['x', 'y']]);
+        applyWhere(builder, { kind: 'compare', column: 'b', operator: 'contains', value: { kind: 'param', index: 1 } }, [{ k: 1 }]);
+        applyWhere(builder, { kind: 'compare', column: 'c', operator: 'containedBy', value: { kind: 'param', index: 1 } }, [['z']]);
+        expect(calls).toEqual(['overlaps("a",["x","y"])', 'contains("b",{"k":1})', 'containedBy("c",["z"])']);
     });
 
     it('applies not in and text search', () => {
