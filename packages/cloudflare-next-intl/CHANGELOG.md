@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.0] - 2026-09-10
+
+### Added
+
+- `withServiceDb` exported from `cloudflare-next-intl/db`: runs a query as the **service role**, bypassing RLS entirely (`db.supabase.serviceRoleKey` in Supabase mode; no role downgrade in connection-string mode). Adds `@intl-config` auto-resolution on top of `cloudflare-next-intl-db`'s `withServiceDb`; no Firebase Auth wiring, since the service role isn't a signed-in user. Trusted server-side paths only (admin actions, cron jobs, webhooks) — never a path a request/user can influence.
+
 ## [0.9.63] - 2026-09-10
 
 ### Changed

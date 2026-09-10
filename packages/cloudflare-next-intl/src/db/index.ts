@@ -15,6 +15,11 @@
  * Pick a wrapper by who is allowed to see the rows:
  * - {@link withPublicDb} — anonymous role, for data any visitor may read.
  * - {@link withUserDb} — the signed-in user, with RLS applied to their id.
+ * - {@link withServiceDb} — service role, bypasses RLS entirely
+ *   (`db.supabase.serviceRoleKey` in Supabase mode; runs with no role
+ *   downgrade in connection-string mode) — trusted server-side paths only
+ *   (admin actions, cron jobs, webhooks), never an ordinary request; see
+ *   its own doc comment for the full warning.
  *
  * Need more than one statement to succeed or fail together? Call
  * `db.transaction(...)` on the handle either wrapper hands your callback —
@@ -45,7 +50,7 @@
  * Generic Drizzle SQL helpers (`excluded`, `onConflictSet`, `ago`, …) live in
  * the separate `cloudflare-next-intl/dbHelpers` entry point.
  */
-export { withPublicDb, withUserDb, resolveUserDbCredentials } from './context.js';
+export { withPublicDb, withUserDb, withServiceDb, resolveUserDbCredentials } from './context.js';
 export type { UserDbCredentials } from './context.js';
 export type { DrizzleDb, TransactionResult } from './context.js';
 export { withDbClient, connectToPostgres, disconnectPostgres, resetConnectionState } from './connection.js';

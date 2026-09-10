@@ -807,6 +807,21 @@ export default setIntlConfig({
 - `disconnectTimeoutMs` — **deprecated, ignored since 0.8.23.** Client
   teardown is awaited or deferred to `ctx.waitUntil` without a timeout.
 
+#### Service role (`withServiceDb`)
+
+`withServiceDb` runs a query as the **service role** — it bypasses RLS
+entirely (`db.supabase.serviceRoleKey` in Supabase mode; no role downgrade in
+connection-string mode) and adds no auth wiring, since the service role isn't
+a signed-in user. Use it only on trusted server-side paths a request/user
+can't influence — admin actions, cron jobs, webhooks — never behind an
+ordinary request handler:
+
+```typescript
+import { withServiceDb } from "cloudflare-next-intl/db";
+
+const rows = await withServiceDb((db) => db.select().from(profiles));
+```
+
 #### Choosing a transport
 
 `db` reaches Postgres one of two ways, decided by which fields you set. The

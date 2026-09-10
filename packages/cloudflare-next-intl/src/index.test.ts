@@ -13,6 +13,7 @@ describe('package root barrel', () => {
         // follow the same rule: reachable only via `cloudflare-next-intl/db`.
         expect((root as Record<string, unknown>).withPublicDb).toBeUndefined();
         expect((root as Record<string, unknown>).withUserDb).toBeUndefined();
+        expect((root as Record<string, unknown>).withServiceDb).toBeUndefined();
         expect((root as Record<string, unknown>).connectToPostgres).toBeUndefined();
         expect((root as Record<string, unknown>).disconnectPostgres).toBeUndefined();
         expect((root as Record<string, unknown>).resetConnectionState).toBeUndefined();

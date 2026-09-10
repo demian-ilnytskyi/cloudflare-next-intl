@@ -2,18 +2,20 @@ import { describe, it, expect, vi } from 'vitest';
 
 const withPublicDbImpl = vi.fn(async (fn: (db: unknown) => unknown) => fn({}));
 const withUserDbImpl = vi.fn(async (fn: (db: unknown) => unknown) => fn({}));
+const withServiceDbImpl = vi.fn(async (fn: (db: unknown) => unknown) => fn({}));
 const resolveUserDbCredentialsImpl = vi.fn(async () => ({ uid: 'u1', accessToken: 't1', role: 'authenticated' }));
 
 vi.mock('cloudflare-next-intl-db', () => ({
     withPublicDb: withPublicDbImpl,
     withUserDb: withUserDbImpl,
+    withServiceDb: withServiceDbImpl,
     resolveUserDbCredentials: resolveUserDbCredentialsImpl,
 }));
 
 const resolveDbConfigMock = vi.fn(async () => ({ db: { connectionString: 'postgres://resolved' } }));
 vi.mock('./resolve_db_config.js', () => ({ default: resolveDbConfigMock }));
 
-const { withPublicDb, withUserDb, resolveUserDbCredentials } = await import('./context.js');
+const { withPublicDb, withUserDb, withServiceDb, resolveUserDbCredentials } = await import('./context.js');
 
 describe('context.ts wrapper', () => {
     it('withPublicDb resolves config via resolve_db_config then delegates to cloudflare-next-intl-db', async () => {
@@ -31,6 +33,15 @@ describe('context.ts wrapper', () => {
 
         expect(resolveDbConfigMock).toHaveBeenCalledWith(undefined);
         expect(withUserDbImpl).toHaveBeenCalledWith(fn, 'explicit-uid', { db: { connectionString: 'postgres://resolved' } });
+    });
+
+    it('withServiceDb resolves config via resolve_db_config then delegates to cloudflare-next-intl-db', async () => {
+        const fn = vi.fn(async () => 'service-result');
+        const result = await withServiceDb(fn, { supabase: { serviceRoleKey: 'svc-key' } });
+
+        expect(resolveDbConfigMock).toHaveBeenCalledWith({ supabase: { serviceRoleKey: 'svc-key' } });
+        expect(withServiceDbImpl).toHaveBeenCalledWith(fn, { db: { connectionString: 'postgres://resolved' } });
+        expect(result).toBe('service-result');
     });
 
     it('resolveUserDbCredentials resolves config and delegates', async () => {

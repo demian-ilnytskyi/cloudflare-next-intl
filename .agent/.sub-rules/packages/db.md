@@ -34,13 +34,16 @@ wrapper API described below.
   edge function that already has the caller's token off the request —
   never call `resolveUserDbCredentials`/wire a Firebase resolver there,
   that convenience belongs to the main package's Next.js wrapper).
-- `withServiceDb` — service role, **bypasses RLS entirely**. Supabase Data
-  API mode only (`db.supabase.serviceRoleKey`); throws if `resolveDbMode`
-  picks postgres mode, since a direct connection already runs with
-  whatever privileges its own role has. Never wire `serviceRoleKey` to
-  anything a request/user can influence — trusted server-side paths only
-  (admin actions, cron jobs, webhooks), never a shortcut around
-  `withUserDb`/RLS for an ordinary request.
+- `withServiceDb` — service role, **bypasses RLS entirely**. In Supabase
+  mode, `db.supabase.serviceRoleKey` is sent as the sole bearer token. In
+  connection-string mode it skips the `set local role` downgrade
+  `withPublicDb`/`withUserDb` apply and runs on the connection exactly as
+  configured — grants no privilege on its own, `db.connectionString` must
+  already point at a role that can see what's being asked for. Never wire
+  `serviceRoleKey`/a privileged `connectionString` to anything a
+  request/user can influence — trusted server-side paths only (admin
+  actions, cron jobs, webhooks), never a shortcut around `withUserDb`/RLS
+  for an ordinary request.
 - Every handle these three pass to your callback also carries a plain
   `isServiceRole` boolean (`true` only for `withServiceDb`) — cast to
   `{ isServiceRole: boolean }` in code shared across wrappers that needs to
