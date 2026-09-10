@@ -24,6 +24,7 @@ export interface CodegenPaths {
     testsFile: string;
     force: boolean;
     skipExec: boolean;
+    schemaImport: string;
 }
 
 const DEFAULT_DDL_DIR = 'supabase/data-base';
@@ -33,6 +34,15 @@ const DEFAULT_DB_URL = null;
 const DEFAULT_TIMEOUT_MS = 5000;
 const DEFAULT_RPC_FILE_NAME = 'cfni_exec.sql';
 const DEFAULT_TESTS_FILE_NAME = 'cfni_exec.sql';
+// The module specifier drizzle-kit's raw `drizzle-orm`/`drizzle-orm/pg-core`
+// imports get retargeted to in the generated schema file, so consumers don't
+// need a direct `drizzle-orm` dependency just to load it. Defaults to this
+// package's primary consumer (cloudflare-next-intl-db's own `/schema`
+// re-export); a project generating a schema for the legacy
+// `cloudflare-next-intl` package instead must pass
+// `--schema-import=cloudflare-next-intl/dbSchema` (or set
+// CFNI_DB_SCHEMA_IMPORT) explicitly.
+const DEFAULT_SCHEMA_IMPORT = 'cloudflare-next-intl-db/schema';
 
 function flags(argv: readonly string[], name: string): string[] {
     const prefix = `--${name}=`;
@@ -100,5 +110,6 @@ export default function resolveCodegenPaths(
         testsFile: join(testsDir, testsFileName),
         force: argv.includes('--force') || env.CFNI_DB_FORCE_EXEC === 'true',
         skipExec: argv.includes('--skip-exec') || env.CFNI_DB_SKIP_EXEC === 'true',
+        schemaImport: flag(argv, 'schema-import') ?? env.CFNI_DB_SCHEMA_IMPORT ?? DEFAULT_SCHEMA_IMPORT,
     };
 }

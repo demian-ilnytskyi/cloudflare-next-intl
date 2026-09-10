@@ -19,10 +19,23 @@ this package directly when you have neither.
 See the parent package's `db.md` (`.agent/.sub-rules/packages/db.md`) for
 the transport pipeline and supported REST subset — unchanged by this split.
 
+## Codegen CLI moved to `cloudflare-next-intl-db-codegen`
+
+`cfni-db-codegen`/`cfni-db-install-exec` live in the separate
+[`cloudflare-next-intl-db-codegen`](../db-codegen/README.md) package as of
+`0.2.0`. Their only dependency this runtime package used to force on every
+consumer — `embedded-postgres`, which ships real per-platform Postgres
+binaries — never belonged in a package meant to run inside an edge function;
+it bloated every Deno/Supabase Edge Function bundle that did `npm:
+cloudflare-next-intl-db` regardless of whether the function ever touched the
+codegen path. Install `cloudflare-next-intl-db-codegen` (or `npx
+--package=cloudflare-next-intl-db-codegen`) wherever you used to run
+`cfni-db-codegen` from this package.
+
 ## Usage outside Next.js — e.g. a Deno Supabase Edge Function
 
 ```ts
-import { withPublicDb } from "npm:cloudflare-next-intl-db@0.1.1";
+import { withPublicDb } from "npm:cloudflare-next-intl-db@0.2.0";
 
 const rows = await withPublicDb(
   (db) => db.select().from(articles),
@@ -44,7 +57,7 @@ bearer token (mirroring how `withPublicDb` sends `anonKey`) — both the
 the whole call, so every RLS policy on every table it touches is bypassed.
 
 ```ts
-import { withServiceDb } from "npm:cloudflare-next-intl-db@0.1.1";
+import { withServiceDb } from "npm:cloudflare-next-intl-db@0.2.0";
 
 const allProfiles = await withServiceDb(
   (db) => db.select().from(profiles),

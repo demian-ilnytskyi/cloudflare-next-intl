@@ -1,16 +1,12 @@
 {
   "name": "cloudflare-next-intl-db",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Framework-agnostic Postgres/Drizzle/Supabase data-access layer extracted from cloudflare-next-intl — no React, Next.js, or Firebase dependency.",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "type": "module",
   "sideEffects": false,
-  "bin": {
-    "cfni-db-codegen": "bin/db_codegen.mjs",
-    "cfni-db-install-exec": "bin/db_install_exec.mjs"
-  },
-  "files": ["dist", "bin", "supabase", "LICENSE", "README.md", "llms.txt"],
+  "files": ["dist", "supabase", "LICENSE", "README.md", "llms.txt"],
   "exports": {
     ".": { "types": "./dist/src/index.d.ts", "import": "./dist/src/index.js" },
     "./helpers": { "types": "./dist/src/helpers.d.ts", "import": "./dist/src/helpers.js" },
@@ -35,9 +31,7 @@
   "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/tree/main/packages/db#readme",
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
-    "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
-    "embedded-postgres": "^18.4.0-beta.17",
     "pg": "^8.23.0"
   },
   "devDependencies": {

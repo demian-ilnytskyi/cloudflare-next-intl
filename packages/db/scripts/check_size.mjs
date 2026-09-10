@@ -8,7 +8,10 @@ const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 // See ../../.agent/.sub-rules/packages/package-authoring.md — add an entry
 // here whenever a dependency is swapped for a lighter equivalent that must
 // never silently reappear.
-const BANNED = {};
+const BANNED = {
+  'embedded-postgres': 'ships per-platform Postgres binaries (30MB+); only the extracted cloudflare-next-intl-db-codegen CLI package needs it, never this runtime package',
+  'drizzle-kit': 'only the codegen CLI needs live-introspection; moved to cloudflare-next-intl-db-codegen',
+};
 
 const REQUIRED_FILES = ['README.md', 'llms.txt'];
 

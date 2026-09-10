@@ -1,0 +1,39 @@
+{
+  "name": "cloudflare-next-intl-db-codegen",
+  "version": "0.1.0",
+  "description": "Drizzle schema codegen CLI for cloudflare-next-intl-db — introspects tracked SQL DDL (via embedded-postgres or a live Postgres) with drizzle-kit and generates typed Drizzle models. Extracted from cloudflare-next-intl-db so its runtime package never ships embedded-postgres's per-platform Postgres binaries.",
+  "type": "module",
+  "sideEffects": false,
+  "bin": {
+    "cfni-db-codegen": "bin/db_codegen.mjs",
+    "cfni-db-install-exec": "bin/db_install_exec.mjs"
+  },
+  "files": ["dist", "bin", "LICENSE", "README.md"],
+  "scripts": {
+    "test": "vitest run --coverage",
+    "prepare": "npm run build",
+    "build": "rm -rf dist && tsc && node ../db/scripts/write_dist_type.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": { "type": "git", "url": "git+https://github.com/demian-ilnytskyi/cloudflare-next-intl.git" },
+  "keywords": ["postgres", "drizzle", "supabase", "codegen", "cloudflare", "deno", "edge-functions"],
+  "author": "Demian Ilnutskyi",
+  "license": "MIT",
+  "bugs": { "url": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/issues" },
+  "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/tree/main/packages/db-codegen#readme",
+  "dependencies": {
+    "drizzle-kit": "^0.31.10",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.5",
+    "@types/pg": "^8.23.1",
+    "@vitest/coverage-v8": "^3.2.7",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.2",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.33.1",
+    "vitest": "^3.0.8"
+  }
+}

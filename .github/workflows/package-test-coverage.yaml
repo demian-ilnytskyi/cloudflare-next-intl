@@ -6,14 +6,41 @@ on:
     paths:
       - "packages/cloudflare-next-intl/**"
       - "packages/db/**"
+      - "packages/db-codegen/**"
     branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: read # required for dorny/paths-filter to list PR files
+
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      cloudflare_next_intl: ${{ steps.filter.outputs.cloudflare_next_intl }}
+      db: ${{ steps.filter.outputs.db }}
+      db_codegen: ${{ steps.filter.outputs.db_codegen }}
+    steps:
+      - uses: actions/checkout@v4.1.1
+      - name: 🕵️ Detect Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            cloudflare_next_intl:
+              - 'packages/cloudflare-next-intl/**'
+            db:
+              - 'packages/db/**'
+            db_codegen:
+              - 'packages/db-codegen/**'
+
   build_tests_cloudflare_next_intl:
+    needs: [changes]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.cloudflare_next_intl == 'true' }}
     uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
     secrets: inherit
     with:
@@ -34,6 +61,8 @@ jobs:
       send_notifications: false
 
   build_tests_db:
+    needs: [changes]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.db == 'true' }}
     uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
     secrets: inherit
     with:
@@ -45,14 +74,28 @@ jobs:
       run_bench: true
       send_notifications: false
 
+  build_tests_db_codegen:
+    needs: [changes]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.db_codegen == 'true' }}
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
+    secrets: inherit
+    with:
+      project_type: nextjs
+      working_directory: packages/db-codegen
+      test_path: src
+      min_coverage: 100
+      min_overall_coverage: 100
+      send_notifications: false
+
   notify:
     if: always()
     needs:
       - build_tests_cloudflare_next_intl
       - build_tests_db
+      - build_tests_db_codegen
     uses: demian-ilnytskyi/workflows/.github/workflows/notification.yml@main
     secrets: inherit
     with:
       job_status: ${{ (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && 'failure' || 'success' }}
       workflow: ${{ github.workflow }}
-      dop_text: "cloudflare-next-intl ${{ needs.build_tests_cloudflare_next_intl.result }}, db ${{ needs.build_tests_db.result }}"
+      dop_text: "cloudflare-next-intl ${{ needs.build_tests_cloudflare_next_intl.result }}, db ${{ needs.build_tests_db.result }}, db-codegen ${{ needs.build_tests_db_codegen.result }}"

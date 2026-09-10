@@ -22,6 +22,21 @@ describe('resolveCodegenPaths', () => {
         expect(paths.testsFile).toBe('/app/supabase/tests/cfni_exec.sql');
         expect(paths.force).toBe(false);
         expect(paths.skipExec).toBe(false);
+        expect(paths.schemaImport).toBe('cloudflare-next-intl-db/schema');
+    });
+
+    it('resolves schema-import from a flag over env over the default', () => {
+        expect(resolveCodegenPaths([], {}, cwd).schemaImport).toBe('cloudflare-next-intl-db/schema');
+        expect(
+            resolveCodegenPaths([], { CFNI_DB_SCHEMA_IMPORT: 'cloudflare-next-intl/dbSchema' }, cwd).schemaImport,
+        ).toBe('cloudflare-next-intl/dbSchema');
+        expect(
+            resolveCodegenPaths(
+                ['--schema-import=custom/schema'],
+                { CFNI_DB_SCHEMA_IMPORT: 'ignored' },
+                cwd,
+            ).schemaImport,
+        ).toBe('custom/schema');
     });
 
     it('reads skipExec from a flag or env var', () => {
