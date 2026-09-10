@@ -21,6 +21,16 @@ export interface SupabaseDbConfig {
     url?: FallibleConfigValue<string>;
     /** Supabase anon (publishable) key — never a service-role key. */
     anonKey?: FallibleConfigValue<string>;
+    /**
+     * Service-role key — bypasses RLS entirely. Read **only** by
+     * {@link ../context.withServiceDb | withServiceDb}, never by
+     * `withPublicDb`/`withUserDb`, so a config carrying one is never
+     * accidentally used for a public- or user-scoped call. Treat this like
+     * any other server-only secret: never send it to a client, never log
+     * it, never resolve it from anything a client-supplied value could
+     * influence.
+     */
+    serviceRoleKey?: FallibleConfigValue<string>;
     /** Name of the Postgres function that runs generated SQL. Defaults to `'cfni_exec'`. */
     execFunction?: string;
     /** `false` when `cfni_exec` is not installed — see package README. Defaults to `true`. */

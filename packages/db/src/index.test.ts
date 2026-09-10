@@ -10,6 +10,7 @@ describe('db entry point', () => {
             'resolveUserDbCredentials',
             'withDbClient',
             'withPublicDb',
+            'withServiceDb',
             'withSessionLock',
             'withUserDb',
         ]);

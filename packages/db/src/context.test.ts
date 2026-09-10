@@ -36,7 +36,7 @@ vi.mock('./connection', () => ({
 }));
 vi.mock('./transaction_batch', () => ({ default: runTransactionBatch }));
 
-import { withPublicDb, withUserDb, resolveUserDbCredentials } from './context.js';
+import { withPublicDb, withUserDb, withServiceDb, resolveUserDbCredentials } from './context.js';
 import type { DbConfig } from './types.js';
 
 function makeConfig(overrides?: Partial<DbConfig>): DbConfig {
@@ -60,8 +60,12 @@ beforeEach(() => {
 });
 
 describe('withPublicDb', () => {
-    it('runs the callback with a drizzle db', async () => {
-        const result = await withPublicDb(async (db) => { expect(db).toBeDefined(); return 42; }, makeConfig());
+    it('runs the callback with a drizzle db, flagged isServiceRole: false', async () => {
+        const result = await withPublicDb(async (db) => {
+            expect(db).toBeDefined();
+            expect((db as unknown as { isServiceRole: boolean }).isServiceRole).toBe(false);
+            return 42;
+        }, makeConfig());
         expect(result).toBe(42);
         expect(withDbClient).toHaveBeenCalledTimes(1);
     });
@@ -358,6 +362,67 @@ describe('supabase mode', () => {
         await withPublicDb(async () => 1, { db: { connectionString: 'postgresql://x', supabase: {} } });
         expect(withDbClient).toHaveBeenCalledTimes(1);
         expect(proxyDrizzle).not.toHaveBeenCalled();
+    });
+
+    it('withServiceDb sends the service-role key as the sole bearer token, and flags the handle as service-role', async () => {
+        runTransactionBatch.mockResolvedValue([{ rows: [['1']], rowCount: 1 }]);
+        const cfg: DbConfig = { db: { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key', serviceRoleKey: 'service-key' } } };
+
+        const result = await withServiceDb(async (db) => {
+            expect(db).toBe(proxyDb);
+            expect((db as unknown as { isServiceRole: boolean }).isServiceRole).toBe(true);
+            return (db as unknown as { transaction: (build: () => unknown) => Promise<unknown> }).transaction(() => [
+                { sql: 'select * from profiles', params: [] },
+            ]);
+        }, cfg);
+
+        expect(result).toEqual([{ rows: [['1']], rowCount: 1 }]);
+        expect(runTransactionBatch).toHaveBeenCalledWith(
+            { url: 'https://abc.supabase.co', anonKey: 'anon-key', serviceRoleKey: 'service-key' },
+            'service-key',
+            [{ sql: 'select * from profiles', params: [] }],
+        );
+        expect(withDbClient).not.toHaveBeenCalled();
+    });
+
+    it('withPublicDb/withUserDb hand out isServiceRole: false', async () => {
+        await withPublicDb(async (db) => {
+            expect((db as unknown as { isServiceRole: boolean }).isServiceRole).toBe(false);
+            return 'ok';
+        }, supabaseConfig);
+        const cfg: DbConfig = { db: { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' }, getAccessToken: () => 'user-jwt' } };
+        await withUserDb(async (db) => {
+            expect((db as unknown as { isServiceRole: boolean }).isServiceRole).toBe(false);
+            return 'ok';
+        }, undefined, cfg);
+    });
+
+    it('withServiceDb resolves a function-form serviceRoleKey', async () => {
+        const cfg: DbConfig = {
+            db: { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key', serviceRoleKey: () => 'resolved-service-key' } },
+        };
+        await withServiceDb(async (db) => { expect(db).toBe(proxyDb); return 'ok'; }, cfg);
+        expect(proxyDrizzle).toHaveBeenCalled();
+    });
+
+    it('withServiceDb throws when serviceRoleKey does not resolve', async () => {
+        const cfg: DbConfig = { db: { supabase: { url: 'https://abc.supabase.co', anonKey: 'anon-key' } } };
+        await expect(withServiceDb(async () => 'ok', cfg)).rejects.toThrow(/service-role key/i);
+    });
+
+    it('withServiceDb in connection-string mode runs on the raw connection with no role downgrade', async () => {
+        const cfg: DbConfig = { db: { connectionString: 'postgresql://x' } };
+        const result = await withServiceDb(async (db) => {
+            expect((db as unknown as { isServiceRole: boolean }).isServiceRole).toBe(true);
+            return 'ok';
+        }, cfg);
+        expect(result).toBe('ok');
+        expect(withDbClient).toHaveBeenCalledTimes(1);
+        expect(tx._clientQuery).not.toHaveBeenCalledWith('set local role anon');
+    });
+
+    it('withServiceDb throws when db config is missing', async () => {
+        await expect(withServiceDb(async () => 'ok', { db: undefined })).rejects.toThrow(/`db` is not set/);
     });
 });
 

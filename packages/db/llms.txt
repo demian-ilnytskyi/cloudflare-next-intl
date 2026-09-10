@@ -1,4 +1,4 @@
-# @cloudflare-next-intl/db
+# cloudflare-next-intl-db
 
 Framework-agnostic Postgres/Drizzle/Supabase data-access layer, usable from
 Deno, Node, Cloudflare Workers, or any plain TypeScript project — no React,
@@ -6,15 +6,15 @@ Next.js, or Firebase dependency.
 
 ## Subpaths
 
-import { withPublicDb, withUserDb } from "@cloudflare-next-intl/db";
-import { excluded, onConflictSet, ago } from "@cloudflare-next-intl/db/helpers";
-import { pgTableBuilder } from "@cloudflare-next-intl/db/schema";
-import { makeFakeDb } from "@cloudflare-next-intl/db/testing";
-import dbEslintConfig from "@cloudflare-next-intl/db/eslint";
+import { withPublicDb, withUserDb, withServiceDb } from "cloudflare-next-intl-db";
+import { excluded, onConflictSet, ago } from "cloudflare-next-intl-db/helpers";
+import { pgTableBuilder } from "cloudflare-next-intl-db/schema";
+import { makeFakeDb } from "cloudflare-next-intl-db/testing";
+import dbEslintConfig from "cloudflare-next-intl-db/eslint";
 
 ## Usage outside Next.js — e.g. a Deno Supabase Edge Function
 
-import { withPublicDb } from "npm:@cloudflare-next-intl/db";
+import { withPublicDb } from "npm:cloudflare-next-intl-db@0.1.1";
 
 const rows = await withPublicDb(
   (db) => db.select().from(articles),
@@ -26,3 +26,31 @@ resolveAuthUser callback backed by whatever your own auth system already
 gives you — e.g. decode the caller's own JWT and return { uid, getIdToken,
 getIdTokenResult } — or pass an explicit UserDbCredentials as withUserDb's
 second argument instead and skip resolveAuthUser entirely.
+
+## Service role (withServiceDb) — bypasses RLS entirely
+
+In Supabase Data API mode, sends db.supabase.serviceRoleKey as the sole
+bearer token (apikey header + Postgres session role both become the
+service role's), bypassing every RLS policy on every table it touches.
+
+import { withServiceDb } from "npm:cloudflare-next-intl-db@0.1.1";
+
+const allProfiles = await withServiceDb(
+  (db) => db.select().from(profiles),
+  { db: { supabase: { url: Deno.env.get("SUPABASE_URL"), anonKey: Deno.env.get("SUPABASE_ANON_KEY"), serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") } } },
+);
+
+In connection-string mode, withServiceDb runs on the connection exactly as
+configured — no set local role downgrade the way withPublicDb/withUserDb
+apply one — but grants no privilege on its own: db.connectionString must
+already point at a role that can see what you're asking for.
+
+Treat serviceRoleKey/a privileged connectionString like any other
+server-only secret — never wire either to anything a request/user can
+influence, never log it. Use withServiceDb only for trusted server-side
+paths (admin actions, cron jobs, webhooks), never as a shortcut around
+withUserDb/RLS for an ordinary request.
+
+Every handle withPublicDb/withUserDb/withServiceDb pass to your callback
+also carries a plain isServiceRole boolean (true only for withServiceDb) so
+shared code can branch on which wrapper is currently running.

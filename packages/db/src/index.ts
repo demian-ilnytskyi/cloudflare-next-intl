@@ -14,7 +14,7 @@
  * `import()` inside these functions, so an app that never calls a `db`
  * export never bundles any of them.
  */
-export { withPublicDb, withUserDb, resolveUserDbCredentials } from './context.js';
+export { withPublicDb, withUserDb, withServiceDb, resolveUserDbCredentials } from './context.js';
 export type { UserDbCredentials, DrizzleDb, TransactionResult } from './context.js';
 export { withDbClient, connectToPostgres, disconnectPostgres, resetConnectionState, withSessionLock } from './connection.js';
 export type {

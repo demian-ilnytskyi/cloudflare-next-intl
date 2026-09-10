@@ -10,6 +10,7 @@ import resolveAccessToken from './access_token.js';
 import runTransactionBatch, { type BatchQuery } from './transaction_batch.js';
 import type { ExecResult } from './supabase_transport.js';
 import inlineParams from './inline_params.js';
+import resolveConfigValue from './resolve_config_value.js';
 
 /**
  * The Drizzle handle passed to `withPublicDb`/`withUserDb` callbacks. Use it
@@ -137,10 +138,11 @@ async function resolveAuthenticatedRole(config: DbConfig, db: DbRoutingConfig, c
  * Builds a Drizzle handle backed by PostgREST. `bearerToken` decides the role
  * Postgres sees: the anon key for public access, a user JWT for `withUserDb`.
  */
-async function supabaseDb(supabase: SupabaseDbConfig, bearerToken: string): Promise<DrizzleDb> {
+async function supabaseDb(supabase: SupabaseDbConfig, bearerToken: string, isServiceRole: boolean): Promise<DrizzleDb> {
     const { drizzle } = await import('drizzle-orm/pg-proxy');
     const db = drizzle(createSupabaseTransport(supabase, bearerToken)) as unknown as DrizzleDb;
     return Object.assign(db, {
+        isServiceRole,
         transaction(build: (db: DrizzleDb) => Promise<Query[]> | Query[]) {
             return runTransaction(supabase, bearerToken, build);
         },
@@ -150,8 +152,10 @@ async function supabaseDb(supabase: SupabaseDbConfig, bearerToken: string): Prom
 async function postgresDb(
     drizzleHandle: NodePgDatabase<Record<string, never>>,
     rawClient: { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> },
+    isServiceRole: boolean,
 ): Promise<DrizzleDb> {
     return Object.assign(drizzleHandle as unknown as DrizzleDb, {
+        isServiceRole,
         async transaction(build: (db: DrizzleDb) => Promise<Query[]> | Query[]): Promise<ExecResult[]> {
             return runPostgresTransaction(rawClient, build);
         },
@@ -217,7 +221,7 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>, config:
 
     if (resolved.mode === 'supabase') {
         const { anonKey } = await resolveSupabaseEndpoint(resolved.supabase);
-        return fn(await supabaseDb(resolved.supabase, anonKey));
+        return fn(await supabaseDb(resolved.supabase, anonKey, false));
     }
 
     return await withDbClient(config, async (client) => {
@@ -226,7 +230,69 @@ export async function withPublicDb<T>(fn: (db: DrizzleDb) => Promise<T>, config:
 
         await client.query(`set local role anon`);
 
-        return await fn(await postgresDb(drizzleHandle, client));
+        return await fn(await postgresDb(drizzleHandle, client, false));
+    });
+}
+
+/**
+ * Runs a query as the **service role** — bypasses RLS entirely.
+ *
+ * In Supabase Data API mode, `db.supabase.serviceRoleKey` is sent as the
+ * sole bearer token (mirroring how {@link withPublicDb} sends `anonKey`),
+ * so both the `apikey` header and the Postgres session role are the
+ * service role's for the whole call.
+ *
+ * In connection-string mode, the query runs on the connection exactly as
+ * configured — no `set local role` downgrade the way `withPublicDb`/
+ * `withUserDb` apply one, since a direct Postgres connection already runs
+ * with whatever privileges its own configured role has. Point
+ * `db.connectionString` at a role that has that access (a service-role/
+ * superuser DSN, or one Postgres itself lets bypass RLS) for this to
+ * actually see everything — `withServiceDb` does not grant any privilege
+ * on its own here, it only skips the downgrade the other two wrappers do.
+ *
+ * This bypasses every RLS policy on every table it touches. Never wire
+ * `db.supabase.serviceRoleKey`/a privileged `db.connectionString` to
+ * anything a request/user can influence — read it the same way any other
+ * server secret is, and use this only for genuinely privileged,
+ * trusted-code paths (an admin action, a cron job, a webhook handler) —
+ * never as a shortcut around `withUserDb`/RLS for an ordinary request.
+ *
+ * The handle `fn` receives also carries a plain `isServiceRole` boolean
+ * (`true` here; `false` on every `withPublicDb`/`withUserDb` handle) — check
+ * `(db as unknown as { isServiceRole: boolean }).isServiceRole` in code
+ * shared across wrappers that needs to branch on which one is currently
+ * running, without threading a separate flag through by hand.
+ *
+ * @param fn Receives the Drizzle handle; return whatever the caller needs.
+ * @param config A `DbConfig` object with either `db.connectionString` or
+ * `db.supabase.serviceRoleKey` set.
+ * @throws If `db` is not set, or (Supabase mode only) if
+ * `db.supabase.serviceRoleKey` does not resolve to a value.
+ */
+export async function withServiceDb<T>(fn: (db: DrizzleDb) => Promise<T>, config: DbConfig): Promise<T> {
+    const db = config.db;
+    requireDbConfig(db);
+
+    const resolved = await resolveDbMode(db, config.generate);
+
+    if (resolved.mode === 'supabase') {
+        const serviceRoleKey = await resolveConfigValue(resolved.supabase.serviceRoleKey);
+        if (!serviceRoleKey) {
+            throw new Error(
+                'db: withServiceDb could not resolve a service-role key. Set ' +
+                '`db.supabase.serviceRoleKey` to your project\'s service_role key, or a function ' +
+                'resolving one.',
+            );
+        }
+        return fn(await supabaseDb(resolved.supabase, serviceRoleKey, true));
+    }
+
+    return await withDbClient(config, async (client) => {
+        const { drizzle } = await import('drizzle-orm/node-postgres');
+        const drizzleHandle = drizzle(client) as unknown as NodePgDatabase<Record<string, never>>;
+
+        return await fn(await postgresDb(drizzleHandle, client, true));
     });
 }
 
@@ -267,7 +333,7 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, auth: str
         const token = credentials
             ? credentials.accessToken ?? throwMissingCredential('an access token')
             : await resolveAccessToken(config);
-        return fn(await supabaseDb(resolved.supabase, token));
+        return fn(await supabaseDb(resolved.supabase, token, false));
     }
 
     const userId = credentials ? uid ?? throwMissingCredential('a user id') : await resolveUserId(config, uid);
@@ -344,7 +410,7 @@ export async function withUserDb<T>(fn: (db: DrizzleDb) => Promise<T>, auth: str
         const resetRole = () => rawClient.query('reset role').catch(() => undefined);
 
         try {
-            const result = await fn(await postgresDb(drizzleHandle, interceptingClient as unknown as { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> }));
+            const result = await fn(await postgresDb(drizzleHandle, interceptingClient as unknown as { query: (sql: string) => Promise<{ rows: unknown[]; rowCount: number | null }> }, false));
             if (inTransaction) await rawClient.query('commit');
             await resetRole();
             return result;
