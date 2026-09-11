@@ -333,4 +333,13 @@ describe('CookieConsentProvider', () => {
         render(<CookieConsentProvider requiresConsent={true}><Consumer /></CookieConsentProvider>);
         expect(screen.getByTestId('requires-consent')).toHaveTextContent('false');
     });
+
+    it('throws error when useCookieConsent is used outside CookieConsentProvider', async () => {
+        const { default: useCookieConsent } = await import('./use_cookie_consent.js');
+        function StandaloneConsumer() {
+            useCookieConsent();
+            return null;
+        }
+        expect(() => render(<StandaloneConsumer />)).toThrow('useCookieConsent must be used within a CookieConsentProvider');
+    });
 });

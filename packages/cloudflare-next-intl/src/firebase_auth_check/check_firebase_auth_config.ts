@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve as resolvePath } from "node:path";
 
 export interface FirebaseAuthConfigIssue {
     /** Dotted config path, e.g. `firebaseAuth.appCheck.privateKey`. */
@@ -52,27 +53,11 @@ const REQUIRED_APP_CHECK_FIELDS = ["clientEmail", "appId"] as const;
 const OAUTH_TRIPLE = ["oauthClientId", "oauthClientSecret", "oauthRefreshToken"] as const;
 
 /**
- * Extracts the `{...}` object literal that follows `key:` in `source`,
- * starting from the first `{` after the key (so `key: cond ? { ... } :
- * undefined` yields the same literal) and brace-matching to its end while
- * skipping strings, template literals, and comments. Returns `null` when
- * the key is absent or its value is not an object literal.
+ * Brace-matches a `{...}` literal starting at `open` (the index of its `{`),
+ * skipping strings, template literals, and comments. Returns `null` when the
+ * brace at `open` never closes.
  */
-export function extractObjectLiteral(
-    source: string,
-    key: string,
-): { body: string; start: number } | null {
-    const keyMatch = new RegExp(`(^|[\\s{,])${key}\\s*:`).exec(source);
-    if (!keyMatch) return null;
-
-    const afterKey = keyMatch.index + keyMatch[0].length;
-    const open = source.indexOf("{", afterKey);
-    if (open === -1) return null;
-    // A `{` belonging to a LATER key (`firebaseAuth: undefined,` followed by
-    // an unrelated object) is not this key's literal: the value ended at the
-    // comma or statement break in between.
-    if (/[,;]/.test(source.slice(afterKey, open))) return null;
-
+function matchBraceLiteral(source: string, open: number): { body: string; start: number } | null {
     let depth = 0;
     let index = open;
     let quote: string | null = null;
@@ -115,13 +100,347 @@ export function extractObjectLiteral(
 }
 
 /**
+ * Same length as `text`, with every character inside a comment or a
+ * string/template literal replaced by a space (newlines kept, so line
+ * numbers computed from the result still line up). Lets a `key:` search use
+ * a plain regex without matching text that only *looks* like a key because
+ * it's commented out or quoted — e.g. `// apiKey: 'x',` or `homePath: "a: b"`.
+ */
+function maskCommentsAndStrings(text: string): string {
+    let result = "";
+    let quote: string | null = null;
+    let comment: "line" | "block" | null = null;
+
+    for (let index = 0; index < text.length; index += 1) {
+        const char = text[index]!;
+        const next = text[index + 1];
+
+        if (comment === "line") {
+            result += char === "\n" ? "\n" : " ";
+            if (char === "\n") comment = null;
+        } else if (comment === "block") {
+            if (char === "*" && next === "/") {
+                result += "  ";
+                comment = null;
+                index += 1;
+            } else {
+                result += char === "\n" ? "\n" : " ";
+            }
+        } else if (quote) {
+            if (char === "\\") {
+                result += "  ";
+                index += 1;
+            } else {
+                result += char === "\n" ? "\n" : " ";
+                if (char === quote) quote = null;
+            }
+        } else if (char === "/" && next === "/") {
+            comment = "line";
+            result += "  ";
+            index += 1;
+        } else if (char === "/" && next === "*") {
+            comment = "block";
+            result += "  ";
+            index += 1;
+        } else if (char === '"' || char === "'" || char === "`") {
+            quote = char;
+            result += " ";
+        } else {
+            result += char;
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Extracts the `{...}` object literal that follows `key:` in `source`,
+ * starting from the first `{` after the key (so `key: cond ? { ... } :
+ * undefined` yields the same literal) and brace-matching to its end while
+ * skipping strings, template literals, and comments. Returns `null` when
+ * the key is absent or its value is not an object literal.
+ */
+export function extractObjectLiteral(
+    source: string,
+    key: string,
+): { body: string; start: number } | null {
+    const masked = maskCommentsAndStrings(source);
+    const keyMatch = new RegExp(`(^|[\\s{,])${key}\\s*:`).exec(masked);
+    if (!keyMatch) return null;
+
+    const afterKey = keyMatch.index + keyMatch[0].length;
+    const open = masked.indexOf("{", afterKey);
+    if (open === -1) return null;
+    // A `{` belonging to a LATER key (`firebaseAuth: undefined,` followed by
+    // an unrelated object) is not this key's literal: the value ended at the
+    // comma or statement break in between.
+    if (/[,;]/.test(masked.slice(afterKey, open))) return null;
+
+    return matchBraceLiteral(source, open);
+}
+
+/**
+ * Extracts the `{...}` object literal assigned to a top-level
+ * `const NAME = {...}` (optionally `export`ed, optionally type-annotated)
+ * in `source`. Used to resolve what a `...NAME` spread inside a
+ * `firebaseAuth`/`appCheck` literal actually contributes.
+ */
+function extractAssignedObjectLiteral(source: string, name: string): { body: string; start: number } | null {
+    const masked = maskCommentsAndStrings(source);
+    const declMatch = new RegExp(`(?:^|[\\s;}])(?:export\\s+)?(?:const|let|var)\\s+${name}\\b[^=;]*=`).exec(masked);
+    if (!declMatch) return null;
+
+    const afterEq = declMatch.index + declMatch[0].length;
+    const open = masked.indexOf("{", afterEq);
+    if (open === -1) return null;
+    if (/[;\n]\S/.test(masked.slice(afterEq, open))) return null;
+
+    return matchBraceLiteral(source, open);
+}
+
+/**
+ * Names spread (`...name`) at the top level of an object literal `body`
+ * (not inside a nested object/array/call), in source order.
+ */
+function findTopLevelSpreadNames(body: string): string[] {
+    const names: string[] = [];
+    let depth = 0;
+    let quote: string | null = null;
+    let comment: "line" | "block" | null = null;
+
+    for (let index = 0; index < body.length; index += 1) {
+        const char = body[index]!;
+        const next = body[index + 1];
+
+        if (comment === "line") {
+            if (char === "\n") comment = null;
+        } else if (comment === "block") {
+            if (char === "*" && next === "/") {
+                comment = null;
+                index += 1;
+            }
+        } else if (quote) {
+            if (char === "\\") index += 1;
+            else if (char === quote) quote = null;
+        } else if (char === "/" && next === "/") {
+            comment = "line";
+            index += 1;
+        } else if (char === "/" && next === "*") {
+            comment = "block";
+            index += 1;
+        } else if (char === '"' || char === "'" || char === "`") {
+            quote = char;
+        } else if (char === "{" || char === "[" || char === "(") {
+            depth += 1;
+        } else if (char === "}" || char === "]" || char === ")") {
+            depth -= 1;
+        } else if (depth === 0 && char === "." && next === "." && body[index + 2] === ".") {
+            const nameMatch = /^([A-Za-z_$][\w$]*)/.exec(body.slice(index + 3));
+            if (nameMatch) names.push(nameMatch[1]!);
+            index += 2;
+        }
+    }
+
+    return names;
+}
+
+const RESOLVE_EXTENSIONS = [".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs"];
+
+interface TsconfigAliases {
+    baseDir: string;
+    paths: Record<string, string[]>;
+}
+
+const tsconfigAliasCache = new Map<string, TsconfigAliases | null>();
+
+/** Strips line and block comments and trailing commas so a tsconfig.json can go through `JSON.parse`. */
+function stripJsonComments(text: string): string {
+    let stripped = "";
+    let inString = false;
+
+    for (let index = 0; index < text.length; index += 1) {
+        const char = text[index]!;
+        const next = text[index + 1];
+
+        if (inString) {
+            stripped += char;
+            if (char === "\\") {
+                stripped += next ?? "";
+                index += 1;
+            } else if (char === '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (char === '"') {
+            inString = true;
+            stripped += char;
+        } else if (char === "/" && next === "/") {
+            while (index < text.length && text[index] !== "\n") index += 1;
+            stripped += "\n";
+        } else if (char === "/" && next === "*") {
+            index += 2;
+            while (index < text.length && !(text[index] === "*" && text[index + 1] === "/")) index += 1;
+            index += 1;
+        } else {
+            stripped += char;
+        }
+    }
+
+    // A JSON-with-comments file (tsconfig.json) commonly has a trailing
+    // comma left behind after a `// ...` line is dropped; JSON.parse rejects
+    // that, so clean it up too.
+    return stripped.replace(/,(\s*[}\]])/g, "$1");
+}
+
+/** Nearest `tsconfig.json`'s `compilerOptions.paths` (if any), walking up from `fromDir`. */
+function findTsconfigAliases(fromDir: string): TsconfigAliases | null {
+    if (tsconfigAliasCache.has(fromDir)) return tsconfigAliasCache.get(fromDir)!;
+
+    let dir = fromDir;
+    let result: TsconfigAliases | null = null;
+    for (let depth = 0; depth < 12; depth += 1) {
+        const candidate = resolvePath(dir, "tsconfig.json");
+        if (existsSync(candidate)) {
+            try {
+                const parsed = JSON.parse(stripJsonComments(readFileSync(candidate, "utf8")));
+                const paths = parsed?.compilerOptions?.paths;
+                if (paths && typeof paths === "object") {
+                    result = { baseDir: resolvePath(dir, parsed?.compilerOptions?.baseUrl ?? "."), paths };
+                }
+            } catch {
+                result = null;
+            }
+            break;
+        }
+        const parent = dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+    }
+
+    tsconfigAliasCache.set(fromDir, result);
+    return result;
+}
+
+/** Maps an aliased specifier (`@/shared/x`) to a filesystem path via the nearest tsconfig's `paths`. */
+function resolveAliasSpecifier(fromFile: string, specifier: string): string | null {
+    const aliases = findTsconfigAliases(dirname(fromFile));
+    if (!aliases) return null;
+
+    for (const [pattern, targets] of Object.entries(aliases.paths)) {
+        const target = targets[0];
+        if (!target) continue;
+        if (pattern.endsWith("/*") && specifier.startsWith(pattern.slice(0, -1))) {
+            return resolvePath(aliases.baseDir, target.slice(0, -1) + specifier.slice(pattern.length - 1));
+        }
+        if (pattern === specifier) {
+            return resolvePath(aliases.baseDir, target);
+        }
+    }
+    return null;
+}
+
+/** Resolves a relative or tsconfig-aliased import specifier to a readable file. */
+function resolveModuleFile(fromFile: string, specifier: string): string | null {
+    const target = specifier.startsWith(".")
+        ? resolvePath(dirname(fromFile), specifier)
+        : resolveAliasSpecifier(fromFile, specifier);
+    if (!target) return null;
+
+    for (const candidate of [target, ...RESOLVE_EXTENSIONS.map((ext) => target + ext)]) {
+        if (existsSync(candidate)) return candidate;
+    }
+    return null;
+}
+
+/** The imported name and module specifier behind a local `import { X as name } from "..."`. */
+function findNamedImportSpecifier(source: string, localName: string): { imported: string; from: string } | null {
+    const importRegex = /import\s*\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
+    let match: RegExpExecArray | null;
+    while ((match = importRegex.exec(source)) !== null) {
+        for (const raw of match[1]!.split(",")) {
+            const spec = raw.trim();
+            if (!spec) continue;
+            const asMatch = /^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/.exec(spec);
+            const imported = asMatch ? asMatch[1]! : spec;
+            const local = asMatch ? asMatch[2]! : spec;
+            if (local === localName) return { imported, from: match[2]! };
+        }
+    }
+    return null;
+}
+
+/**
+ * Resolves what a `...name` spread contributes: a local `const name = {...}`
+ * in the same file, or — when `fromFile` is a real path — one hop through a
+ * relative named import into the file that defines it. Anything beyond that
+ * (a non-relative import, a computed spread, a re-export chain) is left
+ * unresolved rather than guessed at.
+ */
+function resolveSpreadBody(
+    name: string,
+    source: string,
+    fromFile: string | undefined,
+    cache: Map<string, string | null>,
+): string | null {
+    const cacheKey = `${fromFile ?? ""}::${name}`;
+    if (cache.has(cacheKey)) return cache.get(cacheKey)!;
+
+    let result: string | null = extractAssignedObjectLiteral(source, name)?.body ?? null;
+
+    if (result === null && fromFile) {
+        const namedImport = findNamedImportSpecifier(source, name);
+        if (namedImport) {
+            const file = resolveModuleFile(fromFile, namedImport.from);
+            if (file) {
+                try {
+                    const fileSource = readFileSync(file, "utf8");
+                    result = extractAssignedObjectLiteral(fileSource, namedImport.imported)?.body ?? null;
+                } catch {
+                    result = null;
+                }
+            }
+        }
+    }
+
+    cache.set(cacheKey, result);
+    return result;
+}
+
+/**
+ * All bodies to search for a field: `mainBody` itself, plus the resolved
+ * body of every top-level spread inside it that could be resolved.
+ * `hasUnresolvedSpread` is `true` when at least one spread name couldn't be
+ * resolved — in that case a field absent from every resolved body still
+ * isn't reported as missing, since the unresolved spread could supply it.
+ */
+function resolveSpreadBodies(
+    mainBody: string,
+    source: string,
+    fromFile: string | undefined,
+    cache: Map<string, string | null>,
+): { bodies: string[]; hasUnresolvedSpread: boolean } {
+    const bodies = [mainBody];
+    let hasUnresolvedSpread = false;
+
+    for (const name of findTopLevelSpreadNames(mainBody)) {
+        const resolved = resolveSpreadBody(name, source, fromFile, cache);
+        if (resolved !== null) bodies.push(resolved);
+        else hasUnresolvedSpread = true;
+    }
+
+    return { bodies, hasUnresolvedSpread };
+}
+
+/**
  * Reads the raw value text of `key` inside a single object literal body,
  * stopping at the comma/newline that ends it and skipping nested
  * objects/arrays/strings. Returns `null` when the key isn't present at this
  * level (nested occurrences are not matched).
  */
 export function extractFieldValue(body: string, key: string): { value: string; lineNumber: number } | null {
-    const keyMatch = new RegExp(`(^|[\\s{,])${key}\\s*:`).exec(body);
+    const keyMatch = new RegExp(`(^|[\\s{,])${key}\\s*:`).exec(maskCommentsAndStrings(body));
     if (!keyMatch) return null;
     const start = keyMatch.index + keyMatch[0].length;
 
@@ -208,7 +527,8 @@ function evaluateValue(
 }
 
 function checkField(
-    body: string,
+    bodies: string[],
+    hasUnresolvedSpread: boolean,
     path: string,
     key: string,
     severity: FirebaseAuthConfigIssue["severity"],
@@ -216,8 +536,19 @@ function checkField(
     baseLine: number,
 ): FirebaseAuthConfigIssue | null {
     const field = `${path}.${key}`;
-    const found = extractFieldValue(body, key);
+
+    let found: { value: string; lineNumber: number } | null = null;
+    let fromMainBody = false;
+    for (let index = 0; index < bodies.length; index += 1) {
+        found = extractFieldValue(bodies[index]!, key);
+        if (found) {
+            fromMainBody = index === 0;
+            break;
+        }
+    }
+
     if (!found) {
+        if (hasUnresolvedSpread) return null;
         return { field, severity, reason: "missing from the config" };
     }
     const verdict = evaluateValue(found.value, env);
@@ -227,7 +558,7 @@ function checkField(
         severity,
         reason: verdict.reason,
         ...(verdict.envVar ? { envVar: verdict.envVar } : {}),
-        lineNumber: baseLine + found.lineNumber - 1,
+        ...(fromMainBody ? { lineNumber: baseLine + found.lineNumber - 1 } : {}),
     };
 }
 
@@ -324,26 +655,38 @@ export function checkFirebaseAuthConfig(
 
     const baseLine = source.slice(0, firebaseAuth.start).split("\n").length;
     const issues: FirebaseAuthConfigIssue[] = [];
+    const resolveCache = new Map<string, string | null>();
+
+    const { bodies: authBodies, hasUnresolvedSpread: authHasUnresolvedSpread } =
+        resolveSpreadBodies(firebaseAuth.body, source, options.intlConfigPath, resolveCache);
 
     for (const key of REQUIRED_AUTH_FIELDS) {
-        const issue = checkField(firebaseAuth.body, "firebaseAuth", key, "error", env, baseLine);
+        const issue = checkField(authBodies, authHasUnresolvedSpread, "firebaseAuth", key, "error", env, baseLine);
         if (issue) issues.push(issue);
     }
 
     const appCheck = extractObjectLiteral(firebaseAuth.body, "appCheck");
     if (appCheck) {
         const appCheckLine = baseLine + firebaseAuth.body.slice(0, appCheck.start).split("\n").length - 1;
-        const optedOut = /reportMissingServerCredentials\s*:\s*false/.test(appCheck.body);
+        const optedOut = /reportMissingServerCredentials\s*:\s*false/.test(maskCommentsAndStrings(appCheck.body));
+        const { bodies: appCheckBodies, hasUnresolvedSpread: appCheckHasUnresolvedSpread } =
+            resolveSpreadBodies(appCheck.body, source, options.intlConfigPath, resolveCache);
 
         if (!optedOut) {
             for (const key of REQUIRED_APP_CHECK_FIELDS) {
-                const issue = checkField(appCheck.body, "firebaseAuth.appCheck", key, "warning", env, appCheckLine);
+                const issue = checkField(
+                    appCheckBodies, appCheckHasUnresolvedSpread, "firebaseAuth.appCheck", key, "warning", env, appCheckLine,
+                );
                 if (issue) issues.push(issue);
             }
 
-            const privateKey = checkField(appCheck.body, "firebaseAuth.appCheck", "privateKey", "warning", env, appCheckLine);
+            const privateKey = checkField(
+                appCheckBodies, appCheckHasUnresolvedSpread, "firebaseAuth.appCheck", "privateKey", "warning", env, appCheckLine,
+            );
             const triple = OAUTH_TRIPLE.map((key) =>
-                checkField(appCheck.body, "firebaseAuth.appCheck", key, "warning", env, appCheckLine));
+                checkField(
+                    appCheckBodies, appCheckHasUnresolvedSpread, "firebaseAuth.appCheck", key, "warning", env, appCheckLine,
+                ));
             // Either signing credential alone is enough, so only report when
             // NEITHER is usable — and then report the one the config clearly
             // meant to use (a partial triple) rather than both.

@@ -51,7 +51,7 @@ export default function AutoAnalyticsEvents({ config }: { config?: AutoAnalytics
 
     useEffect(() => {
         if (!granted) return;
-        if (!(!enabledEvents || enabledEvents.includes('screen_view'))) return;
+        if (!isEnabled('screen_view')) return;
         gtagEvent('screen_view', { screen_name: screenName, page_path: path });
     }, [path, screenName, granted, enabledEvents]);
 

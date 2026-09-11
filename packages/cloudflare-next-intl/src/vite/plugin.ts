@@ -101,9 +101,9 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
      * (`clientEmail`/`appId` plus `privateKey` or the full OAuth triple).
      * Env-var-backed fields are resolved against `.env*` + `process.env`, so
      * a missing `FIREBASE_SERVICE_ACCOUNT_*` secret is caught before deploy
-     * instead of showing up as a signed-out render in production. Prints a
-     * warning by default; pass `{ strict: true }` to fail the build. No-op
-     * when the config has no `firebaseAuth`.
+     * instead of showing up as a signed-out render in production. Fails the
+     * build by default; pass `{ strict: false }` to only log the warning.
+     * No-op when the config has no `firebaseAuth`.
      * @default true
      */
     firebaseAuthCheck?: boolean | FirebaseAuthCheckPluginOptions;

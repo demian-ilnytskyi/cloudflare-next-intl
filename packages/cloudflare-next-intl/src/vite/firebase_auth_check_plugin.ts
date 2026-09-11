@@ -6,9 +6,11 @@ export interface FirebaseAuthCheckPluginOptions
     extends Pick<CheckFirebaseAuthConfigOptions, "intlConfigPath" | "env"> {
     /**
      * Fail the build/dev startup when a required field is missing.
-     * Defaults to `false` — the report is printed as a visible terminal
-     * warning instead, so a half-configured local checkout still runs.
-     * @default false
+     * Defaults to `true` so a genuinely incomplete `firebaseAuth` config
+     * cannot ship silently. Pass `false` to only print the terminal warning
+     * (log-only) and let the build continue — e.g. for a half-configured
+     * local checkout.
+     * @default true
      */
     strict?: boolean;
 
@@ -69,7 +71,7 @@ export function firebaseAuthCheckPlugin(options: FirebaseAuthCheckPluginOptions 
 
             console.warn(report.formattedMessage);
 
-            if (!report.valid && options.strict) {
+            if (!report.valid && options.strict !== false) {
                 throw new Error(
                     "[cloudflare-next-intl] Build failed: `firebaseAuth` config is incomplete. See details above.",
                 );

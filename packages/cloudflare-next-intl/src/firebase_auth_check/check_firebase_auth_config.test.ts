@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -231,6 +231,133 @@ describe("checkFirebaseAuthConfig", () => {
             env: {},
         });
         expect(report.issues).toEqual([]);
+    });
+
+    it("treats fields supplied via an object spread as present, not missing", () => {
+        const report = checkFirebaseAuthConfig({
+            source: `setIntlConfig({ firebaseAuth: {
+                ...firebaseConfig,
+                redirectAuthPath: '/login', homePath: '/',
+            } })`,
+            env: {},
+        });
+        expect(report.issues).toEqual([]);
+    });
+
+    it("does not mistake a commented-out field for a present one", () => {
+        const report = checkFirebaseAuthConfig({
+            source: `setIntlConfig({ firebaseAuth: {
+                apiKey: 'k',
+                // authDomain: 'd',
+                /* projectId: 'p', */
+                appId: 'a',
+                redirectAuthPath: '/login', homePath: '/',
+            } })`,
+            env: {},
+        });
+        expect(report.issues.map((issue) => issue.field)).toEqual([
+            "firebaseAuth.authDomain",
+            "firebaseAuth.projectId",
+        ]);
+    });
+
+    it("does not mistake `key:` text inside a string value for another field", () => {
+        const report = checkFirebaseAuthConfig({
+            source: `setIntlConfig({ firebaseAuth: {
+                apiKey: 'k', authDomain: 'd', projectId: 'p', appId: 'a',
+                redirectAuthPath: "path with homePath: not real", homePath: '/',
+            } })`,
+            env: {},
+        });
+        expect(report.issues).toEqual([]);
+    });
+
+    it("resolves a spread from a local const in the same source", () => {
+        const report = checkFirebaseAuthConfig({
+            source: `
+                const firebaseConfig = { apiKey: 'k', authDomain: 'd', projectId: 'p', appId: 'a' };
+                setIntlConfig({ firebaseAuth: {
+                    ...firebaseConfig,
+                    redirectAuthPath: '/login', homePath: '/',
+                } })
+            `,
+            env: {},
+        });
+        expect(report.issues).toEqual([]);
+    });
+
+    it("resolves a spread through a relative named import, and still flags a genuinely empty field in it", () => {
+        const dir = mkdtempSync(join(tmpdir(), "fa-config-spread-"));
+        try {
+            writeFileSync(
+                join(dir, "firebase_config.ts"),
+                `export const firebaseConfig = { apiKey: '', authDomain: 'd', projectId: 'p', appId: 'a' };`,
+            );
+            const file = join(dir, "intl_config.ts");
+            writeFileSync(file, `
+                import { firebaseConfig } from "./firebase_config";
+                setIntlConfig({ firebaseAuth: {
+                    ...firebaseConfig,
+                    redirectAuthPath: '/login', homePath: '/',
+                } })
+            `);
+            const report = checkFirebaseAuthConfig({ intlConfigPath: file, env: {} });
+            expect(report.issues.map((issue) => issue.field)).toEqual(["firebaseAuth.apiKey"]);
+            expect(report.issues[0]).toMatchObject({ reason: "an empty string literal" });
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("resolves a spread through a tsconfig `@/*` path alias, tolerating `**/*.ts`-style globs elsewhere in the file", () => {
+        const dir = mkdtempSync(join(tmpdir(), "fa-config-alias-"));
+        try {
+            // A real tsconfig.json: `"@/*"` and `"**/*.ts"` each contain a
+            // literal `/*` or `*/`, which a naive JSON-comment stripper
+            // mistakes for a block comment spanning between them.
+            writeFileSync(dir + "/tsconfig.json", `{
+                "compilerOptions": {
+                    // baseUrl comment
+                    "baseUrl": ".",
+                    "paths": { "@/*": ["./src/*"] }
+                },
+                "include": ["**/*.ts", "**/*.tsx"],
+            }`);
+            mkdirSync(dir + "/src/shared", { recursive: true });
+            writeFileSync(
+                dir + "/src/shared/firebase_config.ts",
+                `export const firebaseConfig = { apiKey: '', authDomain: 'd', projectId: 'p', appId: 'a' };`,
+            );
+            const file = dir + "/src/l18n/intl_config.ts";
+            mkdirSync(dir + "/src/l18n", { recursive: true });
+            writeFileSync(file, `
+                import { firebaseConfig } from "@/shared/firebase_config";
+                setIntlConfig({ firebaseAuth: {
+                    ...firebaseConfig,
+                    redirectAuthPath: '/login', homePath: '/',
+                } })
+            `);
+            const report = checkFirebaseAuthConfig({ intlConfigPath: file, env: {} });
+            expect(report.issues.map((issue) => issue.field)).toEqual(["firebaseAuth.apiKey"]);
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("still flags empty/undefined/null fields even when a spread is present", () => {
+        const report = checkFirebaseAuthConfig({
+            source: `setIntlConfig({ firebaseAuth: {
+                ...firebaseConfig,
+                apiKey: '', authDomain: undefined, projectId: null,
+                redirectAuthPath: '/login', homePath: '/',
+            } })`,
+            env: {},
+        });
+        expect(report.issues.map((issue) => [issue.field, issue.reason])).toEqual([
+            ["firebaseAuth.apiKey", "an empty string literal"],
+            ["firebaseAuth.authDomain", "set to `undefined`"],
+            ["firebaseAuth.projectId", "set to `null`"],
+        ]);
     });
 
     it("treats a value it cannot evaluate as present", () => {

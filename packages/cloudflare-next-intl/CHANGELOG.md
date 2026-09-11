@@ -3,6 +3,18 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.5] - 2026-09-11
+
+### Changed
+
+- `firebaseAuthCheckPlugin`'s `strict` option now defaults to `true`: an incomplete `firebaseAuth` config fails the build instead of only printing a terminal warning. Pass `strict: false` (or `{ firebaseAuthCheck: { strict: false } }` via the main plugin) to keep the log-only behavior for a half-configured local checkout.
+- `check_firebase_auth_config`'s config extraction now resolves `...spread` entries inside a `firebaseAuth`/`appCheck` object literal by following the spread name to its own `const` declaration — across files, through `tsconfig.json` path aliases — instead of only reading the inline literal. Key detection also masks out comments and string/template-literal contents first, so a commented-out or quoted `key:` no longer produces a false match.
+- `screen_view` auto-analytics event now goes through the same `isEnabled` helper as the other auto-tracked events, instead of its own inline check.
+
+### Fixed
+
+- `find_report_error_calls`'s line-comment skip (`//`) no longer re-scans the same `/` pair it just matched, which could misidentify the start of the next token on that line.
+
 ## [0.10.0] - 2026-09-10
 
 ### Added

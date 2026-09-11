@@ -31,11 +31,14 @@ const complete = `setIntlConfig({ firebaseAuth: {
 } })`;
 
 describe("firebaseAuthCheckPlugin", () => {
-    it("warns on build when a required field's env var is unset, resolving the default config path", async () => {
+    it("throws on build by default when a required field's env var is unset, resolving the default config path", async () => {
         const dir = projectWith(incomplete);
         const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
         try {
-            await callConfigResolved(firebaseAuthCheckPlugin({ env: {} }), { command: "build", root: dir } as ResolvedConfig);
+            await expect(callConfigResolved(
+                firebaseAuthCheckPlugin({ env: {} }),
+                { command: "build", root: dir } as ResolvedConfig,
+            )).rejects.toThrow(/`firebaseAuth` config is incomplete/);
             const output = warn.mock.calls.flat().join(" ");
             expect(output).toContain("INCOMPLETE `firebaseAuth` CONFIG");
             expect(output).toContain("firebaseAuth.apiKey");
@@ -46,11 +49,29 @@ describe("firebaseAuthCheckPlugin", () => {
         }
     });
 
+    it("only logs, never throws, when strict is false", async () => {
+        const dir = projectWith(incomplete);
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            await callConfigResolved(
+                firebaseAuthCheckPlugin({ env: {}, strict: false }),
+                { command: "build", root: dir } as ResolvedConfig,
+            );
+            expect(warn).toHaveBeenCalled();
+        } finally {
+            warn.mockRestore();
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
     it("runs on dev too, and not at all when runOnDev is false", async () => {
         const dir = projectWith(incomplete);
         const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
         try {
-            await callConfigResolved(firebaseAuthCheckPlugin({ env: {} }), { command: "serve", root: dir } as ResolvedConfig);
+            await expect(callConfigResolved(
+                firebaseAuthCheckPlugin({ env: {} }),
+                { command: "serve", root: dir } as ResolvedConfig,
+            )).rejects.toThrow();
             expect(warn).toHaveBeenCalled();
 
             warn.mockClear();
@@ -69,7 +90,7 @@ describe("firebaseAuthCheckPlugin", () => {
         const dir = projectWith(incomplete);
         const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
         try {
-            const plugin = firebaseAuthCheckPlugin({ env: {} });
+            const plugin = firebaseAuthCheckPlugin({ env: {}, strict: false });
             await callConfigResolved(plugin, { command: "build", root: dir } as ResolvedConfig);
             await callConfigResolved(plugin, { command: "build", root: dir } as ResolvedConfig);
             expect(warn).toHaveBeenCalledTimes(1);

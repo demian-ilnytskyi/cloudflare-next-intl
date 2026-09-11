@@ -107,6 +107,20 @@ reportError(cfg, {
         expect(calls[0].insertPos).toBeNull();
     });
 
+    it('returns insertPos null when the call parenthesis is never closed', () => {
+        const source = `reportError(cfg, { classOrMethodName: 'X'`;
+        const calls = findReportErrorCalls(source);
+        expect(calls).toHaveLength(1);
+        expect(calls[0].insertPos).toBeNull();
+    });
+
+    it('returns insertPos null when line comment has no newline and goes to end of source', () => {
+        const source = `reportError(cfg, // no newline`;
+        const calls = findReportErrorCalls(source);
+        expect(calls).toHaveLength(1);
+        expect(calls[0].insertPos).toBeNull();
+    });
+
     it('finds multiple calls in one file independently', () => {
         const source = `
 reportError(cfg, { classOrMethodName: 'a' });

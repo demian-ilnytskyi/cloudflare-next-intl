@@ -53,8 +53,8 @@ function parseCallArgs(sourceText: string, start: number): ReportErrorCall {
             continue;
         }
         if (ch === '/' && sourceText[i + 1] === '/') {
-            const nextNewline = sourceText.indexOf('\n', i);
-            i = nextNewline === -1 ? sourceText.length : nextNewline;
+            const nextNewline = sourceText.indexOf('\n', i + 2);
+            i = nextNewline === -1 ? sourceText.length : nextNewline + 1;
             continue;
         }
         if (ch === '/' && sourceText[i + 1] === '*') {
