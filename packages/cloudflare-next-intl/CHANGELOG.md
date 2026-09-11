@@ -9,7 +9,6 @@ All notable changes to this package are documented here. Format follows
 
 - `firebaseAuthCheckPlugin`'s `strict` option now defaults to `true`: an incomplete `firebaseAuth` config fails the build instead of only printing a terminal warning. Pass `strict: false` (or `{ firebaseAuthCheck: { strict: false } }` via the main plugin) to keep the log-only behavior for a half-configured local checkout.
 - `check_firebase_auth_config`'s config extraction now resolves `...spread` entries inside a `firebaseAuth`/`appCheck` object literal by following the spread name to its own `const` declaration — across files, through `tsconfig.json` path aliases — instead of only reading the inline literal. Key detection also masks out comments and string/template-literal contents first, so a commented-out or quoted `key:` no longer produces a false match.
-- `screen_view` auto-analytics event now goes through the same `isEnabled` helper as the other auto-tracked events, instead of its own inline check.
 
 ### Fixed
 
