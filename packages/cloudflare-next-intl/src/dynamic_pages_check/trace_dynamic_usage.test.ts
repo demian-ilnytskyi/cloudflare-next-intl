@@ -184,6 +184,51 @@ describe('traceDynamicUsage', () => {
         expect(result.detectedDynamicApis.filter((a) => a === 'cookies()')).toHaveLength(1);
     });
 
+    it('does not flag a child Server Component\'s getTranslations(namespace) when the entry page already called setLocale', () => {
+        const files = {
+            '/repo/src/app/page.tsx':
+                'import { setLocale } from "cloudflare-next-intl";\nimport Widget from "./widget";\nexport default async function Page({ params }) {\n    const { locale } = await params;\n    await setLocale(locale);\n    return <Widget />;\n}',
+            '/repo/src/app/widget.tsx':
+                'import { getTranslations } from "cloudflare-next-intl";\nexport default async function Widget() {\n    const t = await getTranslations("Widget");\n    return <p>{t("title")}</p>;\n}',
+        };
+        const result = traceDynamicUsage(
+            '/repo/src/app/page.tsx',
+            files['/repo/src/app/page.tsx'],
+            [],
+            makeIo(files),
+        );
+        expect(result.detectedDynamicApis).not.toContain('getTranslations()/useTranslations() (cookie-derived locale)');
+    });
+
+    it('still flags a child Server Component\'s getTranslations(namespace) when the entry page never called setLocale', () => {
+        const files = {
+            '/repo/src/app/page.tsx': 'import Widget from "./widget";\nexport default function Page() { return <Widget />; }',
+            '/repo/src/app/widget.tsx':
+                'import { getTranslations } from "cloudflare-next-intl";\nexport default async function Widget() {\n    const t = await getTranslations("Widget");\n    return <p>{t("title")}</p>;\n}',
+        };
+        const result = traceDynamicUsage(
+            '/repo/src/app/page.tsx',
+            files['/repo/src/app/page.tsx'],
+            [],
+            makeIo(files),
+        );
+        expect(result.detectedDynamicApis).toContain('getTranslations()/useTranslations() (cookie-derived locale)');
+    });
+
+    it('still flags the entry page\'s own getTranslations(namespace) when it has no setLocale call at all, even if a child would otherwise be excused', () => {
+        const files = {
+            '/repo/src/app/page.tsx':
+                'import { getTranslations } from "cloudflare-next-intl";\nexport default async function Page() {\n    const t = await getTranslations("Page");\n    return <p>{t("title")}</p>;\n}',
+        };
+        const result = traceDynamicUsage(
+            '/repo/src/app/page.tsx',
+            files['/repo/src/app/page.tsx'],
+            [],
+            makeIo(files),
+        );
+        expect(result.detectedDynamicApis).toContain('getTranslations()/useTranslations() (cookie-derived locale)');
+    });
+
     it('carries the line each signal was found on, per file', () => {
         const files = {
             '/repo/src/app/page.tsx': 'import "./b";\nexport default function Page() {}',

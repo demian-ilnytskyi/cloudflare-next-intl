@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectDynamicUsage, readExplicitDynamicValue } from './detect_dynamic_usage.js';
+import { detectDynamicUsage, hasSetLocaleCall, readExplicitDynamicValue } from './detect_dynamic_usage.js';
 
 describe('detectDynamicUsage', () => {
     it('finds no explicit export and no dynamic APIs in a plain static page', () => {
@@ -72,6 +72,13 @@ describe('detectDynamicUsage', () => {
     it('detects a searchParams prop', () => {
         const result = detectDynamicUsage(`export default async function Page({ searchParams }) {}`);
         expect(result.detectedDynamicApis).toContain('searchParams');
+    });
+
+    it('does NOT flag a local `searchParams` binding in a "use client" file — that\'s next/navigation\'s useSearchParams(), not the Server Component prop', () => {
+        const result = detectDynamicUsage(
+            `"use client";\n\nimport { useSearchParams } from "next/navigation";\nexport default function Widget() {\n    const searchParams = useSearchParams();\n    return null;\n}`,
+        );
+        expect(result.detectedDynamicApis).not.toContain('searchParams');
     });
 
     it('detects unstable_noStore()', () => {
@@ -250,5 +257,30 @@ describe('detectDynamicUsage: getTranslations()/useTranslations() cookie-derived
         );
         const match = result.matches.find((m) => m.name === 'getTranslations()/useTranslations() (cookie-derived locale)');
         expect(match?.line).toBe(4);
+    });
+
+    it('does NOT flag useTranslations(namespace) in a "use client" file — that resolves to the context hook, never cookies()', () => {
+        const result = detectDynamicUsage(
+            `"use client";\n\nimport { useTranslations } from "cloudflare-next-intl/use";\nexport default function Widget() {\n    const t = useTranslations("Widget");\n}`,
+        );
+        expect(result.detectedDynamicApis).not.toContain('getTranslations()/useTranslations() (cookie-derived locale)');
+    });
+});
+
+describe('hasSetLocaleCall', () => {
+    it('is true when the file calls setLocale(', () => {
+        expect(hasSetLocaleCall(`setLocale(locale);`)).toBe(true);
+    });
+
+    it('is true when the file calls setLocaleAsync(', () => {
+        expect(hasSetLocaleCall(`await setLocaleAsync(params);`)).toBe(true);
+    });
+
+    it('is false when the file never calls setLocale/setLocaleAsync', () => {
+        expect(hasSetLocaleCall(`const t = await getTranslations("Page");`)).toBe(false);
+    });
+
+    it('ignores a setLocale( mentioned only in a comment', () => {
+        expect(hasSetLocaleCall(`// setLocale(locale) used to be called here\nconst t = await getTranslations("Page");`)).toBe(false);
     });
 });

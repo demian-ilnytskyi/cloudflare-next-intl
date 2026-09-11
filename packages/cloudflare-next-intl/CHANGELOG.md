@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.6] - 2026-09-11
+
+### Fixed
+
+- CI's per-file coverage gate now has an exception entry for `firebase_auth_check/check_firebase_auth_config.ts` (96%), matching the threshold already declared in `vitest.config.ts`. The reusable coverage workflow doesn't read `vitest.config.ts`, so the file's justified sub-100% lines were failing the build despite overall coverage passing.
+
 ## [0.10.5] - 2026-09-11
 
 ### Changed

@@ -78,7 +78,12 @@ export function stripComments(sourceText: string): string {
 // trying to detect whether a given call site happens to pass `uid` itself.
 // `getTranslations()`/`useTranslations()` are handled separately below
 // (`TRANSLATIONS_CALL_NO_LOCALE`) since whether they're cookie-dependent
-// depends on whether the file calls `setLocale`/`setLocaleAsync` first.
+// depends on whether the file calls `setLocale`/`setLocaleAsync` first — and,
+// like `useAuthUser()` above, on whether the file is a Client Component: the
+// client-hook variant (`client/hooks/client_hooks.ts`, resolved via the
+// `cloudflare-next-intl/use` subpath's default condition in a `"use client"`
+// file) reads the locale from React context set up by `IntlProvider`, never
+// from a cookie, so it's not a dynamic signal there.
 /** One `{ name, pattern }` dynamic-API check — the shape both the built-in list and `extraChecks` use. */
 export interface DynamicApiCheck {
     /** Human-readable name this check reports as a signal, e.g. `'myCustomAuthHelper()'`. */
@@ -90,7 +95,6 @@ export interface DynamicApiCheck {
 const DYNAMIC_API_CHECKS: DynamicApiCheck[] = [
     { name: 'cookies()', pattern: /\bcookies\s*\(/ },
     { name: 'headers()', pattern: /\bheaders\s*\(\s*\)/ },
-    { name: 'searchParams', pattern: /\bsearchParams\b/ },
     { name: 'unstable_noStore()', pattern: /\bunstable_noStore\s*\(/ },
     { name: 'connection()', pattern: /\bconnection\s*\(\s*\)/ },
     { name: 'cache: "no-store"', pattern: /cache:\s*['"]no-store['"]/ },
@@ -111,6 +115,18 @@ const DYNAMIC_API_CHECKS: DynamicApiCheck[] = [
 // `DYNAMIC_API_CHECKS` so it can be skipped based on that directive.
 const USE_AUTH_USER_CALL = /\buseAuthUser\s*\(/;
 
+// `searchParams` is ambiguous the same way: a Server Component page/layout
+// receives it as the dynamic-forcing `searchParams` prop (Next reads the URL
+// query string to produce it, so any page destructuring it is inherently
+// dynamic) — but that prop is never passed to a Client Component. There, the
+// same identifier can only be a local binding for `next/navigation`'s
+// `useSearchParams()` hook (as seen here, e.g. `const searchParams =
+// useSearchParams();`), whose value is read on the client and carries no
+// server-dynamic consequence of its own. Checked separately from
+// `DYNAMIC_API_CHECKS` so it can be skipped based on the `"use client"`
+// directive, same as `useAuthUser()` above.
+const SEARCH_PARAMS_IDENTIFIER = /\bsearchParams\b/;
+
 // `getTranslations(namespace)` / `useTranslations(namespace)` (both exported
 // by `cloudflare-next-intl`) resolve their locale via `getLocale()` when no
 // second `locale` argument is passed — which, absent an explicit
@@ -125,6 +141,23 @@ const USE_AUTH_USER_CALL = /\buseAuthUser\s*\(/;
 // static.
 const TRANSLATIONS_CALL_NO_LOCALE = /\b(?:getTranslations|useTranslations)\s*\(\s*(?:['"][^'"]*['"]|[A-Za-z_$][\w$]*)\s*\)/;
 const SET_LOCALE_CALL = /\bsetLocale(?:Async)?\s*\(/;
+
+/**
+ * Whether `sourceText` calls `setLocale(`/`setLocaleAsync(` anywhere in its
+ * own text. Exported so `traceDynamicUsage` can check the entry page file
+ * specifically: `setLocale`'s cache is a plain module-level variable (see
+ * `general/cache_variables.ts`), not per-file state, so once the entry page
+ * calls it — always before React renders any child Server Component, since
+ * the call sits inside the page's own async function body, which must finish
+ * running before it returns the JSX tree that references those children —
+ * every descendant's own `getTranslations()`/`useTranslations()` call
+ * resolves from that already-cached locale too, never from a cookie, even
+ * though each descendant file's own text has no `setLocale` call to show for
+ * it.
+ */
+export function hasSetLocaleCall(sourceText: string): boolean {
+    return SET_LOCALE_CALL.test(stripComments(sourceText));
+}
 
 /**
  * Matches a leading `"use client"` directive. Exported so
@@ -163,7 +196,11 @@ export function detectDynamicUsage(sourceText: string, extraChecks: readonly Dyn
         const found = USE_AUTH_USER_CALL.exec(code);
         if (found !== null) matches.push({ name: 'useAuthUser()', line: lineOf(sourceText, found.index) });
     }
-    if (!SET_LOCALE_CALL.test(code)) {
+    if (!USE_CLIENT_DIRECTIVE.test(sourceText)) {
+        const found = SEARCH_PARAMS_IDENTIFIER.exec(code);
+        if (found !== null) matches.push({ name: 'searchParams', line: lineOf(sourceText, found.index) });
+    }
+    if (!USE_CLIENT_DIRECTIVE.test(sourceText) && !SET_LOCALE_CALL.test(code)) {
         const found = TRANSLATIONS_CALL_NO_LOCALE.exec(code);
         if (found !== null) matches.push({ name: 'getTranslations()/useTranslations() (cookie-derived locale)', line: lineOf(sourceText, found.index) });
     }

@@ -1,4 +1,4 @@
-import { detectDynamicUsage, type DynamicApiCheck, type DynamicDetectionResult } from './detect_dynamic_usage.js';
+import { detectDynamicUsage, hasSetLocaleCall, type DynamicApiCheck, type DynamicDetectionResult } from './detect_dynamic_usage.js';
 import { collectReachableFiles, type CollectReachableFilesIo } from './collect_reachable_files.js';
 import type { AliasConfig } from './resolve_local_imports.js';
 
@@ -45,6 +45,7 @@ export function traceDynamicUsage(
     extraChecks: readonly DynamicApiCheck[] = [],
 ): TraceDynamicUsageResult {
     const files = collectReachableFiles(entryFile, entrySource, aliases, io);
+    const entryHasSetLocale = hasSetLocaleCall(entrySource);
 
     let hasExplicitDynamicExport = false;
     const detectedApis = new Set<string>();
@@ -57,6 +58,16 @@ export function traceDynamicUsage(
             first = false;
         }
         detection.matches.forEach(({ name, line }) => {
+            // `setLocale`'s cache is a module-level variable, not per-file
+            // state (see `hasSetLocaleCall`'s doc comment): once the ENTRY
+            // page has called it, every descendant Server Component's own
+            // cookie-derived-locale signal is a false positive too, even
+            // though the descendant's own text never calls `setLocale`
+            // itself — skip it here rather than at the entry file (which
+            // already excludes its own match via `detectDynamicUsage`).
+            if (entryHasSetLocale && file !== entryFile && name === 'getTranslations()/useTranslations() (cookie-derived locale)') {
+                return;
+            }
             detectedApis.add(name);
             signals.push({ api: name, file, line });
         });
