@@ -57,6 +57,7 @@ jobs:
         vite/auto_locale_params_plugin.ts:98
         locale_params_check/insert_locale_params.ts:97
         vite/vinext_route_wiring_fix.ts:98
+        firebase_auth_check/check_firebase_auth_config.ts:96
       send_notifications: false
 
   push_code_coverage_db:
