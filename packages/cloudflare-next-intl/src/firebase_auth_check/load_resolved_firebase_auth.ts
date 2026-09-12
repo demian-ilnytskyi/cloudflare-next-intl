@@ -1,4 +1,4 @@
-import type { ResolvedConfig } from "vite";
+import type { ResolvedConfig, ViteDevServer } from "vite";
 
 export interface LoadResolvedFirebaseAuthOptions {
     /** Path to the file exporting `setIntlConfig({...})` (the `@intl-config` target). */
@@ -32,7 +32,7 @@ export interface LoadResolvedFirebaseAuthOptions {
 export async function loadResolvedFirebaseAuth(
     options: LoadResolvedFirebaseAuthOptions,
 ): Promise<Record<string, unknown> | undefined> {
-    let server: Awaited<ReturnType<typeof import("vite").createServer>> | undefined;
+    let server: ViteDevServer | undefined;
     try {
         const { createServer } = await import("vite");
         server = await createServer({
