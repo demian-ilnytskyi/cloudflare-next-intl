@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { reactEvalEsbuildPlugin, reactEvalStubPlugin, transformReactEval } from "./react_eval_stub.js";
+import { reactEvalEsbuildPlugin, reactEvalRolldownPlugin, reactEvalStubPlugin, transformReactEval } from "./react_eval_stub.js";
 import type { PluginBuild, OnLoadResult } from "esbuild";
 
 describe("reactEvalStubPlugin", () => {
@@ -33,20 +33,34 @@ describe("reactEvalStubPlugin", () => {
         expect(transformReactEval(code)).toBe(code);
     });
 
-    it("provides config hook with optimizeDeps exclude and esbuildOptions", () => {
+    it("provides config hook with rolldownOptions and ssr.noExternal", () => {
         const plugin = reactEvalStubPlugin();
-        const configFn = plugin.config as (...args: unknown[]) => {
-            optimizeDeps: { exclude: string[]; esbuildOptions: { plugins: unknown[] } };
-            ssr: { optimizeDeps: { esbuildOptions: { plugins: unknown[] } } };
-            environments: { rsc: { optimizeDeps: { esbuildOptions: { plugins: unknown[] } } } };
+        const configFn = plugin.config as (...args: unknown[]) => unknown;
+        const config = configFn() as {
+            optimizeDeps?: { rolldownOptions?: { plugins?: unknown[] }; esbuildOptions?: unknown };
+            ssr?: { noExternal?: string[] };
+            environments?: {
+                rsc?: {
+                    resolve?: { noExternal?: string[] };
+                    optimizeDeps?: { include?: string[]; rolldownOptions?: { plugins?: unknown[] } };
+                };
+            };
         };
-        const config = configFn();
+        expect(config.optimizeDeps?.rolldownOptions?.plugins).toHaveLength(1);
+        expect(config.optimizeDeps?.esbuildOptions).toBeUndefined();
+        expect(config.ssr?.noExternal).toContain("cloudflare-next-intl");
+        expect(config.ssr?.noExternal).toContain("cloudflare-next-intl-db");
+        expect(config.environments?.rsc?.resolve?.noExternal).toContain("cloudflare-next-intl-db");
+        expect(config.environments?.rsc?.optimizeDeps?.include).toContain("cloudflare-next-intl-db");
+    });
 
-        expect(config.optimizeDeps.exclude).toContain("react-server-dom-webpack");
-        expect(config.optimizeDeps.exclude).toContain("react-server-dom-webpack/client.edge");
-        expect(config.optimizeDeps.esbuildOptions.plugins).toHaveLength(1);
-        expect(config.ssr.optimizeDeps.esbuildOptions.plugins).toHaveLength(1);
-        expect(config.environments.rsc.optimizeDeps.esbuildOptions.plugins).toHaveLength(1);
+    it("rolldown plugin transforms code containing eval warning", () => {
+        const code = `console.error("eval() is not supported in this environment. React requires eval() in development mode... React will never use eval() in production mode");`;
+        const result = reactEvalRolldownPlugin.transform(code);
+        expect(result).toBeDefined();
+        expect(result!.code).toContain("globalThis.eval = function (code)");
+
+        expect(reactEvalRolldownPlugin.transform(`console.log("hello");`)).toBeUndefined();
     });
 
     it("plugin transform hook transforms code containing eval warning", () => {

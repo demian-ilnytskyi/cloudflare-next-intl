@@ -18,7 +18,7 @@ export function bufferStubPlugin(): Plugin {
         enforce: "pre",
         resolveId(id, _importer, options) {
             if (
-                (id === "node:buffer" || id === "buffer") &&
+                id === "node:buffer" &&
                 (this.environment?.name === "client" || options?.ssr === false)
             ) {
                 return BUFFER_STUB_ID;
@@ -26,8 +26,15 @@ export function bufferStubPlugin(): Plugin {
         },
         load(id) {
             if (id === BUFFER_STUB_ID) {
-                return `export { Buffer } from "buffer";\nexport default { Buffer };`;
+                return `import bufferModule, { Buffer } from "buffer";\nexport { Buffer };\nexport default bufferModule;`;
             }
+        },
+        config() {
+            return {
+                optimizeDeps: {
+                    include: ["buffer"],
+                },
+            };
         },
     };
 }

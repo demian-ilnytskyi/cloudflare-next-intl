@@ -1,4 +1,4 @@
-import type { Plugin } from "vite";
+import type { Plugin, UserConfig } from "vite";
 import type { PluginBuild } from "esbuild";
 
 export const EVAL_WARNING_RE =
@@ -41,6 +41,18 @@ export function transformReactEval(code: string): string {
     return EVAL_POLYFILL_SNIPPET + "\n" + code.replace(EVAL_WARNING_RE, "/* silenced react eval warning */");
 }
 
+export const reactEvalRolldownPlugin = {
+    name: "cfni:react-eval-stub-rolldown",
+    transform(code: string) {
+        if (code.includes("eval() is not supported in this environment")) {
+            return {
+                code: transformReactEval(code),
+                map: null,
+            };
+        }
+    },
+};
+
 export const reactEvalEsbuildPlugin = {
     name: "cfni:react-eval-stub-esbuild",
     setup(build: PluginBuild): void {
@@ -57,6 +69,37 @@ export const reactEvalEsbuildPlugin = {
     },
 };
 
+export function getReactEvalConfig(): UserConfig {
+    const rolldownConfig = {
+        rolldownOptions: {
+            plugins: [reactEvalRolldownPlugin],
+        },
+    };
+
+    return {
+        optimizeDeps: rolldownConfig,
+        ssr: {
+            noExternal: ["cloudflare-next-intl", "cloudflare-next-intl-db"],
+            optimizeDeps: rolldownConfig,
+        },
+        environments: {
+            rsc: {
+                resolve: {
+                    noExternal: ["cloudflare-next-intl", "cloudflare-next-intl-db"],
+                },
+                optimizeDeps: {
+                    include: [
+                        "cloudflare-next-intl-db",
+                        "cloudflare-next-intl-db/schema",
+                        "cloudflare-next-intl-db/helpers",
+                    ],
+                    ...rolldownConfig,
+                },
+            },
+        },
+    } as UserConfig;
+}
+
 /**
  * In Cloudflare Workers (workerd), V8's code generation from strings (eval) is
  * disallowed by default. React Server Components' edge client bundle in development mode
@@ -71,7 +114,7 @@ export const reactEvalEsbuildPlugin = {
  *    - React's dev fake function/class stack-frame wrappers ({ [name]: fn }) are generated
  *      safely via `Object.defineProperty(fn, "name", ...)`.
  * 2. Silences the noisy React dev warning.
- * 3. Applies the transform during both unbundled module transforms and esbuild pre-bundling.
+ * 3. Applies the transform during both unbundled module transforms and dependency pre-bundling.
  */
 export function reactEvalStubPlugin(): Plugin {
     return {
@@ -86,30 +129,7 @@ export function reactEvalStubPlugin(): Plugin {
             }
         },
         config() {
-            return {
-                optimizeDeps: {
-                    exclude: ["react-server-dom-webpack", "react-server-dom-webpack/client.edge"],
-                    esbuildOptions: {
-                        plugins: [reactEvalEsbuildPlugin],
-                    },
-                },
-                ssr: {
-                    optimizeDeps: {
-                        esbuildOptions: {
-                            plugins: [reactEvalEsbuildPlugin],
-                        },
-                    },
-                },
-                environments: {
-                    rsc: {
-                        optimizeDeps: {
-                            esbuildOptions: {
-                                plugins: [reactEvalEsbuildPlugin],
-                            },
-                        },
-                    },
-                },
-            };
+            return getReactEvalConfig();
         },
     };
 }

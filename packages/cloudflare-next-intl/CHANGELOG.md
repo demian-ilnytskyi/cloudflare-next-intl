@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.9] - 2026-09-12
+
+### Changed
+
+- `bufferStub` no longer intercepts bare `buffer` specifier imports, only `node:buffer`; the stub's virtual module now re-exports the real `buffer` package's default export instead of a synthetic `{ Buffer }` object, and registers `buffer` with `optimizeDeps.include`.
+- `reactEvalStub` config is now built by `getReactEvalConfig()` and additionally marks `cloudflare-next-intl` and `cloudflare-next-intl-db` as `ssr.noExternal` / RSC `resolve.noExternal`, and pre-bundles `cloudflare-next-intl-db` (plus its `schema`/`helpers` subpaths) for the `rsc` environment.
+- Adds `reactEvalRolldownPlugin` and applies the eval-warning transform via `optimizeDeps.rolldownOptions.plugins` alongside the existing esbuild plugin, for bundlers using Rolldown-based dependency optimization.
+
 ## [0.10.8] - 2026-09-12
 
 ### Added
