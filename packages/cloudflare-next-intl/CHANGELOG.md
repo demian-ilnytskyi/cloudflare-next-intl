@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.7] - 2026-09-12
+
+### Changed
+
+- `firebaseAuthCheckPlugin` now validates the REAL, evaluated `firebaseAuth` config object instead of only pattern-matching source text. It loads `@intl-config` through a throwaway Vite SSR module loader (seeded with the real app's `root`/`resolve.alias`/`envDir`, with `.env*` values merged into `process.env` for the duration of the load) and checks the resolved fields via the new `validateFirebaseAuthConfigValues`. The previous static-text scan (`checkFirebaseAuthConfig`) now only runs as a fallback when the module can't actually be loaded (syntax error, resolution failure, ...), where it still gives degraded diagnostics rather than no check at all.
+- Added `loadResolvedFirebaseAuth` (and its `LoadResolvedFirebaseAuthOptions` type) to `checkFirebaseAuthConfig`'s exports.
+
 ## [0.10.6] - 2026-09-11
 
 ### Fixed

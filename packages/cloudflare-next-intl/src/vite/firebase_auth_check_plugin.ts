@@ -1,5 +1,10 @@
 import type { Plugin } from "vite";
-import { checkFirebaseAuthConfig, type CheckFirebaseAuthConfigOptions } from "../firebase_auth_check/index.js";
+import {
+    checkFirebaseAuthConfig,
+    validateFirebaseAuthConfigValues,
+    loadResolvedFirebaseAuth,
+    type CheckFirebaseAuthConfigOptions,
+} from "../firebase_auth_check/index.js";
 import { resolveDefaultIntlConfigPath } from "./locale_file_plugin.js";
 
 export interface FirebaseAuthCheckPluginOptions
@@ -26,10 +31,16 @@ export interface FirebaseAuthCheckPluginOptions
  * Vite config-resolve time, on both `vite dev` and `vite build` — so an
  * unset `FIREBASE_SERVICE_ACCOUNT_*` env var or a missing required field is
  * a terminal message during development instead of a production-only
- * "signed-in user renders as signed-out". Env vars are resolved against
- * `process.env` plus Vite's own `loadEnv` (all prefixes, so server-only
- * secrets in `.env*` count), which is why this can't just read
- * `process.env`.
+ * "signed-in user renders as signed-out".
+ *
+ * Primarily validates the REAL, evaluated `firebaseAuth` object — actually
+ * importing `@intl-config` through a throwaway Vite SSR module loader (see
+ * `loadResolvedFirebaseAuth`) and checking what its fields resolve to,
+ * rather than pattern-matching source text for `process.env.X` reads. That
+ * static scan (`checkFirebaseAuthConfig`) is kept only as a fallback for
+ * when the module can't actually be loaded (a syntax error, a resolution
+ * failure, ...) — degraded diagnostics (no exact env-var name or line
+ * number) beat no check at all.
  *
  * No-op when the config has no `firebaseAuth` block.
  */
@@ -66,7 +77,27 @@ export function firebaseAuthCheckPlugin(options: FirebaseAuthCheckPluginOptions 
                 };
             }
 
-            const report = checkFirebaseAuthConfig({ intlConfigPath, env, throwOnError: false });
+            // The evaluated module's own `process.env.X` reads only see
+            // what's already in the real process env — merge the `.env*`
+            // values in too (temporarily; restored right after) so a value
+            // that only exists in a dotenv file is seen exactly like a real
+            // shell/CI-exported one, matching Next.js's own env-file
+            // behavior.
+            const previousEnv = { ...process.env };
+            Object.assign(process.env, env);
+            let firebaseAuth: Record<string, unknown> | undefined;
+            try {
+                firebaseAuth = await loadResolvedFirebaseAuth({
+                    intlConfigPath,
+                    viteConfig: { root: config.root, envDir: config.envDir, mode: config.mode, resolve: { alias: config.resolve?.alias } },
+                });
+            } finally {
+                process.env = previousEnv;
+            }
+
+            const report = firebaseAuth !== undefined
+                ? validateFirebaseAuthConfigValues({ firebaseAuth, intlConfigPath })
+                : checkFirebaseAuthConfig({ intlConfigPath, env, throwOnError: false });
             if (report.issues.length === 0) return;
 
             console.warn(report.formattedMessage);

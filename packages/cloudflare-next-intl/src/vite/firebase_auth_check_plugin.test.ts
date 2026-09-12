@@ -144,4 +144,64 @@ describe("firebaseAuthCheckPlugin", () => {
             rmSync(dir, { recursive: true, force: true });
         }
     });
+
+    it("actually evaluates a real, resolvable config through the SSR module loader and reports the true value — not a same-named field's text nearby", async () => {
+        // Reproduces the exact shape that broke the old static scanner: a
+        // top-level `appId` supplied via `...firebaseConfig` (a spread from
+        // ANOTHER file, imported by relative path) alongside a
+        // differently-sourced, separately-nested `appCheck.appId`. A blind
+        // text search for "appId:" found the nested one first and
+        // misreported it as the top-level field's source. Evaluating the
+        // real module sidesteps that class of bug entirely: there's no text
+        // to confuse, only two distinct real values.
+        const dir = mkdtempSync(join(tmpdir(), "vite-fa-check-real-"));
+        mkdirSync(join(dir, "src", "l18n"), { recursive: true });
+        mkdirSync(join(dir, "src", "shared"), { recursive: true });
+        writeFileSync(join(dir, "src", "shared", "firebase_client_provider.ts"), `
+            export const firebaseConfig = {
+                apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+                authDomain: 'd',
+                projectId: 'p',
+                appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+            };
+        `);
+        writeFileSync(join(dir, "src", "l18n", "intl_config.ts"), `
+            function setIntlConfig(c) { return c; }
+            import { firebaseConfig } from "../shared/firebase_client_provider.js";
+            export default setIntlConfig({ firebaseAuth: {
+                ...firebaseConfig,
+                redirectAuthPath: '/login', homePath: '/',
+                appCheck: {
+                    clientEmail: process.env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL,
+                    appId: process.env.FIREBASE_APP_ID,
+                },
+            } });
+        `);
+
+        const previousApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+        const previousAppId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
+        process.env.NEXT_PUBLIC_FIREBASE_API_KEY = "real-key";
+        process.env.NEXT_PUBLIC_FIREBASE_APP_ID = "real-app-id";
+        delete process.env.FIREBASE_APP_ID;
+        delete process.env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL;
+
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            await callConfigResolved(
+                firebaseAuthCheckPlugin({ env: {}, strict: false }),
+                { command: "build", root: dir } as ResolvedConfig,
+            );
+            const output = warn.mock.calls.flat().join(" ");
+            expect(output).not.toContain("firebaseAuth.appId");
+            expect(output).toContain("firebaseAuth.appCheck.appId");
+            expect(output).toContain("firebaseAuth.appCheck.clientEmail");
+        } finally {
+            warn.mockRestore();
+            if (previousApiKey === undefined) delete process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+            else process.env.NEXT_PUBLIC_FIREBASE_API_KEY = previousApiKey;
+            if (previousAppId === undefined) delete process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
+            else process.env.NEXT_PUBLIC_FIREBASE_APP_ID = previousAppId;
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
 });

@@ -440,7 +440,34 @@ function resolveSpreadBodies(
  * level (nested occurrences are not matched).
  */
 export function extractFieldValue(body: string, key: string): { value: string; lineNumber: number } | null {
-    const keyMatch = new RegExp(`(^|[\\s{,])${key}\\s*:`).exec(maskCommentsAndStrings(body));
+    const masked = maskCommentsAndStrings(body);
+    const keyPattern = new RegExp(`^${key}\\s*:`);
+
+    let searchDepth = 0;
+    let scanIndex = 0;
+    let keyMatch: RegExpExecArray | null = null;
+
+    // A blind whole-body regex would happily match `key:` inside a NESTED
+    // object literal too (e.g. `firebaseAuth.appCheck.appId` shadowing a
+    // `firebaseAuth.appId` check) — depth-track so only a top-level
+    // occurrence, relative to `body`'s own braces, counts.
+    while (scanIndex < masked.length) {
+        const char = masked[scanIndex]!;
+        if (char === "{" || char === "[" || char === "(") {
+            searchDepth += 1;
+        } else if (char === "}" || char === "]" || char === ")") {
+            searchDepth -= 1;
+        } else if (searchDepth === 0 && (scanIndex === 0 || /[\s{,]/.test(masked[scanIndex - 1]!))) {
+            const candidate = keyPattern.exec(masked.slice(scanIndex));
+            if (candidate) {
+                keyMatch = candidate;
+                keyMatch.index = scanIndex;
+                break;
+            }
+        }
+        scanIndex += 1;
+    }
+
     if (!keyMatch) return null;
     const start = keyMatch.index + keyMatch[0].length;
 
@@ -711,6 +738,96 @@ export function checkFirebaseAuthConfig(
     if (!valid && options.throwOnError) {
         throw new Error(formattedMessage);
     }
+
+    return { valid, checked: true, issues, formattedMessage };
+}
+
+export interface ValidateFirebaseAuthConfigValuesOptions {
+    /**
+     * The REAL, evaluated `firebaseAuth` object — read off the `@intl-config`
+     * module's default export after actually importing it (see
+     * `loadResolvedFirebaseAuth`), not text parsed from source. `undefined`
+     * means the config has no `firebaseAuth` block (or couldn't be loaded);
+     * nothing to check either way.
+     */
+    firebaseAuth: Record<string, unknown> | undefined;
+    /** Only used to label the report; no file is read. */
+    intlConfigPath?: string;
+}
+
+function isUsableFieldValue(value: unknown): boolean {
+    if (value === undefined || value === null) return false;
+    if (typeof value === "string") return value.trim() !== "";
+    return true;
+}
+
+const UNUSABLE_REASON = "resolved to an empty or missing value";
+
+/**
+ * Validates the ACTUAL `firebaseAuth` object the app's config evaluates to —
+ * not its source text. Unlike `checkFirebaseAuthConfig` (a static scan that
+ * has to GUESS which `process.env.X` a field reads by pattern-matching
+ * source text — fragile against anything the scan can't see through, like a
+ * same-named field nested one level deeper, or a value computed via a
+ * non-trivial expression), this just reads the real, already-resolved
+ * value: correct by construction, for any field however it's computed.
+ *
+ * Reports the same fields, with the same required/optional shape, as
+ * `checkFirebaseAuthConfig` — but without a `lineNumber` or `envVar` (there's
+ * no source position or env-var name to point at once the value is already
+ * evaluated).
+ */
+export function validateFirebaseAuthConfigValues(
+    options: ValidateFirebaseAuthConfigValuesOptions,
+): CheckFirebaseAuthConfigReport {
+    const { firebaseAuth } = options;
+    if (!firebaseAuth) {
+        return { valid: true, checked: false, issues: [], formattedMessage: "" };
+    }
+
+    const issues: FirebaseAuthConfigIssue[] = [];
+
+    for (const key of REQUIRED_AUTH_FIELDS) {
+        if (!isUsableFieldValue(firebaseAuth[key])) {
+            issues.push({ field: `firebaseAuth.${key}`, severity: "error", reason: UNUSABLE_REASON });
+        }
+    }
+
+    const appCheck = firebaseAuth.appCheck as Record<string, unknown> | undefined;
+    if (appCheck && appCheck.reportMissingServerCredentials !== false) {
+        for (const key of REQUIRED_APP_CHECK_FIELDS) {
+            if (!isUsableFieldValue(appCheck[key])) {
+                issues.push({ field: `firebaseAuth.appCheck.${key}`, severity: "warning", reason: UNUSABLE_REASON });
+            }
+        }
+
+        const hasPrivateKey = isUsableFieldValue(appCheck.privateKey);
+        const tripleUsable = OAUTH_TRIPLE.map((key) => isUsableFieldValue(appCheck[key]));
+        const hasTriple = tripleUsable.every(Boolean);
+
+        // Either signing credential alone is enough, so only report when
+        // NEITHER is usable — and then report the one the config clearly
+        // meant to use (a partial triple) rather than both.
+        if (!hasPrivateKey && !hasTriple) {
+            const hasPartialTriple = tripleUsable.some(Boolean);
+            if (hasPartialTriple) {
+                OAUTH_TRIPLE.forEach((key, index) => {
+                    if (!tripleUsable[index]) {
+                        issues.push({ field: `firebaseAuth.appCheck.${key}`, severity: "warning", reason: UNUSABLE_REASON });
+                    }
+                });
+            } else {
+                issues.push({
+                    field: "firebaseAuth.appCheck.privateKey",
+                    severity: "warning",
+                    reason: UNUSABLE_REASON + " — set it, or the full oauthClientId/oauthClientSecret/oauthRefreshToken triple",
+                });
+            }
+        }
+    }
+
+    const valid = !issues.some((issue) => issue.severity === "error");
+    const formattedMessage = formatFirebaseAuthConfigMessage(issues, options.intlConfigPath);
 
     return { valid, checked: true, issues, formattedMessage };
 }

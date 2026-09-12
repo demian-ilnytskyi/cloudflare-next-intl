@@ -7,6 +7,7 @@ import {
     extractFieldValue,
     extractObjectLiteral,
     formatFirebaseAuthConfigMessage,
+    validateFirebaseAuthConfigValues,
 } from "./check_firebase_auth_config.js";
 
 const fullEnv = {
@@ -95,6 +96,16 @@ describe("extractFieldValue", () => {
     it("keeps an escaped quote inside the value and stops at an unbalanced closer", () => {
         expect(extractFieldValue(`a: 'x\\'y', b: 1`, "a")?.value).toBe(`'x\\'y'`);
         expect(extractFieldValue(`a: 1 } trailing`, "a")?.value).toBe("1");
+    });
+
+    it("ignores a same-named key nested inside a child object literal and finds the top-level one instead", () => {
+        const body = `appId: 'top-level', nested: { appId: 'shadowed' },`;
+        expect(extractFieldValue(body, "appId")?.value).toBe("'top-level'");
+    });
+
+    it("returns null when the key only occurs nested, never at the top level of this body", () => {
+        const body = `redirectAuthPath: '/login', appCheck: { appId: 'nested-only' },`;
+        expect(extractFieldValue(body, "appId")).toBeNull();
     });
 });
 
@@ -242,6 +253,27 @@ describe("checkFirebaseAuthConfig", () => {
             env: {},
         });
         expect(report.issues).toEqual([]);
+    });
+
+    it("does not let firebaseAuth.appCheck.appId shadow the top-level firebaseAuth.appId check", () => {
+        // Same shape as a real app: `appId` is supplied to the top-level
+        // `firebaseAuth` block via an (unresolved-here) spread, and appCheck
+        // separately reads its OWN `appId` from a server-only env var. A
+        // blind first-match search for `appId:` finds the nested
+        // `appCheck.appId` first and wrongly reports it as the top-level
+        // field's source.
+        const report = checkFirebaseAuthConfig({
+            source: `setIntlConfig({ firebaseAuth: {
+                ...firebaseConfig,
+                redirectAuthPath: '/login', homePath: '/',
+                appCheck: {
+                    clientEmail: process.env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL,
+                    appId: process.env.FIREBASE_APP_ID,
+                },
+            } })`,
+            env: { FIREBASE_APP_ID: undefined },
+        });
+        expect(report.issues.find((issue) => issue.field === "firebaseAuth.appId")).toBeUndefined();
     });
 
     it("does not mistake a commented-out field for a present one", () => {
@@ -392,6 +424,127 @@ describe("checkFirebaseAuthConfig", () => {
         } finally {
             rmSync(dir, { recursive: true, force: true });
         }
+    });
+});
+
+describe("validateFirebaseAuthConfigValues", () => {
+    it("returns checked: false and no issues when firebaseAuth is undefined", () => {
+        expect(validateFirebaseAuthConfigValues({ firebaseAuth: undefined })).toEqual({
+            valid: true, checked: false, issues: [], formattedMessage: "",
+        });
+    });
+
+    it("reports nothing when every required field resolves to a usable value", () => {
+        const report = validateFirebaseAuthConfigValues({
+            firebaseAuth: {
+                apiKey: "k", authDomain: "d", projectId: "p", appId: "a",
+                redirectAuthPath: "/login", homePath: "/",
+            },
+        });
+        expect(report.issues).toEqual([]);
+        expect(report.valid).toBe(true);
+    });
+
+    it("reports an error per required field that resolved to undefined, null, or an empty string", () => {
+        const report = validateFirebaseAuthConfigValues({
+            firebaseAuth: {
+                apiKey: undefined, authDomain: null, projectId: "  ", appId: "a",
+                redirectAuthPath: "/login", homePath: "/",
+            },
+        });
+        expect(report.issues.map((issue) => issue.field)).toEqual([
+            "firebaseAuth.apiKey", "firebaseAuth.authDomain", "firebaseAuth.projectId",
+        ]);
+        expect(report.valid).toBe(false);
+    });
+
+    it("does not let a same-named nested appCheck.appId affect the top-level appId check — there's no text to shadow, only real values", () => {
+        // The exact bug the static scanner had: appId supplied to the
+        // top-level block (e.g. via a spread from another file) and a
+        // SEPARATE, differently-sourced appId nested under appCheck. Since
+        // this validates real property access, not text search, there's
+        // nothing to confuse the two.
+        const report = validateFirebaseAuthConfigValues({
+            firebaseAuth: {
+                apiKey: "k", authDomain: "d", projectId: "p", appId: "top-level-app-id",
+                redirectAuthPath: "/login", homePath: "/",
+                appCheck: {
+                    clientEmail: "a@b.com",
+                    appId: undefined,
+                    privateKey: "pem",
+                },
+            },
+        });
+        expect(report.issues).toEqual([
+            { field: "firebaseAuth.appCheck.appId", severity: "warning", reason: "resolved to an empty or missing value" },
+        ]);
+    });
+
+    it("warns per missing appCheck identity field, and skips appCheck checks entirely when reportMissingServerCredentials is false", () => {
+        const withWarnings = validateFirebaseAuthConfigValues({
+            firebaseAuth: {
+                apiKey: "k", authDomain: "d", projectId: "p", appId: "a",
+                redirectAuthPath: "/login", homePath: "/",
+                appCheck: { clientEmail: undefined, appId: undefined },
+            },
+        });
+        expect(withWarnings.issues.every((issue) => issue.severity === "warning")).toBe(true);
+        expect(withWarnings.valid).toBe(true);
+
+        const optedOut = validateFirebaseAuthConfigValues({
+            firebaseAuth: {
+                apiKey: "k", authDomain: "d", projectId: "p", appId: "a",
+                redirectAuthPath: "/login", homePath: "/",
+                appCheck: { clientEmail: undefined, appId: undefined, reportMissingServerCredentials: false },
+            },
+        });
+        expect(optedOut.issues).toEqual([]);
+    });
+
+    it("warns (never errors) when appCheck has no usable signing credential, and accepts a complete oauth triple instead of privateKey", () => {
+        const noCredential = validateFirebaseAuthConfigValues({
+            firebaseAuth: {
+                apiKey: "k", authDomain: "d", projectId: "p", appId: "a",
+                redirectAuthPath: "/login", homePath: "/",
+                appCheck: { clientEmail: "a@b.com", appId: "app-id", privateKey: undefined },
+            },
+        });
+        expect(noCredential.issues).toContainEqual(expect.objectContaining({ field: "firebaseAuth.appCheck.privateKey", severity: "warning" }));
+        expect(noCredential.valid).toBe(true);
+
+        const withTriple = validateFirebaseAuthConfigValues({
+            firebaseAuth: {
+                apiKey: "k", authDomain: "d", projectId: "p", appId: "a",
+                redirectAuthPath: "/login", homePath: "/",
+                appCheck: {
+                    clientEmail: "a@b.com", appId: "app-id", privateKey: undefined,
+                    oauthClientId: "id", oauthClientSecret: "secret", oauthRefreshToken: "token",
+                },
+            },
+        });
+        expect(withTriple.issues.find((issue) => issue.field.startsWith("firebaseAuth.appCheck.oauth"))).toBeUndefined();
+        expect(withTriple.issues.find((issue) => issue.field === "firebaseAuth.appCheck.privateKey")).toBeUndefined();
+
+        const partialTriple = validateFirebaseAuthConfigValues({
+            firebaseAuth: {
+                apiKey: "k", authDomain: "d", projectId: "p", appId: "a",
+                redirectAuthPath: "/login", homePath: "/",
+                appCheck: {
+                    clientEmail: "a@b.com", appId: "app-id", privateKey: undefined,
+                    oauthClientId: "id", oauthClientSecret: "", oauthRefreshToken: undefined,
+                },
+            },
+        });
+        expect(partialTriple.issues).toContainEqual(expect.objectContaining({ field: "firebaseAuth.appCheck.oauthClientSecret", severity: "warning" }));
+        expect(partialTriple.issues).toContainEqual(expect.objectContaining({ field: "firebaseAuth.appCheck.oauthRefreshToken", severity: "warning" }));
+
+        const nonStringField = validateFirebaseAuthConfigValues({
+            firebaseAuth: {
+                apiKey: true, authDomain: 123, projectId: {}, appId: "a",
+                redirectAuthPath: "/login", homePath: "/",
+            } as unknown as Record<string, unknown>,
+        });
+        expect(nonStringField.issues.find((i) => i.field === "firebaseAuth.apiKey")).toBeUndefined();
     });
 });
 
