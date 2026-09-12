@@ -1,6 +1,7 @@
 import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
 import { getMessage } from "../functions/server.js";
 import type { TranslationObject } from "../../types/types.js";
+import { Suspense } from "react";
 import dynamic from "next/dynamic.js";
 import { localesSet } from "../../config/middleware.js";
 import config from "../../config/intl_config.js";
@@ -173,17 +174,21 @@ export default async function LocationzationProvider({ language, messages, stati
         }
     }
 
-    return <LocationzationClientProvider
-        language={language}
-        messages={messagesValue}
-        initialAuthUser={initialAuthUser}
-        skipAuthProvider={!autoWireClientProvider}
-        analyticsConfig={analyticsConfig}
-        autoAnalyticsEventsConfig={config.cookieConsent?.autoAnalyticsEvents}
-        requiresConsent={requiresConsent}
-        autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}
-        dialogProps={config.cookieConsent?.dialogProps}
-        updateDialogProps={config.cookieConsent?.updateDialogProps}>
-        {children}
-    </LocationzationClientProvider>
+    return (
+        <Suspense fallback={children}>
+            <LocationzationClientProvider
+                language={language}
+                messages={messagesValue}
+                initialAuthUser={initialAuthUser}
+                skipAuthProvider={!autoWireClientProvider}
+                analyticsConfig={analyticsConfig}
+                autoAnalyticsEventsConfig={config.cookieConsent?.autoAnalyticsEvents}
+                requiresConsent={requiresConsent}
+                autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}
+                dialogProps={config.cookieConsent?.dialogProps}
+                updateDialogProps={config.cookieConsent?.updateDialogProps}>
+                {children}
+            </LocationzationClientProvider>
+        </Suspense>
+    );
 }

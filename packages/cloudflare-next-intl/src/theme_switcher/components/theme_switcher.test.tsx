@@ -9,4 +9,9 @@ describe('ThemeSwticher', () => {
         render(<ThemeSwticher lightLabelText="Light" darkLabelText="Dark" className="extra" />);
         expect(screen.getByRole('button')).toBeInTheDocument();
     });
+
+    it('renders without custom className', () => {
+        render(<ThemeSwticher lightLabelText="Light" darkLabelText="Dark" />);
+        expect(screen.getByRole('button')).toBeInTheDocument();
+    });
 });

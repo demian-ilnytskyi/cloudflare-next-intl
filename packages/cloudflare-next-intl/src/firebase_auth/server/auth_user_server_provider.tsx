@@ -1,4 +1,5 @@
 import dynamic from 'next/dynamic.js';
+import { Suspense } from 'react';
 import { headers } from 'next/headers.js';
 import { redirect } from 'next/navigation.js';
 import config from '@intl-config';
@@ -67,7 +68,11 @@ export default async function AuthUserServerProvider({ children }: {
     children: React.ReactNode;
 }): Promise<React.JSX.Element> {
     const initialUser = await resolveAuthUserAndRedirect();
-    return <AuthUserProvider initialUser={initialUser}>
-        {children}
-    </AuthUserProvider>;
+    return (
+        <Suspense fallback={children}>
+            <AuthUserProvider initialUser={initialUser}>
+                {children}
+            </AuthUserProvider>
+        </Suspense>
+    );
 }

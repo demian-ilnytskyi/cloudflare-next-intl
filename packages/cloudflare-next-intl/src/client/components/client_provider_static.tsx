@@ -2,7 +2,7 @@
 
 import type { TranslationObject } from "../../types/types.js";
 import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
-import { createContext, useMemo } from "react";
+import { createContext, useMemo, Suspense } from "react";
 import dynamic from "next/dynamic.js";
 import useLazyWrappingProvider from "./use_lazy_wrapping_provider.js";
 import config from "@intl-config";
@@ -88,10 +88,26 @@ export default function LocationzationClientProvider({
         // nesting, or they would crash during that pending window.
         providedChildren = <CookieConsentProvider requiresConsent={requiresConsent}>
             {providedChildren}
-            {cookieConsentReady && analyticsConfig && <CookieConsentAnalytics config={analyticsConfig} />}
-            {cookieConsentReady && analyticsConfig && (analyticsConfig.googleAnalyticsId || analyticsConfig.googleAdsId) && <AutoAnalyticsEvents config={autoAnalyticsEventsConfig} />}
-            {cookieConsentReady && autoWireDialogs && <CookieConsentDialog {...dialogProps} />}
-            {cookieConsentReady && autoWireDialogs && <PrivacyPolicyUpdateDialog {...updateDialogProps} />}
+            {cookieConsentReady && analyticsConfig && (
+                <Suspense fallback={null}>
+                    <CookieConsentAnalytics config={analyticsConfig} />
+                </Suspense>
+            )}
+            {cookieConsentReady && analyticsConfig && (analyticsConfig.googleAnalyticsId || analyticsConfig.googleAdsId) && (
+                <Suspense fallback={null}>
+                    <AutoAnalyticsEvents config={autoAnalyticsEventsConfig} />
+                </Suspense>
+            )}
+            {cookieConsentReady && autoWireDialogs && (
+                <Suspense fallback={null}>
+                    <CookieConsentDialog {...dialogProps} />
+                </Suspense>
+            )}
+            {cookieConsentReady && autoWireDialogs && (
+                <Suspense fallback={null}>
+                    <PrivacyPolicyUpdateDialog {...updateDialogProps} />
+                </Suspense>
+            )}
         </CookieConsentProvider>;
     }
 

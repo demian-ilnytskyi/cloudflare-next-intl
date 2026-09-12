@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Moon, Sun } from "./icons.js";
 import ThemeSwticherButton from "./theme_switcher_button.js";
 
@@ -18,23 +19,39 @@ export default function ThemeSwticher(params: {
     darkLabelText: string;
 }): Component {
 
-    return <ThemeSwticherButton {...params}>
-        <Sun
-            className={
-                "transition-transform duration-500 ease-in-out" +
-                " rotate-0 scale-100 opacity-100 cursor-pointer" + // Default (light mode) state
-                " dark:rotate-90 dark:scale-0 dark:opacity-0" + // Dark mode state
-                " dark:w-0 dark:h-0 h-max w-max"
+    return (
+        <Suspense
+            fallback={
+                <div
+                    aria-hidden="true"
+                    className={
+                        "relative flex items-center justify-center pointer-events-none select-none" +
+                        " p-2.5 aspect-square h-11.5 rounded-full overflow-hidden" +
+                        " animate-pulse bg-gray-200 dark:bg-gray-700 " +
+                        (params.className ?? "")
+                    }
+                />
             }
-        />
-        {/* Moon Icon for Dark Mode */}
-        <Moon
-            className={
-                "transition-transform duration-500 ease-in-out" +
-                " -rotate-90 scale-0 opacity-0 cursor-pointer" + // Default (light mode) state
-                " dark:rotate-0 dark:scale-100 dark:opacity-100" + // Dark mode state
-                " w-0 h-0 dark:h-max dark:w-max"
-            }
-        />
-    </ThemeSwticherButton>;
+        >
+            <ThemeSwticherButton {...params}>
+                <Sun
+                    className={
+                        "transition-transform duration-500 ease-in-out" +
+                        " rotate-0 scale-100 opacity-100 cursor-pointer" + // Default (light mode) state
+                        " dark:rotate-90 dark:scale-0 dark:opacity-0" + // Dark mode state
+                        " dark:w-0 dark:h-0 h-max w-max"
+                    }
+                />
+                {/* Moon Icon for Dark Mode */}
+                <Moon
+                    className={
+                        "transition-transform duration-500 ease-in-out" +
+                        " -rotate-90 scale-0 opacity-0 cursor-pointer" + // Default (light mode) state
+                        " dark:rotate-0 dark:scale-100 dark:opacity-100" + // Dark mode state
+                        " w-0 h-0 dark:h-max dark:w-max"
+                    }
+                />
+            </ThemeSwticherButton>
+        </Suspense>
+    );
 }

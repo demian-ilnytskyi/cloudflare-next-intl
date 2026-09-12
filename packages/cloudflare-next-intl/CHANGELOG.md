@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.11] - 2026-09-12
+
+### Changed
+
+- Wrapped the lazily-`dynamic()`-loaded client/server provider children (`AutoFirebasePerformanceEvents`, `CookieConsentAnalytics`, `AutoAnalyticsEvents`, `CookieConsentDialog`, `PrivacyPolicyUpdateDialog`, `ClarityScript`, `AuthUserProvider`, `LocationzationClientProvider`) in `<Suspense>` boundaries so their code-split chunks no longer block or crash the surrounding render tree while loading.
+- `ThemeSwticher` now renders inside a `<Suspense>` with a pulsing placeholder fallback matching its rendered size, avoiding a layout flash while its icons load.
+
 ## [0.10.10] - 2026-09-12
 
 ### Fixed

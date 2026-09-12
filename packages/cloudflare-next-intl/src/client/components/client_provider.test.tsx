@@ -20,7 +20,13 @@ vi.mock('next/dynamic', () => ({
         return function DynamicWrapper(props: Record<string, unknown>) {
             const [Comp, setComp] = useState<React.ComponentType<Record<string, unknown>> | null>(null);
             useEffect(() => {
-                loader().then((m) => setComp(() => m.default));
+                let mounted = true;
+                loader().then((m) => {
+                    if (mounted) setComp(() => m.default);
+                });
+                return () => {
+                    mounted = false;
+                };
             }, []);
             if (!Comp) return null;
             const C = Comp;

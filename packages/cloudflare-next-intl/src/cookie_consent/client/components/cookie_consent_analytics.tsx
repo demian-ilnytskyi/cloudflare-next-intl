@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic.js';
 import useCookieConsent from '../use_cookie_consent.js';
 import type { CookieConsentAnalyticsConfig } from '../../../types/types.js';
@@ -52,7 +52,11 @@ export default function CookieConsentAnalytics({ config }: { config: CookieConse
                     src="https://static.cloudflareinsights.com/beacon.min.js"
                     data-cf-beacon={config.cloudflareBeaconToken} />
             )}
-            {granted && config.clarityProjectId && <ClarityScript projectId={config.clarityProjectId} />}
+            {granted && config.clarityProjectId && (
+                <Suspense fallback={null}>
+                    <ClarityScript projectId={config.clarityProjectId} />
+                </Suspense>
+            )}
         </>
     );
 }
