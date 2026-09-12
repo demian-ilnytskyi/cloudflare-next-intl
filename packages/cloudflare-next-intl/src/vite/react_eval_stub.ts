@@ -1,4 +1,5 @@
 import type { Plugin } from "vite";
+import type { PluginBuild } from "esbuild";
 
 export const EVAL_WARNING_RE =
     /console\.error\(\s*["']eval\(\) is not supported in this environment[\s\S]*?React will never use eval\(\) in production mode["']\s*\);?/g;
@@ -42,8 +43,8 @@ export function transformReactEval(code: string): string {
 
 export const reactEvalEsbuildPlugin = {
     name: "cfni:react-eval-stub-esbuild",
-    setup(build: any) {
-        build.onLoad({ filter: /react-server-dom-webpack.*\.js$/ }, async (args: any) => {
+    setup(build: PluginBuild): void {
+        build.onLoad({ filter: /react-server-dom-webpack.*\.js$/ }, async (args) => {
             const fs = await import("node:fs/promises");
             const raw = await fs.readFile(args.path, "utf8");
             if (raw.includes("eval() is not supported in this environment")) {

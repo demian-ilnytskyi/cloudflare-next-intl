@@ -4,7 +4,7 @@ import { bufferStubPlugin, BUFFER_STUB_ID } from "./buffer_stub.js";
 describe("bufferStubPlugin", () => {
     it("resolves node:buffer and buffer for client environment", () => {
         const plugin = bufferStubPlugin();
-        const resolveId = plugin.resolveId as Function;
+        const resolveId = plugin.resolveId as (...args: unknown[]) => unknown;
 
         const clientContext = { environment: { name: "client" } };
         expect(resolveId.call(clientContext, "node:buffer", undefined, {})).toBe(BUFFER_STUB_ID);
@@ -16,7 +16,7 @@ describe("bufferStubPlugin", () => {
 
     it("ignores node:buffer for ssr or rsc environments", () => {
         const plugin = bufferStubPlugin();
-        const resolveId = plugin.resolveId as Function;
+        const resolveId = plugin.resolveId as (...args: unknown[]) => unknown;
 
         const ssrContext = { environment: { name: "ssr" } };
         expect(resolveId.call(ssrContext, "node:buffer", undefined, { ssr: true })).toBeUndefined();
@@ -27,7 +27,7 @@ describe("bufferStubPlugin", () => {
 
     it("loads buffer stub code for BUFFER_STUB_ID", () => {
         const plugin = bufferStubPlugin();
-        const load = plugin.load as Function;
+        const load = plugin.load as (...args: unknown[]) => unknown;
 
         const loaded = load(BUFFER_STUB_ID);
         expect(loaded).toContain('export { Buffer } from "buffer"');

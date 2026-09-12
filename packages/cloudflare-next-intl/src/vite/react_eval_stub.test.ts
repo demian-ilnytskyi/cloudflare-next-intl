@@ -3,6 +3,7 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { reactEvalEsbuildPlugin, reactEvalStubPlugin, transformReactEval } from "./react_eval_stub.js";
+import type { PluginBuild, OnLoadResult } from "esbuild";
 
 describe("reactEvalStubPlugin", () => {
     it("transforms code containing eval warning by prepending polyfill and silencing warning", () => {
@@ -34,7 +35,11 @@ describe("reactEvalStubPlugin", () => {
 
     it("provides config hook with optimizeDeps exclude and esbuildOptions", () => {
         const plugin = reactEvalStubPlugin();
-        const configFn = plugin.config as Function;
+        const configFn = plugin.config as (...args: unknown[]) => {
+            optimizeDeps: { exclude: string[]; esbuildOptions: { plugins: unknown[] } };
+            ssr: { optimizeDeps: { esbuildOptions: { plugins: unknown[] } } };
+            environments: { rsc: { optimizeDeps: { esbuildOptions: { plugins: unknown[] } } } };
+        };
         const config = configFn();
 
         expect(config.optimizeDeps.exclude).toContain("react-server-dom-webpack");
@@ -46,16 +51,31 @@ describe("reactEvalStubPlugin", () => {
 
     it("plugin transform hook transforms code containing eval warning", () => {
         const plugin = reactEvalStubPlugin();
-        const transform = plugin.transform as Function;
+        const transform = plugin.transform as (...args: unknown[]) => { code: string } | undefined;
 
         const codeWithWarning = `console.error("eval() is not supported in this environment. React requires eval() in development mode... React will never use eval() in production mode");`;
         const result = transform(codeWithWarning, "some-file.js");
         expect(result).toBeDefined();
-        expect(result.code).toContain("globalThis.eval = function (code)");
+        expect(result!.code).toContain("globalThis.eval = function (code)");
 
         const codeWithout = `console.log("hello");`;
         expect(transform(codeWithout, "some-file.js")).toBeUndefined();
     });
+
+    type OnLoadCallback = (args: { path: string }) => Promise<OnLoadResult | undefined>;
+
+    function captureOnLoad(): { getCallback: () => OnLoadCallback } {
+        let captured: OnLoadCallback | undefined;
+        const build = {
+            onLoad: (_opts: unknown, cb: OnLoadCallback) => {
+                captured = cb;
+            },
+        } as unknown as PluginBuild;
+        reactEvalEsbuildPlugin.setup(build);
+        return {
+            getCallback: () => captured!,
+        };
+    }
 
     it("esbuild onLoad transforms file contents containing eval warning", async () => {
         const dir = await mkdtemp(join(tmpdir(), "react-eval-stub-"));
@@ -66,16 +86,9 @@ describe("reactEvalStubPlugin", () => {
             "utf8",
         );
 
-        let onLoadCallback: Function | undefined;
-        reactEvalEsbuildPlugin.setup({
-            onLoad: (_opts: unknown, cb: Function) => {
-                onLoadCallback = cb;
-            },
-        });
-
-        const result = await onLoadCallback!({ path: filePath });
-        expect(result.loader).toBe("js");
-        expect(result.contents).toContain("globalThis.eval = function (code)");
+        const result = await captureOnLoad().getCallback()({ path: filePath });
+        expect(result!.loader).toBe("js");
+        expect(result!.contents).toContain("globalThis.eval = function (code)");
 
         await rm(dir, { recursive: true, force: true });
     });
@@ -85,14 +98,7 @@ describe("reactEvalStubPlugin", () => {
         const filePath = join(dir, "react-server-dom-webpack-client.edge.development.js");
         await writeFile(filePath, `console.log("hello");`, "utf8");
 
-        let onLoadCallback: Function | undefined;
-        reactEvalEsbuildPlugin.setup({
-            onLoad: (_opts: unknown, cb: Function) => {
-                onLoadCallback = cb;
-            },
-        });
-
-        const result = await onLoadCallback!({ path: filePath });
+        const result = await captureOnLoad().getCallback()({ path: filePath });
         expect(result).toBeUndefined();
 
         await rm(dir, { recursive: true, force: true });
