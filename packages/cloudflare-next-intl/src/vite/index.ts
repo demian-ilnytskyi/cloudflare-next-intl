@@ -5,6 +5,14 @@ export { firebaseAuthCheckPlugin, type FirebaseAuthCheckPluginOptions } from "./
 export { buildIdAsset } from "./build_id_asset.js";
 export { userAgentStubPlugin, USER_AGENT_STUB_ID, USER_AGENT_STUB_CODE } from "./user_agent_stub.js";
 export { cfWorkersClientStubPlugin, CF_WORKERS_CLIENT_STUB_ID, CF_WORKERS_CLIENT_STUB_CODE } from "./cf_workers_client_stub.js";
+export { bufferStubPlugin, BUFFER_STUB_ID } from "./buffer_stub.js";
+export {
+    reactEvalStubPlugin,
+    reactEvalEsbuildPlugin,
+    transformReactEval,
+    EVAL_WARNING_RE,
+    EVAL_POLYFILL_SNIPPET,
+} from "./react_eval_stub.js";
 export {
     vinextRouteWiringFixPlugin,
     patchAppPageRouteWiring,

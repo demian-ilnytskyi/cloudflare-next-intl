@@ -2,6 +2,8 @@ import type { Plugin } from "vite";
 import { buildIdAsset } from "./build_id_asset.js";
 import { userAgentStubPlugin } from "./user_agent_stub.js";
 import { cfWorkersClientStubPlugin } from "./cf_workers_client_stub.js";
+import { bufferStubPlugin } from "./buffer_stub.js";
+import { reactEvalStubPlugin } from "./react_eval_stub.js";
 import { localeFilePlugin, type LocaleFilePluginOptions } from "./locale_file_plugin.js";
 import { imageOptimizerPlugin, type ImageOptimizerPluginOptions } from "../image_optimizer/index.js";
 
@@ -55,6 +57,20 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
      * @default true
      */
     cfWorkersClientStub?: boolean;
+
+    /**
+     * Stubs `node:buffer` in client (browser) builds with the `buffer` polyfill
+     * to prevent runtime crashes when vinext server actions access `next/cache`.
+     * @default true
+     */
+    bufferStub?: boolean;
+
+    /**
+     * Polyfills `globalThis.eval` and silences the noisy React RSC eval warning in
+     * Cloudflare Workers (workerd) development mode.
+     * @default true
+     */
+    reactEvalStub?: boolean;
 
     /**
      * Build-time and dev image optimizer plugin. Automatically downscales rasters into `public/generated`,
@@ -211,6 +227,14 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
     if (options.buildIdAsset !== false) {
         const fileName = typeof options.buildIdAsset === "string" ? options.buildIdAsset : "BUILD_ID";
         plugins.push(buildIdAsset(fileName));
+    }
+
+    if (options.bufferStub !== false) {
+        plugins.push(bufferStubPlugin());
+    }
+
+    if (options.reactEvalStub !== false) {
+        plugins.push(reactEvalStubPlugin());
     }
 
     if (options.cfWorkersClientStub !== false) {

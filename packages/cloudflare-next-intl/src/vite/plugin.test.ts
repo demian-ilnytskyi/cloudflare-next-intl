@@ -6,7 +6,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
     it("returns array of plugins by default", () => {
         const plugins = cloudflareNextIntl();
         expect(Array.isArray(plugins)).toBe(true);
-        expect(plugins.length).toBe(11);
+        expect(plugins.length).toBe(13);
 
         const pluginNames = plugins.map((p) => p.name);
         expect(pluginNames).toContain("cloudflare-next-intl-layout-queries-check");
@@ -20,6 +20,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(pluginNames).toContain("cfni:locale-file");
         expect(pluginNames).toContain("cloudflare-next-intl-lucide-optimizer");
         expect(pluginNames).toContain("cloudflare-next-intl-firebase-auth-check");
+        expect(pluginNames).toContain("cfni:buffer-stub");
+        expect(pluginNames).toContain("cfni:react-eval-stub");
     });
 
     it("includes vinext-route-wiring-fix when explicitly enabled", () => {
@@ -48,6 +50,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
             vinextRouteWiringFix: false,
             localeFiles: false,
             lucideOptimizer: false,
+            bufferStub: false,
+            reactEvalStub: false,
         });
 
         expect(plugins.length).toBe(0);
@@ -66,6 +70,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
             vinextRouteWiringFix: false,
             localeFiles: false,
             lucideOptimizer: false,
+            bufferStub: false,
+            reactEvalStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -88,6 +94,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
             vinextRouteWiringFix: false,
             localeFiles: false,
             lucideOptimizer: false,
+            bufferStub: false,
+            reactEvalStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -110,6 +118,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
             vinextRouteWiringFix: false,
             localeFiles: false,
             lucideOptimizer: false,
+            bufferStub: false,
+            reactEvalStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -129,6 +139,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
             vinextRouteWiringFix: false,
             localeFiles: false,
             lucideOptimizer: false,
+            bufferStub: false,
+            reactEvalStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -151,6 +163,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
             vinextRouteWiringFix: false,
             localeFiles: false,
             lucideOptimizer: false,
+            bufferStub: false,
+            reactEvalStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -173,6 +187,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
             vinextRouteWiringFix: false,
             localeFiles: false,
             lucideOptimizer: false,
+            bufferStub: false,
+            reactEvalStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -192,6 +208,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
             vinextRouteWiringFix: true,
             localeFiles: false,
             lucideOptimizer: false,
+            bufferStub: false,
+            reactEvalStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -211,6 +229,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
             vinextRouteWiringFix: { routeMatching: false },
             localeFiles: false,
             lucideOptimizer: false,
+            bufferStub: false,
+            reactEvalStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -250,6 +270,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
             vinextRouteWiringFix: false,
             localeFiles: false,
             lucideOptimizer: { normalizeNextJsImports: false },
+            bufferStub: false,
+            reactEvalStub: false,
         });
 
         expect(plugins.length).toBe(1);

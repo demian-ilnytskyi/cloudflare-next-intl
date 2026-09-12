@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.8] - 2026-09-12
+
+### Added
+
+- `bufferStub` option (default `true`): stubs `node:buffer` in client (browser) builds with the `buffer` polyfill, preventing runtime crashes when a vinext server action accesses `next/cache`.
+- `reactEvalStub` option (default `true`): polyfills `globalThis.eval` and silences the noisy React RSC eval warning in Cloudflare Workers (workerd) dev mode.
+
 ## [0.10.7] - 2026-09-12
 
 ### Changed
