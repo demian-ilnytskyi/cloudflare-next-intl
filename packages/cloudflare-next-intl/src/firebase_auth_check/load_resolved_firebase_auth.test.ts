@@ -18,15 +18,22 @@ describe("loadResolvedFirebaseAuth", () => {
     it("loads evaluated firebaseAuth object and resolves cloudflare:* and @intl-config", async () => {
         const { dir, cleanup } = setupTempDir();
         try {
+            const helperPath = join(dir, "src", "l18n", "helper.ts");
+            writeFileSync(helperPath, `
+                import config from "@intl-config";
+                export const getHasConfig = () => typeof config;
+            `);
+
             const configPath = join(dir, "src", "l18n", "intl_config.ts");
             writeFileSync(configPath, `
                 import { env } from "cloudflare:workers";
                 import sockets from "cloudflare:sockets";
-                import self from "@intl-config";
+                import { getHasConfig } from "./helper.js";
                 export default {
                     firebaseAuth: {
-                        apiKey: "resolved-api-key-" + typeof env + "-" + typeof sockets + "-" + typeof self,
+                        apiKey: "resolved-api-key-" + typeof env + "-" + typeof sockets,
                         projectId: "resolved-proj",
+                        helperLoaded: typeof getHasConfig === "function",
                     },
                 };
             `);
@@ -42,8 +49,9 @@ describe("loadResolvedFirebaseAuth", () => {
             });
 
             expect(result).toEqual({
-                apiKey: "resolved-api-key-object-object-object",
+                apiKey: "resolved-api-key-object-object",
                 projectId: "resolved-proj",
+                helperLoaded: true,
             });
         } finally {
             cleanup();
