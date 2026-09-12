@@ -46,6 +46,7 @@ describe("reactEvalStubPlugin", () => {
                 };
             };
         };
+        expect(config.optimizeDeps?.include).toContain("next/web-vitals");
         expect(config.optimizeDeps?.rolldownOptions?.plugins).toHaveLength(1);
         expect(config.optimizeDeps?.esbuildOptions).toBeUndefined();
         expect(config.ssr?.noExternal).toContain("cloudflare-next-intl");

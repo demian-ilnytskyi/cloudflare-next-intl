@@ -3,6 +3,16 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.10] - 2026-09-12
+
+### Fixed
+
+- `reactEvalRolldownPlugin.transform` now declares an explicit return type, clearing an ESLint `explicit-module-boundary-types` warning.
+
+### Changed
+
+- `getReactEvalConfig()`'s top-level `optimizeDeps.include` now also lists `buffer` and `next/web-vitals` alongside the Rolldown eval-warning plugin.
+
 ## [0.10.9] - 2026-09-12
 
 ### Changed

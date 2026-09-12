@@ -77,7 +77,10 @@ export function getReactEvalConfig(): UserConfig {
     };
 
     return {
-        optimizeDeps: rolldownConfig,
+        optimizeDeps: {
+            include: ["buffer", "next/web-vitals"],
+            ...rolldownConfig,
+        },
         ssr: {
             noExternal: ["cloudflare-next-intl", "cloudflare-next-intl-db"],
             optimizeDeps: rolldownConfig,
