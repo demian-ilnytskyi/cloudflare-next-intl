@@ -43,7 +43,7 @@ export function transformReactEval(code: string): string {
 
 export const reactEvalRolldownPlugin = {
     name: "cfni:react-eval-stub-rolldown",
-    transform(code: string) {
+    transform(code: string): { code: string; map: null } | undefined {
         if (code.includes("eval() is not supported in this environment")) {
             return {
                 code: transformReactEval(code),
