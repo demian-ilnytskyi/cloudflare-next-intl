@@ -41,7 +41,7 @@ export default defineConfig({
                 // check_firebase_auth_config.ts: 3 branches in named import/module specifier resolution and spread resolution are defensive fallbacks (unresolvable module path fallback, missing import specifier, and catch-block during file read error).
                 'src/firebase_auth_check/check_firebase_auth_config.ts': { statements: 96.26, branches: 90.7, functions: 100, lines: 96.26 },
                 // load_resolved_firebase_auth.ts: finally branch on await server?.close() when createServer throws is defensive cleanup.
-                'src/firebase_auth_check/load_resolved_firebase_auth.ts': { statements: 100, branches: 92.85, functions: 100, lines: 100 },
+                'src/firebase_auth_check/load_resolved_firebase_auth.ts': { statements: 100, branches: 95, functions: 100, lines: 100 },
                 // auto_dynamic_pages_plugin.ts: 1 branch (a catch around the writeFile wrapper's readFileSync call, capturing a page's pre-write contents for later restore) is structurally hard to isolate in tests — it requires making one specific fs.readFileSync call fail while an adjacent one on the same file, in the same synchronous flow, succeeds; mocking node:fs at the module level (vi.mock/vi.doMock) had no effect on this project's built-in-module resolution (confirmed: the mocked implementation was never invoked).
                 'src/vite/auto_dynamic_pages_plugin.ts': { statements: 98.46, branches: 93.75, functions: 100, lines: 98.46 },
                 // auto_locale_params_plugin.ts: same structural limitation as auto_dynamic_pages_plugin.ts above — its writeFile wrapper has the identical catch-around-readFileSync shape and is equally unmockable here.

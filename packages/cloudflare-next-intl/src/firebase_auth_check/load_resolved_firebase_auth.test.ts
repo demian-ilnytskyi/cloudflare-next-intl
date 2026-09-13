@@ -58,6 +58,58 @@ describe("loadResolvedFirebaseAuth", () => {
         }
     });
 
+    it("applies envDefaults for unset keys and restores process.env afterwards", async () => {
+        const { dir, cleanup } = setupTempDir();
+        const existingKey = "CFNI_TEST_ENV_DEFAULTS_EXISTING";
+        const missingKey = "CFNI_TEST_ENV_DEFAULTS_MISSING";
+        const emptyKey = "CFNI_TEST_ENV_DEFAULTS_EMPTY";
+        process.env[existingKey] = "already-set";
+        delete process.env[missingKey];
+        process.env[emptyKey] = "";
+        try {
+            const configPath = join(dir, "src", "l18n", "intl_config.ts");
+            writeFileSync(configPath, `
+                export default {
+                    firebaseAuth: {
+                        existing: process.env.${existingKey},
+                        missing: process.env.${missingKey},
+                        empty: process.env.${emptyKey},
+                    },
+                };
+            `);
+
+            const result = await loadResolvedFirebaseAuth({
+                intlConfigPath: configPath,
+                viteConfig: {
+                    root: dir,
+                    envDir: dir,
+                    mode: "development",
+                    resolve: { alias: [] },
+                },
+                envDefaults: {
+                    [existingKey]: "default-value",
+                    [missingKey]: "default-value",
+                    [emptyKey]: "default-value",
+                },
+            });
+
+            expect(result).toEqual({
+                existing: "already-set",
+                missing: "default-value",
+                empty: "default-value",
+            });
+
+            expect(process.env[existingKey]).toBe("already-set");
+            expect(process.env[missingKey]).toBeUndefined();
+            expect(process.env[emptyKey]).toBe("");
+        } finally {
+            delete process.env[existingKey];
+            delete process.env[missingKey];
+            delete process.env[emptyKey];
+            cleanup();
+        }
+    });
+
     it("returns undefined when module fails to load or file does not exist", async () => {
         const result = await loadResolvedFirebaseAuth({
             intlConfigPath: "/path/to/nonexistent/config.ts",
