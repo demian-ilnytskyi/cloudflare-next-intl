@@ -41,7 +41,7 @@ export async function loadResolvedFirebaseAuth(
     options: LoadResolvedFirebaseAuthOptions,
 ): Promise<Record<string, unknown> | undefined> {
     let server: ViteDevServer | undefined;
-    const restoreEnv: Array<[string, string | undefined]> = [];
+    const restoreEnv: [string, string | undefined][] = [];
     for (const [key, value] of Object.entries(options.envDefaults ?? {})) {
         if (process.env[key]) continue;
         restoreEnv.push([key, process.env[key]]);
