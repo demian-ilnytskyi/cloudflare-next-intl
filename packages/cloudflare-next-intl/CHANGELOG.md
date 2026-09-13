@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.13] - 2026-09-13
+
+### Added
+
+- `FirebaseAuthRoutingConfig.protectedPaths`: an optional `(path) => boolean` gate that inverts `whiteListPaths` — when set, every path passes through unless `protectedPaths` (or `isAuthPath`) returns true, so unrecognised URLs reach the app's own routing instead of being redirected to `redirectAuthPath`. Preferred over `whiteListPaths` for apps where most pages are public.
+- `loadResolvedFirebaseAuth`'s options gained `envDefaults`, letting tests exercise real env resolution without depending on secrets being present in CI.
+
 ## [0.10.11] - 2026-09-12
 
 ### Changed

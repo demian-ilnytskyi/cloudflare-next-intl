@@ -695,6 +695,16 @@ export interface FirebaseAuthRoutingConfig {
     isAuthPath: (path: string) => boolean;
     /** Locale-stripped paths exempt from all auth redirects (e.g. public marketing pages). */
     whiteListPaths?: readonly string[];
+    /**
+     * Returns true for a (locale-stripped) path that requires a session — the
+     * inverse of {@link whiteListPaths}. When supplied, it replaces
+     * `whiteListPaths` as the gate: every path is passed through unless this
+     * returns true (or `isAuthPath` does), so an unrecognised URL reaches the
+     * app's own routing/404 handling instead of being redirected to
+     * `redirectAuthPath`. Prefer this over `whiteListPaths` for apps where
+     * most pages are public and only a known subtree needs a session.
+     */
+    protectedPaths?: (path: string) => boolean;
     /** Session cookie max-age in seconds. Defaults to 5 days (432000). */
     sessionCookieMaxAge?: number;
     /** Refresh-token cookie max-age in seconds. Defaults to 365 days (31536000). */

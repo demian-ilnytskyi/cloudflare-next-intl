@@ -13,6 +13,14 @@ export interface LoadResolvedFirebaseAuthOptions {
     viteConfig: Pick<ResolvedConfig, "root" | "envDir" | "mode"> & {
         resolve: Pick<ResolvedConfig["resolve"], "alias">;
     };
+    /**
+     * Fallback values applied to `process.env` for the duration of the load,
+     * for any key not already set (or set to an empty string) — restored
+     * unconditionally afterwards. Lets a test exercise the real resolution
+     * path (spreads, fallbacks, aliasing) without depending on real secrets
+     * being present in the environment (e.g. in CI).
+     */
+    envDefaults?: Record<string, string>;
 }
 
 /**
@@ -33,6 +41,13 @@ export async function loadResolvedFirebaseAuth(
     options: LoadResolvedFirebaseAuthOptions,
 ): Promise<Record<string, unknown> | undefined> {
     let server: ViteDevServer | undefined;
+    const restoreEnv: Array<[string, string | undefined]> = [];
+    for (const [key, value] of Object.entries(options.envDefaults ?? {})) {
+        if (process.env[key]) continue;
+        restoreEnv.push([key, process.env[key]]);
+        process.env[key] = value;
+    }
+
     try {
         const { createServer } = await import("vite");
         server = await createServer({
@@ -96,5 +111,9 @@ export async function loadResolvedFirebaseAuth(
         return undefined;
     } finally {
         await server?.close();
+        for (const [key, value] of restoreEnv) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+        }
     }
 }

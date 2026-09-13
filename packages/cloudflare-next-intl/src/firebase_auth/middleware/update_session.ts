@@ -366,7 +366,9 @@ export default async function updateSession(
     }
 
 
-    const isWhiteListed = isWhitelisted(path, fa.whiteListPaths);
+    const isWhiteListed = fa.protectedPaths
+        ? !fa.protectedPaths(path) && !fa.isAuthPath(path)
+        : isWhitelisted(path, fa.whiteListPaths);
     if (isWhiteListed) return baseResponse;
 
     const isAuthPage = fa.isAuthPath(path);

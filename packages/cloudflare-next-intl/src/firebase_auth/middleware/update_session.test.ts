@@ -104,6 +104,48 @@ describe('updateSession', () => {
         expect(res).toBe(base);
     });
 
+    it('protectedPaths passes an unlisted path through with no session, instead of redirecting', async () => {
+        currentConfig.firebaseAuth!.protectedPaths = (path: string) => path === '/dashboard';
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeRequest('https://example.com/en/some-unknown-page');
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res).toBe(base);
+    });
+
+    it('protectedPaths still redirects a matching path with no session', async () => {
+        currentConfig.firebaseAuth!.protectedPaths = (path: string) => path === '/dashboard';
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeRequest('https://example.com/en/dashboard');
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/login');
+    });
+
+    it('protectedPaths still redirects a signed-in user away from an auth page', async () => {
+        currentConfig.firebaseAuth!.protectedPaths = (path: string) => path === '/dashboard';
+        const { default: updateSession } = await import('./update_session.js');
+        const token = makeJwt(Date.now() / 1000 + 3600, { email_verified: true });
+        const req = makeRequest('https://example.com/en/login', {
+            cookies: { __fa_session__: token },
+        });
+        const res = await updateSession(req, NextResponse.next(), 'en');
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/');
+    });
+
+    it('ignores whiteListPaths when protectedPaths is supplied', async () => {
+        currentConfig.firebaseAuth!.whiteListPaths = ['/pricing'];
+        currentConfig.firebaseAuth!.protectedPaths = () => true;
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeRequest('https://example.com/en/pricing');
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe('https://example.com/login');
+    });
+
     it('treats the bare locale root (path equals the locale prefix exactly) as "/"', async () => {
         const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en');
