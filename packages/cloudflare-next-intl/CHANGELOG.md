@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.14] - 2026-09-16
+
+### Fixed
+
+- Bumped `cloudflare-next-intl-db-codegen` to `^0.1.2`, which patches drizzle-kit 0.31.10's `unescapeSingleQuotes` bug where a 2-char empty-string default (`''`) collapses to a single orphan quote before `ignoreFirstAndLastChar` can exempt it, emitting an unterminated `.default(')` in pulled schemas instead of `.default('')`.
+
 ## [0.10.13] - 2026-09-13
 
 ### Added
