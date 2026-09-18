@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.15] - 2026-09-18
+
+### Added
+
+- `optionalFirebaseStubPlugin` (new `optionalFirebaseStub` Vite plugin option, on by default): stubs `@firebase/*` peer imports that aren't installed, so their config-guarded dynamic imports don't fail Vite's static resolution in apps that never use `firebaseAuth`.
+
 ## [0.10.14] - 2026-09-16
 
 ### Fixed

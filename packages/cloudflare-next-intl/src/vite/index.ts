@@ -7,6 +7,14 @@ export { userAgentStubPlugin, USER_AGENT_STUB_ID, USER_AGENT_STUB_CODE } from ".
 export { cfWorkersClientStubPlugin, CF_WORKERS_CLIENT_STUB_ID, CF_WORKERS_CLIENT_STUB_CODE } from "./cf_workers_client_stub.js";
 export { bufferStubPlugin, BUFFER_STUB_ID } from "./buffer_stub.js";
 export {
+    optionalFirebaseStubPlugin,
+    optionalFirebaseStubId,
+    optionalFirebaseStubCode,
+    isModuleInstalled,
+    OPTIONAL_FIREBASE_MODULES,
+    OPTIONAL_FIREBASE_STUB_PREFIX,
+} from "./optional_firebase_stub.js";
+export {
     reactEvalStubPlugin,
     reactEvalEsbuildPlugin,
     transformReactEval,

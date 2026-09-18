@@ -4,6 +4,7 @@ import { userAgentStubPlugin } from "./user_agent_stub.js";
 import { cfWorkersClientStubPlugin } from "./cf_workers_client_stub.js";
 import { bufferStubPlugin } from "./buffer_stub.js";
 import { reactEvalStubPlugin } from "./react_eval_stub.js";
+import { optionalFirebaseStubPlugin } from "./optional_firebase_stub.js";
 import { localeFilePlugin, type LocaleFilePluginOptions } from "./locale_file_plugin.js";
 import { imageOptimizerPlugin, type ImageOptimizerPluginOptions } from "../image_optimizer/index.js";
 
@@ -71,6 +72,14 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
      * @default true
      */
     reactEvalStub?: boolean;
+
+    /**
+     * Stubs the `@firebase/*` peers that aren't installed, so their
+     * config-guarded dynamic imports don't fail Vite's static resolution in
+     * apps that never use firebaseAuth.
+     * @default true
+     */
+    optionalFirebaseStub?: boolean;
 
     /**
      * Build-time and dev image optimizer plugin. Automatically downscales rasters into `public/generated`,
@@ -235,6 +244,10 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
 
     if (options.reactEvalStub !== false) {
         plugins.push(reactEvalStubPlugin());
+    }
+
+    if (options.optionalFirebaseStub !== false) {
+        plugins.push(optionalFirebaseStubPlugin({ root: options.root }));
     }
 
     if (options.cfWorkersClientStub !== false) {

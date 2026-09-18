@@ -6,7 +6,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
     it("returns array of plugins by default", () => {
         const plugins = cloudflareNextIntl();
         expect(Array.isArray(plugins)).toBe(true);
-        expect(plugins.length).toBe(13);
+        expect(plugins.length).toBe(14);
 
         const pluginNames = plugins.map((p) => p.name);
         expect(pluginNames).toContain("cloudflare-next-intl-layout-queries-check");
@@ -22,6 +22,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(pluginNames).toContain("cloudflare-next-intl-firebase-auth-check");
         expect(pluginNames).toContain("cfni:buffer-stub");
         expect(pluginNames).toContain("cfni:react-eval-stub");
+        expect(pluginNames).toContain("cfni:optional-firebase-stub");
     });
 
     it("includes vinext-route-wiring-fix when explicitly enabled", () => {
@@ -52,6 +53,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             lucideOptimizer: false,
             bufferStub: false,
             reactEvalStub: false,
+            optionalFirebaseStub: false,
         });
 
         expect(plugins.length).toBe(0);
@@ -72,6 +74,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             lucideOptimizer: false,
             bufferStub: false,
             reactEvalStub: false,
+            optionalFirebaseStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -96,6 +99,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             lucideOptimizer: false,
             bufferStub: false,
             reactEvalStub: false,
+            optionalFirebaseStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -120,6 +124,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             lucideOptimizer: false,
             bufferStub: false,
             reactEvalStub: false,
+            optionalFirebaseStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -141,6 +146,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             lucideOptimizer: false,
             bufferStub: false,
             reactEvalStub: false,
+            optionalFirebaseStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -165,6 +171,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             lucideOptimizer: false,
             bufferStub: false,
             reactEvalStub: false,
+            optionalFirebaseStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -189,6 +196,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             lucideOptimizer: false,
             bufferStub: false,
             reactEvalStub: false,
+            optionalFirebaseStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -210,6 +218,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             lucideOptimizer: false,
             bufferStub: false,
             reactEvalStub: false,
+            optionalFirebaseStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -231,6 +240,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             lucideOptimizer: false,
             bufferStub: false,
             reactEvalStub: false,
+            optionalFirebaseStub: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -272,6 +282,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             lucideOptimizer: { normalizeNextJsImports: false },
             bufferStub: false,
             reactEvalStub: false,
+            optionalFirebaseStub: false,
         });
 
         expect(plugins.length).toBe(1);
