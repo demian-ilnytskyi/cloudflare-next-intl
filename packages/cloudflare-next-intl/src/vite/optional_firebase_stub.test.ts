@@ -30,6 +30,7 @@ describe('optionalFirebaseStubPlugin', () => {
         }
         expect(call(plugin, 'resolveId', 'react')).toBeUndefined();
         expect(call(plugin, 'load', optionalFirebaseStubId('@firebase/app-check'))).toContain('throw new Error');
+        expect(call(plugin, 'load', 'react')).toBeUndefined();
     });
 
     it('throws only when the stub module is evaluated', async () => {
