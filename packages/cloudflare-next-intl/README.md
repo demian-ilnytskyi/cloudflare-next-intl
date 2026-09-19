@@ -510,6 +510,7 @@ bundled — for apps that never set `firebaseAuth`.
 
 Features include:
 - `whiteListPaths`: Array of paths exempt from auth redirects (matches exact path or path-segment prefix, e.g. `/bonds` matches `/bonds/some-slug`).
+- `protectedPaths`: `(path) => boolean` gate that inverts `whiteListPaths` — when set, every path passes through unless `protectedPaths` (or `isAuthPath`) returns true, so unrecognised URLs reach the app's own routing instead of being redirected to `redirectAuthPath`. Preferred over `whiteListPaths` for apps where most pages are public: both the middleware and `AuthUserProvider` (client) derive their whitelist from it directly, so you don't maintain two separate path lists that can drift out of sync. `whiteListPaths` is only consulted when `protectedPaths` isn't set.
 - `actionLinkPath`: Pinned route for handling Firebase action links (e.g. `/auth/action`), prioritized during cross-origin action link redirects.
 - `createForgotPasswordAction(locale, actionCodeSettings?)`: Accepts optional Firebase `AuthActionCodeSettings` (e.g. `url` redirect link).
 - `sendVerificationEmail(actionCodeSettings?)` on `useAuthUser()`: Custom action email settings when resending email verification.

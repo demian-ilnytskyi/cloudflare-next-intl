@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.16] - 2026-09-19
+
+### Fixed
+
+- `AuthUserProvider`'s client-side redirect guard now derives its whitelist from `protectedPaths` when that's set, instead of only ever consulting `whiteListPaths`. Previously, a config that set `protectedPaths` (for the middleware) but not `whiteListPaths` left the client treating every non-auth page as gated — a signed-out visitor got force-redirected off public pages (e.g. the home page) once sign-out was confirmed, even though the middleware itself correctly served that same page. `protectedPaths` is now the single source of truth for both when it's configured.
+
 ## [0.10.15] - 2026-09-18
 
 ### Added
