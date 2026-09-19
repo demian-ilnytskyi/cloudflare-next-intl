@@ -134,7 +134,15 @@ export default function AuthUserProvider({ initialUser = null, children }: {
     const router = useRouter();
     const pathname = usePathname();
     const isAuthPage = fa.isAuthPath(pathname);
-    const isWhiteListed = isWhitelisted(pathname, fa.whiteListPaths);
+    // Mirrors `update_session.ts`'s own `isWhiteListed` computation: when
+    // `protectedPaths` (a denylist — "these need a session, everything else
+    // is public") is configured, derive whitelisting from it directly rather
+    // than requiring a second, separately-maintained `whiteListPaths`
+    // allowlist that has to be kept in sync by hand. Falls back to the
+    // explicit allowlist for configs that only set `whiteListPaths`.
+    const isWhiteListed = fa.protectedPaths
+        ? !fa.protectedPaths(pathname) && !isAuthPage
+        : isWhitelisted(pathname, fa.whiteListPaths);
     const maxAge = fa.sessionCookieMaxAge ?? 60 * 60 * 24 * 5;
     const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
     const refreshTokenMaxAge = fa.refreshTokenCookieMaxAge ?? 60 * 60 * 24 * 365;

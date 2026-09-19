@@ -194,6 +194,32 @@ describe('AuthUserProvider', () => {
         expect(routerRefresh).toHaveBeenCalled();
     });
 
+    it('does not redirect a public path when protectedPaths is set (denylist mode derives the whitelist)', async () => {
+        currentConfig.firebaseAuth!.protectedPaths = (path: string) => path === '/profile';
+        mockPathname = '/dashboard';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(null); });
+        await flush();
+        await act(async () => { idTokenListener?.(null); });
+        await flush();
+        expect(routerReplace).not.toHaveBeenCalled();
+    });
+
+    it('still redirects a protectedPaths-matched page once confirmed signed-out', async () => {
+        currentConfig.firebaseAuth!.protectedPaths = (path: string) => path === '/profile';
+        mockPathname = '/profile';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { idTokenListener?.(null); });
+        await flush();
+        await act(async () => { idTokenListener?.(null); });
+        await flush();
+        expect(routerReplace).toHaveBeenCalledWith('/login');
+    });
+
     it('redirects to redirectAuthPath once confirmed signed-out (two consecutive nulls)', async () => {
         const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
