@@ -103,6 +103,11 @@ describe('AuthUserProvider', () => {
         mockPathname = '/dashboard';
         idTokenListener = undefined;
         clearAllCookies();
+        // The provider defers its `onIdTokenChanged` subscription to idle for
+        // signed-out visitors on public pages; run the callback inline so the
+        // assertions below stay synchronous.
+        (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback =
+            (cb: () => void) => { cb(); return 0; };
     });
 
     it('throws when firebaseAuth is not configured', async () => {
@@ -123,6 +128,70 @@ describe('AuthUserProvider', () => {
         render(<AuthUserProvider><span>child</span></AuthUserProvider>);
         await flush();
         expect(routerReplace).not.toHaveBeenCalled();
+    });
+
+    it('clears loading immediately when it defers the subscription, so consumers do not render blank until idle', async () => {
+        currentConfig.firebaseAuth!.whiteListPaths = ['/public'];
+        mockPathname = '/public';
+        let idleCallback: (() => void) | undefined;
+        (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback =
+            (cb: () => void) => { idleCallback = cb; return 7; };
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
+        function Probe() {
+            const ctx = useContext(AuthUserContext) as AuthUserContextType;
+            return <span>{ctx.loading ? 'loading' : 'settled'}</span>;
+        }
+        render(<AuthUserProvider initialUser={null}><Probe /></AuthUserProvider>);
+        await flush();
+        expect(onIdTokenChanged).not.toHaveBeenCalled();
+        expect(screen.getByText('settled')).toBeInTheDocument();
+        await act(async () => { idleCallback?.(); });
+        await flush();
+        expect(onIdTokenChanged).toHaveBeenCalled();
+    });
+
+    it('subscribes immediately on a non-whitelisted page even when signed out', async () => {
+        currentConfig.firebaseAuth!.whiteListPaths = ['/public'];
+        mockPathname = '/dashboard';
+        (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback =
+            () => { throw new Error('must not defer on a protected page'); };
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        expect(onIdTokenChanged).toHaveBeenCalled();
+    });
+
+    it('falls back to a timer when requestIdleCallback is unavailable, and clears it on unmount', async () => {
+        vi.useFakeTimers();
+        try {
+            currentConfig.firebaseAuth!.whiteListPaths = ['/public'];
+            mockPathname = '/public';
+            delete (window as Window & { requestIdleCallback?: unknown }).requestIdleCallback;
+            const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+            const { unmount } = render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+            expect(onIdTokenChanged).not.toHaveBeenCalled();
+            unmount();
+            await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+            expect(onIdTokenChanged).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('cancels a pending idle callback on unmount', async () => {
+        currentConfig.firebaseAuth!.whiteListPaths = ['/public'];
+        mockPathname = '/public';
+        const cancelIdleCallback = vi.fn();
+        (window as Window & {
+            requestIdleCallback?: (cb: () => void) => number;
+            cancelIdleCallback?: (handle: number) => void;
+        }).requestIdleCallback = () => 42;
+        (window as Window & { cancelIdleCallback?: (handle: number) => void }).cancelIdleCallback = cancelIdleCallback;
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        const { unmount } = render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        unmount();
+        expect(cancelIdleCallback).toHaveBeenCalledWith(42);
     });
 
     it('does not redirect on an auth page even when signed out', async () => {

@@ -608,6 +608,36 @@ export interface FirebaseAuthRoutingConfig {
      * rejected with 401.
      */
     appCheck?: FirebaseAppCheckConfig;
+    /**
+     * Skips the Auth SDK's default `browserPopupRedirectResolver`, which — on
+     * mobile/Safari/iOS user agents — proactively opens the
+     * `<authDomain>/__/auth/iframe.js` relay iframe on EVERY page load to be
+     * ready for a redirect result, whether or not one is ever used.
+     *
+     * Safe even WITH Google/Apple/social sign-in: every popup/redirect API
+     * takes a resolver as its last argument, and the SDK uses that override in
+     * place of the instance's own. Pass it at the call site and you pay for
+     * the iframe on the click instead of on every page load:
+     *
+     * ```ts
+     * import { browserPopupRedirectResolver, signInWithPopup } from '@firebase/auth';
+     * const { auth } = await getFirebaseAuthClient();
+     * await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+     * ```
+     *
+     * Same third argument on `signInWithRedirect`, `getRedirectResult`,
+     * `linkWithPopup` and `reauthenticateWithPopup` — miss it on any one of
+     * them and that call throws `auth/argument-error`. There is no per-page
+     * variant of this flag: `auth` is created once and cached for the whole
+     * app, so the first page to mount the provider decides for every later
+     * client-side navigation.
+     *
+     * Also skips two things `getAuth` does and `initializeAuth` does not: the
+     * experimental `authTokenSyncURL` cookie exchange, and auto-connecting to
+     * the Auth emulator from `FIREBASE_AUTH_EMULATOR_HOST` — so a local
+     * emulator run with this flag on talks to PRODUCTION auth instead.
+     */
+    skipPopupRedirectResolver?: boolean;
     /** Path to redirect signed-out users to, e.g. "/login". Must start with "/" — `setIntlConfig` auto-corrects a missing leading slash with a warning. */
     redirectAuthPath: string;
     /** Path to redirect signed-in users away from auth pages to, e.g. "/". Must start with "/" — `setIntlConfig` auto-corrects a missing leading slash with a warning. */
@@ -785,6 +815,18 @@ export interface FirebaseAppCheckConfig {
      * to use Firebase's own `ReCaptchaV3Provider` instead.
      */
     useExplicitRecaptchaScript?: boolean;
+    /**
+     * Defers App Check initialization to the first `getAppCheckToken()` call
+     * instead of running it as part of `getFirebaseAuthClient()`. Defaults to
+     * `false`: `@firebase/auth` reads the App Check provider off the app
+     * per-request and silently omits the `X-Firebase-AppCheck` header when it
+     * isn't registered yet, so deferring leaves every earlier request — a
+     * sign-in included — unprotected. Only set `true` if App Check
+     * ENFORCEMENT is off for every product this app calls; in exchange, an
+     * anonymous visitor stops paying reCAPTCHA's script + token round-trip on
+     * pages that never mint a token.
+     */
+    lazyInit?: boolean;
     /**
      * Enables App Check's debug token on this client. Pass `true` to have
      * the Firebase SDK generate a new random token each run (logged to the

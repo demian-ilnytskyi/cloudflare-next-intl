@@ -18,6 +18,9 @@ import type { AuthActionCodeSettings, AuthUser, SerializedAuthUser } from '../ty
 import type { User } from '@firebase/auth';
 import { AuthUserContext, type AuthUserContextType } from './auth_user_context.js';
 
+const AUTH_SUBSCRIBE_IDLE_TIMEOUT_MS = 3_000;
+const AUTH_SUBSCRIBE_FALLBACK_DELAY_MS = 1_500;
+
 export { AuthUserContext };
 export type { AuthUserContextType };
 function writeSessionCookie(sessionCookieName: string, idToken: string, maxAge: number): void {
@@ -178,6 +181,10 @@ export default function AuthUserProvider({ initialUser = null, children }: {
     // observation of an already-verified user (both `onIdTokenChanged` and
     // `reloadUser` can be the first to observe the transition).
     const emailVerifiedRef = useRef(initialUser?.emailVerified ?? false);
+    // A boolean, not `initialUser` itself, in the subscribe effect's deps:
+    // the prop is an object, so a consumer passing it inline would otherwise
+    // tear down and rebuild the `onIdTokenChanged` listener every render.
+    const deferAuthSubscribe = initialUser === null && isWhiteListed && !isAuthPage && typeof window !== 'undefined';
 
     useEffect(() => {
         const { user, loading } = state;
@@ -209,8 +216,10 @@ export default function AuthUserProvider({ initialUser = null, children }: {
     useEffect(() => {
         let unsubscribe: (() => void) | undefined;
         let cancelled = false;
+        let idleHandle: number | undefined;
+        let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
-        getFirebaseAuthClient().then(async ({ auth }) => {
+        const subscribe = () => getFirebaseAuthClient().then(async ({ auth }) => {
             if (cancelled) return;
             const { onIdTokenChanged } = await getFirebaseAuthModule();
 
@@ -296,11 +305,34 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             });
         });
 
+        // A signed-out visitor on a whitelisted page pays ~90KB of
+        // `@firebase/auth` plus the `/__/auth/iframe.js` round-trip for a
+        // listener that will only ever report "still signed out". Deferring
+        // it to idle keeps that off the critical path. Limited to whitelisted
+        // pages because only there is neither guard in the redirect effect
+        // above load-bearing, so clearing `loading` up front is safe — and it
+        // must be cleared, or every consumer following `useAuthUser`'s
+        // documented `if (loading) return null` renders blank until idle
+        // fires. A server-resolved user, an auth page, or any protected page
+        // still subscribes at once.
+        if (deferAuthSubscribe) {
+            setState(current => (current.loading ? { ...current, loading: false } : current));
+            const idle = (window as Window & {
+                requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+            }).requestIdleCallback;
+            if (idle) idleHandle = idle(() => { if (!cancelled) subscribe(); }, { timeout: AUTH_SUBSCRIBE_IDLE_TIMEOUT_MS });
+            else timeoutHandle = setTimeout(() => { if (!cancelled) subscribe(); }, AUTH_SUBSCRIBE_FALLBACK_DELAY_MS);
+        } else {
+            subscribe();
+        }
+
         return () => {
             cancelled = true;
+            if (idleHandle !== undefined) (window as Window & { cancelIdleCallback?: (handle: number) => void }).cancelIdleCallback?.(idleHandle);
+            if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
             unsubscribe?.();
         };
-    }, [router, isAuthPage, isWhiteListed, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge, fa]);
+    }, [deferAuthSubscribe, router, isAuthPage, isWhiteListed, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge, fa]);
 
     const reloadUser = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();

@@ -8,10 +8,6 @@ const isDev = process.env.NODE_ENV === 'development';
 export const defaultReloadHtml =
     '<div style="position:fixed;inset:0;background:#ffffff;display:flex;align-items:center;justify-content:center;z-index:9999999;"><div style="width:36px;height:36px;border:3px solid #e5e7eb;border-top-color:#17181b;border-radius:50%;animation:cfni-spin 0.8s linear infinite;"></div><style>@keyframes cfni-spin{to{transform:rotate(360deg)}}</style></div>';
 
-const appCheck = config.firebaseAuth?.appCheck;
-const shouldLoadExplicitRecaptchaScript =
-    !!appCheck?.recaptchaV3SiteKey && appCheck.useExplicitRecaptchaScript !== false;
-
 const secureCookieAttribute = isDev ? '+ " Secure;"' : '';
 
 /**
@@ -26,10 +22,10 @@ const secureCookieAttribute = isDev ? '+ " Secure;"' : '';
  *   `isStaleDeployError`'s patterns and force-reloads once per build id —
  *   catches a stale-chunk failure even when the failing chunk is your own
  *   error boundary, before React (and `useStaleDeployRecovery`) ever mounts
- * - loads `recaptcha/api.js?render=explicit` when `firebaseAuth.appCheck`
- *   has a `recaptchaV3SiteKey` and `useExplicitRecaptchaScript` isn't
- *   `false`, so `window.grecaptcha` is ready before App Check's
- *   `CustomProvider` needs it (see `firebase_client.ts`)
+ *
+ * It does NOT load reCAPTCHA: that script is ~345KB of third-party JavaScript
+ * only a page actually minting an App Check token needs, so `firebase_client.ts`
+ * injects it on the first `getToken()` instead.
  *
  * Place it once in your root layout's `<head>`, alongside `IntlProvider`.
  * No props.
@@ -46,12 +42,6 @@ export default function HelperScript(): Component | null {
     const reloadHtml = config.errorHandling?.staleDeployReloadHtml ?? defaultReloadHtml;
 
     return <>
-        {shouldLoadExplicitRecaptchaScript &&
-            <script
-                src="https://www.google.com/recaptcha/api.js?render=explicit"
-                async
-                defer
-            />}
         {!isDev &&
             <script
                 id="stale-deploy-early-catch"

@@ -506,7 +506,9 @@ describe('HelperScript', () => {
         expect(recaptchaScript()).toBeNull();
     });
 
-    it('loads the explicit reCAPTCHA script when a v3 site key is configured', async () => {
+    // `firebase_client.ts` injects it on the first `getToken()` instead, so no
+    // App Check config should ever put it in <head>.
+    it('omits the reCAPTCHA script even when a v3 site key is configured', async () => {
         vi.resetModules();
         vi.doMock('../../config/intl_config', () => ({
             default: {
@@ -514,10 +516,9 @@ describe('HelperScript', () => {
                 firebaseAuth: { appCheck: { recaptchaV3SiteKey: 'site-key' } },
             },
         }));
-        const { default: AppCheckHelperScript } = await import('./helper_script.js');
-        render(<AppCheckHelperScript />);
-        expect(recaptchaScript()).not.toBeNull();
-        recaptchaScript()?.remove();
+        const { default: LazyHelperScript } = await import('./helper_script.js');
+        render(<LazyHelperScript />);
+        expect(recaptchaScript()).toBeNull();
         vi.doUnmock('../../config/intl_config');
     });
 

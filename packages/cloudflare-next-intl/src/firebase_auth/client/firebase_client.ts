@@ -35,6 +35,30 @@ declare global {
 const GRECAPTCHA_LOAD_TIMEOUT_MS = 15_000;
 const GRECAPTCHA_POLL_INTERVAL_MS = 50;
 
+const RECAPTCHA_SCRIPT_SRC = 'https://www.google.com/recaptcha/api.js?render=explicit';
+
+/**
+ * Appends the `render=explicit` reCAPTCHA script on first actual need.
+ * `IntlHelperScript` used to render it into `<head>` on every page, which cost
+ * every anonymous visitor ~345KB of gstatic JavaScript on pages that never
+ * mint an App Check token; injecting it here keeps the same explicit-render
+ * flow while moving the cost to the first `getToken()`.
+ */
+let recaptchaScriptFailed = false;
+
+function ensureRecaptchaScript(): void {
+    if (window.grecaptcha) return;
+    if (document.querySelector(`script[src="${RECAPTCHA_SCRIPT_SRC}"]`)) return;
+    const script = document.createElement('script');
+    script.src = RECAPTCHA_SCRIPT_SRC;
+    script.async = true;
+    script.defer = true;
+    // Without this a blocked or 404'd script costs the caller the full
+    // 15s poll timeout before it gives up.
+    script.onerror = () => { recaptchaScriptFailed = true; };
+    document.head.appendChild(script);
+}
+
 /**
  * Resolves once the reCAPTCHA script has defined `window.grecaptcha`. The
  * script tag `IntlHelperScript` renders is `async`, and
@@ -44,17 +68,18 @@ const GRECAPTCHA_POLL_INTERVAL_MS = 50;
  */
 function waitForGrecaptcha(): Promise<Grecaptcha> {
     if (window.grecaptcha) return Promise.resolve(window.grecaptcha);
+    ensureRecaptchaScript();
     return new Promise((resolve, reject) => {
         const startedAt = Date.now();
         const timer = setInterval(() => {
             if (window.grecaptcha) {
                 clearInterval(timer);
                 resolve(window.grecaptcha);
-            } else if (Date.now() - startedAt >= GRECAPTCHA_LOAD_TIMEOUT_MS) {
+            } else if (recaptchaScriptFailed || Date.now() - startedAt >= GRECAPTCHA_LOAD_TIMEOUT_MS) {
                 clearInterval(timer);
                 reject(
                     new Error(
-                        'window.grecaptcha never loaded; ensure the reCAPTCHA <script src="https://www.google.com/recaptcha/api.js?render=explicit"> tag is present',
+                        `window.grecaptcha never loaded; ${RECAPTCHA_SCRIPT_SRC} failed to load or was blocked`,
                     ),
                 );
             }
@@ -184,7 +209,50 @@ async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: Fire
  */
 const APP_CHECK_TOKEN_TIMEOUT_MS = 10_000;
 
+let appCheckInitPromise: Promise<void> | undefined;
+
+/**
+ * Initializes App Check at most once. `getFirebaseAuthClient()` awaits this
+ * eagerly by default, because `@firebase/auth` reads the App Check provider
+ * off the app per-request (`getImmediate({ optional: true })`) and simply
+ * omits the `X-Firebase-AppCheck` header when it isn't registered yet — so
+ * anything that initializes it later leaves every earlier request, sign-in
+ * included, unprotected. `appCheck.lazyInit` opts out of that for apps
+ * without App Check enforcement, deferring the cost to the first
+ * `getAppCheckToken()`.
+ *
+ * The promise is assigned before the first `await` so concurrent callers
+ * share one initialization; a second `initializeAppCheck` with a different
+ * provider instance throws `already-initialized`.
+ */
+function initAppCheckOnce(app: FirebaseApp): Promise<void> {
+    if (appCheckInitPromise) return appCheckInitPromise;
+    const appCheckConfig = config.firebaseAuth?.appCheck;
+    if (!appCheckConfig || typeof window === 'undefined') return Promise.resolve();
+    appCheckInitPromise = (async () => {
+        try {
+            cachedAppCheck = await initializeFirebaseAppCheck(app, appCheckConfig);
+        } catch (error) {
+            console.warn('App Check initialization failed, continuing without it', error);
+        }
+    })();
+    return appCheckInitPromise;
+}
+
+async function ensureAppCheck(): Promise<void> {
+    if (appCheckInitPromise) return appCheckInitPromise;
+    const appCheckConfig = config.firebaseAuth?.appCheck;
+    if (!appCheckConfig || typeof window === 'undefined') return;
+    // Resolves the app without recursing: on the eager path this call has
+    // already run `initAppCheckOnce` itself, so the next line is a no-op.
+    const { app } = await getFirebaseAuthClient();
+    return initAppCheckOnce(app);
+}
+
 export async function getAppCheckToken(): Promise<string | undefined> {
+    // Best-effort by contract: a firebase chunk that 404s on a stale deploy
+    // must not turn this into a rejection its callers never handled before.
+    await ensureAppCheck().catch(() => undefined);
     if (!cachedAppCheck) return undefined;
     const { getToken } = await import('@firebase/app-check');
     try {
@@ -232,7 +300,8 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
             import('@firebase/auth'),
             isPerformanceEnabled ? import('@firebase/performance') : Promise.resolve(null),
         ]).then(
-            async ([{ getApp, getApps, initializeApp }, { getAuth }, perfModule]) => {
+            async ([{ getApp, getApps, initializeApp }, authModule, perfModule]) => {
+                const { getAuth, initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence } = authModule;
                 const firebaseConfig = {
                     apiKey: fa.apiKey,
                     authDomain: fa.authDomain,
@@ -243,13 +312,11 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
                     measurementId: fa.measurementId,
                 };
                 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-                if (fa.appCheck && typeof window !== 'undefined') {
-                    try {
-                        cachedAppCheck = await initializeFirebaseAppCheck(app, fa.appCheck);
-                    } catch (error) {
-                        console.warn('App Check initialization failed, continuing without it', error);
-                    }
-                }
+                // Before `auth` is constructed, so every request it makes
+                // carries `X-Firebase-AppCheck` — `@firebase/auth` reads the
+                // provider per-request and silently omits the header when it
+                // isn't registered yet. See `ensureAppCheck`.
+                if (!fa.appCheck?.lazyInit) await initAppCheckOnce(app);
                 if (perfModule) {
                     // `instrumentationEnabled: false`: Firebase's own automatic
                     // instrumentation runs a SECOND, independent set of web-vitals
@@ -266,7 +333,25 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
                     // flag) — add those manually via `trace()` if needed.
                     cachedPerformance = perfModule.initializePerformance(app, { instrumentationEnabled: false });
                 }
-                const auth = getAuth(app);
+                // `getAuth(app)` wires up `browserPopupRedirectResolver`, which
+                // proactively opens the `__/auth/iframe.js` relay iframe on
+                // mobile/Safari/iOS user agents regardless of persistence —
+                // see `skipPopupRedirectResolver`'s doc comment. Matching
+                // `getAuth`'s own persistence fallback chain here (just without
+                // the resolver) keeps behavior otherwise identical. Falls back
+                // to `getAuth` when the consumer already initialized auth on
+                // this app, where `initializeAuth` throws `already-initialized`
+                // — and `cachedPromise` would memoize that rejection forever.
+                let auth: Auth;
+                if (fa.skipPopupRedirectResolver) {
+                    try {
+                        auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence] });
+                    } catch {
+                        auth = getAuth(app);
+                    }
+                } else {
+                    auth = getAuth(app);
+                }
                 cached = { app, auth };
                 return cached;
             },

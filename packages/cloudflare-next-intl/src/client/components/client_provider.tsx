@@ -2,7 +2,7 @@
 
 import type { TranslationObject } from "../../types/types.js";
 import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
-import { createContext, useMemo, Suspense } from "react";
+import { createContext, useEffect, useMemo, Suspense } from "react";
 import dynamic from "next/dynamic.js";
 import useLazyWrappingProvider from "./use_lazy_wrapping_provider.js";
 import config from "@intl-config";
@@ -42,7 +42,11 @@ const AutoFirebasePerformanceEvents = dynamic(() => import("../../firebase_auth/
 const loadCookieConsentProvider = () => import("../../cookie_consent/client/cookie_consent_provider.js");
 const CookieConsentAnalytics = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_analytics.js"));
 const AutoAnalyticsEvents = dynamic(() => import("../../cookie_consent/client/components/auto_analytics_events.js"));
-const CookieConsentDialog = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_dialog.js"));
+// Shared with the warm-up effect below, so both go through the same
+// `import()` call site and therefore the same chunk + module-registry entry:
+// once the warm-up resolves, `dynamic()` renders it without a second fetch.
+const loadCookieConsentDialog = () => import("../../cookie_consent/client/components/cookie_consent_dialog.js");
+const CookieConsentDialog = dynamic(loadCookieConsentDialog);
 const PrivacyPolicyUpdateDialog = dynamic(() => import("../../cookie_consent/client/components/privacy_policy_update_dialog.js"));
 
 export default function LocationzationClientProvider({
@@ -94,6 +98,21 @@ export default function LocationzationClientProvider({
     // the provider.
     const { Provider: AuthUserProvider } = useLazyWrappingProvider(loadAuthUserProvider);
     const { Provider: CookieConsentProvider, isReady: cookieConsentReady } = useLazyWrappingProvider(loadCookieConsentProvider);
+
+    // The consent banner is gated on `cookieConsentReady` below (it must not
+    // render before its context is live), but that gate also kept its chunk
+    // from being REQUESTED until the provider's chunk had already landed —
+    // two round trips back to back, with the banner as the last thing to
+    // paint. On a slow connection that made it the LCP element at ~2.7s.
+    // Starting its download here, alongside the provider's, overlaps the two
+    // instead of chaining them; the render gate below is unchanged.
+    useEffect(() => {
+        if (!config.cookieConsent || !autoWireDialogs) return;
+        // Swallowed: a chunk 404 on a stale deploy must surface through the
+        // render path's own boundary, not as an `unhandledrejection` from a
+        // warm-up that nothing is waiting on.
+        loadCookieConsentDialog().catch(() => undefined);
+    }, [autoWireDialogs]);
 
     let providedChildren = children;
     if (config.firebaseAuth && !skipAuthProvider) {

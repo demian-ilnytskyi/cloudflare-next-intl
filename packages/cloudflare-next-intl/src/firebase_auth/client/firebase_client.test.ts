@@ -19,6 +19,7 @@ const initializeApp = vi.fn(() => ({ name: 'app', options: appOptions }));
 const getApps = vi.fn(() => []);
 const getApp = vi.fn(() => ({ name: 'existing-app' }));
 const getAuth = vi.fn(() => ({ currentUser: null }));
+const initializeAuth = vi.fn(() => ({ currentUser: null }));
 const initializeAppCheck = vi.fn(() => ({}));
 const ReCaptchaV3Provider = vi.fn(function (this: unknown, siteKey: string) {
     return { siteKey };
@@ -37,6 +38,10 @@ vi.mock('@firebase/app', () => ({
 }));
 vi.mock('@firebase/auth', () => ({
     getAuth: (...args: unknown[]) => getAuth(...args),
+    initializeAuth: (...args: unknown[]) => initializeAuth(...args),
+    indexedDBLocalPersistence: 'indexedDBLocalPersistence',
+    browserLocalPersistence: 'browserLocalPersistence',
+    browserSessionPersistence: 'browserSessionPersistence',
 }));
 const getToken = vi.fn(() => Promise.resolve({ token: 'app-check-token' }));
 
@@ -61,6 +66,7 @@ describe('getFirebaseAuthClient', () => {
         getApps.mockClear();
         getApp.mockClear();
         getAuth.mockClear();
+        initializeAuth.mockClear();
         initializeAppCheck.mockClear();
         ReCaptchaV3Provider.mockClear();
         ReCaptchaEnterpriseProvider.mockClear();
@@ -109,6 +115,32 @@ describe('getFirebaseAuthClient', () => {
         await getFirebaseAuthClient();
         expect(getFirebaseAuthClientSync()).toBeDefined();
     });
+
+    it('uses getAuth (with its default popupRedirectResolver) when skipPopupRedirectResolver is not set', async () => {
+        getApps.mockReturnValue([]);
+        const { getFirebaseAuthClient } = await import('./firebase_client.js');
+        await getFirebaseAuthClient();
+        expect(getAuth).toHaveBeenCalledWith(expect.anything());
+        expect(initializeAuth).not.toHaveBeenCalled();
+    });
+
+    it('uses initializeAuth without a popupRedirectResolver when skipPopupRedirectResolver is true', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: { ...baseConfig.firebaseAuth, skipPopupRedirectResolver: true },
+            },
+        }));
+        getApps.mockReturnValue([]);
+        const { getFirebaseAuthClient } = await import('./firebase_client.js');
+        await getFirebaseAuthClient();
+        expect(initializeAuth).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                persistence: ['indexedDBLocalPersistence', 'browserLocalPersistence', 'browserSessionPersistence'],
+            }),
+        );
+        expect(getAuth).not.toHaveBeenCalled();
+    });
 });
 
 describe('getFirebaseAuthClient App Check', () => {
@@ -118,6 +150,7 @@ describe('getFirebaseAuthClient App Check', () => {
         getApps.mockReturnValue([]);
         getApp.mockClear();
         getAuth.mockClear();
+        initializeAuth.mockClear();
         initializeAppCheck.mockClear();
         ReCaptchaV3Provider.mockClear();
         ReCaptchaEnterpriseProvider.mockClear();
@@ -125,10 +158,59 @@ describe('getFirebaseAuthClient App Check', () => {
         delete (globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: unknown }).FIREBASE_APPCHECK_DEBUG_TOKEN;
     });
 
-    it('does not initialize App Check when appCheck is not configured', async () => {
+    it('does not initialize App Check on getFirebaseAuthClient when appCheck is not configured', async () => {
+        const { getFirebaseAuthClient, getAppCheckToken } = await import('./firebase_client.js');
+        await getFirebaseAuthClient();
+        await getAppCheckToken();
+        expect(initializeAppCheck).not.toHaveBeenCalled();
+    });
+
+    it('initializes App Check from getFirebaseAuthClient by default, before auth is constructed', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    appCheck: { recaptchaV3SiteKey: 'site-key' },
+                },
+            },
+        }));
         const { getFirebaseAuthClient } = await import('./firebase_client.js');
         await getFirebaseAuthClient();
+        expect(initializeAppCheck).toHaveBeenCalled();
+        // `@firebase/auth` reads the App Check provider per-request and omits
+        // the header when it isn't registered, so ordering is the contract.
+        expect(initializeAppCheck.mock.invocationCallOrder[0]!)
+            .toBeLessThan(getAuth.mock.invocationCallOrder[0]!);
+    });
+
+    it('defers App Check to the first token request when lazyInit is true', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    appCheck: { recaptchaV3SiteKey: 'site-key', lazyInit: true },
+                },
+            },
+        }));
+        const { getFirebaseAuthClient, getAppCheckToken } = await import('./firebase_client.js');
+        await getFirebaseAuthClient();
         expect(initializeAppCheck).not.toHaveBeenCalled();
+        await getAppCheckToken();
+        expect(initializeAppCheck).toHaveBeenCalledTimes(1);
+    });
+
+    it('initializes App Check only once across concurrent getAppCheckToken calls', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    appCheck: { recaptchaV3SiteKey: 'site-key', lazyInit: true },
+                },
+            },
+        }));
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        await Promise.all([getAppCheckToken(), getAppCheckToken()]);
+        expect(initializeAppCheck).toHaveBeenCalledTimes(1);
     });
 
     it('initializes App Check with an explicit reCAPTCHA CustomProvider by default when a v3 key is configured', async () => {
@@ -140,8 +222,8 @@ describe('getFirebaseAuthClient App Check', () => {
                 },
             },
         }));
-        const { getFirebaseAuthClient } = await import('./firebase_client.js');
-        await getFirebaseAuthClient();
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        await getAppCheckToken();
         expect(CustomProvider).toHaveBeenCalledWith(expect.objectContaining({ getToken: expect.any(Function) }));
         expect(ReCaptchaV3Provider).not.toHaveBeenCalled();
         expect(initializeAppCheck).toHaveBeenCalledWith(
@@ -159,8 +241,8 @@ describe('getFirebaseAuthClient App Check', () => {
                 },
             },
         }));
-        const { getFirebaseAuthClient } = await import('./firebase_client.js');
-        await getFirebaseAuthClient();
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        await getAppCheckToken();
         expect(ReCaptchaV3Provider).toHaveBeenCalledWith('site-key');
         expect(CustomProvider).not.toHaveBeenCalled();
         expect(initializeAppCheck).toHaveBeenCalledWith(
@@ -178,8 +260,8 @@ describe('getFirebaseAuthClient App Check', () => {
                 },
             },
         }));
-        const { getFirebaseAuthClient } = await import('./firebase_client.js');
-        await getFirebaseAuthClient();
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        await getAppCheckToken();
         expect((globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: unknown }).FIREBASE_APPCHECK_DEBUG_TOKEN).toBe(true);
     });
 
@@ -192,8 +274,8 @@ describe('getFirebaseAuthClient App Check', () => {
                 },
             },
         }));
-        const { getFirebaseAuthClient } = await import('./firebase_client.js');
-        await getFirebaseAuthClient();
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        await getAppCheckToken();
         expect(ReCaptchaEnterpriseProvider).toHaveBeenCalledWith('enterprise-key');
         expect(initializeAppCheck).toHaveBeenCalledWith(
             expect.anything(),
@@ -366,8 +448,9 @@ describe('explicit reCAPTCHA CustomProvider', () => {
     }
 
     async function getProviderToken(): Promise<{ token: string; expireTimeMillis: number }> {
-        const { getFirebaseAuthClient } = await import('./firebase_client.js');
-        await getFirebaseAuthClient();
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.waitFor(() => expect(CustomProvider).toHaveBeenCalled());
         const options = CustomProvider.mock.calls[0]![0] as {
             getToken: () => Promise<{ token: string; expireTimeMillis: number }>;
         };
@@ -409,11 +492,34 @@ describe('explicit reCAPTCHA CustomProvider', () => {
         expect(result.expireTimeMillis).toBeGreaterThanOrEqual(before + 3600 * 1000);
     });
 
+    it('injects the explicit reCAPTCHA script on first token request, once', async () => {
+        const selector = 'script[src="https://www.google.com/recaptcha/api.js?render=explicit"]';
+        document.head.querySelectorAll(selector).forEach(node => node.remove());
+        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(okResponse())));
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.waitFor(() => expect(CustomProvider).toHaveBeenCalled());
+        const options = CustomProvider.mock.calls[0]![0] as { getToken: () => Promise<unknown> };
+        // Both calls stay parked in `waitForGrecaptcha` until the script is
+        // installed below — exactly the window in which a second injection
+        // would duplicate the tag.
+        const first = options.getToken().catch(() => undefined);
+        await vi.waitFor(() => expect(document.head.querySelectorAll(selector)).toHaveLength(1));
+        const second = options.getToken().catch(() => undefined);
+        expect(document.head.querySelectorAll(selector)).toHaveLength(1);
+        // Settle both inside this test: a promise left parked here resumes
+        // during the next one and renders against its widget spy.
+        installGrecaptcha();
+        await Promise.all([first, second]);
+        document.head.querySelectorAll(selector).forEach(node => node.remove());
+    });
+
     it('appends the invisible widget container to the document once and reuses it', async () => {
         installGrecaptcha();
         vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(okResponse())));
-        const { getFirebaseAuthClient } = await import('./firebase_client.js');
-        await getFirebaseAuthClient();
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.waitFor(() => expect(CustomProvider).toHaveBeenCalled());
         const options = CustomProvider.mock.calls[0]![0] as { getToken: () => Promise<unknown> };
         await options.getToken();
         await options.getToken();
@@ -435,8 +541,9 @@ describe('explicit reCAPTCHA CustomProvider', () => {
     it('waits for a reCAPTCHA script that has not loaded yet', async () => {
         vi.useFakeTimers();
         vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(okResponse())));
-        const { getFirebaseAuthClient } = await import('./firebase_client.js');
-        await getFirebaseAuthClient();
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.advanceTimersByTimeAsync(0);
         const options = CustomProvider.mock.calls[0]![0] as {
             getToken: () => Promise<{ token: string }>;
         };
@@ -449,8 +556,9 @@ describe('explicit reCAPTCHA CustomProvider', () => {
 
     it('rejects when the reCAPTCHA script never loads', async () => {
         vi.useFakeTimers();
-        const { getFirebaseAuthClient } = await import('./firebase_client.js');
-        await getFirebaseAuthClient();
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.advanceTimersByTimeAsync(0);
         const options = CustomProvider.mock.calls[0]![0] as { getToken: () => Promise<unknown> };
         const pending = options.getToken();
         const assertion = expect(pending).rejects.toThrow(/never loaded/);
@@ -461,8 +569,9 @@ describe('explicit reCAPTCHA CustomProvider', () => {
 
     it('does not permanently cache a failed widget setup', async () => {
         vi.useFakeTimers();
-        const { getFirebaseAuthClient } = await import('./firebase_client.js');
-        await getFirebaseAuthClient();
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.advanceTimersByTimeAsync(0);
         const options = CustomProvider.mock.calls[0]![0] as {
             getToken: () => Promise<{ token: string }>;
         };
@@ -511,5 +620,12 @@ describe('getFirebaseAuthClient when firebaseAuth is not configured', () => {
         vi.doMock('@intl-config', () => ({ default: {} }));
         const { getFirebaseAuthClient } = await import('./firebase_client.js');
         await expect(getFirebaseAuthClient()).rejects.toThrow(/firebaseAuth/);
+    });
+
+    it('returns undefined from getAppCheckToken instead of rejecting', async () => {
+        vi.resetModules();
+        vi.doMock('@intl-config', () => ({ default: {} }));
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        await expect(getAppCheckToken()).resolves.toBeUndefined();
     });
 });

@@ -3,6 +3,23 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.17] - 2026-09-20
+
+### Added
+
+- `firebaseAuth.skipPopupRedirectResolver`: skips the Auth SDK's default `browserPopupRedirectResolver`, which proactively opens the `<authDomain>/__/auth/iframe.js` relay iframe on every page load on mobile/Safari/iOS user agents regardless of whether redirect/popup sign-in is ever used. Safe with Google/Apple/social sign-in too — pass `browserPopupRedirectResolver` as the resolver argument on `signInWithPopup`/`signInWithRedirect`/`getRedirectResult`/`linkWithPopup`/`reauthenticateWithPopup` at the call site instead, so the iframe cost lands on the click rather than on every page. Falls back to `getAuth` if the consumer already initialized auth on the same app. Also skips the Auth emulator auto-connect and the experimental `authTokenSyncURL` cookie exchange `getAuth` does — see the option's JSDoc before enabling it against an emulator.
+- `firebaseAuth.appCheck.lazyInit`: defers App Check's own initialization to the first `getAppCheckToken()` call instead of running it as part of every `getFirebaseAuthClient()` call. Off by default, since `@firebase/auth` reads the App Check provider off the app per-request and silently omits the `X-Firebase-AppCheck` header when it isn't registered yet — only safe when App Check enforcement is off for every product this app calls.
+
+### Changed
+
+- The explicit `render=explicit` reCAPTCHA `<script>` is no longer rendered into `<head>` by `IntlHelperScript`. It's now injected client-side on first actual need (the first `getAppCheckToken()`/token mint), so a page that never mints an App Check token never pays its ~345KB cost. No config change needed — this applies whenever `appCheck.recaptchaV3SiteKey` is set with `useExplicitRecaptchaScript` not `false`.
+- `AuthUserProvider` defers its `onIdTokenChanged` subscription to `requestIdleCallback` (falling back to a short timer) for a signed-out visitor on a whitelisted page, instead of subscribing synchronously on mount — keeps `@firebase/auth`'s ~90KB and the `/__/auth/iframe.js` round-trip off the critical path for public pages. `loading` is cleared immediately in that case so `useAuthUser()`'s documented `if (loading) return null` pattern doesn't render blank while the subscription is deferred.
+- The cookie-consent dialog's dynamic chunk is now warmed up alongside the client provider's own chunk (same `import()` call site, so they share one fetch) instead of only being requested once its render gate opens — removes a sequential round-trip that could make the consent banner the LCP element on a slow connection.
+
+### Fixed
+
+- App Check initialization order restored relative to `getFirebaseAuthClient()`: it now runs (by default) before the returned `auth` is used for the first time, so a sign-in call cannot go out without an `X-Firebase-AppCheck` header when App Check enforcement is on.
+
 ## [0.10.16] - 2026-09-19
 
 ### Fixed
