@@ -141,6 +141,19 @@ describe('getFirebaseAuthClient', () => {
         );
         expect(getAuth).not.toHaveBeenCalled();
     });
+
+    it('falls back to getAuth when initializeAuth throws already-initialized', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: { ...baseConfig.firebaseAuth, skipPopupRedirectResolver: true },
+            },
+        }));
+        getApps.mockReturnValue([]);
+        initializeAuth.mockImplementationOnce(() => { throw new Error('auth/already-initialized'); });
+        const { getFirebaseAuthClient } = await import('./firebase_client.js');
+        await expect(getFirebaseAuthClient()).resolves.toBeDefined();
+        expect(getAuth).toHaveBeenCalledWith(expect.anything());
+    });
 });
 
 describe('getFirebaseAuthClient App Check', () => {
@@ -565,6 +578,23 @@ describe('explicit reCAPTCHA CustomProvider', () => {
         await vi.advanceTimersByTimeAsync(15_000);
         await assertion;
         vi.useRealTimers();
+    });
+
+    it('rejects promptly, without waiting out the full timeout, when the injected script itself fails to load', async () => {
+        const selector = 'script[src="https://www.google.com/recaptcha/api.js?render=explicit"]';
+        document.head.querySelectorAll(selector).forEach(node => node.remove());
+        vi.useFakeTimers();
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.advanceTimersByTimeAsync(0);
+        const options = CustomProvider.mock.calls[0]![0] as { getToken: () => Promise<unknown> };
+        const pending = options.getToken();
+        const assertion = expect(pending).rejects.toThrow(/never loaded/);
+        document.head.querySelector(selector)?.dispatchEvent(new Event('error'));
+        await vi.advanceTimersByTimeAsync(50);
+        await assertion;
+        vi.useRealTimers();
+        document.head.querySelectorAll(selector).forEach(node => node.remove());
     });
 
     it('does not permanently cache a failed widget setup', async () => {

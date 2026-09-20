@@ -47,7 +47,6 @@ const RECAPTCHA_SCRIPT_SRC = 'https://www.google.com/recaptcha/api.js?render=exp
 let recaptchaScriptFailed = false;
 
 function ensureRecaptchaScript(): void {
-    if (window.grecaptcha) return;
     if (document.querySelector(`script[src="${RECAPTCHA_SCRIPT_SRC}"]`)) return;
     const script = document.createElement('script');
     script.src = RECAPTCHA_SCRIPT_SRC;
