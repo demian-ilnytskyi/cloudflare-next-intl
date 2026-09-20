@@ -10,6 +10,8 @@ vi.mock('@microsoft/clarity', () => ({
 beforeEach(() => {
     clarityInit.mockClear();
     clarityConsent.mockClear();
+    (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback =
+        (cb: () => void) => { cb(); return 0; };
 });
 
 afterEach(() => {

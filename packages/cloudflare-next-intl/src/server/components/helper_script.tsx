@@ -37,11 +37,21 @@ const secureCookieAttribute = isDev ? '+ " Secure;"' : '';
  * </head>
  * ```
  */
-export default function HelperScript(): Component | null {
+export default function HelperScript({ locale }: { locale?: string }): Component | null {
     /* v8 ignore next -- config-fallback branch tested by unit assertion on defaultReloadHtml export */
     const reloadHtml = config.errorHandling?.staleDeployReloadHtml ?? defaultReloadHtml;
 
+    const analytics = config.cookieConsent?.analytics;
+    const hasGoogle = !!(analytics?.googleAnalyticsId || analytics?.googleAdsId || analytics?.googleAdSenseId);
+    const hasClarity = !!analytics?.clarityProjectId;
+    const hasFirebase = !!config.firebaseAuth;
+
     return <>
+        {locale && <meta httpEquiv="Content-Language" content={locale} />}
+        {hasGoogle && <link rel="dns-prefetch" href="https://www.googletagmanager.com" />}
+        {hasClarity && <link rel="dns-prefetch" href="https://www.clarity.ms" />}
+        {hasClarity && <link rel="dns-prefetch" href="https://scripts.clarity.ms" />}
+        {hasFirebase && <link rel="dns-prefetch" href="https://firebaseinstallations.googleapis.com" />}
         {!isDev &&
             <script
                 id="stale-deploy-early-catch"

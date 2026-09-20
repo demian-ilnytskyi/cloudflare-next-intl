@@ -178,7 +178,7 @@ describe('getFirebaseAuthClient App Check', () => {
         expect(initializeAppCheck).not.toHaveBeenCalled();
     });
 
-    it('initializes App Check from getFirebaseAuthClient by default, before auth is constructed', async () => {
+    it('does not initialize App Check merely from getFirebaseAuthClient (always deferred)', async () => {
         vi.doMock('@intl-config', () => ({
             default: {
                 firebaseAuth: {
@@ -189,19 +189,15 @@ describe('getFirebaseAuthClient App Check', () => {
         }));
         const { getFirebaseAuthClient } = await import('./firebase_client.js');
         await getFirebaseAuthClient();
-        expect(initializeAppCheck).toHaveBeenCalled();
-        // `@firebase/auth` reads the App Check provider per-request and omits
-        // the header when it isn't registered, so ordering is the contract.
-        expect(initializeAppCheck.mock.invocationCallOrder[0]!)
-            .toBeLessThan(getAuth.mock.invocationCallOrder[0]!);
+        expect(initializeAppCheck).not.toHaveBeenCalled();
     });
 
-    it('defers App Check to the first token request when lazyInit is true', async () => {
+    it('defers App Check to the first token request', async () => {
         vi.doMock('@intl-config', () => ({
             default: {
                 firebaseAuth: {
                     ...baseConfig.firebaseAuth,
-                    appCheck: { recaptchaV3SiteKey: 'site-key', lazyInit: true },
+                    appCheck: { recaptchaV3SiteKey: 'site-key' },
                 },
             },
         }));
@@ -217,7 +213,7 @@ describe('getFirebaseAuthClient App Check', () => {
             default: {
                 firebaseAuth: {
                     ...baseConfig.firebaseAuth,
-                    appCheck: { recaptchaV3SiteKey: 'site-key', lazyInit: true },
+                    appCheck: { recaptchaV3SiteKey: 'site-key' },
                 },
             },
         }));

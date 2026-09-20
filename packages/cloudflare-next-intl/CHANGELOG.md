@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.18] - 2026-09-20
+
+### Changed
+
+- App Check initialization is always lazy again — deferred to the first `getAppCheckToken()` call rather than run as part of `getFirebaseAuthClient()`. This reverts 0.10.17's "initialize eagerly by default" change and removes the `appCheck.lazyInit` escape hatch added for it (no config change needed either way; the option simply no longer exists). **Note:** this brings back the ordering caveat 0.10.17 fixed — a request made through the returned `auth` before anything has called `getAppCheckToken()` (e.g. a sign-in call) goes out without an `X-Firebase-AppCheck` header. Only relevant if App Check enforcement is on for Auth/Firestore/Functions; otherwise this is a pure win (no reCAPTCHA cost paid until a token is actually needed).
+- `ClarityScript` (Microsoft Clarity analytics) now defers `Clarity.init()`/`Clarity.consent()` to `requestIdleCallback` (falling back to a short timer), instead of firing immediately on mount, keeping its module chunk fetch and init cost off the critical path.
+- `IntlHelperScript` now accepts a `locale` prop and renders a `<meta httpEquiv="Content-Language">` tag when passed, plus `<link rel="dns-prefetch">` hints for whichever third-party origins the current config actually uses (Google Analytics/Ads/AdSense, Microsoft Clarity, Firebase Installations) — warms the DNS/TLS connection for those origins before their scripts are requested.
+
 ## [0.10.17] - 2026-09-20
 
 ### Added

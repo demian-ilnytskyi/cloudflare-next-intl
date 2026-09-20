@@ -816,18 +816,6 @@ export interface FirebaseAppCheckConfig {
      */
     useExplicitRecaptchaScript?: boolean;
     /**
-     * Defers App Check initialization to the first `getAppCheckToken()` call
-     * instead of running it as part of `getFirebaseAuthClient()`. Defaults to
-     * `false`: `@firebase/auth` reads the App Check provider off the app
-     * per-request and silently omits the `X-Firebase-AppCheck` header when it
-     * isn't registered yet, so deferring leaves every earlier request — a
-     * sign-in included — unprotected. Only set `true` if App Check
-     * ENFORCEMENT is off for every product this app calls; in exchange, an
-     * anonymous visitor stops paying reCAPTCHA's script + token round-trip on
-     * pages that never mint a token.
-     */
-    lazyInit?: boolean;
-    /**
      * Enables App Check's debug token on this client. Pass `true` to have
      * the Firebase SDK generate a new random token each run (logged to the
      * console — register it in the Firebase console every time it changes).

@@ -211,23 +211,24 @@ const APP_CHECK_TOKEN_TIMEOUT_MS = 10_000;
 let appCheckInitPromise: Promise<void> | undefined;
 
 /**
- * Initializes App Check at most once. `getFirebaseAuthClient()` awaits this
- * eagerly by default, because `@firebase/auth` reads the App Check provider
- * off the app per-request (`getImmediate({ optional: true })`) and simply
- * omits the `X-Firebase-AppCheck` header when it isn't registered yet — so
- * anything that initializes it later leaves every earlier request, sign-in
- * included, unprotected. `appCheck.lazyInit` opts out of that for apps
- * without App Check enforcement, deferring the cost to the first
- * `getAppCheckToken()`.
+ * Initializes App Check at most once, on first actual need (the first
+ * `getAppCheckToken()` call) rather than on every `getFirebaseAuthClient()`
+ * call — the latter runs on every page mount for every visitor, so eager
+ * init meant every anonymous, never-signs-in visit paid reCAPTCHA's
+ * script-exec cost for a token nothing was going to use. Always lazy: no
+ * config escape hatch back to eager, since nothing here has actually
+ * needed it.
  *
  * The promise is assigned before the first `await` so concurrent callers
  * share one initialization; a second `initializeAppCheck` with a different
  * provider instance throws `already-initialized`.
  */
-function initAppCheckOnce(app: FirebaseApp): Promise<void> {
+async function ensureAppCheck(): Promise<void> {
     if (appCheckInitPromise) return appCheckInitPromise;
     const appCheckConfig = config.firebaseAuth?.appCheck;
-    if (!appCheckConfig || typeof window === 'undefined') return Promise.resolve();
+    if (!appCheckConfig || typeof window === 'undefined') return;
+    const { app } = await getFirebaseAuthClient();
+    if (appCheckInitPromise) return appCheckInitPromise;
     appCheckInitPromise = (async () => {
         try {
             cachedAppCheck = await initializeFirebaseAppCheck(app, appCheckConfig);
@@ -236,16 +237,6 @@ function initAppCheckOnce(app: FirebaseApp): Promise<void> {
         }
     })();
     return appCheckInitPromise;
-}
-
-async function ensureAppCheck(): Promise<void> {
-    if (appCheckInitPromise) return appCheckInitPromise;
-    const appCheckConfig = config.firebaseAuth?.appCheck;
-    if (!appCheckConfig || typeof window === 'undefined') return;
-    // Resolves the app without recursing: on the eager path this call has
-    // already run `initAppCheckOnce` itself, so the next line is a no-op.
-    const { app } = await getFirebaseAuthClient();
-    return initAppCheckOnce(app);
 }
 
 export async function getAppCheckToken(): Promise<string | undefined> {
@@ -311,11 +302,6 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
                     measurementId: fa.measurementId,
                 };
                 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-                // Before `auth` is constructed, so every request it makes
-                // carries `X-Firebase-AppCheck` — `@firebase/auth` reads the
-                // provider per-request and silently omits the header when it
-                // isn't registered yet. See `ensureAppCheck`.
-                if (!fa.appCheck?.lazyInit) await initAppCheckOnce(app);
                 if (perfModule) {
                     // `instrumentationEnabled: false`: Firebase's own automatic
                     // instrumentation runs a SECOND, independent set of web-vitals

@@ -22,16 +22,33 @@ function getClarityModule(): Promise<typeof ClarityModule> {
  */
 export default function ClarityScript({ projectId }: { projectId: string }): null {
     useEffect(() => {
-        getClarityModule()
-            .then(({ default: Clarity }) => {
-                Clarity.init(projectId);
-                Clarity.consent();
-            })
-            .catch((error) => void reportError(undefined, {
-                error,
-                classOrMethodName: 'ClarityScript',
-                isClient: true,
-            }));
+        let handle: number | undefined;
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        const init = () => {
+            getClarityModule()
+                .then(({ default: Clarity }) => {
+                    Clarity.init(projectId);
+                    Clarity.consent();
+                })
+                .catch((error) => void reportError(undefined, {
+                    error,
+                    classOrMethodName: 'ClarityScript',
+                    isClient: true,
+                }));
+        };
+        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            handle = window.requestIdleCallback(init, { timeout: 3000 });
+        } else {
+            timeout = setTimeout(init, 1500);
+        }
+        return () => {
+            if (handle !== undefined && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+                window.cancelIdleCallback(handle);
+            }
+            if (timeout !== undefined) {
+                clearTimeout(timeout);
+            }
+        };
     }, [projectId]);
     return null;
 }

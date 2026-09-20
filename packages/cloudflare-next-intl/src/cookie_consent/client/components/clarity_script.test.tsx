@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import ClarityScript from './clarity_script.js';
 
@@ -7,6 +7,13 @@ const clarityConsent = vi.fn();
 vi.mock('@microsoft/clarity', () => ({
     default: { init: clarityInit, consent: clarityConsent },
 }));
+
+beforeEach(() => {
+    // ClarityScript defers its init to idle; run the callback inline so the
+    // assertions below stay synchronous instead of racing waitFor's timeout.
+    (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback =
+        (cb: () => void) => { cb(); return 0; };
+});
 
 afterEach(() => {
     cleanup();
