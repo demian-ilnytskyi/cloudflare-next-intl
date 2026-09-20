@@ -38,6 +38,45 @@ describe('ClarityScript', () => {
         expect(clarityInit).toHaveBeenCalledTimes(2);
     });
 
+    it('falls back to a timer when requestIdleCallback is unavailable', async () => {
+        vi.useFakeTimers();
+        delete (window as Window & { requestIdleCallback?: unknown }).requestIdleCallback;
+        try {
+            render(<ClarityScript projectId="proj-timer" />);
+            expect(clarityInit).not.toHaveBeenCalled();
+            await vi.advanceTimersByTimeAsync(1500);
+            expect(clarityInit).toHaveBeenCalledWith('proj-timer');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('cancels a pending idle callback on unmount, without initializing', () => {
+        const cancelIdleCallback = vi.fn();
+        (window as Window & {
+            requestIdleCallback?: (cb: () => void) => number;
+            cancelIdleCallback?: (handle: number) => void;
+        }).requestIdleCallback = () => 42;
+        (window as Window & { cancelIdleCallback?: (handle: number) => void }).cancelIdleCallback = cancelIdleCallback;
+        const { unmount } = render(<ClarityScript projectId="proj-cancel" />);
+        unmount();
+        expect(cancelIdleCallback).toHaveBeenCalledWith(42);
+        expect(clarityInit).not.toHaveBeenCalled();
+    });
+
+    it('clears the fallback timer on unmount so a deferred init never fires', async () => {
+        vi.useFakeTimers();
+        delete (window as Window & { requestIdleCallback?: unknown }).requestIdleCallback;
+        try {
+            const { unmount } = render(<ClarityScript projectId="proj-clear" />);
+            unmount();
+            await vi.advanceTimersByTimeAsync(1500);
+            expect(clarityInit).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('logs an error when loading clarity fails', async () => {
         vi.resetModules();
         vi.doMock('@microsoft/clarity', () => Promise.reject(new Error('load failed')));

@@ -538,6 +538,62 @@ describe('HelperScript', () => {
         vi.doUnmock('../../config/intl_config');
     });
 
+    // React 19 hoists <meta>/<link> tags out of the component tree into <head>.
+    it('omits the Content-Language meta tag when no locale prop is given', () => {
+        render(<HelperScript />);
+        expect(document.head.querySelector('meta[http-equiv="Content-Language"]')).toBeNull();
+    });
+
+    it('renders a Content-Language meta tag for the given locale', () => {
+        render(<HelperScript locale="de" />);
+        expect(document.head.querySelector('meta[http-equiv="Content-Language"]')).toHaveAttribute('content', 'de');
+    });
+
+    it('omits every dns-prefetch hint when no analytics or firebaseAuth is configured', () => {
+        render(<HelperScript />);
+        expect(document.head.querySelector('link[rel="dns-prefetch"]')).toBeNull();
+    });
+
+    it.each([
+        ['googleAnalyticsId', 'https://www.googletagmanager.com'],
+        ['googleAdsId', 'https://www.googletagmanager.com'],
+        ['googleAdSenseId', 'https://www.googletagmanager.com'],
+    ])('adds a googletagmanager dns-prefetch hint when %s is configured', async (field, href) => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: { defaultLocale: 'en', cookieConsent: { analytics: { [field]: 'id-1' } } },
+        }));
+        const { default: GoogleHelperScript } = await import('./helper_script.js');
+        render(<GoogleHelperScript />);
+        expect(document.head.querySelector(`link[rel="dns-prefetch"][href="${href}"]`)).not.toBeNull();
+        vi.doUnmock('../../config/intl_config');
+    });
+
+    it('adds both Clarity dns-prefetch hints when clarityProjectId is configured', async () => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: { defaultLocale: 'en', cookieConsent: { analytics: { clarityProjectId: 'proj-1' } } },
+        }));
+        const { default: ClarityHelperScript } = await import('./helper_script.js');
+        render(<ClarityHelperScript />);
+        expect(document.head.querySelector('link[rel="dns-prefetch"][href="https://www.clarity.ms"]')).not.toBeNull();
+        expect(document.head.querySelector('link[rel="dns-prefetch"][href="https://scripts.clarity.ms"]')).not.toBeNull();
+        vi.doUnmock('../../config/intl_config');
+    });
+
+    it('adds a Firebase Installations dns-prefetch hint when firebaseAuth is configured', async () => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: { defaultLocale: 'en', firebaseAuth: { appCheck: undefined } },
+        }));
+        const { default: FirebaseHelperScript } = await import('./helper_script.js');
+        render(<FirebaseHelperScript />);
+        expect(
+            document.head.querySelector('link[rel="dns-prefetch"][href="https://firebaseinstallations.googleapis.com"]'),
+        ).not.toBeNull();
+        vi.doUnmock('../../config/intl_config');
+    });
+
     it('embeds the default white-screen spinner in the stale-deploy early-catch script', () => {
         vi.stubEnv('NODE_ENV', 'production');
         const { container: root } = render(<HelperScript />);

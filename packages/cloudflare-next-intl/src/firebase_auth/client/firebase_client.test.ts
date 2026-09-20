@@ -220,6 +220,10 @@ describe('getFirebaseAuthClient App Check', () => {
         const { getAppCheckToken } = await import('./firebase_client.js');
         await Promise.all([getAppCheckToken(), getAppCheckToken()]);
         expect(initializeAppCheck).toHaveBeenCalledTimes(1);
+        // A call arriving after initialization has already settled hits the
+        // early-return path directly, without re-entering getFirebaseAuthClient.
+        await getAppCheckToken();
+        expect(initializeAppCheck).toHaveBeenCalledTimes(1);
     });
 
     it('initializes App Check with an explicit reCAPTCHA CustomProvider by default when a v3 key is configured', async () => {

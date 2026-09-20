@@ -27,13 +27,20 @@ const secureCookieAttribute = isDev ? '+ " Secure;"' : '';
  * only a page actually minting an App Check token needs, so `firebase_client.ts`
  * injects it on the first `getToken()` instead.
  *
+ * Also renders `<link rel="dns-prefetch">` hints for whichever third-party
+ * origins the current config actually uses (Google Analytics/Ads/AdSense,
+ * Microsoft Clarity, Firebase Installations), and — when `locale` is passed —
+ * a `<meta httpEquiv="Content-Language">` tag.
+ *
  * Place it once in your root layout's `<head>`, alongside `IntlProvider`.
- * No props.
+ *
+ * @param locale Current locale, e.g. `"en"`. Optional — omit to skip the
+ *               `Content-Language` meta tag.
  *
  * @example
  * ```tsx
  * <head>
- *   <IntlHelperScript />
+ *   <IntlHelperScript locale={locale} />
  * </head>
  * ```
  */
