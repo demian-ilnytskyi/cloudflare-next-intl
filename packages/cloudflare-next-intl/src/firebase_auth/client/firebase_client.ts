@@ -218,12 +218,9 @@ let appCheckInitPromise: Promise<void> | undefined;
  * share one initialization; a second `initializeAppCheck` with a different
  * provider instance throws `already-initialized`.
  */
-async function ensureAppCheck(): Promise<void> {
-    if (appCheckInitPromise) return appCheckInitPromise;
+function initAppCheckFor(app: FirebaseApp): Promise<void> | undefined {
     const appCheckConfig = config.firebaseAuth?.appCheck;
-    if (!appCheckConfig || typeof window === 'undefined') return;
-    const { app } = await loadFirebaseAuthClient();
-    if (appCheckInitPromise) return appCheckInitPromise;
+    if (!appCheckConfig || typeof window === 'undefined') return undefined;
     appCheckInitPromise = (async () => {
         try {
             cachedAppCheck = await initializeFirebaseAppCheck(app, appCheckConfig);
@@ -232,6 +229,10 @@ async function ensureAppCheck(): Promise<void> {
         }
     })();
     return appCheckInitPromise;
+}
+
+async function ensureAppCheck(): Promise<void> {
+    await getFirebaseAuthClient();
 }
 
 export async function getAppCheckToken(): Promise<string | undefined> {
@@ -274,7 +275,7 @@ let cachedPromise: Promise<{ app: FirebaseApp; auth: Auth }> | undefined;
  * `firebase` install would silently `initializeApp()` a second, untracked app
  * here instead of joining theirs, and auth state would stop being shared.
  */
-async function loadFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth: Auth }> {
+export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth: Auth }> {
     requireFirebaseAuthConfig(config.firebaseAuth);
     if (cached) return cached;
     if (!cachedPromise) {
@@ -297,6 +298,10 @@ async function loadFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth: Auth 
                     measurementId: fa.measurementId,
                 };
                 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+                // Before `getAuth`: it restores the persisted user with an
+                // `accounts:lookup` call, which 401s under App Check
+                // enforcement if App Check isn't registered on the app yet.
+                await initAppCheckFor(app);
                 if (perfModule) {
                     // `instrumentationEnabled: false`: Firebase's own automatic
                     // instrumentation runs a SECOND, independent set of web-vitals
@@ -338,17 +343,6 @@ async function loadFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth: Auth 
         );
     }
     return cachedPromise;
-}
-
-/**
- * Waits for App Check whenever `firebaseAuth.appCheck` is configured: with
- * App Check enforced, an Identity Toolkit request sent before init finishes
- * is rejected with 401 "Firebase App Check token is invalid".
- */
-export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth: Auth }> {
-    const client = await loadFirebaseAuthClient();
-    await ensureAppCheck().catch(() => undefined);
-    return client;
 }
 
 /** Synchronous read of the cached client, or `undefined` before the first `getFirebaseAuthClient()` resolves. */

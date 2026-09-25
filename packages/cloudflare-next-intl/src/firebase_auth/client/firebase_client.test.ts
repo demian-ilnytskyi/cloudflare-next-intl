@@ -195,6 +195,20 @@ describe('getFirebaseAuthClient App Check', () => {
         expect(initializeAppCheck).toHaveBeenCalledTimes(1);
     });
 
+    it('registers App Check on the app before getAuth restores the persisted user', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    appCheck: { recaptchaV3SiteKey: 'site-key' },
+                },
+            },
+        }));
+        const { getFirebaseAuthClient } = await import('./firebase_client.js');
+        await getFirebaseAuthClient();
+        expect(initializeAppCheck.mock.invocationCallOrder[0]).toBeLessThan(getAuth.mock.invocationCallOrder[0]);
+    });
+
     it('resolves without App Check when appCheck is not configured', async () => {
         vi.doMock('@intl-config', () => ({ default: baseConfig }));
         const { getFirebaseAuthClient } = await import('./firebase_client.js');

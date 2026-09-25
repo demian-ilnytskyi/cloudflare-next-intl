@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.21] - 2026-09-26
+
+### Fixed
+
+- `getFirebaseAuthClient()` now initializes App Check before it creates `auth`, not after. 0.10.20 waited for App Check only after `getAuth()` had run, but `getAuth()` immediately restores the persisted user with an `accounts:lookup` request. Under App Check enforcement that request still failed with 401 on page load for returning users.
+
 ## [0.10.20] - 2026-09-26
 
 ### Fixed
