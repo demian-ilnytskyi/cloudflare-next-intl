@@ -23,12 +23,18 @@ vi.mock('next/headers', () => ({
     cookies: vi.fn(async () => ({ get: () => ({ value: perfToken }) })),
 }));
 
-const initializeApp = vi.fn(() => ({ name: 'perf-app' }));
+const apps: { name: string }[] = [];
+const initializeApp = vi.fn((_config: unknown, name: string) => {
+    const app = { name };
+    apps.push(app);
+    return app;
+});
 const initializeServerApp = vi.fn(() => ({ name: 'perf-server-app' }));
 const authStateReady = vi.fn(async () => {});
 const getAuth = vi.fn(() => ({ authStateReady, currentUser: { uid: 'perf-user' } }));
 
 vi.mock('@firebase/app', () => ({
+    getApps: () => [...apps],
     initializeApp: (...args: unknown[]) => initializeApp(...args),
     initializeServerApp: (...args: unknown[]) => initializeServerApp(...args),
 }));
@@ -38,6 +44,7 @@ vi.mock('@firebase/auth', () => ({
 
 beforeEach(() => {
     vi.clearAllMocks();
+    apps.length = 0;
     getAuth.mockReturnValue({ authStateReady, currentUser: { uid: 'perf-user' } });
 });
 

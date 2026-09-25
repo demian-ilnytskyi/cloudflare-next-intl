@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.20] - 2026-09-26
+
+### Fixed
+
+- `getFirebaseAuthClient()` now waits for App Check to initialize whenever `firebaseAuth.appCheck` is configured. Before, App Check only started on the first `getAppCheckToken()` call, so with App Check enforced, an Identity Toolkit request sent earlier (e.g. sign-in) failed with 401 "Firebase App Check token is invalid". If App Check initialization fails, the client is still returned without it. **Trade-off:** App Check (and, with token auto-refresh on, the reCAPTCHA script) now loads on the first `getFirebaseAuthClient()` call again, undoing the deferral from 0.10.18.
+- `getAuthenticatedAppForUser` (server) no longer caches the base Firebase app, or the `@firebase/app` / `@firebase/auth` imports, as module-level promises. On Cloudflare Workers, the runtime cancels a promise created in one request when another request awaits it, which could break later requests. The base app is now looked up synchronously in Firebase's app registry (`getApps()`) and created there if missing.
+
 ## [0.10.19] - 2026-09-25
 
 ### Security

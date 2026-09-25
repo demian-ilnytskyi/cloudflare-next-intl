@@ -25,12 +25,18 @@ vi.mock('next/headers', () => ({
     cookies: vi.fn(async () => ({ get: cookieGet, set: cookieSet })),
 }));
 
-const initializeApp = vi.fn(() => ({ name: 'base-app' }));
+const apps: { name: string }[] = [];
+const initializeApp = vi.fn((_config: unknown, name: string) => {
+    const app = { name };
+    apps.push(app);
+    return app;
+});
 const initializeServerApp = vi.fn(() => ({ name: 'server-app' }));
 const authStateReady = vi.fn(async () => {});
 const getAuth = vi.fn(() => ({ authStateReady, currentUser: { uid: 'u1' } }));
 
 vi.mock('@firebase/app', () => ({
+    getApps: () => [...apps],
     initializeApp: (...args: unknown[]) => initializeApp(...args),
     initializeServerApp: (...args: unknown[]) => initializeServerApp(...args),
 }));
@@ -47,6 +53,7 @@ describe('getAuthenticatedAppForUser', () => {
     beforeEach(() => {
         vi.resetModules();
         vi.clearAllMocks();
+        apps.length = 0;
         cookieGet.mockReturnValue(undefined);
         cookieSet.mockImplementation(() => {});
         getAuth.mockReturnValue({ authStateReady, currentUser: { uid: 'u1' } });
@@ -346,6 +353,24 @@ describe('getAuthenticatedAppForUser', () => {
         const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         await getAuthenticatedAppForUser();
         expect(initializeApp).toHaveBeenCalledTimes(1);
+    });
+
+    it('initializes the base app only once across concurrent calls', async () => {
+        cookieGet.mockReturnValue({ value: validToken });
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
+        await Promise.all([getAuthenticatedAppForUser(), getAuthenticatedAppForUser(), getAuthenticatedAppForUser()]);
+        expect(initializeApp).toHaveBeenCalledTimes(1);
+    });
+
+    it('reuses the base app already in the Firebase registry instead of a module-level promise', async () => {
+        cookieGet.mockReturnValue({ value: validToken });
+        const first = await import('./firebase_server.js');
+        await first.getAuthenticatedAppForUser();
+        vi.resetModules();
+        const second = await import('./firebase_server.js');
+        await second.getAuthenticatedAppForUser();
+        expect(initializeApp).toHaveBeenCalledTimes(1);
+        expect(initializeServerApp).toHaveBeenLastCalledWith(apps[0], expect.anything());
     });
 
     it('reads the session from a custom sessionCookieName instead of the default __fa_session__', async () => {

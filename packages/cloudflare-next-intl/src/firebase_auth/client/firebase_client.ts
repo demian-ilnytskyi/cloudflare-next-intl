@@ -211,13 +211,8 @@ const APP_CHECK_TOKEN_TIMEOUT_MS = 10_000;
 let appCheckInitPromise: Promise<void> | undefined;
 
 /**
- * Initializes App Check at most once, on first actual need (the first
- * `getAppCheckToken()` call) rather than on every `getFirebaseAuthClient()`
- * call — the latter runs on every page mount for every visitor, so eager
- * init meant every anonymous, never-signs-in visit paid reCAPTCHA's
- * script-exec cost for a token nothing was going to use. Always lazy: no
- * config escape hatch back to eager, since nothing here has actually
- * needed it.
+ * Initializes App Check at most once, from `getFirebaseAuthClient()` or
+ * `getAppCheckToken()`, whichever runs first.
  *
  * The promise is assigned before the first `await` so concurrent callers
  * share one initialization; a second `initializeAppCheck` with a different
@@ -227,7 +222,7 @@ async function ensureAppCheck(): Promise<void> {
     if (appCheckInitPromise) return appCheckInitPromise;
     const appCheckConfig = config.firebaseAuth?.appCheck;
     if (!appCheckConfig || typeof window === 'undefined') return;
-    const { app } = await getFirebaseAuthClient();
+    const { app } = await loadFirebaseAuthClient();
     if (appCheckInitPromise) return appCheckInitPromise;
     appCheckInitPromise = (async () => {
         try {
@@ -279,7 +274,7 @@ let cachedPromise: Promise<{ app: FirebaseApp; auth: Auth }> | undefined;
  * `firebase` install would silently `initializeApp()` a second, untracked app
  * here instead of joining theirs, and auth state would stop being shared.
  */
-export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth: Auth }> {
+async function loadFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth: Auth }> {
     requireFirebaseAuthConfig(config.firebaseAuth);
     if (cached) return cached;
     if (!cachedPromise) {
@@ -343,6 +338,17 @@ export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth:
         );
     }
     return cachedPromise;
+}
+
+/**
+ * Waits for App Check whenever `firebaseAuth.appCheck` is configured: with
+ * App Check enforced, an Identity Toolkit request sent before init finishes
+ * is rejected with 401 "Firebase App Check token is invalid".
+ */
+export async function getFirebaseAuthClient(): Promise<{ app: FirebaseApp; auth: Auth }> {
+    const client = await loadFirebaseAuthClient();
+    await ensureAppCheck().catch(() => undefined);
+    return client;
 }
 
 /** Synchronous read of the cached client, or `undefined` before the first `getFirebaseAuthClient()` resolves. */

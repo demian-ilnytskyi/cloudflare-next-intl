@@ -178,7 +178,7 @@ describe('getFirebaseAuthClient App Check', () => {
         expect(initializeAppCheck).not.toHaveBeenCalled();
     });
 
-    it('does not initialize App Check merely from getFirebaseAuthClient (always deferred)', async () => {
+    it('initializes App Check before resolving when appCheck is configured', async () => {
         vi.doMock('@intl-config', () => ({
             default: {
                 firebaseAuth: {
@@ -188,24 +188,19 @@ describe('getFirebaseAuthClient App Check', () => {
             },
         }));
         const { getFirebaseAuthClient } = await import('./firebase_client.js');
+        const { auth } = await getFirebaseAuthClient();
+        expect(auth).toBeDefined();
+        expect(initializeAppCheck).toHaveBeenCalledTimes(1);
         await getFirebaseAuthClient();
-        expect(initializeAppCheck).not.toHaveBeenCalled();
+        expect(initializeAppCheck).toHaveBeenCalledTimes(1);
     });
 
-    it('defers App Check to the first token request', async () => {
-        vi.doMock('@intl-config', () => ({
-            default: {
-                firebaseAuth: {
-                    ...baseConfig.firebaseAuth,
-                    appCheck: { recaptchaV3SiteKey: 'site-key' },
-                },
-            },
-        }));
-        const { getFirebaseAuthClient, getAppCheckToken } = await import('./firebase_client.js');
-        await getFirebaseAuthClient();
+    it('resolves without App Check when appCheck is not configured', async () => {
+        vi.doMock('@intl-config', () => ({ default: baseConfig }));
+        const { getFirebaseAuthClient } = await import('./firebase_client.js');
+        const { auth } = await getFirebaseAuthClient();
+        expect(auth).toBeDefined();
         expect(initializeAppCheck).not.toHaveBeenCalled();
-        await getAppCheckToken();
-        expect(initializeAppCheck).toHaveBeenCalledTimes(1);
     });
 
     it('initializes App Check only once across concurrent getAppCheckToken calls', async () => {
