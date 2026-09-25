@@ -914,7 +914,7 @@ const rows = await withPublicDb((db) => db.select().from(bonds).limit(10));
 ```
 
 Supabase mode requires one function in your database, shipped at
-`node_modules/cloudflare-next-intl/supabase/cfni_exec.sql`. Run it once (via
+`node_modules/cloudflare-next-intl-db-codegen/supabase/cfni_exec.sql` (installed as a dependency). Run it once (via
 `supabase db push`, a migration, or the SQL editor) — the file starts with a
 `drop function if exists` so re-running it to upgrade is always safe. It is
 `security invoker`, so statements execute with the caller's own privileges and
@@ -1248,7 +1248,7 @@ tested two ways in this package's own repo, and both are shipped so you can
 reuse them against your own database rather than trusting the function
 untested:
 
-- `supabase/tests/cfni_exec.sql` — a [pgTAP](https://pgtap.org/) suite,
+- `node_modules/cloudflare-next-intl-db-codegen/supabase/tests/cfni_exec.sql` — a [pgTAP](https://pgtap.org/) suite,
   runnable with `supabase test db` (or `pg_prove`) once both this file and
   `cfni_exec.sql` are installed in a database. It checks the SQL function
   directly: every statement shape `cfni_exec` classifies (plain `SELECT`,

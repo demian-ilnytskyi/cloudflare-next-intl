@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.19] - 2026-09-25
+
+### Security
+
+- Picks up the `cfni_exec` identity-spoofing fix from `cloudflare-next-intl-db-codegen@0.1.3` (see its changelog). **Reinstall the SQL** in any database that uses Supabase mode's raw-SQL path: `npx cfni-db-install-exec --force`, then apply the file.
+
+### Changed
+
+- This package no longer ships `supabase/cfni_exec.sql`. The only copy is now `node_modules/cloudflare-next-intl-db-codegen/supabase/cfni_exec.sql` (still installed for you by `cfni-db-install-exec`/`cfni-db-codegen`).
+- Dependencies: `cloudflare-next-intl-db` `^0.3.0`, `cloudflare-next-intl-db-codegen` `^0.1.3`.
+
 ## [0.10.18] - 2026-09-20
 
 ### Changed
