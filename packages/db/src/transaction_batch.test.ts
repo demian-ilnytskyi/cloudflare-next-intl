@@ -72,7 +72,7 @@ describe('runTransactionBatch', () => {
     it('names the install step when the batch function does not exist yet', async () => {
         rpc.mockResolvedValue({ data: null, error: { message: 'not found', code: 'PGRST202' } });
         await expect(runTransactionBatch(endpoint, 'anon-key', [{ sql: 'select 1', params: [] }])).rejects.toThrow(
-            /Install the cfni_exec_batch function from supabase\/cfni_exec\.sql/,
+            /Install the cfni_exec_batch function from cloudflare-next-intl-db-codegen\/supabase\/cfni_exec\.sql/,
         );
     });
 

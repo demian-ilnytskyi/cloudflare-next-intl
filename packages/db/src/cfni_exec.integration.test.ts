@@ -6,7 +6,7 @@ import parseComposite from './parse_composite.js';
 import inlineParams from './inline_params.js';
 
 /**
- * Runs `supabase/cfni_exec.sql` against a real Postgres and drives it
+ * Runs `db-codegen/supabase/cfni_exec.sql` against a real Postgres and drives it
  * exactly the way `supabase_transport.ts` does: build the final statement
  * with `inlineParams`, call `cfni_exec`, and parse each returned row with
  * `parseComposite`. Mocked unit tests (`supabase_transport.test.ts`) cover
@@ -49,9 +49,9 @@ describe.skipIf(!DATABASE_URL)('cfni_exec (integration)', () => {
             end
             $$;
         `);
-        const sql = readFileSync(join(__dirname, '../supabase/cfni_exec.sql'), 'utf-8');
+        const sql = readFileSync(join(__dirname, '../../db-codegen/supabase/cfni_exec.sql'), 'utf-8');
         await client.query(sql);
-    }, 30_000);
+    }, 120_000);
 
     afterAll(async () => {
         await client?.end();
@@ -66,7 +66,7 @@ describe.skipIf(!DATABASE_URL)('cfni_exec (integration)', () => {
     });
 
     it('re-running the install file is idempotent', async () => {
-        const sql = readFileSync(join(__dirname, '../supabase/cfni_exec.sql'), 'utf-8');
+        const sql = readFileSync(join(__dirname, '../../db-codegen/supabase/cfni_exec.sql'), 'utf-8');
         await expect(client.query(sql)).resolves.toBeDefined();
     });
 
@@ -182,5 +182,54 @@ describe.skipIf(!DATABASE_URL)('cfni_exec (integration)', () => {
         const asAuthenticated = await exec('select * from cfni_test_a');
         await client.query('reset role');
         expect(asAuthenticated.rows).toEqual([['1', 'a1']]);
+    });
+
+    it('rejects set_config calls', async () => {
+        await expect(exec("select set_config('request.jwt.claims', '{\"sub\":\"evil\"}', true)")).rejects.toThrow(
+            /cfni_exec: session context modification forbidden/,
+        );
+        await expect(
+            exec("with evil as (select set_config('request.jwt.claims', '{\"sub\":\"evil\"}', true)) select * from cfni_test_a"),
+        ).rejects.toThrow(/cfni_exec: session context modification forbidden/);
+    });
+
+    it('rejects unsupported verbs like SET or DO', async () => {
+        await expect(exec("set role authenticated")).rejects.toThrow(/cfni_exec: unsupported statement verb set/);
+        await expect(exec("do $$ begin null; end $$")).rejects.toThrow(/cfni_exec: unsupported statement verb do/);
+    });
+
+    it('rejects a set_config smuggled after a second statement', async () => {
+        await expect(exec("select 1; select set_config('role', 'postgres', true)")).rejects.toThrow(
+            /cfni_exec: session context modification forbidden/,
+        );
+    });
+
+    it('detects a session context change made indirectly, past the text guard', async () => {
+        await client.query(`
+            create or replace function cfni_test_hidden_set_config() returns text
+            language sql security definer set search_path = '' as
+            $fn$select pg_catalog.set_config('request.jwt.claims', '{"sub":"evil"}', true)$fn$;
+        `);
+        try {
+            await expect(exec('select cfni_test_hidden_set_config()')).rejects.toThrow(
+                /cfni_exec: session context modification detected/,
+            );
+        } finally {
+            await client.query('drop function if exists cfni_test_hidden_set_config()');
+        }
+    });
+
+    it('never lets a keyword inside a literal trip a guard or change the path', async () => {
+        await expect(exec('insert into cfni_test_a (id, name) values ($1, $2)', [91, 'returning'])).resolves.toEqual({
+            rows: [],
+            rowCount: 1,
+        });
+        await expect(exec('select name from cfni_test_a where name = $1', ['set_config('])).resolves.toEqual({
+            rows: [],
+            rowCount: 0,
+        });
+        await expect(
+            exec('insert into cfni_test_a (id, name) values ($1, $2) returning id', [92, 'insert into x as (']),
+        ).resolves.toEqual({ rows: [['92']], rowCount: 1 });
     });
 });

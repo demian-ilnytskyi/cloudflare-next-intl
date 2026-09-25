@@ -5,7 +5,7 @@ import { parseExecResult, describeFailure, type ExecResult, type SupabaseRpcErro
 
 /**
  * Fixed, unlike `cfni_exec`'s `execFunction` — `cfni_exec_batch` ships in the
- * same `supabase/cfni_exec.sql` file and is always available whenever
+ * same `cloudflare-next-intl-db-codegen/supabase/cfni_exec.sql` file and is always available whenever
  * `cfni_exec` is (there is no separate config for it; `rawSql: false` turns
  * off both, checked by `context.ts` before this is ever called).
  */
@@ -53,7 +53,7 @@ export default async function runTransactionBatch(
     if (error) throw new Error(describeFailure(error as SupabaseRpcError, BATCH_FUNCTION));
 
     if (!Array.isArray(data)) {
-        throw new Error(`db: ${BATCH_FUNCTION} returned a non-array result — is it installed from the version of supabase/cfni_exec.sql shipped with this package?`);
+        throw new Error(`db: ${BATCH_FUNCTION} returned a non-array result — is it installed from the version of cloudflare-next-intl-db-codegen/supabase/cfni_exec.sql shipped with this package?`);
     }
     return data.map(parseExecResult);
 }

@@ -5,7 +5,7 @@
 -- checks the SQL function itself and its RLS interaction directly in
 -- Postgres, without going through the transport/JS parsing layer.
 begin;
-select plan(30);
+select plan(42);
 
 do $$
 begin
@@ -219,6 +219,94 @@ select is(
     'cfni_exec_batch applies RLS per statement just like cfni_exec — anon sees no rows here'
 );
 reset role;
+
+select throws_ok(
+    $$select cfni_exec('select set_config(''request.jwt.claims'', ''{"sub":"evil"}'', true)')$$,
+    '42501',
+    'cfni_exec: session context modification forbidden',
+    'cfni_exec rejects set_config calls'
+);
+
+select throws_ok(
+    $$select cfni_exec('with evil as (select set_config(''request.jwt.claims'', ''{"sub":"evil"}'', true)) select * from cfni_test_a')$$,
+    '42501',
+    'cfni_exec: session context modification forbidden',
+    'cfni_exec rejects CTE set_config calls'
+);
+
+select throws_ok(
+    $$select cfni_exec('set role authenticated')$$,
+    '42601',
+    'cfni_exec: unsupported statement verb set',
+    'cfni_exec rejects SET statements'
+);
+
+select throws_ok(
+    $q$select cfni_exec('do $x$ begin null; end $x$')$q$,
+    '42601',
+    'cfni_exec: unsupported statement verb do',
+    'cfni_exec rejects DO blocks'
+);
+
+select throws_ok(
+    $q$select cfni_exec('select 1; select set_config(''role'', ''postgres'', true)')$q$,
+    '42501',
+    'cfni_exec: session context modification forbidden',
+    'cfni_exec rejects a set_config smuggled after a second statement'
+);
+
+-- Defense in depth: even when set_config is reached by a route the textual
+-- guard cannot see (here a SECURITY DEFINER helper that changes the claims
+-- itself), the post-execution identity comparison catches the change and
+-- aborts, so no rows are ever returned under the forged identity.
+create function cfni_test_hidden_set_config() returns text
+language sql security definer set search_path = '' as
+$q$select pg_catalog.set_config('request.jwt.claims', '{"sub":"evil"}', true)$q$;
+
+select throws_ok(
+    $q$select cfni_exec('select cfni_test_hidden_set_config()')$q$,
+    '42501',
+    'cfni_exec: session context modification detected',
+    'cfni_exec detects session context changed by an indirect set_config call'
+);
+
+-- The guards read SQL grammar only, never user data: a value that merely
+-- contains a keyword must not be rejected, nor change the execution path.
+select is(
+    cfni_exec($q$insert into cfni_test_a (id, name) values (91, 'returning')$q$),
+    '{"rows": [], "rowCount": 1}'::jsonb,
+    'a literal containing "returning" does not take the RETURNING path'
+);
+
+select is(
+    cfni_exec($q$select name from cfni_test_a where name = 'set_config('$q$),
+    '{"rows": [], "rowCount": 0}'::jsonb,
+    'a literal containing "set_config(" does not trip the security guard'
+);
+
+select is(
+    cfni_exec($q$insert into cfni_test_a (id, name) values (92, 'insert into x as (') returning id$q$),
+    '{"rows": ["(92)"], "rowCount": 1}'::jsonb,
+    'a literal containing DML keywords does not confuse verb detection'
+);
+
+select is(
+    cfni_strip_literals($q$select 'set_config(' as a, "weird""col" from t -- set_config($q$),
+    $q$select '' as a, "" from t $q$,
+    'cfni_strip_literals blanks strings, quoted identifiers and comments'
+);
+
+select is(
+    cfni_strip_literals($q$select $tag$set_config($tag$, e'a\'set_config(' , /* set_config( */ 1$q$),
+    $q$select $tag$$tag$, e'' ,  1$q$,
+    'cfni_strip_literals blanks dollar-quoted bodies, E-strings and block comments'
+);
+
+select is(
+    cfni_top_level_verb(cfni_strip_literals($q$with a as (select 'insert into t') insert into cfni_test_a select 1, 'x'$q$)),
+    'insert',
+    'verb detection ignores keywords inside literals'
+);
 
 select * from finish();
 rollback;

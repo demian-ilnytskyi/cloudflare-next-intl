@@ -111,7 +111,7 @@ async function runExec(
 function unsupportedMessage(error: UnsupportedSqlError, execFunction: string): string {
     return (
         `${error.message} \`db.supabase.rawSql\` is \`false\`, so it cannot fall back to raw SQL either. ` +
-        `Install the ${execFunction} function from supabase/cfni_exec.sql and drop \`rawSql: false\`, ` +
+        `Install the ${execFunction} function from cloudflare-next-intl-db-codegen/supabase/cfni_exec.sql (npx cfni-db-install-exec) and drop \`rawSql: false\`, ` +
         'or use `db.connectionString` for a direct Postgres connection.'
     );
 }
@@ -124,7 +124,7 @@ export function describeFailure(error: SupabaseRpcError, execFunction: string): 
     // PGRST202 is PostgREST's "no such function" — by far the most likely
     // first-run failure, so point at the install step instead of the raw code.
     if (error.code === 'PGRST202') {
-        return `db: Supabase rejected the query — ${error.message}. Install the ${execFunction} function from supabase/cfni_exec.sql in your database.`;
+        return `db: Supabase rejected the query — ${error.message}. Install the ${execFunction} function from cloudflare-next-intl-db-codegen/supabase/cfni_exec.sql (npx cfni-db-install-exec) in your database.`;
     }
     // A 401 here almost always means the bearer token wasn't accepted as a
     // valid JWT by PostgREST — the most common cause is a Firebase ID token
