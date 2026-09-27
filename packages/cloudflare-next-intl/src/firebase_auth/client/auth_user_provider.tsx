@@ -72,7 +72,7 @@ async function writeAppCheckTokenCookie(appCheckTokenCookieName: string, maxAge:
     }
 }
 
-async function clearSession(sessionCookieName: string, refreshTokenCookieName: string, emailVerifiedHintCookieName: string, appCheckTokenCookieName: string, refreshTokenMaxAge: number): Promise<void> {
+async function clearSession(sessionCookieName: string, refreshTokenCookieName: string, emailVerifiedHintCookieName: string, appCheckTokenCookieName: string, refreshTokenMaxAge: number, clearServerCookies = true): Promise<void> {
     clearSessionCookie(sessionCookieName);
     clearRefreshTokenCookie(refreshTokenCookieName);
     clearAppCheckTokenCookie(appCheckTokenCookieName);
@@ -81,6 +81,7 @@ async function clearSession(sessionCookieName: string, refreshTokenCookieName: s
     // "no signal yet", which forces the middleware to refresh unnecessarily
     // if a stale session cookie somehow still lingers).
     writeEmailVerifiedHintCookie(emailVerifiedHintCookieName, false, refreshTokenMaxAge);
+    if (!clearServerCookies) return;
     try {
         await clearSessionAction();
     } catch (e) {
@@ -181,9 +182,12 @@ export default function AuthUserProvider({ initialUser = null, children }: {
     // observation of an already-verified user (both `onIdTokenChanged` and
     // `reloadUser` can be the first to observe the transition).
     const emailVerifiedRef = useRef(initialUser?.emailVerified ?? false);
+    const isAuthPageRef = useRef(isAuthPage);
+    isAuthPageRef.current = isAuthPage;
     // A boolean, not `initialUser` itself, in the subscribe effect's deps:
     // the prop is an object, so a consumer passing it inline would otherwise
     // tear down and rebuild the `onIdTokenChanged` listener every render.
+    const initialSignedIn = initialUser !== null;
     const deferAuthSubscribe = initialUser === null && isWhiteListed && !isAuthPage && typeof window !== 'undefined';
 
     useEffect(() => {
@@ -231,7 +235,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
                     if (user) {
                         await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge);
                     } else {
-                        await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge);
+                        await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, previous ?? (initialSignedIn || isAuthPageRef.current));
                     }
                 } catch (e) {
                     console.error('AuthUserProvider: session sync failed', e);

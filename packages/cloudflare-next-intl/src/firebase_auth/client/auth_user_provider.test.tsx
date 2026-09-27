@@ -899,4 +899,31 @@ describe('AuthUserProvider', () => {
         render(<Consumer />);
         expect(ctxValue).toBeNull();
     });
+
+    it('calls clearSessionAction on an auth page when the SDK resolves to null', async () => {
+        mockPathname = '/login';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { await idTokenListener?.(null); });
+        expect(clearSessionAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips clearSessionAction for an anonymous visitor on a public page', async () => {
+        mockPathname = '/';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { await idTokenListener?.(null); });
+        expect(clearSessionAction).not.toHaveBeenCalled();
+    });
+
+    it('redirects a signed-in SDK user off /login to homePath', async () => {
+        mockPathname = '/login';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => { await idTokenListener?.(makeUser({ emailVerified: true })); });
+        expect(routerReplace).toHaveBeenCalledWith('/');
+    });
 });
