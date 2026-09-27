@@ -14,6 +14,7 @@ import type * as AuthUserServerProviderModule from "../../firebase_auth/server/a
 const LocationzationClientProvider = dynamic(
     () => import("../../client/components/client_provider.js"),
 );
+import LocaleProvider from "../../client/components/locale_provider.js";
 
 let authUserServerProviderModule: typeof AuthUserServerProviderModule | undefined;
 
@@ -175,20 +176,22 @@ export default async function LocationzationProvider({ language, messages, stati
     }
 
     return (
-        <Suspense fallback={children}>
-            <LocationzationClientProvider
-                language={language}
-                messages={messagesValue}
-                initialAuthUser={initialAuthUser}
-                skipAuthProvider={!autoWireClientProvider}
-                analyticsConfig={analyticsConfig}
-                autoAnalyticsEventsConfig={config.cookieConsent?.autoAnalyticsEvents}
-                requiresConsent={requiresConsent}
-                autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}
-                dialogProps={config.cookieConsent?.dialogProps}
-                updateDialogProps={config.cookieConsent?.updateDialogProps}>
-                {children}
-            </LocationzationClientProvider>
-        </Suspense>
+        <LocaleProvider language={language} messages={messagesValue}>
+            <Suspense fallback={children}>
+                <LocationzationClientProvider
+                    language={language}
+                    messages={messagesValue}
+                    initialAuthUser={initialAuthUser}
+                    skipAuthProvider={!autoWireClientProvider}
+                    analyticsConfig={analyticsConfig}
+                    autoAnalyticsEventsConfig={config.cookieConsent?.autoAnalyticsEvents}
+                    requiresConsent={requiresConsent}
+                    autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}
+                    dialogProps={config.cookieConsent?.dialogProps}
+                    updateDialogProps={config.cookieConsent?.updateDialogProps}>
+                    {children}
+                </LocationzationClientProvider>
+            </Suspense>
+        </LocaleProvider>
     );
 }

@@ -2,7 +2,7 @@
 
 import type { TranslationObject } from "../../types/types.js";
 import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
-import { createContext, useEffect, useMemo, Suspense } from "react";
+import { useEffect, useMemo, Suspense } from "react";
 import dynamic from "next/dynamic.js";
 import useLazyWrappingProvider from "./use_lazy_wrapping_provider.js";
 import config from "@intl-config";
@@ -13,13 +13,9 @@ import type { PrivacyPolicyUpdateDialogProps } from "../../cookie_consent/client
 import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
 import installGlobalErrorOverride from "../../error_handling/install_global_error_override.js";
 import AuthUserPendingProvider from "../../firebase_auth/client/auth_user_pending_provider.js";
+import { LocaleContext } from "./locale_provider.js";
 
-interface LocaleContextType {
-    language: string;
-    messages: TranslationObject;
-}
-
-export const LocaleContext = createContext<LocaleContextType | undefined>(undefined);
+export { LocaleContext };
 
 // Hoisted to module scope — calling `dynamic()` inside the component body
 // creates a brand-new component identity every render, forcing React to
