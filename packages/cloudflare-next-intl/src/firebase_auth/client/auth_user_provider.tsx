@@ -233,7 +233,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
 
                 try {
                     if (user) {
-                        await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge);
+                        await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge, await user.getIdToken());
                     } else {
                         await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, previous ?? (initialSignedIn || isAuthPageRef.current));
                     }

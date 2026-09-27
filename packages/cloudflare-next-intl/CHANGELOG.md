@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.23] - 2026-09-27
+
+### Fixed
+
+- `AuthUserProvider` now passes `await user.getIdToken()` to `writeSession` during `onIdTokenChanged` events instead of falling back to `user.getIdToken(true)`, preventing unnecessary force token refresh network roundtrips on routine auth-state updates.
+- `AuthUserProvider` adds `initialSignedIn` to its subscription `useEffect` dependency array so auth subscription synchronization correctly reacts to changes in initial server auth status.
+
 ## [0.10.22] - 2026-09-27
 
 ### Fixed
