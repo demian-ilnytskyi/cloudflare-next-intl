@@ -123,7 +123,7 @@ describe('updateSession', () => {
         expect(res.headers.get('location')).toBe('https://example.com/login');
     });
 
-    it('protectedPaths still redirects a signed-in user away from an auth page', async () => {
+    it('protectedPaths serves an auth page to a signed-in user instead of redirecting home', async () => {
         currentConfig.firebaseAuth!.protectedPaths = (path: string) => path === '/dashboard';
         const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Date.now() / 1000 + 3600, { email_verified: true });
@@ -131,8 +131,8 @@ describe('updateSession', () => {
             cookies: { __fa_session__: token },
         });
         const res = await updateSession(req, NextResponse.next(), 'en');
-        expect(res.status).toBe(307);
-        expect(res.headers.get('location')).toBe('https://example.com/');
+        expect(res.status).toBe(200);
+        expect(res.headers.get('location')).toBeNull();
     });
 
     it('ignores whiteListPaths when protectedPaths is supplied', async () => {
@@ -200,10 +200,11 @@ describe('updateSession', () => {
         expect(res.headers.get('cache-control')).toBe('private, no-cache, no-store, max-age=0, must-revalidate');
     });
 
-    it('answers a prefetch request with an empty 204 instead of an auth-page redirect', async () => {
+    it('answers a prefetch request with an empty 204 instead of a verify-email redirect', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         const { default: updateSession } = await import('./update_session.js');
-        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
-        const req = makeRequest('https://example.com/en/login', {
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
+        const req = makeRequest('https://example.com/en/verify-email', {
             cookies: { __fa_session__: token },
             headers: { rsc: '1', 'next-router-prefetch': '1' },
         });
@@ -321,7 +322,7 @@ describe('updateSession', () => {
         expect(res).toBe(base);
     });
 
-    it('redirects away from the auth page to homePath when a valid session exists', async () => {
+    it("serves an auth page to a cookie-signed-in user instead of redirecting home", async () => {
         const { default: updateSession } = await import('./update_session.js');
         const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
         const req = makeRequest('https://example.com/en/login', {
@@ -329,8 +330,8 @@ describe('updateSession', () => {
         });
         const base = NextResponse.next();
         const res = await updateSession(req, base, 'en');
-        expect(res.status).toBe(307);
-        expect(res.headers.get('location')).toBe('https://example.com/');
+        expect(res.status).toBe(200);
+        expect(res.headers.get('location')).toBeNull();
     });
 
     it('preserves the query string when redirecting a guest to redirectAuthPath', async () => {
@@ -341,10 +342,11 @@ describe('updateSession', () => {
         expect(res.headers.get('location')).toBe('https://example.com/login?test=test&a=b');
     });
 
-    it('preserves the query string when redirecting a signed-in user away from an auth page to homePath', async () => {
+    it('preserves the query string when redirecting a verified user away from verifyEmailPath to homePath', async () => {
+        currentConfig.firebaseAuth!.verifyEmailPath = '/verify-email';
         const { default: updateSession } = await import('./update_session.js');
-        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600);
-        const req = makeRequest('https://example.com/en/login?test=test', {
+        const token = makeJwt(Math.floor(Date.now() / 1000) + 3600, { email_verified: true });
+        const req = makeRequest('https://example.com/en/verify-email?test=test', {
             cookies: { __fa_session__: token },
         });
         const base = NextResponse.next();

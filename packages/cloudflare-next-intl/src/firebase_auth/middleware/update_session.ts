@@ -505,9 +505,9 @@ export default async function updateSession(
         // auth page like /login — homePath is not a state they're allowed
         // to reach yet either.
         response = buildRedirect(baseResponse, localeUrl(fa.verifyEmailPath!), isPrefetch);
-    } else if (isAuthPage || (isVerifyEmailPage && decodeTokenOnce(token!)?.email_verified === true)) {
-        // A verified user has no reason to be on verifyEmailPath either —
-        // same "you're done here, go home" treatment as an auth page.
+    } else if (isVerifyEmailPage && decodeTokenOnce(token!)?.email_verified === true) {
+        // A verified user has no reason to be on verifyEmailPath —
+        // "you're done here, go home".
         // `unverifiedEmail` can't be reused here: its own computation
         // deliberately skips verifyEmailPath (so it never redirects AWAY
         // from that page for an unverified user), so it's always `false`
