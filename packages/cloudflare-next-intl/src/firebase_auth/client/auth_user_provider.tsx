@@ -336,7 +336,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
             unsubscribe?.();
         };
-    }, [deferAuthSubscribe, router, isAuthPage, isWhiteListed, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge, fa]);
+    }, [initialSignedIn, deferAuthSubscribe, router, isAuthPage, isWhiteListed, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge, fa]);
 
     const reloadUser = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();
