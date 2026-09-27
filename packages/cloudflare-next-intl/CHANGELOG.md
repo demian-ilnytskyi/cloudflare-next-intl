@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.22] - 2026-09-27
+
+### Fixed
+
+- `IntlProvider` now wraps its lazy client provider in an outer `LocaleProvider` statically imported at the server layer. When the lazy client provider chunk suspends during SSR, `useLocale` and `useTranslations` hooks in fallback components (and child forms) no longer throw for missing context.
+- `updateSession` middleware no longer redirects auth pages (`isAuthPath`) to `homePath` on cookie-only evidence. The client `AuthUserProvider` serves as the single authority and redirects signed-in users off auth pages while clearing stale server session cookies if the SDK resolves to signed out.
+- `AuthUserProvider` now clears stale server session cookies via `clearSessionAction` on auth pages when the client SDK resolves to null (signed out), eliminating the `/login` → `/` redirect loop caused by stale cookies.
+
 ## [0.10.21] - 2026-09-26
 
 ### Fixed
