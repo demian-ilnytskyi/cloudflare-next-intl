@@ -144,7 +144,7 @@ export function missingRequiredSymbols(code: string, patchName: VinextPatchName)
 
 function warnIncompatible(filePath: string, patchName: VinextPatchName, code: string): void {
     console.warn(
-        `[cfni:vinext-route-wiring-fix] ${filePath} no longer exposes ${missingRequiredSymbols(code, patchName).join(", ")} — this vinext version may have changed; the ${patchName} fix was NOT applied.`,
+        `cfni:vinext-route-wiring-fix: ${filePath} no longer exposes ${missingRequiredSymbols(code, patchName).join(", ")} — this vinext version may have changed; the ${patchName} fix was NOT applied.`,
     );
 }
 
@@ -959,7 +959,7 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                     writeFileSync(wiringPath, patched, "utf8");
                     changed = true;
                 } else {
-                    console.warn(`[cfni:vinext-route-wiring-fix] ${wiringPath} does not match the expected shape for patchAppPageRouteWiring — this vinext version may have changed; the route-wiring fix was NOT applied.`);
+                    console.warn(`cfni:vinext-route-wiring-fix: ${wiringPath} does not match the expected shape for patchAppPageRouteWiring — this vinext version may have changed; the route-wiring fix was NOT applied.`);
                 }
             }
         } catch {
@@ -979,7 +979,7 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                     writeFileSync(matchingPath, patched, "utf8");
                     changed = true;
                 } else {
-                    console.warn(`[cfni:vinext-route-wiring-fix] ${matchingPath} does not match the expected shape for patchRouteMatching — this vinext version may have changed; the route-matching fix was NOT applied.`);
+                    console.warn(`cfni:vinext-route-wiring-fix: ${matchingPath} does not match the expected shape for patchRouteMatching — this vinext version may have changed; the route-matching fix was NOT applied.`);
                 }
             }
         } catch {
@@ -999,7 +999,7 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                     writeFileSync(optimisticPath, patched, "utf8");
                     changed = true;
                 } else {
-                    console.warn(`[cfni:vinext-route-wiring-fix] ${optimisticPath} does not match the expected shape for patchOptimisticRouting — this vinext version may have changed; the optimistic-routing fix was NOT applied.`);
+                    console.warn(`cfni:vinext-route-wiring-fix: ${optimisticPath} does not match the expected shape for patchOptimisticRouting — this vinext version may have changed; the optimistic-routing fix was NOT applied.`);
                 }
             }
         } catch {
@@ -1019,7 +1019,7 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                     writeFileSync(browserEntryPath, patched, "utf8");
                     changed = true;
                 } else {
-                    console.warn(`[cfni:vinext-route-wiring-fix] ${browserEntryPath} does not match the expected shape for patchPrefetchLearning — this vinext version may have changed; the prefetch-learning fix was NOT applied.`);
+                    console.warn(`cfni:vinext-route-wiring-fix: ${browserEntryPath} does not match the expected shape for patchPrefetchLearning — this vinext version may have changed; the prefetch-learning fix was NOT applied.`);
                 }
             }
         } catch {
@@ -1039,7 +1039,7 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                     writeFileSync(probePath, patched, "utf8");
                     changed = true;
                 } else {
-                    console.warn(`[cfni:vinext-route-wiring-fix] ${probePath} does not match the expected shape for patchAppPageProbe — this vinext version may have changed; the suspense-probe fix was NOT applied.`);
+                    console.warn(`cfni:vinext-route-wiring-fix: ${probePath} does not match the expected shape for patchAppPageProbe — this vinext version may have changed; the suspense-probe fix was NOT applied.`);
                 }
             }
         } catch {
@@ -1057,7 +1057,7 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                     writeFileSync(renderDependencyPath, patched, "utf8");
                     changed = true;
                 } else {
-                    console.warn(`[cfni:vinext-route-wiring-fix] ${renderDependencyPath} does not match the expected shape for patchRenderDependency — this vinext version may have changed; the render-dependency fix was NOT applied.`);
+                    console.warn(`cfni:vinext-route-wiring-fix: ${renderDependencyPath} does not match the expected shape for patchRenderDependency — this vinext version may have changed; the render-dependency fix was NOT applied.`);
                 }
             }
         } catch {
@@ -1078,7 +1078,7 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                     writeFileSync(optimisticLearningTimeoutPath, patched, "utf8");
                     changed = true;
                 } else {
-                    console.warn(`[cfni:vinext-route-wiring-fix] ${optimisticLearningTimeoutPath} does not match the expected shape for patchOptimisticLearningTimeout — this vinext version may have changed; the optimistic-learning-timeout fix was NOT applied.`);
+                    console.warn(`cfni:vinext-route-wiring-fix: ${optimisticLearningTimeoutPath} does not match the expected shape for patchOptimisticLearningTimeout — this vinext version may have changed; the optimistic-learning-timeout fix was NOT applied.`);
                 }
             }
         } catch {
@@ -1096,7 +1096,7 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                     writeFileSync(pageInvokerSuspensionReleasePath, patched, "utf8");
                     changed = true;
                 } else {
-                    console.warn(`[cfni:vinext-route-wiring-fix] ${pageInvokerSuspensionReleasePath} does not match the expected shape for patchPageInvokerSuspensionRelease — this vinext version may have changed; the page-invoker-suspension-release fix was NOT applied.`);
+                    console.warn(`cfni:vinext-route-wiring-fix: ${pageInvokerSuspensionReleasePath} does not match the expected shape for patchPageInvokerSuspensionRelease — this vinext version may have changed; the page-invoker-suspension-release fix was NOT applied.`);
                 }
             }
         } catch {
@@ -1115,7 +1115,7 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                     writeFileSync(navControllerPath, patched, "utf8");
                     changed = true;
                 } else {
-                    console.warn(`[cfni:vinext-route-wiring-fix] ${navControllerPath} does not match the expected shape for patchRefreshDeferralNavController — this vinext version may have changed; the refresh-deferral fix was NOT applied.`);
+                    console.warn(`cfni:vinext-route-wiring-fix: ${navControllerPath} does not match the expected shape for patchRefreshDeferralNavController — this vinext version may have changed; the refresh-deferral fix was NOT applied.`);
                 }
             }
             const entryPath = resolveVinextBrowserEntryPath(root);
@@ -1355,7 +1355,7 @@ export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOp
             if (changed || isVinextOptimizeDepsCacheStale(root, cacheDir)) {
                 const busted = bustVinextOptimizeDepsCache(cacheDir);
                 if (busted) {
-                    console.log("[cfni:vinext-route-wiring-fix] patched vinext on disk and cleared its stale Vite optimizeDeps cache — dependencies will re-bundle on next request.");
+                    console.log("cfni:vinext-route-wiring-fix: patched vinext on disk and cleared its stale Vite optimizeDeps cache — dependencies will re-bundle on next request.");
                 }
             }
         },
