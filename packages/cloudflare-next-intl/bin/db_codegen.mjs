@@ -10,6 +10,8 @@ import { dirname, join } from 'node:path';
 // package.json (and therefore its package root) resolves directly —
 // unlike the runtime db package, this one isn't trying to restrict its
 // public surface to a curated set of subpaths.
+process.env.CFNI_DB_SCHEMA_IMPORT ??= 'cloudflare-next-intl/dbSchema';
+
 const pkgPath = createRequire(import.meta.url).resolve('cloudflare-next-intl-db-codegen/package.json');
 const codegenPackageRoot = dirname(fileURLToPath(pathToFileURL(pkgPath)));
 await import(pathToFileURL(join(codegenPackageRoot, 'bin', 'db_codegen.mjs')).href);

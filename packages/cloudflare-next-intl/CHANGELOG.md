@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.24] - 2026-10-03
+
+### Fixed
+
+- `cfni-db-codegen` run through this package now defaults the generated schema's import to `cloudflare-next-intl/dbSchema` instead of `cloudflare-next-intl-db/schema`, so the output resolves without a direct `cloudflare-next-intl-db` dependency. An explicit `--schema-import` or `CFNI_DB_SCHEMA_IMPORT` still wins.
+
 ## [0.10.23] - 2026-09-27
 
 ### Fixed
