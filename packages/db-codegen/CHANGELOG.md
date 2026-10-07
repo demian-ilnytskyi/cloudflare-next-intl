@@ -3,6 +3,16 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.4] - 2026-10-07
+
+### Fixed
+
+- Generated schemas no longer reference an undefined `unknown(...)` column builder. When drizzle-kit can't resolve a column's type (e.g. a view column whose type lives in another schema), it emits `unknown("col")`, which threw a `ReferenceError` at runtime. Codegen now rewrites these columns to `text(...)`.
+- `order.txt` entries are now normalized: a leading `./` or `/` and trailing slashes are stripped, and an entry also counts as applied by its basename. Before, `./tables/` and `tables` didn't match, so the file was applied twice.
+- A `.sql` file reached through more than one `order.txt` is applied only once.
+- An `order.txt` line pointing at a file or folder that doesn't exist is now skipped. Before, a missing directory crashed the run.
+- The embedded Postgres used for introspection now stubs the Supabase `net` (`http_get`/`http_post`/`http_delete`, `_http_response`), `vault` (`decrypted_secrets`) and `cron` (`schedule`/`unschedule`) objects. DDL that references `pg_net`, Vault or `pg_cron` now loads without the real extensions.
+
 ## [0.1.3] - 2026-09-25
 
 ### Security
