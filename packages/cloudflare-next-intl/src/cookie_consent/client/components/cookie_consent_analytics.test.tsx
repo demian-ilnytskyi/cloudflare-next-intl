@@ -101,10 +101,11 @@ describe('CookieConsentAnalytics', () => {
         expect(clarityInit).not.toHaveBeenCalled();
     });
 
-    it('renders the cloudflare beacon script once consent is granted', () => {
+    it('injects the cloudflare beacon script into head once consent is granted', () => {
         consent = true;
-        const { container } = render(<CookieConsentAnalytics config={{ cloudflareBeaconToken: '{"token":"abc"}' }} />);
-        const script = container.querySelector('script[data-cf-beacon]');
+        document.head.querySelectorAll('script[data-cf-beacon]').forEach((s) => s.remove());
+        render(<CookieConsentAnalytics config={{ cloudflareBeaconToken: '{"token":"abc"}' }} />);
+        const script = document.head.querySelector('script[data-cf-beacon]');
         expect(script).toBeInTheDocument();
         expect(script).toHaveAttribute('data-cf-beacon', '{"token":"abc"}');
     });

@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.27] - 2026-10-07
+
+### Fixed
+
+- Hydration mismatches in the cookie consent UI. `CookieConsentDialog`, `PrivacyPolicyUpdateDialog` and the Clarity script in `CookieConsentAnalytics` now render only after hydration, so server HTML and the first client render match.
+- The Cloudflare Web Analytics beacon is now appended to `document.head` from an effect (once, deduped by `data-cf-beacon`) instead of being rendered as an inline `<script>` in the React tree, where React does not execute it.
+
 ## [0.10.26] - 2026-10-07
 
 ### Changed

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, Suspense } from 'react';
+import { useEffect, useSyncExternalStore, Suspense } from 'react';
 import dynamic from 'next/dynamic.js';
 import useCookieConsent from '../use_cookie_consent.js';
 import type { CookieConsentAnalyticsConfig } from '../../../types/types.js';
@@ -20,9 +20,12 @@ const ClarityScript = dynamic(() => import('./clarity_script.js'));
  * `getAnalytics` resolves at least one field and `autoWireAnalytics` isn't
  * `false` — render manually instead if you set `autoWireAnalytics: false`.
  */
+const noopSubscribe = () => () => undefined;
+
 export default function CookieConsentAnalytics({ config }: { config: CookieConsentAnalyticsConfig }): React.ReactElement | null {
     const { consent, requiresConsent } = useCookieConsent();
     const granted = consent === true || !requiresConsent;
+    const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
     useEffect(() => {
         if (consent === null && requiresConsent) return;
@@ -37,6 +40,16 @@ export default function CookieConsentAnalytics({ config }: { config: CookieConse
         });
     }, [consent, requiresConsent, granted]);
 
+    useEffect(() => {
+        if (!granted || !config.cloudflareBeaconToken) return;
+        if (document.querySelector('script[data-cf-beacon]')) return;
+        const script = document.createElement('script');
+        script.defer = true;
+        script.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+        script.setAttribute('data-cf-beacon', config.cloudflareBeaconToken);
+        document.head.appendChild(script);
+    }, [granted, config.cloudflareBeaconToken]);
+
     const hasGoogle = Boolean(config.googleAnalyticsId || config.googleAdsId || config.googleAdSenseId);
 
     return (
@@ -46,13 +59,7 @@ export default function CookieConsentAnalytics({ config }: { config: CookieConse
                     id="cookie-consent-google-consent-mode"
                     dangerouslySetInnerHTML={{ __html: googleConsentModeBootstrapScript(config) }} />
             )}
-            {granted && config.cloudflareBeaconToken && (
-                <script
-                    defer
-                    src="https://static.cloudflareinsights.com/beacon.min.js"
-                    data-cf-beacon={config.cloudflareBeaconToken} />
-            )}
-            {granted && config.clarityProjectId && (
+            {hydrated && granted && config.clarityProjectId && (
                 <Suspense fallback={null}>
                     <ClarityScript projectId={config.clarityProjectId} />
                 </Suspense>

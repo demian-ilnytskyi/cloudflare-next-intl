@@ -1,5 +1,6 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import useCookieConsent from '../use_cookie_consent.js';
 import DefaultPrivacyPolicyLink from './default_privacy_policy_link.js';
 import DialogPortal from './dialog_portal.js';
@@ -41,6 +42,8 @@ export interface PrivacyPolicyUpdateDialogProps {
  * `null` otherwise, or once acknowledged. Every visual aspect is overridable
  * via `classNames`/`styles` (per-slot) or `render` (full custom markup).
  */
+const noopSubscribe = () => () => undefined;
+
 export default function PrivacyPolicyUpdateDialog({
     message,
     link,
@@ -53,8 +56,9 @@ export default function PrivacyPolicyUpdateDialog({
     render,
 }: PrivacyPolicyUpdateDialogProps): React.ReactElement | null {
     const { privacyPolicyUpdated, acknowledgePrivacyPolicyUpdate, privacyPolicyPath, showPrivacyPolicy: showPrivacyPolicyCtx } = useCookieConsent();
+    const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
-    if (!privacyPolicyUpdated) return null;
+    if (!hydrated || !privacyPolicyUpdated) return null;
 
     if (render) return <>{render({ acknowledge: acknowledgePrivacyPolicyUpdate })}</>;
 

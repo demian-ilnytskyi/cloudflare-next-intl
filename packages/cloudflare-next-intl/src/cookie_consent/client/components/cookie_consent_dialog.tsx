@@ -1,5 +1,6 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import useCookieConsent from '../use_cookie_consent.js';
 import DefaultPrivacyPolicyLink from './default_privacy_policy_link.js';
 import DialogPortal from './dialog_portal.js';
@@ -45,6 +46,8 @@ export interface CookieConsentDialogProps {
  * `render` (full custom markup) — none of it is hardcoded to Tailwind or any
  * particular design system.
  */
+const noopSubscribe = () => () => undefined;
+
 export default function CookieConsentDialog({
     message,
     link,
@@ -59,8 +62,9 @@ export default function CookieConsentDialog({
     render,
 }: CookieConsentDialogProps): React.ReactElement | null {
     const { consent, requiresConsent, isMounted, setConsent, privacyPolicyPath, showPrivacyPolicy: showPrivacyPolicyCtx } = useCookieConsent();
+    const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
-    if (!isMounted || !requiresConsent || consent !== null) return null;
+    if (!hydrated || !isMounted || !requiresConsent || consent !== null) return null;
 
     if (render) return <>{render({ setConsent })}</>;
 
