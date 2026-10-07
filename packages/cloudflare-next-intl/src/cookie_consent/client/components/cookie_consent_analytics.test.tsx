@@ -110,6 +110,17 @@ describe('CookieConsentAnalytics', () => {
         expect(script).toHaveAttribute('data-cf-beacon', '{"token":"abc"}');
     });
 
+    it('does not inject a second cloudflare beacon script when one already exists', () => {
+        consent = true;
+        document.head.querySelectorAll('script[data-cf-beacon]').forEach((s) => s.remove());
+        const existing = document.createElement('script');
+        existing.setAttribute('data-cf-beacon', '{"token":"old"}');
+        document.head.appendChild(existing);
+        render(<CookieConsentAnalytics config={{ cloudflareBeaconToken: '{"token":"abc"}' }} />);
+        expect(document.head.querySelectorAll('script[data-cf-beacon]')).toHaveLength(1);
+        existing.remove();
+    });
+
     it('loads and initializes clarity once consent is granted', async () => {
         consent = true;
         render(<CookieConsentAnalytics config={{ clarityProjectId: 'proj-123' }} />);
