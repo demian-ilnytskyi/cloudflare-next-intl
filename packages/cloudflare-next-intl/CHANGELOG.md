@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.25] - 2026-10-07
+
+### Changed
+
+- Dependency: `cloudflare-next-intl-db-codegen` `^0.1.4`. `cfni-db-codegen` now rewrites columns drizzle-kit can't type (`unknown(...)`) to `text(...)`, normalizes `order.txt` entries and applies each `.sql` file once, skips missing `order.txt` entries, and stubs Supabase's `net`, `vault` and `cron` objects so DDL using `pg_net`, Vault or `pg_cron` loads. See its changelog for details.
+
 ## [0.10.24] - 2026-10-03
 
 ### Fixed
