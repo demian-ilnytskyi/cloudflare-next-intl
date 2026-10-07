@@ -4,7 +4,8 @@ import type { TranslationObject } from "../../types/types.js";
 import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
 import { useEffect, useMemo, Suspense } from "react";
 import dynamic from "next/dynamic.js";
-import useLazyWrappingProvider from "./use_lazy_wrapping_provider.js";
+import CookieConsentProvider from "../../cookie_consent/client/cookie_consent_provider.js";
+import AuthUserProvider from "../../firebase_auth/client/auth_user_provider.js";
 import config from "@intl-config";
 import type { SerializedAuthUser } from "../../firebase_auth/types.js";
 import type { CookieConsentAnalyticsConfig, AutoAnalyticsEventsConfig } from "../../types/types.js";
@@ -12,7 +13,6 @@ import type { CookieConsentDialogProps } from "../../cookie_consent/client/compo
 import type { PrivacyPolicyUpdateDialogProps } from "../../cookie_consent/client/components/privacy_policy_update_dialog.js";
 import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
 import installGlobalErrorOverride from "../../error_handling/install_global_error_override.js";
-import AuthUserPendingProvider from "../../firebase_auth/client/auth_user_pending_provider.js";
 import { LocaleContext } from "./locale_provider.js";
 
 export { LocaleContext };
@@ -25,17 +25,7 @@ export { LocaleContext };
 // update (and a `getIdToken(true)` refresh) that causes another render —
 // an infinite loop of session-cookie writes, one per render.
 //
-// AuthUserProvider and CookieConsentProvider both WRAP `children` further
-// down. `next/dynamic`'s `loading` placeholder has no access to the
-// component's `children` prop (it only ever receives isLoading/error/retry),
-// so it cannot render them — the standard `dynamic()` call would unmount the
-// entire app tree while the chunk downloads, painting a white screen on slow
-// connections. `useLazyWrappingProvider` (below, used in the component body)
-// solves this by always rendering `children` and only adding the provider
-// wrapper once its chunk has resolved.
-const loadAuthUserProvider = () => import("../../firebase_auth/client/auth_user_provider.js");
 const AutoFirebasePerformanceEvents = dynamic(() => import("../../firebase_auth/client/components/auto_firebase_performance_events.js"));
-const loadCookieConsentProvider = () => import("../../cookie_consent/client/cookie_consent_provider.js");
 const CookieConsentAnalytics = dynamic(() => import("../../cookie_consent/client/components/cookie_consent_analytics.js"));
 const AutoAnalyticsEvents = dynamic(() => import("../../cookie_consent/client/components/auto_analytics_events.js"));
 // Shared with the warm-up effect below, so both go through the same
@@ -92,16 +82,7 @@ export default function LocationzationClientProvider({
     // usePathname()/useLocale()) must render as a CHILD of it, not a
     // sibling wrapping it, or those hooks would throw for running outside
     // the provider.
-    const { Provider: AuthUserProvider } = useLazyWrappingProvider(loadAuthUserProvider);
-    const { Provider: CookieConsentProvider, isReady: cookieConsentReady } = useLazyWrappingProvider(loadCookieConsentProvider);
 
-    // The consent banner is gated on `cookieConsentReady` below (it must not
-    // render before its context is live), but that gate also kept its chunk
-    // from being REQUESTED until the provider's chunk had already landed —
-    // two round trips back to back, with the banner as the last thing to
-    // paint. On a slow connection that made it the LCP element at ~2.7s.
-    // Starting its download here, alongside the provider's, overlaps the two
-    // instead of chaining them; the render gate below is unchanged.
     useEffect(() => {
         if (!config.cookieConsent || !autoWireDialogs) return;
         // Swallowed: a chunk 404 on a stale deploy must surface through the
@@ -112,51 +93,34 @@ export default function LocationzationClientProvider({
 
     let providedChildren = children;
     if (config.firebaseAuth && !skipAuthProvider) {
-        // `AuthUserProvider` keeps `children` mounted while its own chunk
-        // downloads (see useLazyWrappingProvider), so during that window the
-        // JSX nesting below is not yet a real context boundary — a child
-        // calling useAuthUser() would hit the `null` default, throw, and
-        // flash the error page until the chunk lands.
-        // `AuthUserPendingProvider` sits OUTSIDE (so the tree shape never
-        // changes on resolution) and publishes the same seed value the real
-        // provider starts from; once resolved, the inner real provider
-        // shadows it.
-        providedChildren = <AuthUserPendingProvider initialUser={initialAuthUser}>
-            <AuthUserProvider initialUser={initialAuthUser}>
-                {children}
-                {config.firebaseAuth.performance !== false && (
-                    <Suspense fallback={null}>
-                        <AutoFirebasePerformanceEvents />
-                    </Suspense>
-                )}
-            </AuthUserProvider>
-        </AuthUserPendingProvider>;
+        providedChildren = <AuthUserProvider initialUser={initialAuthUser}>
+            {children}
+            {config.firebaseAuth.performance !== false && (
+                <Suspense fallback={null}>
+                    <AutoFirebasePerformanceEvents />
+                </Suspense>
+            )}
+        </AuthUserProvider>;
     }
     if (config.cookieConsent) {
-        // The analytics/dialog siblings below call useCookieConsent(), which
-        // throws when rendered outside a live CookieConsentProvider context.
-        // CookieConsentProvider keeps `providedChildren` mounted even before
-        // its own chunk resolves (see useLazyWrappingProvider) — so gate
-        // these siblings on `cookieConsentReady` rather than just on JSX
-        // nesting, or they would crash during that pending window.
         providedChildren = <CookieConsentProvider requiresConsent={requiresConsent}>
             {providedChildren}
-            {cookieConsentReady && analyticsConfig && (
+            {analyticsConfig && (
                 <Suspense fallback={null}>
                     <CookieConsentAnalytics config={analyticsConfig} />
                 </Suspense>
             )}
-            {cookieConsentReady && analyticsConfig && (analyticsConfig.googleAnalyticsId || analyticsConfig.googleAdsId) && (
+            {analyticsConfig && (analyticsConfig.googleAnalyticsId || analyticsConfig.googleAdsId) && (
                 <Suspense fallback={null}>
                     <AutoAnalyticsEvents config={autoAnalyticsEventsConfig} />
                 </Suspense>
             )}
-            {cookieConsentReady && autoWireDialogs && (
+            {autoWireDialogs && (
                 <Suspense fallback={null}>
                     <CookieConsentDialog {...dialogProps} />
                 </Suspense>
             )}
-            {cookieConsentReady && autoWireDialogs && (
+            {autoWireDialogs && (
                 <Suspense fallback={null}>
                     <PrivacyPolicyUpdateDialog {...updateDialogProps} />
                 </Suspense>

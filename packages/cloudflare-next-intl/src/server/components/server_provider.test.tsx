@@ -160,13 +160,6 @@ describe('LocationzationProvider', () => {
         const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', messages: { Common: {} }, children: <span>child</span> }));
         expect(resolveAuthUserAndRedirect).not.toHaveBeenCalled();
-        // AuthUserProvider is lazy-loaded and wraps `children` once its chunk
-        // resolves — that transition is a one-time reconciliation remount
-        // (see use_lazy_wrapping_provider.tsx), so a *captured* element
-        // reference from `findByText` can race that remount and end up
-        // pointing at an already-detached node. `waitFor` + `getByText`
-        // re-queries the live DOM on every poll instead of trusting one
-        // resolved reference, so it settles correctly regardless of timing.
         await waitFor(() => {
             expect(screen.getByText('child')).toBeInTheDocument();
         });

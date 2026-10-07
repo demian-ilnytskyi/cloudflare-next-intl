@@ -20,8 +20,7 @@ export interface AuthUserContextType {
 // `useAuthUser` distinguish "not wrapped in AuthUserProvider" (throw) from
 // "wrapped, still loading" (`loading: true`).
 //
-// Lives in its own module so `useAuthUser` and the pending-window stand-in
-// (`AuthUserPendingProvider`) can reach the context without importing
+// Lives in its own module so `useAuthUser` can reach the context without importing
 // `auth_user_provider.js` — that module pulls in the Firebase client SDK,
 // which is exactly the chunk being lazily loaded.
 export const AuthUserContext = createContext<AuthUserContextType | null>(null);

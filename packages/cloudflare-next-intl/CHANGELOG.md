@@ -3,6 +3,16 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.26] - 2026-10-07
+
+### Changed
+
+- `AuthUserProvider` and `CookieConsentProvider` are statically imported again in the client providers instead of going through `useLazyWrappingProvider`. Removes the pending window where `children` rendered outside a live context, so `useAuthUser()` / `useCookieConsent()` consumers and the consent analytics/dialog siblings no longer need a readiness gate.
+
+### Removed
+
+- Internal `useLazyWrappingProvider` hook and `AuthUserPendingProvider` stand-in (no longer needed).
+
 ## [0.10.25] - 2026-10-07
 
 ### Changed
