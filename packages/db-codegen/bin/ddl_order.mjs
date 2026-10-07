@@ -6,7 +6,7 @@
 // another function must be created after it — so `order.txt` is how a
 // project expresses the real dependency order.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 function orderedEntries(dir) {
     const orderFile = join(dir, 'order.txt');
@@ -15,32 +15,45 @@ function orderedEntries(dir) {
 
     if (existsSync(orderFile)) {
         for (const rawLine of readFileSync(orderFile, 'utf8').split('\n')) {
-            const line = rawLine.trim();
+            let line = rawLine.trim();
             if (!line || line.startsWith('#')) continue;
+            line = line.replace(/^[./]+/, '').replace(/[/\\]+$/, '');
             const path = join(dir, line);
             if (existsSync(path)) {
                 ordered.push(path);
                 applied.add(line);
+                applied.add(basename(line));
             }
         }
     }
 
-    const rest = readdirSync(dir)
-        .filter((name) => name !== 'order.txt' && !applied.has(name))
-        .sort()
-        .map((name) => join(dir, name));
+    if (existsSync(dir)) {
+        const rest = readdirSync(dir)
+            .filter((name) => name !== 'order.txt' && !applied.has(name))
+            .sort()
+            .map((name) => join(dir, name));
 
-    return [...ordered, ...rest];
+        return [...ordered, ...rest];
+    }
+
+    return ordered;
 }
 
 /** Returns every `.sql` file under `dir`, in the order a project's own
  *  `order.txt` files (one per directory) say they must be applied. */
-export function orderedSqlFiles(dir) {
+export function orderedSqlFiles(dir, seen = new Set()) {
     const files = [];
     for (const path of orderedEntries(dir)) {
+        if (!existsSync(path)) continue;
         const stat = statSync(path);
-        if (stat.isDirectory()) files.push(...orderedSqlFiles(path));
-        else if (path.endsWith('.sql')) files.push(path);
+        if (stat.isDirectory()) {
+            files.push(...orderedSqlFiles(path, seen));
+        } else if (path.endsWith('.sql')) {
+            if (!seen.has(path)) {
+                seen.add(path);
+                files.push(path);
+            }
+        }
     }
     return files;
 }

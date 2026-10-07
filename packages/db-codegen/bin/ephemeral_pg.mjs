@@ -56,6 +56,9 @@ export async function startEphemeralPostgres(sqlFiles) {
             await client.query(`CREATE SCHEMA IF NOT EXISTS auth;`).catch(() => {});
             await client.query(`CREATE SCHEMA IF NOT EXISTS storage;`).catch(() => {});
             await client.query(`CREATE SCHEMA IF NOT EXISTS extensions;`).catch(() => {});
+            await client.query(`CREATE SCHEMA IF NOT EXISTS net;`).catch(() => {});
+            await client.query(`CREATE SCHEMA IF NOT EXISTS vault;`).catch(() => {});
+            await client.query(`CREATE SCHEMA IF NOT EXISTS cron;`).catch(() => {});
             await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`).catch(() => {});
             await client.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`).catch(() => {});
 
@@ -133,6 +136,64 @@ export async function startEphemeralPostgres(sqlFiles) {
                     END IF;
                 END
                 $$;
+
+                CREATE TABLE IF NOT EXISTS vault.decrypted_secrets (
+                    id uuid,
+                    name text,
+                    description text,
+                    secret text,
+                    decrypted_secret text,
+                    created_at timestamptz,
+                    updated_at timestamptz,
+                    key_id uuid
+                );
+
+                CREATE TABLE IF NOT EXISTS net._http_response (
+                    id bigint PRIMARY KEY,
+                    status_code integer,
+                    content text,
+                    headers jsonb,
+                    timed_out boolean,
+                    error_msg text,
+                    created timestamptz DEFAULT now()
+                );
+
+                CREATE OR REPLACE FUNCTION net.http_post(
+                    url text,
+                    body jsonb DEFAULT '{}'::jsonb,
+                    params jsonb DEFAULT '{}'::jsonb,
+                    headers jsonb DEFAULT '{}'::jsonb,
+                    timeout_milliseconds integer DEFAULT 5000
+                ) RETURNS bigint LANGUAGE plpgsql AS $$
+                BEGIN
+                    RETURN 1::bigint;
+                END;
+                $$;
+
+                CREATE OR REPLACE FUNCTION net.http_get(
+                    url text,
+                    params jsonb DEFAULT '{}'::jsonb,
+                    headers jsonb DEFAULT '{}'::jsonb,
+                    timeout_milliseconds integer DEFAULT 5000
+                ) RETURNS bigint LANGUAGE plpgsql AS $$
+                BEGIN
+                    RETURN 1::bigint;
+                END;
+                $$;
+
+                CREATE OR REPLACE FUNCTION net.http_delete(
+                    url text,
+                    params jsonb DEFAULT '{}'::jsonb,
+                    headers jsonb DEFAULT '{}'::jsonb,
+                    timeout_milliseconds integer DEFAULT 5000
+                ) RETURNS bigint LANGUAGE plpgsql AS $$
+                BEGIN
+                    RETURN 1::bigint;
+                END;
+                $$;
+
+                CREATE OR REPLACE FUNCTION cron.schedule(job_name text, schedule text, command text) RETURNS bigint LANGUAGE sql AS $$ SELECT 1::bigint $$;
+                CREATE OR REPLACE FUNCTION cron.unschedule(job_name text) RETURNS boolean LANGUAGE sql AS $$ SELECT true $$;
             `).catch(() => {});
 
             for (const file of sqlFiles) {
