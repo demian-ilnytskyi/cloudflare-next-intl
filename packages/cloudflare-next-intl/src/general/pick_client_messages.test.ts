@@ -43,9 +43,10 @@ describe('pickClientMessages', () => {
         const m = { A: { x: '1' }, B: { y: '2' } };
         expect(pickClientMessages(m, 'auto')).toBe(m);
 
-        (globalThis as any).__CFNI_CLIENT_MESSAGES__ = ['B'];
+        (globalThis as Record<string, unknown>).__CFNI_CLIENT_MESSAGES__ = ['B'];
         expect(pickClientMessages(m, 'auto')).toEqual({ B: { y: '2' } });
-        delete (globalThis as any).__CFNI_CLIENT_MESSAGES__;
+        delete (globalThis as Record<string, unknown>).__CFNI_CLIENT_MESSAGES__;
     });
 });
+
 
