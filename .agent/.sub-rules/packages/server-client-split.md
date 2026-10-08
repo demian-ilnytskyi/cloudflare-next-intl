@@ -38,6 +38,12 @@ Set up by `client/components/client_provider.tsx`
 `next/navigation`'s `usePathname()`). Hooks throw a descriptive `Error` if
 rendered outside the provider — intentional defensive API, not a bug.
 
+## `clientMessages` manifest & `autoClientMessages` plugin
+
+`IntlProvider` filters serialized translation messages passed to the client via `pickClientMessages`.
+When `clientMessages: "auto"`, it uses `__CFNI_CLIENT_MESSAGES__` injected at build time by `autoClientMessagesPlugin` (in Vite config) which scans AST calls to `useTranslations`.
+Array configs support wildcards (e.g. `Categories*`).
+
 ## `Link` (server) vs `LocaleLink` (client) — different jobs, don't merge
 
 - `server/components/link.tsx` (`Link`) — normal in-app nav staying on the

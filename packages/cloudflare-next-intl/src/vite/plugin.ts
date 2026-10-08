@@ -11,6 +11,7 @@ import { imageOptimizerPlugin, type ImageOptimizerPluginOptions } from "../image
 import { autoDynamicPagesPlugin, type AutoDynamicPagesPluginOptions } from "./auto_dynamic_pages_plugin.js";
 import { autoLocaleParamsPlugin, type AutoLocaleParamsPluginOptions } from "./auto_locale_params_plugin.js";
 import { autoImageLoaderPlugin, type AutoImageLoaderOptions } from "./auto_image_loader_plugin.js";
+import { autoClientMessagesPlugin, type AutoClientMessagesOptions } from "./auto_client_messages_plugin.js";
 import { layoutQueriesPlugin, type LayoutQueriesPluginOptions } from "./layout_queries_plugin.js";
 import { firebaseAuthCheckPlugin, type FirebaseAuthCheckPluginOptions } from "./firebase_auth_check_plugin.js";
 import { vinextRouteWiringFixPlugin, type VinextRouteWiringFixPluginOptions } from "./vinext_route_wiring_fix.js";
@@ -90,6 +91,12 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
      * @default true
      */
     autoImageLoader?: boolean | AutoImageLoaderOptions;
+
+    /**
+     * Scan `useTranslations(...)` calls at build time and ship only those namespaces to the client.
+     * Requires `clientMessages: "auto"` in the intl config. Off by default.
+     */
+    autoClientMessages?: boolean | AutoClientMessagesOptions;
 
     /**
      * Build-time and dev image optimizer plugin. Automatically downscales rasters into `public/generated`,
@@ -238,6 +245,16 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
             autoImageLoaderPlugin(
                 typeof options.autoImageLoader === "object"
                     ? { root: options.root, ...options.autoImageLoader }
+                    : { root: options.root }
+            )
+        );
+    }
+
+    if (options.autoClientMessages) {
+        plugins.push(
+            autoClientMessagesPlugin(
+                typeof options.autoClientMessages === "object"
+                    ? { root: options.root, ...options.autoClientMessages }
                     : { root: options.root }
             )
         );

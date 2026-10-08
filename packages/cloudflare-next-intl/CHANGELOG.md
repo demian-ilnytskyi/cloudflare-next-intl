@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `clientMessages` config option: `false`, a list of namespaces (supporting trailing wildcards like `Categories*`), or `"auto"` limits which translations `IntlProvider` serializes into every page for client `useTranslations`. Default `true` keeps current behavior.
+- `autoClientMessages` Vite plugin (`autoClientMessagesPlugin`): build-time scan of client source files for `useTranslations(...)` calls, generating the manifest used by `clientMessages: "auto"`.
+- `AutoAnalyticsEvents` export (`cloudflare-next-intl/AutoAnalyticsEvents` and `cloudflare-next-intl/cookieConsent`).
+
 ## [0.10.27] - 2026-10-07
 
 ### Fixed

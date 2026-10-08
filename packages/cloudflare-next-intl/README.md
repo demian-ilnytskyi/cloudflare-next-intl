@@ -166,6 +166,22 @@ export function Navigation() {
 }
 ```
 
+`IntlProvider` sends the locale's messages to the client for `useTranslations`
+in client components. Set `clientMessages` in your config to shrink that
+payload: `false` sends none (server-only translations), an array such as
+`["Auth", "Common", "Categories*"]` sends only matching namespaces, or `"auto"`
+uses build-time AST scan via the `autoClientMessages` Vite plugin. Default: `true`.
+
+```ts
+// vite.config.ts
+cloudflareNextIntl({
+    autoClientMessages: { fallbackNamespaces: ["Common"], onDynamic: "fallback", packages: ["@my/ui"] }
+})
+// intl.config.ts -> setIntlConfig({ clientMessages: "auto", ... })
+```
+
+> UI library packages can declare `"i18n": { "namespaces": ["Buttons"] }` in `package.json` for automatic inclusion.
+
 ### Locale-aware links (non-locale-switching)
 
 Use `Link` (server-safe, from `./Link`) for normal navigation that should
@@ -608,6 +624,9 @@ import { useCookieConsent } from "cloudflare-next-intl/useCookieConsent";
 
 const { consent, setConsent } = useCookieConsent();
 ```
+
+Composing the providers yourself (`autoWireAnalytics: false`)? `AutoAnalyticsEvents`
+is exported from `cloudflare-next-intl/AutoAnalyticsEvents` (and `cloudflare-next-intl/cookieConsent`).
 
 See [`package/src/cookie_consent/README.md`](package/src/cookie_consent/README.md) for layout, customization, and gotchas.
 

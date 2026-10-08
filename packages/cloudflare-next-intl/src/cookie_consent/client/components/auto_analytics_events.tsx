@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation.js';
-import { useReportWebVitals } from 'next/web-vitals';
+import { useReportWebVitals } from 'next/web-vitals.js';
 import { useEffect } from 'react';
 import useCookieConsent from '../use_cookie_consent.js';
 import type { AutoAnalyticsEventName, AutoAnalyticsEventsConfig } from '../../../types/types.js';

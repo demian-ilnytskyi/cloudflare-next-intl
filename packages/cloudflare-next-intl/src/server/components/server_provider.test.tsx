@@ -21,9 +21,10 @@ let firebaseAuthValue: Record<string, unknown> | undefined;
 let cookieConsentValue: Record<string, unknown> | undefined;
 let generateValue: Record<string, unknown> | undefined;
 let errorHandlingValue: Record<string, unknown> | undefined;
+let clientMessagesValue: boolean | string[] | undefined;
 vi.mock('@intl-config', () => ({
     get default() {
-        return { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: firebaseAuthValue, cookieConsent: cookieConsentValue, generate: generateValue, errorHandling: errorHandlingValue };
+        return { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: firebaseAuthValue, cookieConsent: cookieConsentValue, generate: generateValue, errorHandling: errorHandlingValue, clientMessages: clientMessagesValue };
     },
 }));
 
@@ -71,6 +72,7 @@ describe('LocationzationProvider', () => {
         cookieConsentValue = undefined;
         generateValue = undefined;
         errorHandlingValue = undefined;
+        clientMessagesValue = undefined;
     });
 
 
@@ -85,6 +87,18 @@ describe('LocationzationProvider', () => {
         const { default: LocationzationProvider } = await import('./server_provider.js');
         render(await LocationzationProvider({ language: 'en', children: <span>child</span> }));
         expect(getMessage).toHaveBeenCalledWith('en');
+    });
+
+    it('sends only the clientMessages namespaces to the client context', async () => {
+        clientMessagesValue = ['Auth'];
+        vi.resetModules();
+        const { LocaleContext } = await import('../../client/components/locale_provider.js');
+        const { default: LocationzationProvider } = await import('./server_provider.js');
+        function Consumer() {
+            return <span data-testid="client-messages">{JSON.stringify(React.useContext(LocaleContext)?.messages)}</span>;
+        }
+        render(await LocationzationProvider({ language: 'en', messages: { Common: { ok: 'OK' }, Auth: { login: 'Log in' } }, children: <Consumer /> }));
+        expect(await screen.findByTestId('client-messages')).toHaveTextContent('{"Auth":{"login":"Log in"}}');
     });
 
     it('calls notFound() for an unconfigured locale', async () => {

@@ -114,6 +114,14 @@ export interface RoutingConfig<AppLocales extends Locales, AppLocalePrefixMode e
      */
     generate?: GenerateRoutingConfig;
     /**
+     * Which translation namespaces `IntlProvider` serializes into every page
+     * for client-side `useTranslations`. `true` (default) sends all of them,
+     * `false` sends none (server-only translations), and an array sends only
+     * those top-level namespaces. `"auto"` uses the namespace manifest generated
+     * by the `autoClientMessages` Vite plugin; array entries may end with `*`.
+     */
+    clientMessages?: boolean | "auto" | readonly string[];
+    /**
      * Configures the optional `error_handling` submodule (shared
      * `withErrorHandling`/`reportError` helpers used internally by this
      * package and available to your own app code). Omit entirely to keep

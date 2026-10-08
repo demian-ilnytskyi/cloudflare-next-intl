@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import dynamic from "next/dynamic.js";
 import { localesSet } from "../../config/middleware.js";
 import config from "../../config/intl_config.js";
+import pickClientMessages from "../../general/pick_client_messages.js";
 import type { CookieConsentAnalyticsConfig } from "../../types/types.js";
 import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
 import reportError from "../../error_handling/report_error.js";
@@ -82,7 +83,7 @@ export default async function LocationzationProvider({ language, messages, child
     if (messages) {
         setMessageForLocaleCache(language, messages);
     }
-    const messagesValue = messages ?? await getMessage(language);
+    const messagesValue = pickClientMessages(messages ?? await getMessage(language), config.clientMessages);
 
     installConsoleErrorOverride(config);
 

@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.10.27",
+  "version": "0.10.28",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -179,6 +179,10 @@
     "./cookieConsentAnalytics": {
       "types": "./dist/src/cookie_consent/client/components/cookie_consent_analytics.d.ts",
       "import": "./dist/src/cookie_consent/client/components/cookie_consent_analytics.js"
+    },
+    "./AutoAnalyticsEvents": {
+      "types": "./dist/src/cookie_consent/client/components/auto_analytics_events.d.ts",
+      "import": "./dist/src/cookie_consent/client/components/auto_analytics_events.js"
     },
     "./errorHandling": {
       "types": "./dist/src/error_handling/index.d.ts",

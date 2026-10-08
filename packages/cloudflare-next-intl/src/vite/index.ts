@@ -1,3 +1,4 @@
+export { autoClientMessagesPlugin, type AutoClientMessagesOptions } from "./auto_client_messages_plugin.js";
 export { autoDynamicPagesPlugin, type AutoDynamicPagesPluginOptions } from "./auto_dynamic_pages_plugin.js";
 export { autoLocaleParamsPlugin, type AutoLocaleParamsPluginOptions } from "./auto_locale_params_plugin.js";
 export { layoutQueriesPlugin, type LayoutQueriesPluginOptions } from "./layout_queries_plugin.js";
