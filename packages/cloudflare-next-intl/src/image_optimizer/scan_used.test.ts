@@ -105,6 +105,18 @@ describe("scan_used", () => {
         expect(overrides["/images/multi-size.png"].extraWidths?.sort((a, b) => a - b)).toEqual([200, 1200]);
     });
 
+    it("extractImageOverrides merges extraWidths when one usage has width and another does not", () => {
+        const code = `
+            <Image src="/images/partial-width.png" quality={80} />
+            <Image src="/images/partial-width.png" width={400} />
+            <Image src="/images/partial-width.png" quality={90} />
+        `;
+        const overrides = extractImageOverrides(code);
+        expect(overrides["/images/partial-width.png"].extraWidths).toEqual([400]);
+        expect(overrides["/images/partial-width.png"].quality).toBe(90);
+    });
+
+
     it("extractImageOverrides ignores unrecognized format keywords, non-numeric maxWidth, and an empty src", () => {
         const code = `
             <Image src="/images/weird.png" formats={["bogus"]} maxWidth={"nope"} />
