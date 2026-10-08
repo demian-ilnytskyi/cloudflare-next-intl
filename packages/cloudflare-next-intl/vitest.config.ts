@@ -74,6 +74,7 @@ export default defineConfig({
             '@intl-config': path.resolve(__dirname, './src/test_utils/mock_intl_config.ts'),
             '@locale-file': path.resolve(__dirname, './src/test_utils/mock_locale_file'),
             'virtual:cloudflare-next-intl-images-manifest': path.resolve(__dirname, './src/test_utils/mock_images_manifest.ts'),
+            'virtual:cloudflare-next-intl-image-loader': path.resolve(__dirname, './src/test_utils/mock_image_loader.ts'),
         },
     },
 });

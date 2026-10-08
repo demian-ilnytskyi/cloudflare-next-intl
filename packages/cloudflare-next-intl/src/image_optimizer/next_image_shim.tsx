@@ -35,6 +35,17 @@ const images: Record<string, ManifestEntry> = (manifestData && typeof manifestDa
     ? manifestData.images
     : {};
 
+let defaultCustomLoader: ((props: { src: string; width: number; quality?: number }) => string) | undefined;
+try {
+    const loaderMod = (await import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-image-loader")) as {
+        defaultLoader?: (props: { src: string; width: number; quality?: number }) => string;
+        default?: (props: { src: string; width: number; quality?: number }) => string;
+    };
+    defaultCustomLoader = loaderMod.defaultLoader ?? loaderMod.default;
+} catch {
+    defaultCustomLoader = undefined;
+}
+
 function findEntry(srcVal: unknown): ManifestEntry | undefined {
     if (!srcVal) return undefined;
     const raw = typeof srcVal === "string"
@@ -107,6 +118,7 @@ function resolveProps(props: ImageProps): ImageProps {
     let width = props.width;
     let height = props.height;
     let style = props.style;
+    const loader = props.loader ?? defaultCustomLoader;
 
     const entry = findEntry(src);
     if (entry) {
@@ -145,7 +157,7 @@ function resolveProps(props: ImageProps): ImageProps {
         };
     }
 
-    return { ...props, src, blurDataURL, width, height, style };
+    return { ...props, src, blurDataURL, width, height, style, loader };
 }
 
 export default function Image(props: ImageProps): React.JSX.Element {

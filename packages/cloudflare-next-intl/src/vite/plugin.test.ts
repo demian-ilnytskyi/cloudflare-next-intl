@@ -6,12 +6,13 @@ describe("cloudflareNextIntl (main plugin)", () => {
     it("returns array of plugins by default", () => {
         const plugins = cloudflareNextIntl();
         expect(Array.isArray(plugins)).toBe(true);
-        expect(plugins.length).toBe(14);
+        expect(plugins.length).toBe(15);
 
         const pluginNames = plugins.map((p) => p.name);
         expect(pluginNames).toContain("cloudflare-next-intl-layout-queries-check");
         expect(pluginNames).toContain("cloudflare-next-intl-auto-dynamic-pages");
         expect(pluginNames).toContain("cloudflare-next-intl-auto-locale-params");
+        expect(pluginNames).toContain("cloudflare-next-intl-auto-image-loader");
         expect(pluginNames).toContain("cloudflare-next-intl-image-optimizer");
         expect(pluginNames).toContain("cfni:build-id-asset");
         expect(pluginNames).toContain("cfni:cf-workers-client-stub");
@@ -44,6 +45,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             firebaseAuthCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
+            autoImageLoader: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -65,6 +67,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             firebaseAuthCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
+            autoImageLoader: false,
             imageOptimizer: false,
             buildIdAsset: "CUSTOM_BUILD_ID",
             cfWorkersClientStub: false,
@@ -87,6 +90,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             firebaseAuthCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
+            autoImageLoader: false,
             imageOptimizer: {
                 maxWidth: 1200,
                 formats: ["webp"],
@@ -106,6 +110,31 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(plugins[0].name).toBe("cloudflare-next-intl-image-optimizer");
     });
 
+    it("supports custom autoImageLoader configuration", () => {
+        const plugins = cloudflareNextIntl({
+            layoutQueriesCheck: false,
+            firebaseAuthCheck: false,
+            autoDynamicPages: false,
+            autoLocaleParams: false,
+            autoImageLoader: {
+                file: "custom-loader.ts",
+            },
+            imageOptimizer: false,
+            buildIdAsset: false,
+            cfWorkersClientStub: false,
+            userAgentStub: false,
+            vinextRouteWiringFix: false,
+            localeFiles: false,
+            lucideOptimizer: false,
+            bufferStub: false,
+            reactEvalStub: false,
+            optionalFirebaseStub: false,
+        });
+
+        expect(plugins.length).toBe(1);
+        expect(plugins[0].name).toBe("cloudflare-next-intl-auto-image-loader");
+    });
+
     it("supports custom layoutQueriesCheck configuration", () => {
         const plugins = cloudflareNextIntl({
             layoutQueriesCheck: {
@@ -115,6 +144,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             firebaseAuthCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
+            autoImageLoader: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -137,6 +167,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             layoutQueriesCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
+            autoImageLoader: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -162,6 +193,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
                 target: "next",
             },
             autoLocaleParams: false,
+            autoImageLoader: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -187,6 +219,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
                 mode: "report",
                 localeParam: "lang",
             },
+            autoImageLoader: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -209,6 +242,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             firebaseAuthCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
+            autoImageLoader: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -231,6 +265,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             firebaseAuthCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
+            autoImageLoader: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -273,6 +308,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             firebaseAuthCheck: false,
             autoDynamicPages: false,
             autoLocaleParams: false,
+            autoImageLoader: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -295,6 +331,10 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(viteIndex.default).toBe(cloudflareNextIntl);
         expect(typeof viteIndex.autoDynamicPagesPlugin).toBe("function");
         expect(typeof viteIndex.autoLocaleParamsPlugin).toBe("function");
+        expect(typeof viteIndex.autoImageLoaderPlugin).toBe("function");
+        expect(typeof viteIndex.detectImageLoader).toBe("function");
+        expect(typeof viteIndex.findExportedLoaderName).toBe("function");
+        expect(typeof viteIndex.generateLoaderVirtualModule).toBe("function");
         expect(typeof viteIndex.imageOptimizer).toBe("function");
         expect(typeof viteIndex.imageOptimizerPlugin).toBe("function");
         expect(typeof viteIndex.buildIdAsset).toBe("function");

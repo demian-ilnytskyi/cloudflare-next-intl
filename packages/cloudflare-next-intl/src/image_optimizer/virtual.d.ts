@@ -3,3 +3,12 @@ declare module "virtual:cloudflare-next-intl-images-manifest" {
     const manifest: { images?: Record<string, OptimizedImage> } | Record<string, OptimizedImage>;
     export default manifest;
 }
+
+declare module "virtual:cloudflare-next-intl-image-loader" {
+    export type CustomImageLoaderFn = (props: { src: string; width: number; quality?: number }) => string;
+    export const defaultLoader: CustomImageLoaderFn | undefined;
+    export const hasCustomLoader: boolean;
+    const loader: CustomImageLoaderFn | undefined;
+    export default loader;
+}
+

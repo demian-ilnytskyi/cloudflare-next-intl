@@ -10,6 +10,7 @@ import { imageOptimizerPlugin, type ImageOptimizerPluginOptions } from "../image
 
 import { autoDynamicPagesPlugin, type AutoDynamicPagesPluginOptions } from "./auto_dynamic_pages_plugin.js";
 import { autoLocaleParamsPlugin, type AutoLocaleParamsPluginOptions } from "./auto_locale_params_plugin.js";
+import { autoImageLoaderPlugin, type AutoImageLoaderOptions } from "./auto_image_loader_plugin.js";
 import { layoutQueriesPlugin, type LayoutQueriesPluginOptions } from "./layout_queries_plugin.js";
 import { firebaseAuthCheckPlugin, type FirebaseAuthCheckPluginOptions } from "./firebase_auth_check_plugin.js";
 import { vinextRouteWiringFixPlugin, type VinextRouteWiringFixPluginOptions } from "./vinext_route_wiring_fix.js";
@@ -80,6 +81,15 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
      * @default true
      */
     optionalFirebaseStub?: boolean;
+
+    /**
+     * Automatically detect and wire custom image loader file (e.g. `image-loader.ts`).
+     * Auto-detects default export or named function export (e.g. `imageLoader`, `customLoader`, etc.).
+     * Injects the loader into Next.js Image shim for Vinext.
+     * Set to `false` to disable or pass an options object to customize file path or export name.
+     * @default true
+     */
+    autoImageLoader?: boolean | AutoImageLoaderOptions;
 
     /**
      * Build-time and dev image optimizer plugin. Automatically downscales rasters into `public/generated`,
@@ -221,6 +231,16 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
             autoDynamicPagesOptions.includeLoading = true;
         }
         plugins.push(autoDynamicPagesPlugin(autoDynamicPagesOptions));
+    }
+
+    if (options.autoImageLoader !== false) {
+        plugins.push(
+            autoImageLoaderPlugin(
+                typeof options.autoImageLoader === "object"
+                    ? { root: options.root, ...options.autoImageLoader }
+                    : { root: options.root }
+            )
+        );
     }
 
     if (options.imageOptimizer !== false) {

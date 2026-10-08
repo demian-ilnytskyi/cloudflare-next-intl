@@ -43,6 +43,17 @@ export {
     transformNextJsImports,
     type LucideOptimizerPluginOptions,
 } from "./lucide_optimizer_plugin.js";
+export {
+    autoImageLoaderPlugin,
+    detectImageLoader,
+    findExportedLoaderName,
+    generateLoaderVirtualModule,
+    DEFAULT_LOADER_CANDIDATES,
+    VIRTUAL_IMAGE_LOADER_ID,
+    RESOLVED_IMAGE_LOADER_ID,
+    type AutoImageLoaderOptions,
+    type DetectedImageLoader,
+} from "./auto_image_loader_plugin.js";
 export { cloudflareNextIntl, cloudflareNextIntlPlugin, type CloudflareNextIntlOptions, default } from "./plugin.js";
 export {
     imageOptimizer,
@@ -59,3 +70,4 @@ export {
     type ManifestData,
     type ManifestEntry,
 } from "../image_optimizer/index.js";
+

@@ -145,4 +145,37 @@ describe("next_image_shim", () => {
         expect(props.width).toBe(800);
         expect(props.height).toBe(600);
     });
+
+    it("supports custom image loader prop", () => {
+        const customLoader = ({ src, width, quality }: { src: string; width: number; quality?: number }) =>
+            `https://cdn.example.com/custom?src=${encodeURIComponent(src)}&w=${width}&q=${quality ?? 75}`;
+
+        const { container } = render(
+            <Image
+                src="/images/custom.jpg"
+                alt="custom"
+                width={300}
+                height={200}
+                loader={customLoader}
+            />,
+        );
+        const img = container.querySelector("img");
+        expect(img?.getAttribute("src")).toContain("https://cdn.example.com/custom");
+        expect(img?.getAttribute("src")).toContain("src=%2Fimages%2Fcustom.jpg");
+    });
+
+    it("passes custom loader through getImageProps", () => {
+        const customLoader = ({ src, width }: { src: string; width: number }) =>
+            `https://img.cdn.com/${src}?w=${width}`;
+
+        const { props } = getImageProps({
+            src: "avatar.png",
+            alt: "avatar",
+            width: 100,
+            height: 100,
+            loader: customLoader,
+        });
+        expect(props.src).toContain("https://img.cdn.com/avatar.png");
+    });
 });
+
