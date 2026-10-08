@@ -135,6 +135,32 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(plugins[0].name).toBe("cloudflare-next-intl-auto-image-loader");
     });
 
+    it("supports custom autoClientMessages configuration", () => {
+        const plugins = cloudflareNextIntl({
+            layoutQueriesCheck: false,
+            firebaseAuthCheck: false,
+            autoDynamicPages: false,
+            autoLocaleParams: false,
+            autoImageLoader: false,
+            autoClientMessages: {
+                strict: true,
+            },
+            imageOptimizer: false,
+            buildIdAsset: false,
+            cfWorkersClientStub: false,
+            userAgentStub: false,
+            vinextRouteWiringFix: false,
+            localeFiles: false,
+            lucideOptimizer: false,
+            bufferStub: false,
+            reactEvalStub: false,
+            optionalFirebaseStub: false,
+        });
+
+        expect(plugins.length).toBe(1);
+        expect(plugins[0].name).toBe("cloudflare-next-intl-auto-client-messages");
+    });
+
     it("supports custom layoutQueriesCheck configuration", () => {
         const plugins = cloudflareNextIntl({
             layoutQueriesCheck: {

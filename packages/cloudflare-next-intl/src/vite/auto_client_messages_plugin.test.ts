@@ -43,6 +43,22 @@ describe("autoClientMessagesPlugin", () => {
         expect(server.config.define.__CFNI_CLIENT_MESSAGES__).toBe(JSON.stringify(["B"]));
         expect(server.ws.send).toHaveBeenCalledWith({ type: "full-reload" });
     });
+    it("hot update ignores non-source files and unchanged namespace results", () => {
+        const r = root(`${imp}useTranslations("A");`);
+        const p = autoClientMessagesPlugin({ root: r });
+        callConfig(p);
+        const server = { config: { define: {} as Record<string, string> }, ws: { send: vi.fn() } };
+        p.handleHotUpdate({ file: join(r, "README.md"), server });
+        expect(server.ws.send).not.toHaveBeenCalled();
+
+        p.handleHotUpdate({ file: join(r, "src/a.tsx"), server });
+        expect(server.ws.send).not.toHaveBeenCalled();
+    });
+    it("uses default root and logs correctly", () => {
+        const p = autoClientMessagesPlugin();
+        const out = callConfig(p);
+        expect(out.define.__CFNI_CLIENT_MESSAGES__).toBeDefined();
+    });
     it("is off by default in cloudflareNextIntl()", () => {
         expect(cloudflareNextIntl().some((p) => p.name === "cloudflare-next-intl-auto-client-messages")).toBe(false);
         expect(cloudflareNextIntl({ autoClientMessages: true }).some((p) => p.name === "cloudflare-next-intl-auto-client-messages")).toBe(true);

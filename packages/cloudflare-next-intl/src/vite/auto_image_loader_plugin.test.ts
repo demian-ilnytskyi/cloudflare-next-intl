@@ -88,11 +88,15 @@ describe("auto_image_loader_plugin", () => {
 
             const codeSimple = `export { directLoader };`;
             expect(findExportedLoaderName(codeSimple)).toBe("directLoader");
+
+            const codeWithEmpty = `export { , directLoader };`;
+            expect(findExportedLoaderName(codeWithEmpty)).toBe("directLoader");
         });
 
         it("returns null when no export exists or file is only comments", () => {
             expect(findExportedLoaderName("// just comments\n/* more comments */")).toBeNull();
             expect(findExportedLoaderName("const a = 123;")).toBeNull();
+            expect(findExportedLoaderName("export { };")).toBeNull();
         });
 
         it("respects preferredExportName when specified", () => {
@@ -173,6 +177,12 @@ describe("auto_image_loader_plugin", () => {
             expect(result.loaderPath).toBeNull();
             expect(result.exportName).toBeNull();
         });
+
+        it("detects loader using process.cwd() fallback when options are omitted", () => {
+            const result = detectImageLoader();
+            expect(result).toBeDefined();
+        });
+
 
         it("handles empty file or whitespace/comments-only file gracefully", () => {
             const filePath = path.join(tempDir, "image-loader.ts");
