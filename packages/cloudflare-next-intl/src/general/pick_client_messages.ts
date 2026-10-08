@@ -8,9 +8,8 @@ function readAutoManifest(): string[] | true | undefined {
 }
 
 export default function pickClientMessages(messages: TranslationObject, clientMessages: boolean | "auto" | readonly string[] | undefined = "auto", autoManifest: string[] | true | undefined = readAutoManifest()): TranslationObject {
-    const effective = clientMessages ?? "auto";
-    const list = effective === "auto" ? autoManifest ?? true : effective;
-    if (list === undefined || list === true) return messages;
+    const list = clientMessages === "auto" ? autoManifest ?? true : clientMessages;
+    if (list === true) return messages;
     const picked: TranslationObject = {};
     if (list === false) return picked;
     for (const namespace of Object.keys(messages)) {

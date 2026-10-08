@@ -254,14 +254,11 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
 
     if (options.autoClientMessages !== false) {
         plugins.push(
-            autoClientMessagesPlugin({
-                onDynamic: "fallback",
-                fallbackNamespaces: [],
-                ...(typeof options.autoClientMessages === "object" ? options.autoClientMessages : {}),
-                root: typeof options.autoClientMessages === "object" && options.autoClientMessages.root !== undefined
-                    ? options.autoClientMessages.root
-                    : options.root,
-            })
+            autoClientMessagesPlugin(
+                typeof options.autoClientMessages === "object"
+                    ? { root: options.root, ...options.autoClientMessages }
+                    : { root: options.root }
+            )
         );
     }
 
