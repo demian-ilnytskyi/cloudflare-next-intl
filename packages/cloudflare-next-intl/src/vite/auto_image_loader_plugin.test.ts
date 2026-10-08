@@ -246,6 +246,12 @@ describe("auto_image_loader_plugin", () => {
     });
 
     describe("findLoaderFileFromNextConfig", () => {
+        it("exports NEXT_CONFIG_CANDIDATES containing standard Next config extensions", () => {
+            expect(NEXT_CONFIG_CANDIDATES).toContain("next.config.ts");
+            expect(NEXT_CONFIG_CANDIDATES).toContain("next.config.mjs");
+            expect(NEXT_CONFIG_CANDIDATES).toContain("next.config.js");
+        });
+
         it("returns null when no next.config.* exists", () => {
             expect(findLoaderFileFromNextConfig(tempDir)).toBeNull();
         });
