@@ -23,7 +23,7 @@ function walk(dir: string, out: string[], skipNodeModules: boolean): void {
 
 export function scanProject(opts: ScanProjectOptions): ClientMessagesManifest {
     const files: string[] = [];
-    for (const d of opts.dirs ?? ["src", "app", "components"]) {
+    for (const d of opts.dirs ?? ["src", "app", "components", "pages", "shared", "modules", "lib"]) {
         const full = join(opts.root, d);
         if (existsSync(full)) walk(full, files, true);
     }

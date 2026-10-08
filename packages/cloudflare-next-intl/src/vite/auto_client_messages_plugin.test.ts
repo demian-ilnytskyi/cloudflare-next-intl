@@ -26,8 +26,12 @@ describe("autoClientMessagesPlugin", () => {
         const out = callConfig(autoClientMessagesPlugin({ root: root(`${imp}useTranslations("Auth");`) }));
         expect(out.define.__CFNI_CLIENT_MESSAGES__).toBe(JSON.stringify(["Auth"]));
     });
-    it("injects true on dynamic call by default", () => {
-        const out = callConfig(autoClientMessagesPlugin({ root: root(`${imp}useTranslations(p.x);`) }));
+    it("injects fallback namespaces on dynamic call by default", () => {
+        const out = callConfig(autoClientMessagesPlugin({ root: root(`${imp}useTranslations(p.x);`), fallbackNamespaces: ["Fallback"] }));
+        expect(out.define.__CFNI_CLIENT_MESSAGES__).toBe(JSON.stringify(["Fallback"]));
+    });
+    it("injects true on dynamic call when onDynamic is all", () => {
+        const out = callConfig(autoClientMessagesPlugin({ root: root(`${imp}useTranslations(p.x);`), onDynamic: "all" }));
         expect(out.define.__CFNI_CLIENT_MESSAGES__).toBe("true");
     });
     it("strict throws on dynamic call", () => {
@@ -59,8 +63,8 @@ describe("autoClientMessagesPlugin", () => {
         const out = callConfig(p);
         expect(out.define.__CFNI_CLIENT_MESSAGES__).toBeDefined();
     });
-    it("is off by default in cloudflareNextIntl()", () => {
-        expect(cloudflareNextIntl().some((p) => p.name === "cloudflare-next-intl-auto-client-messages")).toBe(false);
-        expect(cloudflareNextIntl({ autoClientMessages: true }).some((p) => p.name === "cloudflare-next-intl-auto-client-messages")).toBe(true);
+    it("is on by default in cloudflareNextIntl()", () => {
+        expect(cloudflareNextIntl().some((p) => p.name === "cloudflare-next-intl-auto-client-messages")).toBe(true);
+        expect(cloudflareNextIntl({ autoClientMessages: false }).some((p) => p.name === "cloudflare-next-intl-auto-client-messages")).toBe(false);
     });
 });

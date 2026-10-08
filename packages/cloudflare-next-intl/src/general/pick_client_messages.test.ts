@@ -4,9 +4,15 @@ import pickClientMessages from './pick_client_messages.js';
 const messages = { Common: { ok: 'OK' }, Auth: { login: 'Log in' }, Home: { title: 'Home' } };
 
 describe('pickClientMessages', () => {
-    it('returns all messages when unset or true', () => {
-        expect(pickClientMessages(messages, undefined)).toBe(messages);
+    it('returns all messages when unset without manifest or explicitly true', () => {
+        expect(pickClientMessages(messages, undefined, undefined)).toBe(messages);
         expect(pickClientMessages(messages, true)).toBe(messages);
+        expect(pickClientMessages(messages, true, ['Auth'])).toBe(messages);
+    });
+
+    it('defaults to auto when clientMessages is unset or omitted', () => {
+        expect(pickClientMessages(messages, undefined, ['Auth'])).toEqual({ Auth: { login: 'Log in' } });
+        expect(pickClientMessages(messages)).toBe(messages);
     });
 
     it('returns no messages when false', () => {

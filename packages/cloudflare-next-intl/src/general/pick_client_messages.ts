@@ -7,8 +7,9 @@ function readAutoManifest(): string[] | true | undefined {
     return typeof __CFNI_CLIENT_MESSAGES__ === "undefined" ? undefined : __CFNI_CLIENT_MESSAGES__;
 }
 
-export default function pickClientMessages(messages: TranslationObject, clientMessages: boolean | "auto" | readonly string[] | undefined, autoManifest: string[] | true | undefined = readAutoManifest()): TranslationObject {
-    const list = clientMessages === "auto" ? autoManifest ?? true : clientMessages;
+export default function pickClientMessages(messages: TranslationObject, clientMessages: boolean | "auto" | readonly string[] | undefined = "auto", autoManifest: string[] | true | undefined = readAutoManifest()): TranslationObject {
+    const effective = clientMessages ?? "auto";
+    const list = effective === "auto" ? autoManifest ?? true : effective;
     if (list === undefined || list === true) return messages;
     const picked: TranslationObject = {};
     if (list === false) return picked;

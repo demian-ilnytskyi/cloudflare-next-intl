@@ -167,17 +167,19 @@ export function Navigation() {
 ```
 
 `IntlProvider` sends the locale's messages to the client for `useTranslations`
-in client components. Set `clientMessages` in your config to shrink that
-payload: `false` sends none (server-only translations), an array such as
-`["Auth", "Common", "Categories*"]` sends only matching namespaces, or `"auto"`
-uses build-time AST scan via the `autoClientMessages` Vite plugin. Default: `true`.
+in client components. By default, `clientMessages: "auto"` and `autoClientMessages`
+Vite plugin are **enabled by default** with `{ onDynamic: "fallback", fallbackNamespaces: [] }`
+to automatically scan and ship only the namespaces your client components use.
+
+You can customize or disable either side:
+- Set `clientMessages: false` (server-only messages), `true` (all messages), or `["Auth", "Common", "Categories*"]` in intl config.
+- In `vite.config.ts`, pass `autoClientMessages: false` to disable scanning, or customize options:
 
 ```ts
-// vite.config.ts
+// vite.config.ts (optional customization — enabled by default)
 cloudflareNextIntl({
-    autoClientMessages: { fallbackNamespaces: ["Common"], onDynamic: "fallback", packages: ["@my/ui"] }
+    autoClientMessages: { fallbackNamespaces: ["Common"], packages: ["@my/ui"] }
 })
-// intl.config.ts -> setIntlConfig({ clientMessages: "auto", ... })
 ```
 
 > UI library packages can declare `"i18n": { "namespaces": ["Buttons"] }` in `package.json` for automatic inclusion.

@@ -94,7 +94,9 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
 
     /**
      * Scan `useTranslations(...)` calls at build time and ship only those namespaces to the client.
-     * Requires `clientMessages: "auto"` in the intl config. Off by default.
+     * Enabled by default with `{ onDynamic: "fallback", fallbackNamespaces: [] }`.
+     * Pass an options object to customize or `false` to disable.
+     * @default { onDynamic: "fallback", fallbackNamespaces: [] }
      */
     autoClientMessages?: boolean | AutoClientMessagesOptions;
 
@@ -250,13 +252,16 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
         );
     }
 
-    if (options.autoClientMessages) {
+    if (options.autoClientMessages !== false) {
         plugins.push(
-            autoClientMessagesPlugin(
-                typeof options.autoClientMessages === "object"
-                    ? { root: options.root, ...options.autoClientMessages }
-                    : { root: options.root }
-            )
+            autoClientMessagesPlugin({
+                onDynamic: "fallback",
+                fallbackNamespaces: [],
+                ...(typeof options.autoClientMessages === "object" ? options.autoClientMessages : {}),
+                root: typeof options.autoClientMessages === "object" && options.autoClientMessages.root !== undefined
+                    ? options.autoClientMessages.root
+                    : options.root,
+            })
         );
     }
 

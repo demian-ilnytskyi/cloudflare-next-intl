@@ -6,13 +6,14 @@ describe("cloudflareNextIntl (main plugin)", () => {
     it("returns array of plugins by default", () => {
         const plugins = cloudflareNextIntl();
         expect(Array.isArray(plugins)).toBe(true);
-        expect(plugins.length).toBe(15);
+        expect(plugins.length).toBe(16);
 
         const pluginNames = plugins.map((p) => p.name);
         expect(pluginNames).toContain("cloudflare-next-intl-layout-queries-check");
         expect(pluginNames).toContain("cloudflare-next-intl-auto-dynamic-pages");
         expect(pluginNames).toContain("cloudflare-next-intl-auto-locale-params");
         expect(pluginNames).toContain("cloudflare-next-intl-auto-image-loader");
+        expect(pluginNames).toContain("cloudflare-next-intl-auto-client-messages");
         expect(pluginNames).toContain("cloudflare-next-intl-image-optimizer");
         expect(pluginNames).toContain("cfni:build-id-asset");
         expect(pluginNames).toContain("cfni:cf-workers-client-stub");
@@ -46,6 +47,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             autoDynamicPages: false,
             autoLocaleParams: false,
             autoImageLoader: false,
+            autoClientMessages: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -68,6 +70,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             autoDynamicPages: false,
             autoLocaleParams: false,
             autoImageLoader: false,
+            autoClientMessages: false,
             imageOptimizer: false,
             buildIdAsset: "CUSTOM_BUILD_ID",
             cfWorkersClientStub: false,
@@ -91,6 +94,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             autoDynamicPages: false,
             autoLocaleParams: false,
             autoImageLoader: false,
+            autoClientMessages: false,
             imageOptimizer: {
                 maxWidth: 1200,
                 formats: ["webp"],
@@ -119,6 +123,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             autoImageLoader: {
                 file: "custom-loader.ts",
             },
+            autoClientMessages: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -171,6 +176,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             autoDynamicPages: false,
             autoLocaleParams: false,
             autoImageLoader: false,
+            autoClientMessages: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -194,6 +200,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             autoDynamicPages: false,
             autoLocaleParams: false,
             autoImageLoader: false,
+            autoClientMessages: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -220,6 +227,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             },
             autoLocaleParams: false,
             autoImageLoader: false,
+            autoClientMessages: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -246,6 +254,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
                 localeParam: "lang",
             },
             autoImageLoader: false,
+            autoClientMessages: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -269,6 +278,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             autoDynamicPages: false,
             autoLocaleParams: false,
             autoImageLoader: false,
+            autoClientMessages: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -292,6 +302,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             autoDynamicPages: false,
             autoLocaleParams: false,
             autoImageLoader: false,
+            autoClientMessages: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -335,6 +346,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             autoDynamicPages: false,
             autoLocaleParams: false,
             autoImageLoader: false,
+            autoClientMessages: false,
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
@@ -356,6 +368,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(viteIndex.cloudflareNextIntl).toBe(cloudflareNextIntl);
         expect(viteIndex.default).toBe(cloudflareNextIntl);
         expect(typeof viteIndex.autoDynamicPagesPlugin).toBe("function");
+        expect(typeof viteIndex.autoClientMessagesPlugin).toBe("function");
         expect(typeof viteIndex.autoLocaleParamsPlugin).toBe("function");
         expect(typeof viteIndex.autoImageLoaderPlugin).toBe("function");
         expect(typeof viteIndex.detectImageLoader).toBe("function");

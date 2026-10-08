@@ -7,11 +7,16 @@ const KEY = "__CFNI_CLIENT_MESSAGES__";
 const SOURCE = /\.(tsx?|jsx?|mjs)$/;
 
 export function autoClientMessagesPlugin(options: AutoClientMessagesOptions = {}): Plugin {
+    const opts: AutoClientMessagesOptions = {
+        onDynamic: "fallback",
+        fallbackNamespaces: [],
+        ...options,
+    };
     let last = "";
     const run = (): string => {
-        const manifest: ClientMessagesManifest = scanProject({ ...options, root: options.root ?? process.cwd() });
+        const manifest: ClientMessagesManifest = scanProject({ ...opts, root: opts.root ?? process.cwd() });
         for (const d of manifest.dynamicCalls) console.warn(`[cloudflare-next-intl] dynamic useTranslations: ${d.file}:${d.line} ${d.text}`);
-        if (options.strict && manifest.dynamicCalls.length > 0) throw new Error("[cloudflare-next-intl] Dynamic useTranslations namespaces found. Use literals, union types, or fallbackNamespaces with onDynamic: \"fallback\".");
+        if (opts.strict && manifest.dynamicCalls.length > 0) throw new Error("[cloudflare-next-intl] Dynamic useTranslations namespaces found. Use literals, union types, or fallbackNamespaces with onDynamic: \"fallback\".");
         console.log(manifest.namespaces === true
             ? `[cloudflare-next-intl] client messages: sending all (root or dynamic access) from ${manifest.scannedFiles} files`
             : `[cloudflare-next-intl] client messages: ${manifest.namespaces.length} namespaces from ${manifest.scannedFiles} files`);
