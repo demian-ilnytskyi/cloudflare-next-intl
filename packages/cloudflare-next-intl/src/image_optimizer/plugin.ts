@@ -5,6 +5,12 @@ import type { Plugin } from "vite";
 import { run } from "./run.js";
 import { resolveOptions } from "./types.js";
 import type { ImageOptimizerPluginOptions } from "./types.js";
+import {
+    VIRTUAL_IMAGE_LOADER_ID,
+    RESOLVED_IMAGE_LOADER_ID,
+    detectImageLoader,
+    generateLoaderVirtualModule,
+} from "./detect_loader.js";
 
 export const VIRTUAL_IMAGE_SHIM_ID = "virtual:cloudflare-next-intl-image";
 export const VIRTUAL_MANIFEST_ID = "virtual:cloudflare-next-intl-images-manifest";
@@ -50,6 +56,9 @@ export function imageOptimizerPlugin(
             if (id === VIRTUAL_MANIFEST_ID) {
                 return RESOLVED_MANIFEST_ID;
             }
+            if (id === VIRTUAL_IMAGE_LOADER_ID) {
+                return RESOLVED_IMAGE_LOADER_ID;
+            }
             return undefined;
         },
         load(id: string): string | undefined {
@@ -60,6 +69,14 @@ export function imageOptimizerPlugin(
                     return `export default ${content};`;
                 }
                 return `export default { images: {} };`;
+            }
+            if (id === RESOLVED_IMAGE_LOADER_ID) {
+                if (resolved.autoImageLoader === false) {
+                    return `export const defaultLoader = undefined;\nexport const hasCustomLoader = false;\nexport default undefined;\n`;
+                }
+                const loaderOptions = typeof resolved.autoImageLoader === "object" ? resolved.autoImageLoader : undefined;
+                const detected = detectImageLoader(loaderOptions);
+                return generateLoaderVirtualModule(detected);
             }
             return undefined;
         },

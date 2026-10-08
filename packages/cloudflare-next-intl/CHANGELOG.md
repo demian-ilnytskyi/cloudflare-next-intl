@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.31] - 2026-10-08
+
+### Fixed
+
+- Standalone `imageOptimizerPlugin` / `imageOptimizer`: directly resolves and loads `virtual:cloudflare-next-intl-image-loader`. Standalone image optimizer usages (without the full `cloudflareNextIntl` preset) now cleanly resolve the virtual loader module with custom loader auto-detection or fallback without throwing `"Failed to resolve import virtual:cloudflare-next-intl-image-loader"`.
+- `imageOptimizerPlugin`: added `autoImageLoader` option to `ImageOptimizerPluginOptions` allowing custom loader file/path configuration or disabling (`autoImageLoader: false`).
+
 ## [0.10.30] - 2026-10-08
 
 ### Added

@@ -2,6 +2,8 @@ export {
     imageOptimizerPlugin,
     imageOptimizer,
     VIRTUAL_IMAGE_SHIM_ID,
+    VIRTUAL_MANIFEST_ID,
+    getShimPath,
     default,
 } from "./plugin.js";
 
@@ -63,4 +65,15 @@ export {
 export {
     type ManifestEntry,
 } from "./next_image_shim.js";
+
+export {
+    VIRTUAL_IMAGE_LOADER_ID,
+    RESOLVED_IMAGE_LOADER_ID,
+    type AutoImageLoaderOptions,
+    type DetectedImageLoader,
+    findLoaderFileFromNextConfig,
+    findExportedLoaderName,
+    detectImageLoader,
+    generateLoaderVirtualModule,
+} from "./detect_loader.js";
 

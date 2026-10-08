@@ -1,4 +1,5 @@
 import { cpus } from "node:os";
+import type { AutoImageLoaderOptions } from "./detect_loader.js";
 
 export type ImageFormat = "avif" | "webp" | "png" | "jpeg" | "gif" | "tiff" | "heif" | "jp2" | "jxl";
 
@@ -69,6 +70,8 @@ export interface ImageOptimizerPluginOptions {
     concurrency?: number;
     /** Encoder effort (0-9) for avif/webp/png/heif/jxl. Default: sharp's own default */
     effort?: number;
+    /** Automatic image loader detection settings, or `false` to disable. Default: true */
+    autoImageLoader?: boolean | AutoImageLoaderOptions;
 }
 
 export interface ResolvedBlurOptions {
@@ -93,6 +96,7 @@ export interface ResolvedOptions {
     overrides: Record<string, ImageOverrideOptions>;
     concurrency: number;
     effort: number | undefined;
+    autoImageLoader: boolean | AutoImageLoaderOptions;
 }
 
 export interface ResolvedImageConfig {
@@ -159,6 +163,7 @@ export const DEFAULT_OPTIONS: ResolvedOptions = {
     overrides: {},
     concurrency: Math.max(1, Math.min(cpus().length, 8)),
     effort: undefined,
+    autoImageLoader: true,
 };
 
 export function resolveBlurOptions(
@@ -205,6 +210,7 @@ export function resolveOptions(
         overrides: raw.overrides ? { ...raw.overrides } : {},
         concurrency: Math.max(1, raw.concurrency ?? DEFAULT_OPTIONS.concurrency),
         effort: raw.effort,
+        autoImageLoader: raw.autoImageLoader ?? DEFAULT_OPTIONS.autoImageLoader,
     };
 }
 

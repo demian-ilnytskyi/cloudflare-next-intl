@@ -312,6 +312,7 @@ export default defineConfig({
                 overrides: {                      // Per-image overrides keyed by public src path (wins over scanned <Image> props)
                     "/images/hero.png": { maxWidth: false, formats: ["webp"], blur: { quality: 80 } },
                 },
+                autoImageLoader: true,            // Auto-detect custom image loader for standalone imageOptimizer usages (default: true, or false/options)
             },
             autoImageLoader: true,                // Auto-detect custom image loader (from next.config.* loaderFile or image-loader.ts; default: true, or options object)
             autoClientMessages: true,             // Auto-scan client useTranslations calls to trim client payload (default: true, or options object)

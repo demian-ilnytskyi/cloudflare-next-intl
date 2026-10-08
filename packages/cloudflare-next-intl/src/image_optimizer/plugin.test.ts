@@ -1,7 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
-import { getShimPath, imageOptimizerPlugin, VIRTUAL_IMAGE_SHIM_ID, VIRTUAL_MANIFEST_ID } from "./plugin.js";
+import {
+    getShimPath,
+    imageOptimizerPlugin,
+    VIRTUAL_IMAGE_SHIM_ID,
+    VIRTUAL_MANIFEST_ID,
+    VIRTUAL_IMAGE_LOADER_ID,
+    RESOLVED_IMAGE_LOADER_ID,
+} from "./index.js";
 import { makeTempDir, cleanup } from "../test_utils/image_optimizer_test_helpers.js";
 
 describe("imageOptimizerPlugin", () => {
@@ -31,6 +38,29 @@ describe("imageOptimizerPlugin", () => {
         // empty-manifest fallback.
         const loaded = (plugin.load as (id: string) => string | undefined)("\0" + VIRTUAL_MANIFEST_ID);
         expect(loaded).toContain("images: {}");
+    });
+
+    it("resolves and loads virtual image loader ID with fallback or custom loader", async () => {
+        const plugin = imageOptimizerPlugin();
+        const resolved = (plugin.resolveId as (id: string) => string | undefined)(VIRTUAL_IMAGE_LOADER_ID);
+        expect(resolved).toBe(RESOLVED_IMAGE_LOADER_ID);
+
+        const loaded = (plugin.load as (id: string) => string | undefined)(RESOLVED_IMAGE_LOADER_ID);
+        expect(loaded).toContain("export const defaultLoader = undefined;");
+
+        const disabledPlugin = imageOptimizerPlugin({ autoImageLoader: false });
+        const loadedDisabled = (disabledPlugin.load as (id: string) => string | undefined)(RESOLVED_IMAGE_LOADER_ID);
+        expect(loadedDisabled).toContain("export const defaultLoader = undefined;");
+
+        const root = await makeTempDir();
+        const loaderFile = path.join(root, "image-loader.ts");
+        await writeFile(loaderFile, "export default function customLoader({ src }: { src: string }) { return src; }");
+
+        const customPlugin = imageOptimizerPlugin({ autoImageLoader: { root } });
+        const loadedCustom = (customPlugin.load as (id: string) => string | undefined)(RESOLVED_IMAGE_LOADER_ID);
+        expect(loadedCustom).toContain("export const hasCustomLoader = true;");
+
+        await cleanup(root);
     });
 
     it("skips the buildStart optimizer scan during dev (command: 'serve') unless dev: true is passed", async () => {
@@ -153,19 +183,24 @@ describe("imageOptimizerPlugin", () => {
 
     it("runs buildStart and logs info", async () => {
         const root = await makeTempDir();
-        const plugin = imageOptimizerPlugin({ dirs: [] });
-        const mockContext = {
-            info: vi.fn(),
-        };
+        const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(root);
+        try {
+            const plugin = imageOptimizerPlugin({ dirs: [] });
+            const mockContext = {
+                info: vi.fn(),
+            };
 
-        const buildStart = plugin.buildStart as (this: typeof mockContext) => Promise<void>;
-        await buildStart.call(mockContext);
-        expect(mockContext.info).toHaveBeenCalled();
+            const buildStart = plugin.buildStart as (this: typeof mockContext) => Promise<void>;
+            await buildStart.call(mockContext);
+            expect(mockContext.info).toHaveBeenCalled();
 
-        const disabledPlugin = imageOptimizerPlugin({ enabled: false });
-        const disabledBuildStart = disabledPlugin.buildStart as (this: typeof mockContext) => Promise<void>;
-        await disabledBuildStart.call(mockContext);
-
-        await cleanup(root);
+            const disabledPlugin = imageOptimizerPlugin({ enabled: false });
+            const disabledBuildStart = disabledPlugin.buildStart as (this: typeof mockContext) => Promise<void>;
+            await disabledBuildStart.call(mockContext);
+        } finally {
+            cwdSpy.mockRestore();
+            await cleanup(root);
+        }
     });
 });
+
