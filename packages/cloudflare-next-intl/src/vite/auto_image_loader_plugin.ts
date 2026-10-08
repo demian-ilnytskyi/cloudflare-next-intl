@@ -6,6 +6,14 @@ import { getShimPath, VIRTUAL_IMAGE_SHIM_ID } from "../image_optimizer/plugin.js
 export const VIRTUAL_IMAGE_LOADER_ID = "virtual:cloudflare-next-intl-image-loader";
 export const RESOLVED_IMAGE_LOADER_ID = "\0" + VIRTUAL_IMAGE_LOADER_ID;
 
+export const NEXT_CONFIG_CANDIDATES = [
+    "next.config.ts",
+    "next.config.mts",
+    "next.config.mjs",
+    "next.config.js",
+    "next.config.cjs",
+] as const;
+
 export const DEFAULT_LOADER_CANDIDATES = [
     "image-loader.ts",
     "image-loader.js",
@@ -30,7 +38,8 @@ export interface AutoImageLoaderOptions {
 
     /**
      * Path to the custom image loader file relative to project root or absolute path.
-     * Defaults to searching `image-loader.ts`, `image-loader.js`, `src/image-loader.ts`, etc.
+     * Defaults to detecting `images.loaderFile` in `next.config.*`, or searching
+     * `image-loader.ts`, `image-loader.js`, `src/image-loader.ts`, etc.
      * @default "image-loader.ts"
      */
     file?: string;
@@ -45,6 +54,37 @@ export interface AutoImageLoaderOptions {
      * Project root directory. Defaults to `process.cwd()`.
      */
     root?: string;
+}
+
+/**
+ * Attempts to extract custom images.loaderFile path from next.config.* if present.
+ */
+export function findLoaderFileFromNextConfig(root: string): string | null {
+    for (const name of NEXT_CONFIG_CANDIDATES) {
+        const configPath = path.resolve(root, name);
+        if (!existsSync(configPath)) continue;
+
+        const raw = readFileSync(configPath, "utf8");
+        const stripped = raw
+            .replace(/\/\*[\s\S]*?\*\//g, "")
+            .replace(/\/\/.*/g, "");
+
+        const match = stripped.match(/loaderFile\s*:\s*["'`]([^"'`]+)["'`]/);
+        if (match?.[1]) {
+            const candidate = match[1].trim();
+            const resolved = path.isAbsolute(candidate) ? candidate : path.resolve(root, candidate);
+            if (existsSync(resolved)) {
+                return resolved;
+            }
+            const extensions = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
+            for (const ext of extensions) {
+                if (existsSync(resolved + ext)) {
+                    return resolved + ext;
+                }
+            }
+        }
+    }
+    return null;
 }
 
 export interface DetectedImageLoader {
@@ -130,11 +170,16 @@ export function detectImageLoader(options?: AutoImageLoaderOptions): DetectedIma
             return { exists: false, isEmpty: false, loaderPath: null, exportName: null };
         }
     } else {
-        for (const candidate of DEFAULT_LOADER_CANDIDATES) {
-            const candidatePath = path.resolve(root, candidate);
-            if (existsSync(candidatePath)) {
-                targetPath = candidatePath;
-                break;
+        const configLoader = findLoaderFileFromNextConfig(root);
+        if (configLoader) {
+            targetPath = configLoader;
+        } else {
+            for (const candidate of DEFAULT_LOADER_CANDIDATES) {
+                const candidatePath = path.resolve(root, candidate);
+                if (existsSync(candidatePath)) {
+                    targetPath = candidatePath;
+                    break;
+                }
             }
         }
     }

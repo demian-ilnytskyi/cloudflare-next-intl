@@ -311,9 +311,10 @@ export default defineConfig({
                 blur: { quality: 70, stdDeviation: 20 }, // Next.js blur placeholder options (or `false`)
                 overrides: {                      // Per-image overrides keyed by public src path (wins over scanned <Image> props)
                     "/images/hero.png": { maxWidth: false, formats: ["webp"], blur: { quality: 80 } },
-                    "/images/logo.png": { formats: false, blur: false },
                 },
             },
+            autoImageLoader: true,                // Auto-detect custom image loader (from next.config.* loaderFile or image-loader.ts; default: true, or options object)
+            autoClientMessages: true,             // Auto-scan client useTranslations calls to trim client payload (default: true, or options object)
             autoLocaleParams: {                   // Auto-insert locale params/setLocale (or `false` to disable)
                 mode: "fix",                       // "fix" | "report" | "off" (default: "fix")
                 localeParam: "locale",             // Route param name to read (default: "locale")
@@ -356,7 +357,7 @@ export default defineConfig({
 > **Note:** `unblockPageElementDependencies: true` was measured, in a real app, to make page-to-page navigation noticeably slower rather than faster — it strips ordering vinext's own page-element wiring relies on. Leave it off unless you've verified otherwise for your app.
 
 Individual standalone plugins are also exported if you only need a specific feature:
-`imageOptimizerPlugin` (or `imageOptimizer`), `autoLocaleParamsPlugin`, `layoutQueriesPlugin` (or `layoutQueriesCheck`), `firebaseAuthCheckPlugin` (or `firebaseAuthCheck`), `buildIdAsset`, `localeFilePlugin`, `userAgentStubPlugin`, `cfWorkersClientStubPlugin`, `vinextRouteWiringFixPlugin`, `lucideOptimizerPlugin`.
+`imageOptimizerPlugin` (or `imageOptimizer`), `autoImageLoaderPlugin`, `autoClientMessagesPlugin`, `autoLocaleParamsPlugin`, `layoutQueriesPlugin` (or `layoutQueriesCheck`), `firebaseAuthCheckPlugin` (or `firebaseAuthCheck`), `buildIdAsset`, `localeFilePlugin`, `userAgentStubPlugin`, `cfWorkersClientStubPlugin`, `vinextRouteWiringFixPlugin`, `lucideOptimizerPlugin`.
 
 ##### Per-Image Optimizer Settings
 

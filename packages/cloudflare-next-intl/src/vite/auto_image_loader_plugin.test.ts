@@ -6,7 +6,9 @@ import {
     autoImageLoaderPlugin,
     detectImageLoader,
     findExportedLoaderName,
+    findLoaderFileFromNextConfig,
     generateLoaderVirtualModule,
+    NEXT_CONFIG_CANDIDATES,
     VIRTUAL_IMAGE_LOADER_ID,
     RESOLVED_IMAGE_LOADER_ID,
     type DetectedImageLoader,
@@ -202,6 +204,100 @@ describe("auto_image_loader_plugin", () => {
             const result = detectImageLoader({ root: tempDir, exportName: "b" });
             expect(result.exists).toBe(true);
             expect(result.exportName).toBe("b");
+        });
+
+        it("detects custom loader configured in next.config.ts", () => {
+            const customLoaderPath = path.join(tempDir, "custom-image-loader.ts");
+            fs.writeFileSync(customLoaderPath, "export default function myLoader({ src }: any) { return src; }");
+
+            const configPath = path.join(tempDir, "next.config.ts");
+            fs.writeFileSync(
+                configPath,
+                `export default {
+                    images: {
+                        loader: "custom",
+                        loaderFile: "./custom-image-loader.ts",
+                    },
+                };`,
+            );
+
+            const result = detectImageLoader({ root: tempDir });
+            expect(result.exists).toBe(true);
+            expect(result.loaderPath).toBe(customLoaderPath);
+            expect(result.exportName).toBe("default");
+        });
+
+        it("prioritizes options.file over next.config.ts loaderFile", () => {
+            const fromConfig = path.join(tempDir, "from-config.ts");
+            fs.writeFileSync(fromConfig, "export default function cfg() {}");
+
+            const fromOptions = path.join(tempDir, "from-options.ts");
+            fs.writeFileSync(fromOptions, "export default function opt() {}");
+
+            fs.writeFileSync(
+                path.join(tempDir, "next.config.ts"),
+                `export default { images: { loaderFile: "./from-config.ts" } };`,
+            );
+
+            const result = detectImageLoader({ root: tempDir, file: "from-options.ts" });
+            expect(result.exists).toBe(true);
+            expect(result.loaderPath).toBe(fromOptions);
+        });
+    });
+
+    describe("findLoaderFileFromNextConfig", () => {
+        it("returns null when no next.config.* exists", () => {
+            expect(findLoaderFileFromNextConfig(tempDir)).toBeNull();
+        });
+
+        it("returns null when next.config has no loaderFile property", () => {
+            fs.writeFileSync(path.join(tempDir, "next.config.js"), `module.exports = { reactStrictMode: true };`);
+            expect(findLoaderFileFromNextConfig(tempDir)).toBeNull();
+        });
+
+        it("resolves relative loaderFile from next.config.mjs", () => {
+            const loaderFile = path.join(tempDir, "my-loader.js");
+            fs.writeFileSync(loaderFile, "export default () => '';");
+
+            fs.writeFileSync(
+                path.join(tempDir, "next.config.mjs"),
+                `/* config */\nexport default { images: { loader: 'custom', loaderFile: './my-loader.js' } };`,
+            );
+
+            expect(findLoaderFileFromNextConfig(tempDir)).toBe(loaderFile);
+        });
+
+        it("resolves absolute loaderFile", () => {
+            const loaderFile = path.join(tempDir, "abs-loader.ts");
+            fs.writeFileSync(loaderFile, "export default () => '';");
+
+            fs.writeFileSync(
+                path.join(tempDir, "next.config.ts"),
+                `export default { images: { loaderFile: ${JSON.stringify(loaderFile)} } };`,
+            );
+
+            expect(findLoaderFileFromNextConfig(tempDir)).toBe(loaderFile);
+        });
+
+        it("resolves extensionless loaderFile path", () => {
+            const loaderFile = path.join(tempDir, "extless-loader.tsx");
+            fs.writeFileSync(loaderFile, "export default () => '';");
+
+            fs.writeFileSync(
+                path.join(tempDir, "next.config.ts"),
+                `export default { images: { loaderFile: "./extless-loader" } };`,
+            );
+
+            expect(findLoaderFileFromNextConfig(tempDir)).toBe(loaderFile);
+        });
+
+        it("returns null when loaderFile points to non-existent file", () => {
+            fs.writeFileSync(
+                path.join(tempDir, "next.config.ts"),
+                `export default { images: { loaderFile: "./missing-file.ts" } };`,
+            );
+
+            expect(findLoaderFileFromNextConfig(tempDir)).toBeNull();
         });
     });
 

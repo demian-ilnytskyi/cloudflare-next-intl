@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.30] - 2026-10-08
+
+### Added
+
+- `autoImageLoader`: automatically detects `images.loaderFile` configured in `next.config.*` (`next.config.ts`, `next.config.mjs`, `next.config.js`, `next.config.mts`, `next.config.cjs`) by default, while preserving fallback search candidates (`image-loader.ts`, `src/image-loader.ts`, etc.) and explicit `file` override options.
+- Exported `findLoaderFileFromNextConfig` and `NEXT_CONFIG_CANDIDATES` in `cloudflare-next-intl/vite`.
+
 ## [0.10.29] - 2026-10-08
 
 ### Added
