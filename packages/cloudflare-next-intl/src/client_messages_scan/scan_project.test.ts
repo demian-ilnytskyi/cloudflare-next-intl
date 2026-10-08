@@ -43,7 +43,12 @@ describe("scanProject", () => {
         const root = fixture({ "node_modules/kit/package.json": `{"name":"kit"}`, "node_modules/kit/dist/a.js": `${imp}useTranslations("Kit");` });
         expect(scanProject({ root, packages: ["kit"] }).namespaces).toEqual(["Kit"]);
     });
+    it("skips missing package and supports custom dirs", () => {
+        const root = fixture({ "custom_dir/a.tsx": `${imp}useTranslations("Custom");` });
+        expect(scanProject({ root, packages: ["nonexistent_pkg"], dirs: ["custom_dir"] }).namespaces).toEqual(["Custom"]);
+    });
 });
+
 
 describe("matchesNamespacePattern", () => {
     it("matches exact and trailing wildcard", () => {
