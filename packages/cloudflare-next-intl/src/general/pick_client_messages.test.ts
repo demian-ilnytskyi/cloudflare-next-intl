@@ -38,4 +38,14 @@ describe('pickClientMessages', () => {
     it('manifest namespace missing from messages is skipped', () => {
         expect(pickClientMessages({ A: {} }, 'auto', ['A', 'Gone'])).toEqual({ A: {} });
     });
+
+    it('auto uses default readAutoManifest from global or undefined fallback', () => {
+        const m = { A: { x: '1' }, B: { y: '2' } };
+        expect(pickClientMessages(m, 'auto')).toBe(m);
+
+        (globalThis as any).__CFNI_CLIENT_MESSAGES__ = ['B'];
+        expect(pickClientMessages(m, 'auto')).toEqual({ B: { y: '2' } });
+        delete (globalThis as any).__CFNI_CLIENT_MESSAGES__;
+    });
 });
+
