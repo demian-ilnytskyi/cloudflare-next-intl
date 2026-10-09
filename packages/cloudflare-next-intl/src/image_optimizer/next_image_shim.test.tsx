@@ -168,6 +168,11 @@ describe("next_image_shim", () => {
         expect(props.height).toBe(600);
     });
 
+    it("does not pass a function loader across the server/client boundary when none is given", () => {
+        const element = Image({ src: "https://cdn.example.com/a.png", alt: "x", width: 10, height: 10 });
+        expect((element.props as { loader?: unknown }).loader).toBeUndefined();
+    });
+
     it("supports custom image loader prop", () => {
         const customLoader = ({ src, width, quality }: { src: string; width: number; quality?: number }) =>
             `https://cdn.example.com/custom?src=${encodeURIComponent(src)}&w=${width}&q=${quality ?? 75}`;

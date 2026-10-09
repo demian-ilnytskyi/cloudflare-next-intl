@@ -3,6 +3,15 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.33] - 2026-10-10
+
+### Fixed
+
+- `Image` (`next/image` shim) no longer crashes Server Components when an image loader is auto-detected from `next.config.*` (0.10.31+). The loader function was passed from a server component into the client `next/image`, failing RSC serialization ("An error occurred in the Server Components render", digest only) and blanking the page. The loader is now applied on the client by a new `"use client"` wrapper; `getImageProps` still applies it directly.
+- `Image`: a throwing image loader, or one returning an empty/non-string URL, now falls back to the original `src` (logged with `console.error`) instead of breaking the render.
+- `useStaleDeployRecovery`: the reload attempt counter was read after `clearClientCache()` wiped `sessionStorage`, so it never passed 1 and a persistent server error reloaded the page forever. The count is read before clearing; after 2 attempts the error UI is shown.
+- `cookieConsent.dialogProps`, `updateDialogProps` and `autoAnalyticsEvents` are no longer passed from the server provider to the client provider. They can hold functions (`render`, `getScreenName`) that cannot cross the server/client boundary; the client provider now reads them from `@intl-config` itself.
+
 ## [0.10.32] - 2026-10-10
 
 ### Fixed

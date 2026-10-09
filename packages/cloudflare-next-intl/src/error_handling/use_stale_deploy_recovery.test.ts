@@ -199,6 +199,19 @@ describe('useStaleDeployRecovery', () => {
         expect(reloadMock).not.toHaveBeenCalled();
     });
 
+    it('keeps counting attempts even though clearClientCache wipes sessionStorage', async () => {
+        clearClientCacheSpy.mockImplementation(async () => { window.sessionStorage.clear(); });
+        window.sessionStorage.setItem('stale-deploy-recovery-reloaded', 'unknown');
+        window.sessionStorage.setItem('stale-deploy-recovery-count', '1');
+        renderHook(() => useStaleDeployRecovery(undefined, undefined, 1000));
+
+        await act(async () => {
+            vi.advanceTimersByTime(1000);
+        });
+
+        expect(window.sessionStorage.getItem('stale-deploy-recovery-count')).toBe('2');
+    });
+
     it('returns true and schedules recovery when error is undefined', async () => {
         const onRecover = vi.fn().mockResolvedValue(undefined);
         const { result } = renderHook(() => useStaleDeployRecovery(undefined, onRecover, 1000));

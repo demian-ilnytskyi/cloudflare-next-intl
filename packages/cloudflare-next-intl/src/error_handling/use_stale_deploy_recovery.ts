@@ -207,11 +207,13 @@ export default function useStaleDeployRecovery(
 
         const buildId = currentBuildId();
         const timeout = setTimeout(() => {
+            let spent = 0;
+            try {
+                spent = currentAttempts(buildId, sessionStorage.getItem(RECOVERY_RELOAD_KEY));
+            } catch { /* storage unavailable */ }
             Promise.all([initialOnRecover?.().catch(() => undefined), clearClientCache().catch(() => undefined)])
                 .finally(() => {
                     try {
-                        const marker = sessionStorage.getItem(RECOVERY_RELOAD_KEY);
-                        const spent = currentAttempts(buildId, marker);
                         sessionStorage.setItem(RECOVERY_RELOAD_KEY, buildId);
                         sessionStorage.setItem(RECOVERY_COUNT_KEY, String(spent + 1));
                         sessionStorage.setItem(RECOVERY_TIME_KEY, String(Date.now()));

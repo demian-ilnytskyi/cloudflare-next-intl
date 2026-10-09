@@ -1,8 +1,9 @@
 import React from "react";
-import NextImage, { getImageProps as nextGetImageProps } from "next/image.js";
+import { getImageProps as nextGetImageProps } from "next/image.js";
 import type { ImageProps } from "next/image.js";
 import { getImageBlurSvg } from "./blur_svg.js";
 import { ImgWithFallback } from "./img_with_fallback.js";
+import { NextImageClient } from "./next_image_client.js";
 import type { OptimizedImage, OptimizedImageVariant } from "./types.js";
 
 export type ManifestEntry = OptimizedImage;
@@ -119,13 +120,13 @@ function toPlainImgAttrs(resolved: ImageProps, src: string): React.ImgHTMLAttrib
     };
 }
 
-function resolveProps(props: ImageProps): ImageProps {
+function resolveProps(props: ImageProps, injectLoader = false): ImageProps {
     let src = props.src;
     let blurDataURL = props.blurDataURL;
     let width = props.width;
     let height = props.height;
     let style = props.style;
-    const loader = props.loader ?? defaultCustomLoader;
+    const loader = injectLoader ? (props.loader ?? defaultCustomLoader) : props.loader;
 
     const entry = findEntry(src);
     if (entry) {
@@ -176,7 +177,7 @@ export default function Image(props: ImageProps): React.JSX.Element {
     const alternates = (variant?.sources ?? []).filter((source) => source.src !== variant?.src);
 
     if (alternates.length === 0) {
-        return <NextImage {...resolved} />;
+        return <NextImageClient {...resolved} />;
     }
 
     const primarySrc = variant?.src ?? String(resolved.src);
@@ -199,7 +200,7 @@ export default function Image(props: ImageProps): React.JSX.Element {
 }
 
 export function getImageProps(props: ImageProps): ReturnType<typeof nextGetImageProps> {
-    const resolved = resolveProps(props);
+    const resolved = resolveProps(props, true);
     return nextGetImageProps(resolved);
 }
 

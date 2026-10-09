@@ -112,17 +112,17 @@ export default function LocationzationClientProvider({
             )}
             {analyticsConfig && (analyticsConfig.googleAnalyticsId || analyticsConfig.googleAdsId) && (
                 <Suspense fallback={null}>
-                    <AutoAnalyticsEvents config={autoAnalyticsEventsConfig} />
+                    <AutoAnalyticsEvents config={autoAnalyticsEventsConfig ?? config.cookieConsent?.autoAnalyticsEvents} />
                 </Suspense>
             )}
             {autoWireDialogs && (
                 <Suspense fallback={null}>
-                    <CookieConsentDialog {...dialogProps} />
+                    <CookieConsentDialog {...(dialogProps ?? config.cookieConsent?.dialogProps)} />
                 </Suspense>
             )}
             {autoWireDialogs && (
                 <Suspense fallback={null}>
-                    <PrivacyPolicyUpdateDialog {...updateDialogProps} />
+                    <PrivacyPolicyUpdateDialog {...(updateDialogProps ?? config.cookieConsent?.updateDialogProps)} />
                 </Suspense>
             )}
         </CookieConsentProvider>;

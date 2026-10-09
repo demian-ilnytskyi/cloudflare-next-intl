@@ -120,11 +120,8 @@ export default async function LocationzationProvider({ language, messages, child
                 language={language}
                 messages={messagesValue}
                 analyticsConfig={analyticsConfig}
-                autoAnalyticsEventsConfig={config.cookieConsent?.autoAnalyticsEvents}
                 requiresConsent={requiresConsent}
-                autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}
-                dialogProps={config.cookieConsent?.dialogProps}
-                updateDialogProps={config.cookieConsent?.updateDialogProps}>
+                autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}>
                 {children}
             </LocationzationClientProvider>
         </Suspense>
