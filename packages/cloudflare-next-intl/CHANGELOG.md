@@ -8,6 +8,7 @@ All notable changes to this package are documented here. Format follows
 ### Fixed
 
 - `imageOptimizer` `next/image` shim: remote (`http(s):`, `//`), `data:` and `blob:` srcs are no longer swapped for local `public/` images via the fuzzy filename match (e.g. a base64 upload preview containing `404` rendered `404.webp`). Only exact manifest keys match such srcs now.
+- Same shim: the fuzzy fallback now requires the same file extension and an exact name or hashed-name prefix (`logo.abc123.png`, `logo-abc123.png`). Previously `/images/rep/Delete.svg` (not in the manifest) rendered the unrelated `/images/Delete.png` variant, `superhero.png` could match `hero.png`, and same-named files in other folders (`/icons/hero.png` vs `/images/hero.png`) were swapped.
 
 ## [0.10.31] - 2026-10-08
 

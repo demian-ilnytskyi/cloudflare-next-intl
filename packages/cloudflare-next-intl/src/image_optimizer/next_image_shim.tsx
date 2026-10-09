@@ -66,9 +66,15 @@ function findEntry(srcVal: unknown): ManifestEntry | undefined {
     const clean = withSlash.split("?")[0].split("#")[0];
     if (images[clean]) return images[clean];
 
+    const base = clean.split("/").pop() ?? "";
+    const baseExt = base.split(".").pop();
     for (const [key, entry] of Object.entries(images)) {
         const filename = key.split("/").pop();
-        if (filename && (clean.endsWith("/" + filename) || clean.includes(filename.split(".")[0]))) {
+        if (!filename) continue;
+        const dot = filename.lastIndexOf(".");
+        const stem = filename.slice(0, dot);
+        const ext = filename.slice(dot + 1);
+        if (base !== filename && baseExt === ext && (base.startsWith(stem + ".") || base.startsWith(stem + "-"))) {
             return entry;
         }
     }

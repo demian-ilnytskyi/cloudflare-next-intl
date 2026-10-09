@@ -42,6 +42,18 @@ describe("next_image_shim", () => {
         expect(container.querySelector("img")?.getAttribute("src")).toBe(src);
     });
 
+    it("does not swap a local image with a different extension or name for a manifest image", () => {
+        for (const src of ["/images/rep/hero.svg", "/images/superhero.png", "/icons/hero.png"]) {
+            const { container } = render(<Image src={src} alt="x" width={10} height={10} unoptimized />);
+            expect(container.querySelector("img")?.getAttribute("src")).toBe(src);
+        }
+    });
+
+    it("matches a hashed build asset of a manifest image", () => {
+        const { container } = render(<Image src="/_next/static/media/hero.abc123.png" alt="x" />);
+        expect(container.querySelector("img")?.getAttribute("src")).toContain("hero.webp");
+    });
+
     it("applies an inline blur background when placeholder=blur and the manifest has a blurDataURL", () => {
         const { container } = render(
             <Image src="/images/hero.png" alt="hero" placeholder="blur" />,
