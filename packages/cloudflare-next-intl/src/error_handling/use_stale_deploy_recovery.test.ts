@@ -212,6 +212,18 @@ describe('useStaleDeployRecovery', () => {
         expect(window.sessionStorage.getItem('stale-deploy-recovery-count')).toBe('2');
     });
 
+    it('still reloads when sessionStorage throws while reading the spent attempts', async () => {
+        renderHook(() => useStaleDeployRecovery(undefined, undefined, 1000));
+        const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('denied'); });
+
+        await act(async () => {
+            vi.advanceTimersByTime(1000);
+        });
+
+        getItemSpy.mockRestore();
+        expect(reloadMock).toHaveBeenCalledTimes(1);
+    });
+
     it('returns true and schedules recovery when error is undefined', async () => {
         const onRecover = vi.fn().mockResolvedValue(undefined);
         const { result } = renderHook(() => useStaleDeployRecovery(undefined, onRecover, 1000));
