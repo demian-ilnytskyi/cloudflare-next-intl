@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.32] - 2026-10-10
+
+### Fixed
+
+- `imageOptimizer` `next/image` shim: remote (`http(s):`, `//`), `data:` and `blob:` srcs are no longer swapped for local `public/` images via the fuzzy filename match (e.g. a base64 upload preview containing `404` rendered `404.webp`). Only exact manifest keys match such srcs now.
+
 ## [0.10.31] - 2026-10-08
 
 ### Fixed

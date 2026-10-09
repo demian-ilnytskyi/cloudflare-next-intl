@@ -55,6 +55,7 @@ function findEntry(srcVal: unknown): ManifestEntry | undefined {
             : String(srcVal);
 
     if (images[raw]) return images[raw];
+    if (/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(raw)) return undefined;
 
     const withoutPublic = raw.replace(/^\/?public/, "");
     if (images[withoutPublic]) return images[withoutPublic];

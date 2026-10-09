@@ -32,6 +32,16 @@ describe("next_image_shim", () => {
         expect(img?.getAttribute("src")).toContain("unknown.png");
     });
 
+    it.each([
+        "data:image/png;base64,herohero",
+        "blob:http://localhost/hero-1",
+        "https://cdn.example.com/uploads/hero.png",
+        "//cdn.example.com/hero.png",
+    ])("does not swap remote/data src %s for a local manifest image", (src) => {
+        const { container } = render(<Image src={src} alt="x" width={10} height={10} unoptimized />);
+        expect(container.querySelector("img")?.getAttribute("src")).toBe(src);
+    });
+
     it("applies an inline blur background when placeholder=blur and the manifest has a blurDataURL", () => {
         const { container } = render(
             <Image src="/images/hero.png" alt="hero" placeholder="blur" />,
