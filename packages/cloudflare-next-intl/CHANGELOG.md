@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.34] - 2026-10-15
+
+### Fixed
+
+- `buildIdAsset`: migrated to Vite's `buildApp` hook (`order: "post"`). Emits `BUILD_ID` directly into the client build output directory after all environments build. In addition to `__VINEXT_SHARED_BUILD_ID` and `__VINEXT_BUILD_ID` environment variables, falls back to reading the server build's `BUILD_ID` file (`rsc`, `ssr`, or `dist/server`), and generates a fallback timestamp ID with a warning if none is found. Prevents 404s on `/BUILD_ID` during app-only Vinext builds.
+
 ## [0.10.33] - 2026-10-10
 
 ### Fixed

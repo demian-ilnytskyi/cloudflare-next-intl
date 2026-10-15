@@ -1,104 +1,156 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { buildIdAsset } from './build_id_asset.js';
 
-interface GenerateBundleContext { environment?: { name: string }; emitFile: (asset: unknown) => void }
-function callGenerateBundle(plugin: ReturnType<typeof buildIdAsset>, context: GenerateBundleContext): void {
-    (plugin.generateBundle as (this: GenerateBundleContext) => void).call(context);
+interface FakeBuilder {
+    config: {
+        root: string;
+        logger: {
+            warn: ReturnType<typeof vi.fn>;
+        };
+    };
+    environments: Record<string, { config: { build: { outDir: string } } }>;
+}
+
+const createBuilder = (root: string, envs: Record<string, string>): FakeBuilder => ({
+    config: { root, logger: { warn: vi.fn() } },
+    environments: Object.fromEntries(
+        Object.entries(envs).map(([k, outDir]) => [k, { config: { build: { outDir } } }])
+    ),
+});
+
+async function callBuildApp(plugin: ReturnType<typeof buildIdAsset>, builder: FakeBuilder): Promise<void> {
+    const hook = plugin.buildApp;
+    if (!hook) throw new Error('buildApp hook not defined');
+    if (typeof hook === 'function') {
+        await (hook as any).call({} as any, builder);
+    } else if ('handler' in hook) {
+        await (hook.handler as any).call({} as any, builder);
+    }
 }
 
 describe('buildIdAsset', () => {
     const originalEnv = process.env;
+    let tempDir: string;
 
     beforeEach(() => {
         process.env = { ...originalEnv };
         delete process.env.__VINEXT_SHARED_BUILD_ID;
         delete process.env.__VINEXT_BUILD_ID;
+        tempDir = mkdtempSync(join(tmpdir(), 'cfni-build-id-test-'));
     });
 
     afterEach(() => {
         process.env = originalEnv;
+        vi.restoreAllMocks();
+        rmSync(tempDir, { recursive: true, force: true });
     });
 
     it('returns plugin with expected metadata', () => {
         const plugin = buildIdAsset();
         expect(plugin.name).toBe('cfni:build-id-asset');
         expect(plugin.apply).toBe('build');
-        expect(typeof plugin.generateBundle).toBe('function');
+        expect(plugin.buildApp).toBeDefined();
+        if (typeof plugin.buildApp === 'object' && plugin.buildApp !== null && 'order' in plugin.buildApp) {
+            expect(plugin.buildApp.order).toBe('post');
+            expect(typeof plugin.buildApp.handler).toBe('function');
+        }
     });
 
-    it('ignores non-client environments', () => {
+    it('emits BUILD_ID from __VINEXT_SHARED_BUILD_ID env var', async () => {
         const plugin = buildIdAsset();
-        process.env.__VINEXT_SHARED_BUILD_ID = 'test-build-id';
-        const emitFile = vi.fn();
+        process.env.__VINEXT_SHARED_BUILD_ID = 'shared-1';
+        const builder = createBuilder(tempDir, { client: 'dist/client' });
 
-        const context = {
-            environment: { name: 'server' },
-            emitFile,
-        };
+        await callBuildApp(plugin, builder);
 
-        callGenerateBundle(plugin, context);
-        expect(emitFile).not.toHaveBeenCalled();
+        const targetFile = resolve(tempDir, 'dist/client', 'BUILD_ID');
+        expect(existsSync(targetFile)).toBe(true);
+        expect(readFileSync(targetFile, 'utf8')).toBe('shared-1');
+        expect(builder.config.logger.warn).not.toHaveBeenCalled();
     });
 
-    it('ignores when environment is undefined', () => {
+    it('reads trimmed server BUILD_ID file when env vars are missing', async () => {
         const plugin = buildIdAsset();
-        process.env.__VINEXT_SHARED_BUILD_ID = 'test-build-id';
-        const emitFile = vi.fn();
+        const serverDir = resolve(tempDir, 'dist/server');
+        mkdirSync(serverDir, { recursive: true });
+        writeFileSync(resolve(serverDir, 'BUILD_ID'), 'abc\n');
 
-        const context = {
-            emitFile,
-        };
+        const builder = createBuilder(tempDir, { client: 'dist/client' });
 
-        callGenerateBundle(plugin, context);
-        expect(emitFile).not.toHaveBeenCalled();
+        await callBuildApp(plugin, builder);
+
+        const targetFile = resolve(tempDir, 'dist/client', 'BUILD_ID');
+        expect(readFileSync(targetFile, 'utf8')).toBe('abc');
+        expect(builder.config.logger.warn).not.toHaveBeenCalled();
     });
 
-    it('ignores when no build id env var is present', () => {
+    it('prefers rsc outDir BUILD_ID over dist/server', async () => {
         const plugin = buildIdAsset();
-        const emitFile = vi.fn();
+        const rscDir = resolve(tempDir, 'out/rsc');
+        const serverDir = resolve(tempDir, 'dist/server');
+        mkdirSync(rscDir, { recursive: true });
+        mkdirSync(serverDir, { recursive: true });
+        writeFileSync(resolve(rscDir, 'BUILD_ID'), 'rsc-123\n');
+        writeFileSync(resolve(serverDir, 'BUILD_ID'), 'dist-server-456\n');
 
-        const context = {
-            environment: { name: 'client' },
-            emitFile,
-        };
+        const builder = createBuilder(tempDir, { client: 'dist/client', rsc: 'out/rsc' });
 
-        callGenerateBundle(plugin, context);
-        expect(emitFile).not.toHaveBeenCalled();
+        await callBuildApp(plugin, builder);
+
+        const targetFile = resolve(tempDir, 'dist/client', 'BUILD_ID');
+        expect(readFileSync(targetFile, 'utf8')).toBe('rsc-123');
+        expect(builder.config.logger.warn).not.toHaveBeenCalled();
     });
 
-    it('emits default fileName asset using __VINEXT_SHARED_BUILD_ID', () => {
+    it('generates timestamp id and warns when nothing is found', async () => {
         const plugin = buildIdAsset();
-        process.env.__VINEXT_SHARED_BUILD_ID = 'shared-123';
-        const emitFile = vi.fn();
+        vi.spyOn(Date, "now").mockReturnValue(1700000000000);
+        const builder = createBuilder(tempDir, { client: 'dist/client' });
 
-        const context = {
-            environment: { name: 'client' },
-            emitFile,
-        };
+        await callBuildApp(plugin, builder);
 
-        callGenerateBundle(plugin, context);
-        expect(emitFile).toHaveBeenCalledWith({
-            type: 'asset',
-            fileName: 'BUILD_ID',
-            source: 'shared-123',
-        });
+        const targetFile = resolve(tempDir, 'dist/client', 'BUILD_ID');
+        expect(readFileSync(targetFile, 'utf8')).toBe('1700000000000');
+        expect(builder.config.logger.warn).toHaveBeenCalledTimes(1);
+        expect(builder.config.logger.warn).toHaveBeenCalledWith(
+            expect.stringContaining('[cfni:build-id-asset] build id not found; using generated 1700000000000')
+        );
     });
 
-    it('emits custom fileName asset using __VINEXT_BUILD_ID fallback', () => {
-        const plugin = buildIdAsset('CUSTOM_BUILD_ID');
-        process.env.__VINEXT_BUILD_ID = 'vinext-456';
-        const emitFile = vi.fn();
+    it('does nothing when no client environment is present', async () => {
+        const plugin = buildIdAsset();
+        const builder = createBuilder(tempDir, { ssr: 'dist/server' });
 
-        const context = {
-            environment: { name: 'client' },
-            emitFile,
-        };
+        await callBuildApp(plugin, builder);
 
-        callGenerateBundle(plugin, context);
-        expect(emitFile).toHaveBeenCalledWith({
-            type: 'asset',
-            fileName: 'CUSTOM_BUILD_ID',
-            source: 'vinext-456',
-        });
+        expect(builder.config.logger.warn).not.toHaveBeenCalled();
+        expect(existsSync(resolve(tempDir, 'dist/client'))).toBe(false);
+    });
+
+    it('supports custom fileName parameter', async () => {
+        const plugin = buildIdAsset('version.txt');
+        process.env.__VINEXT_SHARED_BUILD_ID = 'custom-id';
+        const builder = createBuilder(tempDir, { client: 'dist/client' });
+
+        await callBuildApp(plugin, builder);
+
+        const targetFile = resolve(tempDir, 'dist/client', 'version.txt');
+        expect(existsSync(targetFile)).toBe(true);
+        expect(readFileSync(targetFile, 'utf8')).toBe('custom-id');
+    });
+
+    it('resolves relative client outDir against root', async () => {
+        const plugin = buildIdAsset();
+        process.env.__VINEXT_BUILD_ID = 'vinext-env-id';
+        const builder = createBuilder(tempDir, { client: './custom/nested/client' });
+
+        await callBuildApp(plugin, builder);
+
+        const targetFile = resolve(tempDir, 'custom/nested/client', 'BUILD_ID');
+        expect(existsSync(targetFile)).toBe(true);
+        expect(readFileSync(targetFile, 'utf8')).toBe('vinext-env-id');
     });
 });
