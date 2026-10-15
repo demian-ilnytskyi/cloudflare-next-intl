@@ -21,13 +21,15 @@ const createBuilder = (root: string, envs: Record<string, string>): FakeBuilder 
     ),
 });
 
+type BuildAppHandler = (this: unknown, builder: FakeBuilder) => unknown;
+
 async function callBuildApp(plugin: ReturnType<typeof buildIdAsset>, builder: FakeBuilder): Promise<void> {
     const hook = plugin.buildApp;
     if (!hook) throw new Error('buildApp hook not defined');
     if (typeof hook === 'function') {
-        await (hook as any).call({} as any, builder);
-    } else if ('handler' in hook) {
-        await (hook.handler as any).call({} as any, builder);
+        await (hook as unknown as BuildAppHandler).call({}, builder);
+    } else if ('handler' in hook && typeof hook.handler === 'function') {
+        await (hook.handler as unknown as BuildAppHandler).call({}, builder);
     }
 }
 
