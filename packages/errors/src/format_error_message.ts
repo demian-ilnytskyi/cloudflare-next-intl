@@ -1,4 +1,4 @@
-import type { ErrorHandlingParams } from '../types/types.js';
+import type { ErrorHandlingParams } from './types.js';
 import stringifyUnknown from './stringify_unknown.js';
 
 function formatSection(title: string, value: unknown, isClient?: boolean): string {

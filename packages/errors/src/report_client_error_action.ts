@@ -1,6 +1,6 @@
 'use server';
 
-import type { ErrorHandlingParams } from '../types/types.js';
+import type { ErrorHandlingParams } from './types.js';
 import type { ReportErrorConfig } from './report_error.js';
 import config from '@intl-config';
 import { reportClientErrorCore } from './report_client_error_core.js';

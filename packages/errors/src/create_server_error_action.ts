@@ -1,4 +1,4 @@
-import type { ErrorHandlingParams } from '../types/types.js';
+import type { ErrorHandlingParams } from './types.js';
 import { type ReportErrorConfig } from './report_error.js';
 import { reportClientErrorCore } from './report_client_error_core.js';
 
@@ -12,7 +12,7 @@ import { reportClientErrorCore } from './report_client_error_core.js';
  * ```ts
  * // report_client_error.ts
  * "use server";
- * import createServerErrorAction from "cloudflare-next-intl-intl/createServerErrorAction";
+ * import createServerErrorAction from "cloudflare-next-intl-errors/createServerErrorAction";
  * import intlConfig from "./intl_config";
  * export const reportClientError = createServerErrorAction(intlConfig);
  * ```

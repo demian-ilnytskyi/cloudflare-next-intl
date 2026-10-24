@@ -1,4 +1,4 @@
-import type { ConsentValue } from '../types/types.js';
+import type { ConsentValue } from './types.js';
 import reportError, { type ReportErrorConfig } from './report_error.js';
 
 export interface WithErrorHandlingOptions {

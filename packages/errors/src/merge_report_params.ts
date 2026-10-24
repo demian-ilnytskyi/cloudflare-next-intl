@@ -1,4 +1,4 @@
-import type { ErrorHandlingParams } from '../types/types.js';
+import type { ErrorHandlingParams } from './types.js';
 
 /**
  * Folds extra report fields into a caller's own `params`, without ever

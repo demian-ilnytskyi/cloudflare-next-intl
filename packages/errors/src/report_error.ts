@@ -1,4 +1,4 @@
-import type { ErrorHandlingParams, ErrorHandlingRoutingConfig, GenerateRoutingConfig } from '../types/types.js';
+import type { ErrorHandlingParams, ErrorHandlingRoutingConfig, GenerateRoutingConfig } from './types.js';
 import formatErrorMessage from './format_error_message.js';
 import stringifyUnknown from './stringify_unknown.js';
 import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors.js';

@@ -1,0 +1,13 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# testing
+/coverage
+
+# misc
+.DS_Store
+
+# build
+dist/**

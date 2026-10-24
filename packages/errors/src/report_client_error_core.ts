@@ -1,4 +1,4 @@
-import type { ErrorHandlingParams } from '../types/types.js';
+import type { ErrorHandlingParams } from './types.js';
 import reportError, { type ReportErrorConfig } from './report_error.js';
 import stringifyUnknown from './stringify_unknown.js';
 import mergeReportParams from './merge_report_params.js';

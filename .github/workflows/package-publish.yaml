@@ -11,6 +11,10 @@ on:
         description: "Publish intl package"
         type: boolean
         default: false
+      publish_errors:
+        description: "Publish errors package"
+        type: boolean
+        default: false
       publish_auth:
         description: "Publish auth package"
         type: boolean
@@ -30,8 +34,8 @@ concurrency:
 
 jobs:
   publish_cloudflare_next_intl:
-    needs: [publish_intl, publish_auth]
-    if: ${{ always() && inputs.publish_cloudflare_next_intl && needs.publish_intl.result != 'failure' && needs.publish_intl.result != 'cancelled' && needs.publish_auth.result != 'failure' && needs.publish_auth.result != 'cancelled' }}
+    needs: [publish_intl, publish_errors, publish_auth]
+    if: ${{ always() && inputs.publish_cloudflare_next_intl && needs.publish_intl.result != 'failure' && needs.publish_intl.result != 'cancelled' && needs.publish_errors.result != 'failure' && needs.publish_errors.result != 'cancelled' && needs.publish_auth.result != 'failure' && needs.publish_auth.result != 'cancelled' }}
     uses: demian-ilnytskyi/workflows/.github/workflows/package_publish.yml@main
     secrets: inherit
     with:
@@ -44,6 +48,14 @@ jobs:
     secrets: inherit
     with:
       working_directory: packages/intl
+      send_notifications: false
+
+  publish_errors:
+    if: ${{ inputs.publish_errors }}
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_publish.yml@main
+    secrets: inherit
+    with:
+      working_directory: packages/errors
       send_notifications: false
 
   publish_auth:
@@ -75,6 +87,7 @@ jobs:
     needs:
       - publish_cloudflare_next_intl
       - publish_intl
+      - publish_errors
       - publish_auth
       - publish_db
       - publish_db_codegen
@@ -83,4 +96,4 @@ jobs:
     with:
       job_status: ${{ (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && 'failure' || 'success' }}
       workflow: ${{ github.workflow }}
-      dop_text: "cloudflare-next-intl ${{ inputs.publish_cloudflare_next_intl && needs.publish_cloudflare_next_intl.result || 'skipped' }}, intl ${{ inputs.publish_intl && needs.publish_intl.result || 'skipped' }}, auth ${{ inputs.publish_auth && needs.publish_auth.result || 'skipped' }}, db ${{ inputs.publish_db && needs.publish_db.result || 'skipped' }}, db-codegen ${{ inputs.publish_db_codegen && needs.publish_db_codegen.result || 'skipped' }}"
+      dop_text: "cloudflare-next-intl ${{ inputs.publish_cloudflare_next_intl && needs.publish_cloudflare_next_intl.result || 'skipped' }}, intl ${{ inputs.publish_intl && needs.publish_intl.result || 'skipped' }}, errors ${{ inputs.publish_errors && needs.publish_errors.result || 'skipped' }}, auth ${{ inputs.publish_auth && needs.publish_auth.result || 'skipped' }}, db ${{ inputs.publish_db && needs.publish_db.result || 'skipped' }}, db-codegen ${{ inputs.publish_db_codegen && needs.publish_db_codegen.result || 'skipped' }}"
