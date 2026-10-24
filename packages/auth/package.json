@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl-auth",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Firebase Auth integration for Next.js App Router and Cloudflare",
   "main": "dist/src/firebase_auth/index.js",
   "types": "dist/src/firebase_auth/index.d.ts",
