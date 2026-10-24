@@ -1,3 +1,4 @@
+import React from 'react';
 import CoreIntlProviderStatic from 'cloudflare-next-intl-intl/serverProviderStatic';
 import ClientExtensions from '../../client/components/client_extensions.js';
 import config from '../../config/intl_config.js';
@@ -13,7 +14,7 @@ export default async function LocationzationProvider({
     language: string;
     messages?: TranslationObject;
     children: React.ReactNode;
-}) {
+}): Promise<React.JSX.Element> {
     if (config.firebaseAuth) {
         throw new Error(
             '[cloudflare-next-intl] `firebaseAuth` is configured but this route uses ' +

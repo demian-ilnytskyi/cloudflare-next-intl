@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextResponse } from 'next/server.js';
+import type { NextResponse } from 'next/server.js';
 import { makeTestRequest as makeRequest } from '../test_utils/mock_next_server.js';
 
 describe('intlMiddleware with firebaseAuth configured', () => {

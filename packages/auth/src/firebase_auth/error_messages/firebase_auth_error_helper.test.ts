@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type * as CacheVariablesModule from 'cloudflare-next-intl-intl/internal/cacheVariables';
+import type * as GeneralFunctionsModule from 'cloudflare-next-intl-intl/internal/generalFunctions';
 
 vi.mock('cloudflare-next-intl-intl/internal/generalFunctions', () => ({
     getTranslationsImpl: vi.fn(),
@@ -94,10 +96,10 @@ describe('firebaseAuthErrorMessage', () => {
     });
 
     it('uses messages seeded via core setMessageForLocaleCache', async () => {
-        const actualCache = await vi.importActual<typeof import('cloudflare-next-intl-intl/internal/cacheVariables')>(
+        const actualCache = await vi.importActual<typeof CacheVariablesModule>(
             'cloudflare-next-intl-intl/internal/cacheVariables',
         );
-        const actualGeneral = await vi.importActual<typeof import('cloudflare-next-intl-intl/internal/generalFunctions')>(
+        const actualGeneral = await vi.importActual<typeof GeneralFunctionsModule>(
             'cloudflare-next-intl-intl/internal/generalFunctions',
         );
         const { getMessageCache, getTranslationCache } = await import('cloudflare-next-intl-intl/internal/cacheVariables');

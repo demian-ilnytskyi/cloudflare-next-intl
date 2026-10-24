@@ -34,7 +34,7 @@ import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-images-manifest")
             Object.assign(images, manifestData.images);
         }
     })
-    .catch(() => {});
+    .catch(() => undefined);
 
 let defaultCustomLoader: ((props: { src: string; width: number; quality?: number }) => string) | undefined;
 import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-image-loader")
@@ -45,7 +45,7 @@ import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-image-loader")
         };
         defaultCustomLoader = loaderMod?.defaultLoader ?? loaderMod?.default;
     })
-    .catch(() => {});
+    .catch(() => undefined);
 
 function findEntry(srcVal: unknown): ManifestEntry | undefined {
     if (!srcVal) return undefined;

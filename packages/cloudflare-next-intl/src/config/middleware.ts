@@ -4,7 +4,7 @@ import {
     type IntlMiddlewareContext,
     type IntlMiddlewareHook,
 } from 'cloudflare-next-intl-intl/middleware';
-import type { NextRequest, NextResponse } from 'next/server.js';
+import type { NextResponse } from 'next/server.js';
 import config from './intl_config.js';
 import type * as UpdateSessionModule from '../firebase_auth/middleware/update_session.js';
 

@@ -2,7 +2,7 @@ export * from 'cloudflare-next-intl-intl/types';
 import type { IntlRoutingConfig, Locales, LocalePrefixMode } from 'cloudflare-next-intl-intl/types';
 import type { CookieConsentDialogProps } from '../cookie_consent/client/components/cookie_consent_dialog.js';
 import type { PrivacyPolicyUpdateDialogProps } from '../cookie_consent/client/components/privacy_policy_update_dialog.js';
-import type { ConsentValue } from '../cookie_consent/types.js';
+export type { ConsentValue } from '../cookie_consent/types.js';
 import type { ConfigValue, FallibleConfigValue, DbRoutingConfig, SupabaseDbConfig } from 'cloudflare-next-intl-db';
 import type { FirebaseAuthRoutingConfig } from 'cloudflare-next-intl-auth/types';
 

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
-import ClientExtensions from './client_extensions.js';
 import { LocaleContext } from './locale_provider.js';
 import { useLocale } from 'cloudflare-next-intl-intl/use';
 

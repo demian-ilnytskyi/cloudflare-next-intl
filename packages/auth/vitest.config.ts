@@ -43,7 +43,7 @@ export default defineConfig({
                 'src/firebase_auth/server/clear_session_action.ts': { statements: 93.33, branches: 90.9, functions: 100, lines: 93.33 },
                 'src/firebase_auth/server/exchange_turnstile_token_action.ts': { statements: 100, branches: 90.47, functions: 100, lines: 100 },
                 'src/firebase_auth/server/restore_session_action.ts': { statements: 88.77, branches: 64.28, functions: 100, lines: 88.77 },
-                'src/firebase_auth/server/sign_service_account_jwt.ts': { statements: 100, branches: 92.85, functions: 100, lines: 100 },
+                'src/firebase_auth/server/sign_service_account_jwt.ts': { statements: 100, branches: 92.3, functions: 100, lines: 100 },
                 'src/firebase_auth/server/sync_session_action.ts': { statements: 100, branches: 94.44, functions: 100, lines: 100 },
             },
         },

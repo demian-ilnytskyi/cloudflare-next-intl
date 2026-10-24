@@ -56,7 +56,7 @@ export default function ClientExtensions({
     analyticsConfig,
     autoAnalyticsEventsConfig,
     children,
-}: ClientExtensionsProps) {
+}: ClientExtensionsProps): React.ReactNode {
     const isConsent = hasCookieConsent ?? Boolean(config.cookieConsent);
     const isAuth = hasFirebaseAuth ?? Boolean(config.firebaseAuth);
     const isPerf = enableFirebasePerformance ?? (config.firebaseAuth?.performance !== false);

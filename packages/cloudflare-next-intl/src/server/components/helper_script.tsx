@@ -1,9 +1,10 @@
+import React from 'react';
 import CoreHelperScript from 'cloudflare-next-intl-intl/internal/helperScript';
 import config from '../../config/intl_config.js';
 
 export { defaultReloadHtml } from 'cloudflare-next-intl-intl/internal/helperScript';
 
-export default function HelperScript({ locale }: { locale?: string }) {
+export default function HelperScript({ locale }: { locale?: string }): React.JSX.Element {
     const analytics = config.cookieConsent?.analytics;
     const hasGoogle = !!(analytics?.googleAnalyticsId || analytics?.googleAdsId || analytics?.googleAdSenseId);
     const hasClarity = !!analytics?.clarityProjectId;

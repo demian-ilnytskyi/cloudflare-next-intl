@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import HelperScript from './helper_script.js';
 
 vi.mock('../../client/components/client_helper_script', () => ({ default: () => null }));
 

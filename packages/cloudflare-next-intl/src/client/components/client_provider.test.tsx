@@ -11,7 +11,7 @@ vi.mock('../../config/intl_config.js', () => ({
     },
 }));
 
-import LocationzationClientProvider, { LocaleContext } from './client_provider.js';
+import LocationzationClientProvider, { LocaleContext, type LocationzationClientProviderProps } from './client_provider.js';
 
 vi.mock('../../cookie_consent/client/cookie_consent_provider.js', () => ({
     default: ({ children }: { children: React.ReactNode }) => <div data-testid="consent-provider">{children}</div>,
@@ -52,14 +52,14 @@ describe('LocationzationClientProvider (umbrella)', () => {
             <LocationzationClientProvider
                 language="en"
                 messages={{}}
-                initialAuthUser={{ uid: 'user_123' } as any}
+                initialAuthUser={{ uid: 'user_123' } as unknown as LocationzationClientProviderProps['initialAuthUser']}
                 skipAuthProvider={true}
                 requiresConsent={false}
                 autoWireDialogs={false}
                 analyticsConfig={{ googleAnalyticsId: 'G-123' }}
                 autoAnalyticsEventsConfig={{ pageViews: true }}
-                dialogProps={{ title: 'Cookies' } as any}
-                updateDialogProps={{ title: 'Update' } as any}
+                dialogProps={{ title: 'Cookies' } as unknown as LocationzationClientProviderProps['dialogProps']}
+                updateDialogProps={{ title: 'Update' } as unknown as LocationzationClientProviderProps['updateDialogProps']}
             >
                 <div data-testid="custom-child">Hello</div>
             </LocationzationClientProvider>,

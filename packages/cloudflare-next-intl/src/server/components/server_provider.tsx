@@ -1,3 +1,4 @@
+import React from 'react';
 import CoreIntlProvider from 'cloudflare-next-intl-intl/serverProvider';
 import { localesSet } from 'cloudflare-next-intl-intl/middleware';
 import ClientExtensions from '../../client/components/client_extensions.js';
@@ -20,7 +21,7 @@ export default async function LocationzationProvider({
     messages?: TranslationObject;
     staticSafe?: boolean;
     children: React.ReactNode;
-}) {
+}): Promise<React.JSX.Element> {
     if (!localesSet.has(language)) {
         const { notFound } = await import('next/navigation.js');
         notFound();
