@@ -866,6 +866,122 @@ describe('updateSession', () => {
         expect(res.cookies.get('__fa_refresh_token__')?.value).toBe('new-refresh-token');
     });
 
+    it('keeps every baseResponse Set-Cookie header on the rebuilt response', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: 'new-id-token', refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'old-refresh-token' },
+        });
+        const base = NextResponse.next();
+        base.cookies.set('__cf_country__', 'UA');
+        base.cookies.set('__cf_timezone__', 'Europe/Kyiv');
+
+        const res = await updateSession(req, base, 'en', () => NextResponse.next());
+
+        const names = res.headers.getSetCookie().map((c) => c.split('=')[0]);
+        expect(names).toEqual(expect.arrayContaining(['__cf_country__', '__cf_timezone__', '__fa_session__', '__fa_refresh_token__']));
+    });
+
+    it('keeps every baseResponse Set-Cookie header on a redirect', async () => {
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeRequest('https://example.com/en/dashboard');
+        const base = NextResponse.next();
+        base.cookies.set('__cf_country__', 'UA');
+        base.cookies.set('__cf_timezone__', 'Europe/Kyiv');
+
+        const res = await updateSession(req, base, 'en');
+
+        expect(res.status).toBe(307);
+        const names = res.headers.getSetCookie().map((c) => c.split('=')[0]);
+        expect(names).toEqual(expect.arrayContaining(['__cf_country__', '__cf_timezone__']));
+    });
+
+    it('marks refreshed cookies Secure on an https request', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: 'new-id-token', refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'old-refresh-token' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(res.cookies.get('__fa_session__')?.secure).toBe(true);
+        expect(res.cookies.get('__fa_refresh_token__')?.secure).toBe(true);
+    });
+
+    it('keeps refreshed cookies non-Secure on plain http', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: 'new-id-token', refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeRequest('http://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'old-refresh-token' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        expect(res.cookies.get('__fa_session__')?.secure).toBeFalsy();
+        expect(res.cookies.get('__fa_refresh_token__')?.secure).toBeFalsy();
+    });
+
+    it('writes the session marker alongside a refreshed pair', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: 'new-id-token', refresh_token: 'new-refresh-token' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session.js');
+        const { decodeSessionMarker, refreshTokenHash } = await import('../session_marker.js');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'old-refresh-token' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        const markerCookie = res.cookies.get('__fa_has_session__');
+        expect(markerCookie).toBeDefined();
+        expect(markerCookie?.httpOnly).toBeFalsy();
+        expect(markerCookie?.secure).toBe(true);
+        const decoded = decodeSessionMarker(markerCookie?.value);
+        expect(decoded).not.toBeNull();
+        const now = Math.floor(Date.now() / 1000);
+        expect(Math.abs(decoded!.expiresAt - (now + 60 * 60 * 24 * 365))).toBeLessThanOrEqual(5);
+        expect(decoded?.hash).toBe(await refreshTokenHash('new-refresh-token'));
+    });
+
+    it('deletes the session marker when the refresh token is invalid', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 400,
+            json: async () => ({ error: { message: 'TOKEN_EXPIRED' } }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'old-refresh-token' },
+        });
+        const base = NextResponse.next();
+        const res = await updateSession(req, base, 'en');
+
+        const deleted = res.cookies.getAll().filter((c) => c.name === '__fa_has_session__' && (c.maxAge === 0 || c.value === ''));
+        expect(deleted.length).toBeGreaterThan(0);
+    });
+
     it('clears an invalid session cookie when there is no refresh token to use instead', async () => {
         const { default: updateSession } = await import('./update_session.js');
         const req = makeRequest('https://example.com/en/dashboard', {
@@ -1595,3 +1711,125 @@ describe('updateSession: JWT decode memoization', () => {
         expect(callsOnThisToken.length).toBe(1);
     });
 });
+
+describe('updateSession: device binding', () => {
+    beforeEach(() => {
+        currentConfig = { locales: ['en', 'de'], defaultLocale: 'en', firebaseAuth: { ...baseFa } };
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('sets __fa_proof_required__=1 and does not redirect to login when proof is required', async () => {
+        const dummyStore = {
+            get: vi.fn().mockResolvedValue(JSON.stringify({ kty: 'EC', crv: 'P-256', x: '123', y: '456' })),
+            put: vi.fn().mockResolvedValue(undefined),
+            delete: vi.fn().mockResolvedValue(undefined),
+        };
+        currentConfig.firebaseAuth!.deviceBinding = { store: dummyStore };
+
+        const { default: updateSession } = await import('./update_session.js');
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'bound-refresh-token' },
+        });
+
+        const res = await updateSession(req, NextResponse.next(), 'en');
+
+        // Not redirected, passed through
+        expect(res.status).toBe(200);
+        expect(res.headers.get('location')).toBeNull();
+        expect(res.cookies.get('__fa_proof_required__')?.value).toBe('1');
+    });
+
+    it('does not set bound bit in session marker when refresh succeeds for unbound session under deviceBinding', async () => {
+        const dummyStore = {
+            get: vi.fn().mockResolvedValue(null), // unbound session -> refreshes without proof
+            put: vi.fn().mockResolvedValue(undefined),
+            delete: vi.fn().mockResolvedValue(undefined),
+        };
+        currentConfig.firebaseAuth!.deviceBinding = { store: dummyStore };
+
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                id_token: makeJwt(Date.now() / 1000 + 3600),
+                refresh_token: 'new-refresh-token',
+            }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session.js');
+        const { decodeSessionMarker } = await import('../session_marker.js');
+
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: { __fa_refresh_token__: 'unbound-refresh-token' },
+        });
+
+        const res = await updateSession(req, NextResponse.next(), 'en');
+        const markerVal = res.cookies.get('__fa_has_session__')?.value;
+        expect(markerVal).toBeDefined();
+        const decoded = decodeSessionMarker(markerVal!);
+        expect(decoded?.bound).toBe(false);
+    });
+
+    it('sets bound bit in session marker when refresh succeeds for bound session with valid proof', async () => {
+        const keyPair = await crypto.subtle.generateKey(
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            ['sign', 'verify'],
+        );
+        const publicJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+
+        const dummyStore = {
+            get: vi.fn().mockResolvedValue(JSON.stringify(publicJwk)),
+            put: vi.fn().mockResolvedValue(undefined),
+            delete: vi.fn().mockResolvedValue(undefined),
+        };
+        currentConfig.firebaseAuth!.deviceBinding = { store: dummyStore };
+
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                id_token: makeJwt(Date.now() / 1000 + 3600),
+                refresh_token: 'new-refresh-token',
+            }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { default: updateSession } = await import('./update_session.js');
+        const { decodeSessionMarker } = await import('../session_marker.js');
+        const { createDeviceProof } = await import('../device_proof.js');
+
+        const mockDeviceKey = {
+            publicJwk,
+            async sign(message: string): Promise<string> {
+                const data = new TextEncoder().encode(message);
+                const sig = await crypto.subtle.sign(
+                    { name: 'ECDSA', hash: 'SHA-256' },
+                    keyPair.privateKey,
+                    data,
+                );
+                return Buffer.from(sig).toString('base64url');
+            },
+        };
+
+        const rt = 'bound-refresh-token';
+        const now = Math.floor(Date.now() / 1000);
+        const proof = await createDeviceProof(mockDeviceKey, rt, now);
+
+        const req = makeRequest('https://example.com/en/dashboard', {
+            cookies: {
+                __fa_refresh_token__: rt,
+                __fa_device_proof__: proof,
+            },
+        });
+
+        const res = await updateSession(req, NextResponse.next(), 'en');
+        const markerVal = res.cookies.get('__fa_has_session__')?.value;
+        expect(markerVal).toBeDefined();
+        const decoded = decodeSessionMarker(markerVal!);
+        expect(decoded?.bound).toBe(true);
+    });
+});
+

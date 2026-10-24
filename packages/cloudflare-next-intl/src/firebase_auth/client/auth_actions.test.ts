@@ -19,6 +19,11 @@ vi.mock('../error_messages/firebase_auth_error_helper', () => ({
     default: vi.fn(() => 'translated error'),
 }));
 
+const ensureSessionSynced = vi.fn(async () => {});
+vi.mock('./session_sync.js', () => ({
+    ensureSessionSynced: (...args: unknown[]) => ensureSessionSynced(...args),
+}));
+
 const signInWithEmailAndPassword = vi.fn();
 const createUserWithEmailAndPassword = vi.fn();
 const sendPasswordResetEmail = vi.fn();
@@ -69,6 +74,26 @@ describe('createLoginAction', () => {
         const action = createLoginAction('en', {});
         await action({}, new FormData());
         expect(signInWithEmailAndPassword).toHaveBeenCalledWith({}, '', '');
+    });
+
+    it('login action resolves only after the session sync', async () => {
+        let resolveSync!: () => void;
+        const syncPromise = new Promise<void>((res) => { resolveSync = res; });
+        ensureSessionSynced.mockImplementationOnce(() => syncPromise);
+        signInWithEmailAndPassword.mockResolvedValueOnce({ user: { uid: 'u1' } });
+        const { createLoginAction } = await import('./auth_actions.js');
+        const action = createLoginAction('en', {});
+        let settled = false;
+        const pending = action({}, makeFormData({ email: 'a@b.com', password: 'pw' })).then((res) => {
+            settled = true;
+            return res;
+        });
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        resolveSync();
+        const result = await pending;
+        expect(result).toEqual({ success: true });
+        expect(ensureSessionSynced).toHaveBeenCalledWith({ uid: 'u1' });
     });
 });
 
@@ -128,6 +153,26 @@ describe('createSignUpAction', () => {
         const result = await action({}, makeFormData({ email: 'a@b.com', password: 'pw' }));
         expect(result).toEqual({ error: 'no match' });
         expect(createUserWithEmailAndPassword).not.toHaveBeenCalled();
+    });
+
+    it('sign-up action resolves only after the session sync', async () => {
+        let resolveSync!: () => void;
+        const syncPromise = new Promise<void>((res) => { resolveSync = res; });
+        ensureSessionSynced.mockImplementationOnce(() => syncPromise);
+        createUserWithEmailAndPassword.mockResolvedValueOnce({ user: { uid: 'u-signup' } });
+        const { createSignUpAction } = await import('./auth_actions.js');
+        const action = createSignUpAction('en', {});
+        let settled = false;
+        const pending = action({}, makeFormData({ email: 'a@b.com', password: 'pw', confirmPassword: 'pw' })).then((res) => {
+            settled = true;
+            return res;
+        });
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        resolveSync();
+        const result = await pending;
+        expect(result).toEqual({ success: true });
+        expect(ensureSessionSynced).toHaveBeenCalledWith({ uid: 'u-signup' });
     });
 });
 
@@ -239,6 +284,26 @@ describe('completeSignInWithLink', () => {
         const { completeSignInWithLink } = await import('./auth_actions.js');
         const result = await completeSignInWithLink('en', 'https://x/complete', 'a@b.com');
         expect(result).toEqual({ error: 'translated error' });
+    });
+
+    it('completeSignInWithLink resolves only after the session sync', async () => {
+        let resolveSync!: () => void;
+        const syncPromise = new Promise<void>((res) => { resolveSync = res; });
+        ensureSessionSynced.mockImplementationOnce(() => syncPromise);
+        isSignInWithEmailLink.mockReturnValue(true);
+        signInWithEmailLink.mockResolvedValueOnce({ user: { uid: 'u-link' } });
+        const { completeSignInWithLink } = await import('./auth_actions.js');
+        let settled = false;
+        const pending = completeSignInWithLink('en', 'https://x/complete?apiKey=1', 'a@b.com').then((res) => {
+            settled = true;
+            return res;
+        });
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        resolveSync();
+        const result = await pending;
+        expect(result).toEqual({ success: true });
+        expect(ensureSessionSynced).toHaveBeenCalledWith({ uid: 'u-link' });
     });
 });
 

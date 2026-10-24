@@ -4,7 +4,15 @@ import { cookies } from 'next/headers.js';
 import { cache } from 'react';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config.js';
-import { defaultAppCheckTokenCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName, isIdTokenExpired, refreshIdToken, sessionCookieOptions } from '../middleware/update_session.js';
+import {
+    defaultAppCheckTokenCookieName,
+    defaultRefreshTokenCookieName,
+    defaultSessionCookieName,
+    defaultDeviceProofCookieName,
+} from '../cookie_names.js';
+import { isIdTokenExpired, sessionCookieOptions } from '../middleware/update_session.js';
+import { guardedRefresh } from '../guarded_refresh.js';
+import { isAppCheckTokenUsable } from '../app_check_token.js';
 import reportError from '../../error_handling/report_error.js';
 import mintServerAppCheckToken from './mint_server_app_check_token.js';
 
@@ -58,6 +66,8 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
     const refreshTokenCookieName = fa.refreshTokenCookieName ?? defaultRefreshTokenCookieName;
     const cookieStore = await cookies();
     let authIdToken = cookieStore.get(sessionCookieName)?.value;
+    const proofCookieName = fa.deviceProofCookieName ?? defaultDeviceProofCookieName;
+    const proof = cookieStore.get(proofCookieName)?.value;
 
     // Safety net for the paths the middleware can't cover (prefetch requests,
     // excluded matcher routes, server actions): an expired token would be
@@ -68,7 +78,7 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
     if (authIdToken && isIdTokenExpired(authIdToken)) {
         const refreshToken = cookieStore.get(refreshTokenCookieName)?.value;
         const result = refreshToken
-            ? await refreshIdToken(fa.apiKey, refreshToken)
+            ? await guardedRefresh(fa, refreshToken, proof)
             : undefined;
         authIdToken = result?.status === 'refreshed' ? result.idToken : undefined;
     }
@@ -94,8 +104,10 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
     // `undefined` if `appCheck.clientEmail`/`privateKey`/`appId` aren't set,
     // so apps that never configure server-side minting keep today's exact
     // behavior.
-    const appCheckToken = cookieStore.get(appCheckTokenCookieName)?.value
-        ?? await mintServerAppCheckToken(fa.projectId, fa.apiKey, fa.appCheck);
+    const rawAppCheckCookie = cookieStore.get(appCheckTokenCookieName)?.value;
+    const appCheckToken = isAppCheckTokenUsable(rawAppCheckCookie)
+        ? rawAppCheckCookie
+        : await mintServerAppCheckToken(fa.projectId, fa.apiKey, fa.appCheck);
 
     // A token that isn't merely expired-by-clock (revoked session, password
     // change, a token minted for a different project) is rejected with
@@ -144,7 +156,7 @@ export const getAuthenticatedAppForUser = cache(async function getAuthenticatedA
         if (!refreshToken) return { firebaseServerApp: null, currentUser: null };
         // The cached entry is what produced `rejectedToken` in the first
         // place, so a plain refresh would hand back the same rejected token.
-        const result = await refreshIdToken(fa.apiKey, refreshToken, { skipCache: true });
+        const result = await guardedRefresh(fa, refreshToken, proof, { skipCache: true });
         if (result.status !== 'refreshed' || result.idToken === rejectedToken) {
             return { firebaseServerApp: null, currentUser: null };
         }

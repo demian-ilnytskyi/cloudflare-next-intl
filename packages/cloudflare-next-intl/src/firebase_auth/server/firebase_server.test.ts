@@ -300,12 +300,13 @@ describe('getAuthenticatedAppForUser', () => {
     });
 
     it('forwards the App Check token cookie as appCheckToken, distinct from the session cookie', async () => {
+        const acToken = makeToken('ac-token');
         cookieGet.mockImplementation((name: string) =>
-            name === '__fa_app_check_token__' ? { value: 'ac-token' } : { value: validToken },
+            name === '__fa_app_check_token__' ? { value: acToken } : { value: validToken },
         );
         const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         await getAuthenticatedAppForUser();
-        expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: validToken, appCheckToken: 'ac-token' });
+        expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: validToken, appCheckToken: acToken });
     });
 
     it('omits appCheckToken when no App Check cookie is present and minting is unconfigured/fails', async () => {
@@ -332,13 +333,27 @@ describe('getAuthenticatedAppForUser', () => {
 
     it('does not attempt to mint when the App Check cookie is already present', async () => {
         fa.appCheck = { clientEmail: 'sa@proj.iam.gserviceaccount.com', privateKey: 'pk', appId: '1:1:web:1' };
+        const usableToken = makeToken('ac-token');
         cookieGet.mockImplementation((name: string) =>
-            name === '__fa_app_check_token__' ? { value: 'ac-token' } : { value: validToken },
+            name === '__fa_app_check_token__' ? { value: usableToken } : { value: validToken },
         );
         const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
         await getAuthenticatedAppForUser();
         expect(mintServerAppCheckToken).not.toHaveBeenCalled();
-        expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: validToken, appCheckToken: 'ac-token' });
+        expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: validToken, appCheckToken: usableToken });
+    });
+
+    it('mints instead of forwarding an expired App Check cookie', async () => {
+        fa.appCheck = { clientEmail: 'sa@proj.iam.gserviceaccount.com', privateKey: 'pk', appId: '1:1:web:1' };
+        const expiredToken = makeToken('ac-token', Math.floor(Date.now() / 1000) + 60);
+        cookieGet.mockImplementation((name: string) =>
+            name === '__fa_app_check_token__' ? { value: expiredToken } : { value: validToken },
+        );
+        mintServerAppCheckToken.mockResolvedValue('freshly-minted');
+        const { getAuthenticatedAppForUser } = await import('./firebase_server.js');
+        await getAuthenticatedAppForUser();
+        expect(mintServerAppCheckToken).toHaveBeenCalledWith('proj', 'key', fa.appCheck);
+        expect(initializeServerApp).toHaveBeenCalledWith(expect.anything(), { authIdToken: validToken, appCheckToken: 'freshly-minted' });
     });
 
     it('does not attempt to mint when there is no session cookie at all', async () => {

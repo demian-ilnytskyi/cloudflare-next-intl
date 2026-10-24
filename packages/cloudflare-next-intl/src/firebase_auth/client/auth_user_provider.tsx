@@ -6,41 +6,71 @@ import usePathname from '../../client/hooks/use_path_name.js';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config.js';
 import { getAppCheckToken, getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client.js';
+import { ensureSessionSynced } from './session_sync.js';
 import { setAuthUserCache } from './auth_user_cache.js';
-import { defaultAppCheckTokenCookieName, defaultEmailVerifiedHintCookieName, defaultRefreshTokenCookieName, defaultSessionCookieName } from '../middleware/update_session.js';
+import {
+    defaultAppCheckTokenCookieName,
+    defaultEmailVerifiedHintCookieName,
+    defaultRefreshTokenCookieName,
+    defaultSessionCookieName,
+    defaultSessionMarkerCookieName,
+    defaultDeviceProofCookieName,
+    defaultProofRequiredCookieName,
+} from '../cookie_names.js';
+import { decodeSessionMarker } from '../session_marker.js';
 import decodeJwtPayload from '../decode_jwt_payload.js';
 import isWhitelisted from '../is_whitelisted.js';
 import withRedirectQuery from '../preserve_redirect_query.js';
 import setCookie from '../../client/functions/set_cookie.js';
 import getCookie from '../../client/functions/get_cookie.js';
 import clearSessionAction from '../server/clear_session_action.js';
+import restoreSessionAction from '../server/restore_session_action.js';
+import syncSessionAction from '../server/sync_session_action.js';
+import { getDeviceKey, resetDeviceKey } from './device_key.js';
+import { createDeviceProof, DEFAULT_PROOF_MAX_AGE_SECONDS } from '../device_proof.js';
 import type { AuthActionCodeSettings, AuthUser, SerializedAuthUser } from '../types.js';
 import type { User } from '@firebase/auth';
 import { AuthUserContext, type AuthUserContextType } from './auth_user_context.js';
+
+async function writeProofCookie(
+    proofCookieName: string,
+    proofMaxAgeSeconds: number,
+    refreshTokenOrHash?: string,
+): Promise<boolean> {
+    const key = await getDeviceKey(false);
+    if (!key) return false;
+    let tokenOrHash = refreshTokenOrHash;
+    if (!tokenOrHash) {
+        const markerVal = getCookie(defaultSessionMarkerCookieName);
+        const decoded = decodeSessionMarker(markerVal);
+        tokenOrHash = decoded?.hash;
+    }
+    if (!tokenOrHash) return false;
+    try {
+        const now = Math.floor(Date.now() / 1000);
+        const proof = await createDeviceProof(key, tokenOrHash, now);
+        setCookie({ name: proofCookieName, value: proof, maxAge: proofMaxAgeSeconds });
+        return true;
+    } catch (e) {
+        console.error('AuthUserProvider: writeProofCookie failed', e);
+        return false;
+    }
+}
 
 const AUTH_SUBSCRIBE_IDLE_TIMEOUT_MS = 3_000;
 const AUTH_SUBSCRIBE_FALLBACK_DELAY_MS = 1_500;
 
 export { AuthUserContext };
 export type { AuthUserContextType };
-function writeSessionCookie(sessionCookieName: string, idToken: string, maxAge: number): void {
-    setCookie({ name: sessionCookieName, value: idToken, maxAge });
+
+export function hasServerSessionMarker(): boolean {
+    const fa = config.firebaseAuth;
+    const cookieName = fa?.sessionMarkerCookieName ?? defaultSessionMarkerCookieName;
+    return decodeSessionMarker(getCookie(cookieName)) !== null;
 }
 
-function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function clearSessionCookie(sessionCookieName: string): void {
-    setCookie({ name: sessionCookieName, value: '', maxAge: 0 });
-}
-
-function writeRefreshTokenCookie(refreshTokenCookieName: string, user: User, maxAge: number): void {
-    setCookie({ name: refreshTokenCookieName, value: user.refreshToken, maxAge });
-}
-
-function clearRefreshTokenCookie(refreshTokenCookieName: string): void {
-    setCookie({ name: refreshTokenCookieName, value: '', maxAge: 0 });
+export function shouldClearServerCookies(previous: boolean | undefined, initialSignedIn: boolean, isAuthPage: boolean): boolean {
+    return Boolean(previous ?? (initialSignedIn || isAuthPage));
 }
 
 // Mirrors the live SDK's `emailVerified` into a client-readable cookie so
@@ -66,22 +96,29 @@ function clearAppCheckTokenCookie(appCheckTokenCookieName: string): void {
 async function writeAppCheckTokenCookie(appCheckTokenCookieName: string, maxAge: number): Promise<void> {
     try {
         const token = await getAppCheckToken();
-        if (token) setCookie({ name: appCheckTokenCookieName, value: token, maxAge });
+        if (token) {
+            const decoded = decodeJwtPayload(token);
+            const now = Math.floor(Date.now() / 1000);
+            const calculatedMaxAge = decoded?.exp ? Math.max(0, decoded.exp - now - 60) : maxAge;
+            setCookie({ name: appCheckTokenCookieName, value: token, maxAge: calculatedMaxAge });
+        }
     } catch (e) {
         console.error('AuthUserProvider: App Check token cookie sync failed', e);
     }
 }
 
-async function clearSession(sessionCookieName: string, refreshTokenCookieName: string, emailVerifiedHintCookieName: string, appCheckTokenCookieName: string, refreshTokenMaxAge: number, clearServerCookies = true): Promise<void> {
-    clearSessionCookie(sessionCookieName);
-    clearRefreshTokenCookie(refreshTokenCookieName);
+async function clearSession(
+    emailVerifiedHintCookieName: string,
+    appCheckTokenCookieName: string,
+    refreshTokenMaxAge: number,
+    clearServerCookies = true,
+): Promise<void> {
     clearAppCheckTokenCookie(appCheckTokenCookieName);
-    // Signed-out is not "unknown" — it's a confirmed non-verified state, so
-    // write 'false' explicitly rather than clearing (an absent hint means
-    // "no signal yet", which forces the middleware to refresh unnecessarily
-    // if a stale session cookie somehow still lingers).
     writeEmailVerifiedHintCookie(emailVerifiedHintCookieName, false, refreshTokenMaxAge);
     if (!clearServerCookies) return;
+    setCookie({ name: defaultSessionMarkerCookieName, value: '', maxAge: 0 });
+    setCookie({ name: defaultDeviceProofCookieName, value: '', maxAge: 0 });
+    setCookie({ name: defaultProofRequiredCookieName, value: '', maxAge: 0 });
     try {
         await clearSessionAction();
     } catch (e) {
@@ -91,23 +128,16 @@ async function clearSession(sessionCookieName: string, refreshTokenCookieName: s
 
 async function writeSession(
     user: User,
-    sessionCookieName: string,
-    maxAge: number,
-    refreshTokenCookieName: string,
-    refreshTokenMaxAge: number,
     emailVerifiedHintCookieName: string,
     appCheckTokenCookieName: string,
+    refreshTokenMaxAge: number,
     appCheckTokenMaxAge: number,
-    idToken?: string,
 ): Promise<void> {
-    try {
-        writeRefreshTokenCookie(refreshTokenCookieName, user, refreshTokenMaxAge);
-    } catch (e) {
-        console.error('AuthUserProvider: refresh-token cookie sync failed', e);
-    }
     writeEmailVerifiedHintCookie(emailVerifiedHintCookieName, user.emailVerified, refreshTokenMaxAge);
-    await writeAppCheckTokenCookie(appCheckTokenCookieName, appCheckTokenMaxAge);
-    writeSessionCookie(sessionCookieName, idToken ?? await user.getIdToken(true), maxAge);
+    await Promise.all([
+        writeAppCheckTokenCookie(appCheckTokenCookieName, appCheckTokenMaxAge),
+        ensureSessionSynced(user),
+    ]);
 }
 
 /**
@@ -118,19 +148,13 @@ async function writeSession(
  * and to get automatic session-cookie sync + redirect-on-sign-out/verify
  * behavior driven by `firebaseAuth.isAuthPath` / `whiteListPaths` /
  * `redirectAuthPath` / `verifyEmailPath` on your `RoutingConfig`.
- *
- * Requires `firebaseAuth` to be set on the config passed to `setIntlConfig`
- * — throws via {@link requireFirebaseAuthConfig} otherwise.
- *
- * @param initialUser Server-resolved user (e.g. from
- *   `useFirebaseAuthUser`'s `react-server` variant) to avoid a
- *   loading flash on first paint; pass `null`/omit if unavailable.
- * @example
- * <AuthUserProvider initialUser={initialUser}>{children}</AuthUserProvider>
  */
-export default function AuthUserProvider({ initialUser = null, children }: {
-    initialUser?: SerializedAuthUser | null;
+export default function AuthUserProvider({
+    children,
+    initialUser,
+}: {
     children: React.ReactNode;
+    initialUser: SerializedAuthUser | null;
 }): React.JSX.Element {
     const fa = config.firebaseAuth;
     requireFirebaseAuthConfig(fa);
@@ -138,81 +162,71 @@ export default function AuthUserProvider({ initialUser = null, children }: {
     const router = useRouter();
     const pathname = usePathname();
     const isAuthPage = fa.isAuthPath(pathname);
-    // Mirrors `update_session.ts`'s own `isWhiteListed` computation: when
-    // `protectedPaths` (a denylist — "these need a session, everything else
-    // is public") is configured, derive whitelisting from it directly rather
-    // than requiring a second, separately-maintained `whiteListPaths`
-    // allowlist that has to be kept in sync by hand. Falls back to the
-    // explicit allowlist for configs that only set `whiteListPaths`.
     const isWhiteListed = fa.protectedPaths
         ? !fa.protectedPaths(pathname) && !isAuthPage
         : isWhitelisted(pathname, fa.whiteListPaths);
-    const maxAge = fa.sessionCookieMaxAge ?? 60 * 60 * 24 * 5;
     const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
     const refreshTokenMaxAge = fa.refreshTokenCookieMaxAge ?? 60 * 60 * 24 * 365;
     const refreshTokenCookieName = fa.refreshTokenCookieName ?? defaultRefreshTokenCookieName;
     const emailVerifiedHintCookieName = fa.emailVerifiedHintCookieName ?? defaultEmailVerifiedHintCookieName;
+    const sessionMarkerCookieName = fa.sessionMarkerCookieName ?? defaultSessionMarkerCookieName;
     const appCheckTokenCookieName = fa.appCheckTokenCookieName ?? defaultAppCheckTokenCookieName;
     const appCheckTokenMaxAge = fa.appCheckTokenCookieMaxAge ?? 60 * 60;
+    const bindingEnabled = Boolean(fa.deviceBinding);
+    const proofCookieName = fa.deviceProofCookieName ?? defaultDeviceProofCookieName;
+    const proofMaxAgeSeconds = fa.deviceBinding?.proofMaxAgeSeconds ?? DEFAULT_PROOF_MAX_AGE_SECONDS;
+    const proofRequiredCookieName = defaultProofRequiredCookieName;
+    const proofRefreshAttempted = useRef(false);
+    const isLoggingOutRef = useRef(false);
+    const routerRef = useRef(router);
+    routerRef.current = router;
+
+    const hasProofRequiredOnMount = bindingEnabled && typeof document !== 'undefined' && getCookie(proofRequiredCookieName) === '1';
+
     const [state, setState] = useState<{ user: AuthUser | null; loading: boolean }>({
         user: initialUser,
-        loading: initialUser === null,
+        loading: initialUser === null || hasProofRequiredOnMount,
     });
-    // The signed-in state the last successful cookie write left behind, so a
-    // plain token refresh (same state) does not trigger a needless re-render.
     const syncedSignedIn = useRef<boolean | undefined>(undefined);
-    // Consecutive `onIdTokenChanged(null)` callbacks since the last confirmed
-    // user. A single null here can be a transient client-SDK hiccup (e.g. its
-    // token-refresh scheduling misbehaving under local clock skew) rather
-    // than a real sign-out — the server already proved the session valid via
-    // `initialUser`, so redirecting on the very first null caused a
-    // login-then-bounce-home flash whenever the two disagreed.
     const consecutiveNulls = useRef(0);
     const [confirmedSignedOut, setConfirmedSignedOut] = useState(initialUser === null);
-    // Whether `onSignIn`/`onSignOut` have already fired for the CURRENT
-    // signed-in/signed-out state — both seeded from `initialUser` so a
-    // callback observing the SAME state `initialUser` already established
-    // (server-resolved, not a fresh client-side transition) does not refire
-    // it. Reset on the opposite transition so the next real occurrence of
-    // this state fires again.
     const signInCallbackFired = useRef(initialUser !== null);
     const signOutCallbackFired = useRef(initialUser === null);
-    // Tracks the last-observed `emailVerified` value so `onEmailVerified`
-    // fires exactly once on the false→true edge, not on every later
-    // observation of an already-verified user (both `onIdTokenChanged` and
-    // `reloadUser` can be the first to observe the transition).
     const emailVerifiedRef = useRef(initialUser?.emailVerified ?? false);
     const isAuthPageRef = useRef(isAuthPage);
     isAuthPageRef.current = isAuthPage;
-    // A boolean, not `initialUser` itself, in the subscribe effect's deps:
-    // the prop is an object, so a consumer passing it inline would otherwise
-    // tear down and rebuild the `onIdTokenChanged` listener every render.
-    const initialSignedIn = initialUser !== null;
+    const initialSignedIn = Boolean(initialUser);
     const deferAuthSubscribe = initialUser === null && isWhiteListed && !isAuthPage && typeof window !== 'undefined';
+    const restoreAttemptedRef = useRef(false);
+
+    const userRefreshToken = (() => {
+        try {
+            return (state.user as { refreshToken?: string } | null)?.refreshToken;
+        } catch {
+            return undefined;
+        }
+    })();
+
+    useEffect(() => {
+        if (!bindingEnabled || !userRefreshToken) return;
+        const intervalMs = Math.max(1, Math.floor(proofMaxAgeSeconds / 2)) * 1000;
+        const handle = setInterval(() => {
+            void writeProofCookie(proofCookieName, proofMaxAgeSeconds, userRefreshToken);
+        }, intervalMs);
+        return () => {
+            clearInterval(handle);
+        };
+    }, [bindingEnabled, userRefreshToken, proofCookieName, proofMaxAgeSeconds]);
 
     useEffect(() => {
         const { user, loading } = state;
         if (loading || isWhiteListed) return;
 
         if (!user) {
-            // Signed-out on an auth page is where they're supposed to be —
-            // only bounce a signed-out user away from a NON-auth page.
             if (!isAuthPage && confirmedSignedOut) router.replace(withRedirectQuery(fa.redirectAuthPath, window.location.search));
         } else if (fa.verifyEmailPath && !user.emailVerified && pathname !== fa.verifyEmailPath) {
-            // Checked before the auth-page redirect below (mirrors
-            // `update_session.ts`'s same ordering): an unverified signed-in
-            // user must land on verifyEmailPath even if they navigated to
-            // an auth page like /login — homePath isn't reachable yet either.
             router.replace(withRedirectQuery(fa.verifyEmailPath, window.location.search));
         } else if (isAuthPage || (fa.verifyEmailPath && user.emailVerified && pathname === fa.verifyEmailPath)) {
-            // Mirrors the middleware's own signed-in-on-auth-page redirect
-            // (`update_session.ts`'s `isAuthPage` branch) — needed here too
-            // because a client-side navigation (e.g. a `<Link>`) to an auth
-            // page never re-runs the middleware, so without this the user
-            // would land on e.g. `/login` while already signed in and stay
-            // there until a hard refresh. A verified user reaching
-            // verifyEmailPath itself gets the same "go home" treatment —
-            // they're done here, same as the auth-page case.
             router.replace(withRedirectQuery(fa.homePath, window.location.search));
         }
     }, [state, pathname, isAuthPage, isWhiteListed, confirmedSignedOut, fa, router]);
@@ -223,111 +237,203 @@ export default function AuthUserProvider({ initialUser = null, children }: {
         let idleHandle: number | undefined;
         let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
-        const subscribe = () => getFirebaseAuthClient().then(async ({ auth }) => {
+        const subscribe = () => {
+            getFirebaseAuthClient().then(async ({ auth }) => {
             if (cancelled) return;
             const { onIdTokenChanged } = await getFirebaseAuthModule();
 
-            unsubscribe = onIdTokenChanged(auth, async (user) => {
-                const isSignedIn = !!user;
-                const previous = syncedSignedIn.current;
+            unsubscribe = onIdTokenChanged(auth, async (user: User | null) => {
+                    if (isLoggingOutRef.current) {
+                        return;
+                    }
 
-                try {
+                    const previous = syncedSignedIn.current;
+                    const isSignedIn = user !== null;
+
+                    let liveRefreshToken: string | undefined;
+                    try {
+                        liveRefreshToken = user?.refreshToken;
+                    } catch {
+                        liveRefreshToken = undefined;
+                    }
+
+                    if (bindingEnabled && !proofRefreshAttempted.current && getCookie(proofRequiredCookieName) === '1') {
+                        proofRefreshAttempted.current = true;
+                        if (user && liveRefreshToken) {
+                            const existingKey = await getDeviceKey(false);
+                            if (existingKey) {
+                                await writeProofCookie(proofCookieName, proofMaxAgeSeconds, liveRefreshToken);
+                                setCookie({ name: proofRequiredCookieName, value: '', maxAge: 0 });
+                                setState(current => (current.loading ? current : { ...current, loading: true }));
+                                router.refresh();
+                                return;
+                            } else {
+                                const newKey = await getDeviceKey(true);
+                                if (newKey) {
+                                    const idToken = await user.getIdToken();
+                                    const res = await syncSessionAction({
+                                        idToken,
+                                        refreshToken: liveRefreshToken,
+                                        devicePublicJwk: newKey.publicJwk,
+                                    });
+                                    if (res.status === 'synced') {
+                                        await writeProofCookie(proofCookieName, proofMaxAgeSeconds, liveRefreshToken);
+                                        setCookie({ name: proofRequiredCookieName, value: '', maxAge: 0 });
+                                        setState(current => (current.loading ? current : { ...current, loading: true }));
+                                        router.refresh();
+                                        return;
+                                    } else if (res.status === 'rebind-refused') {
+                                        if (fa.onReauthRequired) {
+                                            await fa.onReauthRequired();
+                                        } else {
+                                            setAuthUserCache(null);
+                                            setState({ user: null, loading: false });
+                                            setConfirmedSignedOut(true);
+                                            await clearSession(emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, true);
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (bindingEnabled && user && liveRefreshToken) {
+                        void writeProofCookie(proofCookieName, proofMaxAgeSeconds, liveRefreshToken);
+                    }
+
+                    if (!user && !restoreAttemptedRef.current && hasServerSessionMarker()) {
+                        restoreAttemptedRef.current = true;
+                        setState(current => (current.loading ? current : { ...current, loading: true }));
+                        try {
+                            let res = await restoreSessionAction();
+                            if (res.status === 'proof-required' && bindingEnabled) {
+                                let splitRt: string | undefined;
+                                try {
+                                    splitRt = auth.currentUser?.refreshToken;
+                                } catch {
+                                    splitRt = undefined;
+                                }
+                                const wrote = await writeProofCookie(proofCookieName, proofMaxAgeSeconds, splitRt);
+                                if (wrote) {
+                                    res = await restoreSessionAction();
+                                }
+                            }
+                            if (res.status === 'restored') {
+                                const { signInWithCustomToken } = await getFirebaseAuthModule();
+                                await signInWithCustomToken(auth, res.customToken);
+                                return;
+                            }
+                            if (res.status === 'invalid' || res.status === 'no-session') {
+                                setAuthUserCache(null);
+                                setState({ user: null, loading: false });
+                                setConfirmedSignedOut(true);
+                                await clearSession(emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, true);
+                            } else {
+                                setAuthUserCache(null);
+                                setState({ user: null, loading: false });
+                                await clearSession(emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, false);
+                            }
+                        } catch (e) {
+                            console.error('AuthUserProvider: restoreSessionAction failed', e);
+                            setAuthUserCache(null);
+                            setState({ user: null, loading: false });
+                            await clearSession(emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, false);
+                        }
+                    } else {
+                        if (user) {
+                            if (isAuthPageRef.current) {
+                                try {
+                                    await writeSession(user, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, appCheckTokenMaxAge);
+                                } catch (e) {
+                                    console.error('AuthUserProvider: session sync failed', e);
+                                    return;
+                                }
+                                setAuthUserCache(user);
+                                setState({ user, loading: false });
+                            } else {
+                                setAuthUserCache(user);
+                                setState({ user, loading: false });
+                                void writeSession(user, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, appCheckTokenMaxAge).catch((e) => {
+                                    console.error('AuthUserProvider: session sync failed', e);
+                                });
+                            }
+                        } else {
+                            setAuthUserCache(null);
+                            setState({ user: null, loading: false });
+                            try {
+                                await clearSession(emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, shouldClearServerCookies(previous, initialSignedIn, isAuthPageRef.current));
+                            } catch (e) {
+                                console.error('AuthUserProvider: session sync failed', e);
+                                return;
+                            }
+                        }
+                    }
+
+                    syncedSignedIn.current = isSignedIn;
+
                     if (user) {
-                        await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge, await user.getIdToken());
-                    } else {
-                        await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, previous ?? (initialSignedIn || isAuthPageRef.current));
-                    }
-                } catch (e) {
-                    console.error('AuthUserProvider: session sync failed', e);
-                    setAuthUserCache(user);
-                    setState({ user, loading: false });
-                    return;
-                }
+                        consecutiveNulls.current = 0;
+                        setConfirmedSignedOut(false);
+                        signOutCallbackFired.current = false;
 
-                syncedSignedIn.current = isSignedIn;
-                setAuthUserCache(user);
-                setState({ user, loading: false });
-
-                if (user) {
-                    consecutiveNulls.current = 0;
-                    setConfirmedSignedOut(false);
-                    signOutCallbackFired.current = false;
-
-                    if (!signInCallbackFired.current) {
-                        signInCallbackFired.current = true;
-                        try {
-                            await fa.onSignIn?.(user);
-                        } catch (e) {
-                            console.error('AuthUserProvider: onSignIn callback failed', e);
+                        if (!signInCallbackFired.current) {
+                            signInCallbackFired.current = true;
+                            try {
+                                await fa.onSignIn?.(user);
+                            } catch (e) {
+                                console.error('AuthUserProvider: onSignIn callback failed', e);
+                            }
                         }
-                    }
 
-                    if (!emailVerifiedRef.current && user.emailVerified) {
-                        emailVerifiedRef.current = true;
-                        try {
-                            await fa.onEmailVerified?.(user);
-                        } catch (e) {
-                            console.error('AuthUserProvider: onEmailVerified callback failed', e);
+                        if (!emailVerifiedRef.current && user.emailVerified) {
+                            emailVerifiedRef.current = true;
+                            try {
+                                await fa.onEmailVerified?.(user);
+                            } catch (e) {
+                                console.error('AuthUserProvider: onEmailVerified callback failed', e);
+                            }
+                        } else {
+                            emailVerifiedRef.current = user.emailVerified;
                         }
                     } else {
-                        emailVerifiedRef.current = user.emailVerified;
-                    }
-                } else {
-                    consecutiveNulls.current += 1;
-                    signInCallbackFired.current = false;
+                        consecutiveNulls.current += 1;
+                        signInCallbackFired.current = false;
 
-                    if (consecutiveNulls.current >= 2 && !signOutCallbackFired.current) {
-                        setConfirmedSignedOut(true);
-                        signOutCallbackFired.current = true;
-                        try {
-                            await fa.onSignOut?.();
-                        } catch (e) {
-                            console.error('AuthUserProvider: onSignOut callback failed', e);
+                        if (consecutiveNulls.current >= 2) {
+                            setConfirmedSignedOut(true);
+                            if (!signOutCallbackFired.current) {
+                                signOutCallbackFired.current = true;
+                                try {
+                                    await fa.onSignOut?.();
+                                } catch (e) {
+                                    console.error('AuthUserProvider: onSignOut callback failed', e);
+                                }
+                            }
                         }
                     }
-                }
 
-                const flipped = previous !== undefined && previous !== isSignedIn;
-                // `contradictsPage` infers "the server rendered this page for
-                // the opposite auth state, resync it" from the page's own
-                // auth/non-auth role. On a whitelisted path that inference is
-                // meaningless — the page renders identically signed-in or
-                // signed-out and neither guard ever redirects away from it —
-                // so a signed-out visitor on a non-auth whitelisted page
-                // (`isSignedIn === isAuthPage`, both false) matched on the
-                // first observation and refreshed. That refresh re-primes the
-                // router cache, re-firing every in-viewport `<Link>` prefetch,
-                // which lands back here and repeats: an unbounded refresh loop
-                // on exactly the public landing pages whitelisting exists for.
-                // A real `flipped` transition still refreshes, whitelisted or
-                // not — that one observed an actual state change.
-                const contradictsPage = !isWhiteListed && previous === undefined && isSignedIn === isAuthPage;
+                    const flipped = previous !== undefined && previous !== isSignedIn;
+                    const contradictsPage = !isWhiteListed && previous === undefined && isSignedIn === isAuthPage;
 
-                if (flipped || contradictsPage) {
-                    router.refresh();
-                }
+                    if (flipped || contradictsPage) {
+                        routerRef.current.refresh();
+                    }
+                });
+            }).catch((e) => {
+                console.error('AuthUserProvider: subscribe failed', e);
             });
-        });
+        };
 
-        // A signed-out visitor on a whitelisted page pays ~90KB of
-        // `@firebase/auth` plus the `/__/auth/iframe.js` round-trip for a
-        // listener that will only ever report "still signed out". Deferring
-        // it to idle keeps that off the critical path. Limited to whitelisted
-        // pages because only there is neither guard in the redirect effect
-        // above load-bearing, so clearing `loading` up front is safe — and it
-        // must be cleared, or every consumer following `useAuthUser`'s
-        // documented `if (loading) return null` renders blank until idle
-        // fires. A server-resolved user, an auth page, or any protected page
-        // still subscribes at once.
         if (deferAuthSubscribe) {
             setState(current => (current.loading ? { ...current, loading: false } : current));
             const idle = (window as Window & {
                 requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
             }).requestIdleCallback;
-            if (idle) idleHandle = idle(() => { if (!cancelled) subscribe(); }, { timeout: AUTH_SUBSCRIBE_IDLE_TIMEOUT_MS });
-            else timeoutHandle = setTimeout(() => { if (!cancelled) subscribe(); }, AUTH_SUBSCRIBE_FALLBACK_DELAY_MS);
+            if (idle) idleHandle = idle(() => { if (!cancelled) void subscribe(); }, { timeout: AUTH_SUBSCRIBE_IDLE_TIMEOUT_MS });
+            else timeoutHandle = setTimeout(() => { if (!cancelled) void subscribe(); }, AUTH_SUBSCRIBE_FALLBACK_DELAY_MS);
         } else {
-            subscribe();
+            void subscribe();
         }
 
         return () => {
@@ -336,7 +442,8 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
             unsubscribe?.();
         };
-    }, [initialSignedIn, deferAuthSubscribe, router, isAuthPage, isWhiteListed, maxAge, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge, fa]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialSignedIn, deferAuthSubscribe, isAuthPage, isWhiteListed, sessionCookieName, refreshTokenMaxAge, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge, fa, bindingEnabled, proofCookieName, proofMaxAgeSeconds, proofRequiredCookieName]);
 
     const reloadUser = useCallback(async () => {
         const { auth } = await getFirebaseAuthClient();
@@ -346,31 +453,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
             const { reload } = await getFirebaseAuthModule();
             await reload(user);
 
-            // `getIdToken(true)` can occasionally hand back a token that's
-            // no newer than the one already in the session cookie — a stale
-            // token caught mid-propagation right after `reload()`, rather
-            // than the fresh mint the caller asked for. Comparing `iat`
-            // (issued-at) against the existing cookie's token is a direct
-            // check that the token we're about to write is actually new;
-            // retry a few times if it isn't before giving up and writing
-            // whatever we got. The confirmed token is threaded into
-            // `writeSession` directly — letting it call `getIdToken(true)`
-            // again on its own could re-fetch and land back on a stale
-            // token, undoing this retry entirely.
-            const previousIat = decodeJwtPayload(getCookie(sessionCookieName) ?? '')?.iat;
-            let confirmedToken: string | undefined;
-            if (previousIat !== undefined) {
-                const maxAttempts = 3;
-                for (let attempt = 0; attempt < maxAttempts; attempt++) {
-                    const freshToken = await user.getIdToken(true);
-                    confirmedToken = freshToken;
-                    const freshIat = decodeJwtPayload(freshToken)?.iat;
-                    if (freshIat !== undefined && freshIat > previousIat) break;
-                    if (attempt < maxAttempts - 1) await sleep(500);
-                }
-            }
-
-            await writeSession(user, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge, confirmedToken);
+            await writeSession(user, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, appCheckTokenMaxAge);
 
             if (!emailVerifiedRef.current && user.emailVerified) {
                 emailVerifiedRef.current = true;
@@ -388,7 +471,7 @@ export default function AuthUserProvider({ initialUser = null, children }: {
         } catch (e) {
             console.error('AuthUserProvider: reloadUser failed', e);
         }
-    }, [fa, sessionCookieName, maxAge, refreshTokenCookieName, refreshTokenMaxAge, emailVerifiedHintCookieName, appCheckTokenCookieName, appCheckTokenMaxAge]);
+    }, [fa, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, appCheckTokenMaxAge]);
 
     const sendVerificationEmail = useCallback(async (actionCodeSettings?: AuthActionCodeSettings) => {
         const { auth } = await getFirebaseAuthClient();
@@ -398,22 +481,25 @@ export default function AuthUserProvider({ initialUser = null, children }: {
         await sendEmailVerification(user, actionCodeSettings);
     }, []);
 
-
     const logout = useCallback(async () => {
+        isLoggingOutRef.current = true;
+        setCookie({ name: sessionMarkerCookieName, value: '', maxAge: 0 });
+        setCookie({ name: proofCookieName, value: '', maxAge: 0 });
+        setCookie({ name: proofRequiredCookieName, value: '', maxAge: 0 });
+        setAuthUserCache(null);
+        setState({ user: null, loading: false });
         try {
+            if (fa.deviceBinding) {
+                await resetDeviceKey();
+            }
             const { auth } = await getFirebaseAuthClient();
             const { signOut } = await getFirebaseAuthModule();
             await signOut(auth);
         } finally {
-            await clearSession(sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge);
-            // Whitelisted paths opt out of every other auth redirect in this
-            // provider (see the effect above), so an explicit `logout()` from
-            // one must not bounce either — a page like a delete-account flow
-            // signs the user out as a STEP and still needs to render its own
-            // result afterwards.
+            await clearSession(emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge);
             if (!isWhiteListed) router.push(fa.redirectAuthPath);
         }
-    }, [fa, router, sessionCookieName, refreshTokenCookieName, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, isWhiteListed]);
+    }, [fa, router, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, isWhiteListed, sessionMarkerCookieName, proofCookieName, proofRequiredCookieName]);
 
     return <AuthUserContext.Provider value={{ ...state, reloadUser, sendVerificationEmail, logout }}>
         {children}

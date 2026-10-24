@@ -8,6 +8,12 @@ import type { FirebasePerformance } from '@firebase/performance';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config.js';
 import type { FirebaseAppCheckConfig } from '../../types/types.js';
+import { defaultAppCheckTokenCookieName } from '../cookie_names.js';
+import { isAppCheckTokenUsable } from '../app_check_token.js';
+import getCookie from '../../client/functions/get_cookie.js';
+import decodeJwtPayload from '../decode_jwt_payload.js';
+
+export const RECAPTCHA_TOKEN_TIMEOUT_MS = 8_000;
 
 let cachedAppCheck: AppCheck | undefined;
 let cachedPerformance: FirebasePerformance | undefined;
@@ -147,14 +153,32 @@ function createExplicitRecaptchaProvider(
 
     return new CustomProviderCtor({
         getToken: async () => {
+            const fa = config.firebaseAuth;
+            const cookieName = fa?.appCheckTokenCookieName ?? defaultAppCheckTokenCookieName;
+            const seededToken = getCookie(cookieName);
+            if (isAppCheckTokenUsable(seededToken)) {
+                const decoded = decodeJwtPayload(seededToken!);
+                if (decoded?.exp) {
+                    return { token: seededToken!, expireTimeMillis: decoded.exp * 1000 };
+                }
+            }
+
             const { grecaptcha, widgetId } = await ensureWidget();
-            // `grecaptcha.execute()` rejects with `null` on failure, which
-            // surfaces as an unhelpful error — mirror Firebase's own remap.
-            const recaptchaToken = await grecaptcha
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                timer = setTimeout(() => reject(new Error('reCAPTCHA timed out')), RECAPTCHA_TOKEN_TIMEOUT_MS);
+            });
+            const executePromise = grecaptcha
                 .execute(widgetId, { action: 'fire_app_check' })
                 .catch(() => {
                     throw new Error('reCAPTCHA error');
                 });
+            let recaptchaToken: string;
+            try {
+                recaptchaToken = await Promise.race([executePromise, timeoutPromise]);
+            } finally {
+                if (timer) clearTimeout(timer);
+            }
             if (!widgetSucceeded) {
                 throw new Error('reCAPTCHA error');
             }
@@ -364,3 +388,5 @@ export function getFirebaseAuthModule(): Promise<typeof FirebaseAuthModule> {
     }
     return cachedAuthModule;
 }
+
+export { ensureSessionSynced } from './session_sync.js';

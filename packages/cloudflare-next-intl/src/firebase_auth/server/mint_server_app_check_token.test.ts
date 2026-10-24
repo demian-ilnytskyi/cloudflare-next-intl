@@ -91,7 +91,7 @@ describe('mintServerAppCheckToken', () => {
         expect(setIssuer).toHaveBeenCalledWith('sa@proj.iam.gserviceaccount.com');
         expect(setSubject).toHaveBeenCalledWith('sa@proj.iam.gserviceaccount.com');
         expect(setAudience).toHaveBeenCalledWith('https://firebaseappcheck.googleapis.com/google.firebase.appcheck.v1.TokenExchangeService');
-        expect(setExpirationTime).toHaveBeenCalledWith('5m');
+        expect(setExpirationTime).toHaveBeenCalledWith(expect.any(Number));
         expect(fetchMock).toHaveBeenCalledWith(
             'https://firebaseappcheck.googleapis.com/v1/projects/proj/apps/1:1:web:1:exchangeCustomToken?key=key',
             expect.objectContaining({ method: 'POST', body: JSON.stringify({ customToken: 'custom-jwt' }) }),

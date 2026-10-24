@@ -58,11 +58,41 @@ const clearSessionAction = vi.fn(async () => {});
 vi.mock('../server/clear_session_action', () => ({
     default: (...args: unknown[]) => clearSessionAction(...args),
 }));
+const syncSessionAction = vi.fn(async () => ({ status: 'synced' as const }));
+vi.mock('../server/sync_session_action', () => ({
+    default: (...args: unknown[]) => syncSessionAction(...args),
+}));
+const restoreSessionAction = vi.fn(async () => ({ status: 'no-session' as const }));
+vi.mock('../server/restore_session_action', () => ({
+    default: (...args: unknown[]) => restoreSessionAction(...args),
+}));
 
+const getDeviceKeyMock = vi.fn();
+const resetDeviceKeyMock = vi.fn();
+const isDeviceKeyUnsupportedMock = vi.fn(() => false);
+vi.mock('./device_key.js', () => ({
+    getDeviceKey: (...args: unknown[]) => getDeviceKeyMock(...args),
+    resetDeviceKey: (...args: unknown[]) => resetDeviceKeyMock(...args),
+    isDeviceKeyUnsupported: () => isDeviceKeyUnsupportedMock(),
+}));
+
+import type * as DeviceProofModule from '../device_proof.js';
+
+const createDeviceProofMock = vi.fn(async () => 'mock-proof-sig');
+vi.mock('../device_proof.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof DeviceProofModule>();
+    return {
+        ...actual,
+        createDeviceProof: (...args: unknown[]) => createDeviceProofMock(...args),
+    };
+});
+
+const signInWithCustomToken = vi.fn(async () => {});
 vi.mock('@firebase/auth', () => ({
     onIdTokenChanged: (...args: [unknown, (user: unknown) => void | Promise<void>]) => onIdTokenChanged(...args),
     reload: (...args: unknown[]) => reload(...args),
     sendEmailVerification: (...args: unknown[]) => sendEmailVerification(...args),
+    signInWithCustomToken: (...args: unknown[]) => signInWithCustomToken(...args),
     signOut: (...args: unknown[]) => signOut(...args),
 }));
 
@@ -340,7 +370,7 @@ describe('AuthUserProvider', () => {
         await flush();
         expect(onSignIn).toHaveBeenCalledTimes(1);
         expect(console.error).toHaveBeenCalledWith('AuthUserProvider: onSignIn callback failed', expect.any(Error));
-        expect(document.cookie).toContain('__fa_session__=id-token');
+        expect(syncSessionAction).toHaveBeenCalled();
     });
 
     it('writes the App Check token cookie when getAppCheckToken resolves a token', async () => {
@@ -354,6 +384,26 @@ describe('AuthUserProvider', () => {
         expect(document.cookie).toContain('__fa_app_check_token__=app-check-token');
     });
 
+    it('writes the App Check cookie with maxAge from the token exp', async () => {
+        const cookieSpy = vi.spyOn(document, 'cookie', 'set');
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const exp = nowSeconds + 1800;
+        const token = makeJwt(nowSeconds, { exp });
+        getAppCheckToken.mockResolvedValueOnce(token);
+
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        const user = makeUser();
+        await act(async () => { idTokenListener?.(user); });
+        await flush();
+
+        const call = cookieSpy.mock.calls.find((c) => c[0].startsWith('__fa_app_check_token__='));
+        expect(call).toBeDefined();
+        expect(call![0]).toMatch(/max-age=(?:1739|1740|1741);/);
+        cookieSpy.mockRestore();
+    });
+
     it('logs and swallows an App Check token fetch failure without blocking cookie sync', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         getAppCheckToken.mockRejectedValueOnce(new Error('boom'));
@@ -364,7 +414,7 @@ describe('AuthUserProvider', () => {
         await act(async () => { idTokenListener?.(user); });
         await flush();
         expect(console.error).toHaveBeenCalledWith('AuthUserProvider: App Check token cookie sync failed', expect.any(Error));
-        expect(document.cookie).toContain('__fa_session__=id-token');
+        expect(syncSessionAction).toHaveBeenCalled();
     });
 
     it('calls onSignOut exactly once after sign-out is confirmed (two consecutive nulls), not on the first null', async () => {
@@ -530,7 +580,7 @@ describe('AuthUserProvider', () => {
         await act(async () => { await ctxValue?.reloadUser(); });
         expect(onEmailVerified).toHaveBeenCalledTimes(1);
         expect(console.error).toHaveBeenCalledWith('AuthUserProvider: onEmailVerified callback failed', expect.any(Error));
-        expect(document.cookie).toContain('__fa_session__=id-token');
+        expect(syncSessionAction).toHaveBeenCalled();
     });
 
     it('redirects immediately on a single null callback when initialUser was already null (server-confirmed signed-out)', async () => {
@@ -574,18 +624,23 @@ describe('AuthUserProvider', () => {
         expect(routerReplace).toHaveBeenCalledWith('/');
     });
 
-    it('writes the session cookie and calls router.refresh on sign-in transition', async () => {
+    it('does not write session or refresh cookies from the client', async () => {
         const { default: AuthUserProvider } = await import('./auth_user_provider.js');
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
         await act(async () => { await idTokenListener?.(makeUser()); });
         await flush();
         expect(setAuthUserCache).toHaveBeenCalled();
-        expect(document.cookie).toContain('__fa_session__=id-token');
-        expect(document.cookie).toContain('__fa_refresh_token__=refresh-token');
+        expect(document.cookie).not.toContain('__fa_session__=');
+        expect(document.cookie).not.toContain('__fa_refresh_token__=');
+        expect(document.cookie).not.toContain('__fa_has_session__=');
+        expect(syncSessionAction).toHaveBeenCalledWith({
+            idToken: 'id-token',
+            refreshToken: 'refresh-token',
+        });
     });
 
-    it('still writes the session cookie when the refresh-token cookie write throws', async () => {
+    it('still syncs session when the refresh-token getter throws on user object', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const user = makeUser();
         Object.defineProperty(user, 'refreshToken', { get() { throw new Error('refresh-token read error'); } });
@@ -594,9 +649,7 @@ describe('AuthUserProvider', () => {
         await flush();
         await act(async () => { await idTokenListener?.(user); });
         await flush();
-        expect(document.cookie).toContain('__fa_session__=id-token');
-        expect(document.cookie).not.toContain('__fa_refresh_token__=refresh-token');
-        expect(console.error).toHaveBeenCalledWith('AuthUserProvider: refresh-token cookie sync failed', expect.any(Error));
+        expect(setAuthUserCache).toHaveBeenCalled();
     });
 
     it('handles a session-sync failure by still updating state with the user', async () => {
@@ -638,7 +691,7 @@ describe('AuthUserProvider', () => {
         expect(clearSessionAction).toHaveBeenCalled();
     });
 
-    it('exposes reloadUser which refreshes the current user and cookie', async () => {
+    it('exposes reloadUser which refreshes the current user and calls sync', async () => {
         authObj.currentUser = makeUser({ uid: 'reload-user' });
         let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
@@ -650,29 +703,12 @@ describe('AuthUserProvider', () => {
         await flush();
         await act(async () => { await ctxValue?.reloadUser(); });
         expect(reload).toHaveBeenCalled();
-        expect(document.cookie).toContain('__fa_refresh_token__=refresh-token');
+        expect(syncSessionAction).toHaveBeenCalled();
     });
 
-    it('reloadUser still writes the session cookie when the refresh-token cookie write throws', async () => {
-        vi.spyOn(console, 'error').mockImplementation(() => {});
-        const user = makeUser({ uid: 'reload-user' });
-        Object.defineProperty(user, 'refreshToken', { get() { throw new Error('refresh-token read error'); } });
-        authObj.currentUser = user;
-        let ctxValue: AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
-        function Consumer() {
-            ctxValue = useContext(AuthUserContext);
-            return null;
-        }
-        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
-        await flush();
-        await act(async () => { await ctxValue?.reloadUser(); });
-        expect(document.cookie).toContain('__fa_session__=id-token');
-        expect(console.error).toHaveBeenCalledWith('AuthUserProvider: refresh-token cookie sync failed', expect.any(Error));
-    });
-
-    it('reloadUser logs and swallows errors from reload/getIdToken', async () => {
-        authObj.currentUser = makeUser({ getIdToken: vi.fn(async () => { throw new Error('reload token error'); }) });
+    it('reloadUser logs and swallows errors from reload', async () => {
+        authObj.currentUser = makeUser({ uid: 'reload-user' });
+        reload.mockRejectedValueOnce(new Error('reload error'));
         vi.spyOn(console, 'error').mockImplementation(() => {});
         let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
@@ -684,66 +720,6 @@ describe('AuthUserProvider', () => {
         await flush();
         await expect(ctxValue!.reloadUser()).resolves.toBeUndefined();
         expect(console.error).toHaveBeenCalledWith('AuthUserProvider: reloadUser failed', expect.any(Error));
-    });
-
-    it('reloadUser retries getIdToken until it returns a token newer than the existing session cookie', async () => {
-        document.cookie = `__fa_session__=${makeJwt(1000, { email_verified: false })}; path=/`;
-        const staleToken = makeJwt(1000, { email_verified: false });
-        const freshToken = makeJwt(2000, { email_verified: true });
-        const getIdToken = vi.fn()
-            .mockResolvedValueOnce(staleToken)
-            .mockResolvedValue(freshToken);
-        authObj.currentUser = makeUser({ uid: 'reload-user', emailVerified: true, getIdToken });
-        let ctxValue: AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
-        function Consumer() {
-            ctxValue = useContext(AuthUserContext);
-            return null;
-        }
-        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
-        await flush();
-        await act(async () => { await ctxValue?.reloadUser(); });
-
-        // 1 retry attempt returns the stale token, 1 returns fresh (breaks
-        // the loop). writeSession reuses this confirmed token directly
-        // instead of calling getIdToken(true) again on its own.
-        expect(getIdToken).toHaveBeenCalledTimes(2);
-        expect(document.cookie).toContain(`__fa_session__=${freshToken}`);
-    });
-
-    it('reloadUser writes whatever getIdToken returns after exhausting retries against a stuck stale token', async () => {
-        document.cookie = `__fa_session__=${makeJwt(1000, { email_verified: false })}; path=/`;
-        const staleToken = makeJwt(1000, { email_verified: false });
-        const getIdToken = vi.fn().mockResolvedValue(staleToken);
-        authObj.currentUser = makeUser({ uid: 'reload-user', emailVerified: true, getIdToken });
-        let ctxValue: AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
-        function Consumer() {
-            ctxValue = useContext(AuthUserContext);
-            return null;
-        }
-        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
-        await flush();
-        await act(async () => { await ctxValue?.reloadUser(); }, { timeout: 5000 });
-
-        expect(getIdToken).toHaveBeenCalledTimes(3);
-        expect(document.cookie).toContain(`__fa_session__=${staleToken}`);
-    }, 10000);
-
-    it('reloadUser skips the retry loop entirely when there is no existing session cookie to compare against', async () => {
-        const getIdToken = vi.fn(async () => 'id-token');
-        authObj.currentUser = makeUser({ uid: 'reload-user', getIdToken });
-        let ctxValue: AuthUserContextType | undefined;
-        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
-        function Consumer() {
-            ctxValue = useContext(AuthUserContext);
-            return null;
-        }
-        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
-        await flush();
-        await act(async () => { await ctxValue?.reloadUser(); });
-
-        expect(getIdToken).toHaveBeenCalledTimes(1);
     });
 
     it('reloadUser is a no-op when there is no current user', async () => {
@@ -925,5 +901,347 @@ describe('AuthUserProvider', () => {
         await flush();
         await act(async () => { await idTokenListener?.(makeUser({ emailVerified: true })); });
         expect(routerReplace).toHaveBeenCalledWith('/');
+    });
+
+
+    it('restores the user instead of redirecting when the marker is set', async () => {
+        mockPathname = '/dashboard';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        const { encodeSessionMarker } = await import('../session_marker.js');
+        const marker = await encodeSessionMarker(Math.floor(Date.now() / 1000) + 3600, 'tok');
+        document.cookie = `__fa_has_session__=${marker}; path=/`;
+
+        restoreSessionAction.mockResolvedValueOnce({ status: 'restored', customToken: 'custom-jwt' });
+
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => {
+            await idTokenListener?.(null);
+        });
+
+        expect(restoreSessionAction).toHaveBeenCalledTimes(1);
+        expect(signInWithCustomToken).toHaveBeenCalledWith(authObj, 'custom-jwt');
+        expect(routerReplace).not.toHaveBeenCalled();
+    });
+
+    it('keeps loading true while the restore is in flight', async () => {
+        mockPathname = '/dashboard';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        const { default: useAuthUser } = await import('./use_auth_user.js');
+        const { encodeSessionMarker } = await import('../session_marker.js');
+        const marker = await encodeSessionMarker(Math.floor(Date.now() / 1000) + 3600, 'tok');
+        document.cookie = `__fa_has_session__=${marker}; path=/`;
+
+        let resolveRestore!: (val: unknown) => void;
+        restoreSessionAction.mockReturnValueOnce(new Promise((resolve) => {
+            resolveRestore = resolve;
+        }));
+
+        let stateSnapshot: { loading: boolean; user: unknown } | undefined;
+        function Consumer() {
+            stateSnapshot = useAuthUser();
+            return null;
+        }
+
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+        await act(async () => {
+            void idTokenListener?.(null);
+        });
+
+        expect(stateSnapshot?.loading).toBe(true);
+        expect(routerReplace).not.toHaveBeenCalled();
+
+        await act(async () => {
+            resolveRestore({ status: 'restored', customToken: 'token' });
+        });
+    });
+
+    it('clears the server session and redirects when restore answers invalid', async () => {
+        mockPathname = '/dashboard';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        const { encodeSessionMarker } = await import('../session_marker.js');
+        const marker = await encodeSessionMarker(Math.floor(Date.now() / 1000) + 3600, 'tok');
+        document.cookie = `__fa_has_session__=${marker}; path=/`;
+
+        restoreSessionAction.mockResolvedValueOnce({ status: 'invalid' });
+
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => {
+            await idTokenListener?.(null);
+        });
+
+        expect(clearSessionAction).toHaveBeenCalledTimes(1);
+        expect(routerReplace).toHaveBeenCalledWith(expect.stringContaining('/login'));
+    });
+
+    it('keeps the server pair when restore is unavailable', async () => {
+        mockPathname = '/dashboard';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        const { encodeSessionMarker } = await import('../session_marker.js');
+        const marker = await encodeSessionMarker(Math.floor(Date.now() / 1000) + 3600, 'tok');
+        document.cookie = `__fa_has_session__=${marker}; path=/`;
+
+        restoreSessionAction.mockResolvedValueOnce({ status: 'unavailable' });
+
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => {
+            await idTokenListener?.(null);
+        });
+
+        expect(clearSessionAction).not.toHaveBeenCalled();
+        expect(document.cookie).toContain('__fa_has_session__=');
+    });
+
+    it('attempts restore at most once per mount', async () => {
+        mockPathname = '/dashboard';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        const { encodeSessionMarker } = await import('../session_marker.js');
+        const marker = await encodeSessionMarker(Math.floor(Date.now() / 1000) + 3600, 'tok');
+        document.cookie = `__fa_has_session__=${marker}; path=/`;
+
+        restoreSessionAction.mockResolvedValue({ status: 'unavailable' });
+
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => {
+            await idTokenListener?.(null);
+        });
+        await act(async () => {
+            await idTokenListener?.(null);
+        });
+
+        expect(restoreSessionAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call clearSessionAction for a never-signed-in visitor', async () => {
+        mockPathname = '/dashboard';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        render(<AuthUserProvider><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => {
+            await idTokenListener?.(null);
+        });
+        expect(clearSessionAction).not.toHaveBeenCalled();
+    });
+
+    it('does not clear on a deferred whitelisted page without a marker', async () => {
+        currentConfig.firebaseAuth!.whiteListPaths = ['/public'];
+        mockPathname = '/public';
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+        await act(async () => {
+            await idTokenListener?.(null);
+        });
+        expect(clearSessionAction).not.toHaveBeenCalled();
+    });
+
+    it('exposes the user before the App Check cookie sync settles', async () => {
+        getAppCheckToken.mockReturnValueOnce(new Promise(() => {}));
+        let ctxValue: AuthUserContextType | undefined;
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
+        function Consumer() {
+            ctxValue = useContext(AuthUserContext);
+            return null;
+        }
+        render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+        await flush();
+
+        const user = makeUser({ uid: 'u-fast' });
+        act(() => {
+            void idTokenListener?.(user);
+        });
+
+        expect(ctxValue?.loading).toBe(false);
+        expect(ctxValue?.user?.uid).toBe('u-fast');
+    });
+
+    it('calls syncSessionAction while the App Check sync is still pending', async () => {
+        getAppCheckToken.mockReturnValueOnce(new Promise(() => {}));
+        const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+        render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+        await flush();
+
+        const user = makeUser({ uid: 'u-fast-cookie', getIdToken: vi.fn(async () => 'fast-session-token') });
+        await act(async () => {
+            void idTokenListener?.(user);
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(syncSessionAction).toHaveBeenCalledWith(expect.objectContaining({
+            idToken: 'fast-session-token',
+        }));
+    });
+
+    describe('device binding', () => {
+        const dummyKey = {
+            publicJwk: { kty: 'EC', crv: 'P-256', x: 'x1', y: 'y1' },
+            sign: vi.fn(async () => 'sig1'),
+        };
+
+        beforeEach(() => {
+            currentConfig.firebaseAuth!.deviceBinding = {
+                store: { get: vi.fn(), put: vi.fn(), delete: vi.fn() },
+                proofMaxAgeSeconds: 120,
+            };
+            getDeviceKeyMock.mockResolvedValue(dummyKey);
+            createDeviceProofMock.mockResolvedValue('1000.sig1');
+        });
+
+        it('writes proof cookie on user callback and refreshes it at half proofMaxAge', async () => {
+            vi.useFakeTimers();
+            try {
+                const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+                render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+                await flush();
+
+                const user = makeUser({ uid: 'u-bound', refreshToken: 'ref-bound' });
+                await act(async () => {
+                    await idTokenListener?.(user);
+                });
+
+                expect(createDeviceProofMock).toHaveBeenCalledWith(dummyKey, 'ref-bound', expect.any(Number));
+                expect(document.cookie).toContain('__fa_device_proof__=1000.sig1');
+
+                createDeviceProofMock.mockClear();
+                // Advance timer by proofMaxAgeSeconds / 2 (60 seconds)
+                await act(async () => {
+                    vi.advanceTimersByTime(60 * 1000);
+                    await Promise.resolve();
+                    await Promise.resolve();
+                });
+
+                expect(createDeviceProofMock).toHaveBeenCalledWith(dummyKey, 'ref-bound', expect.any(Number));
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('calls router.refresh at most once per mount for proof-required', async () => {
+            document.cookie = '__fa_proof_required__=1; path=/';
+            const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+            render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+            await flush();
+
+            const user = makeUser({ uid: 'u-proof', refreshToken: 'ref-p' });
+            await act(async () => {
+                await idTokenListener?.(user);
+            });
+            await act(async () => {
+                await idTokenListener?.(user);
+            });
+
+            expect(routerRefresh).toHaveBeenCalledTimes(1);
+            expect(document.cookie).not.toContain('__fa_proof_required__=1');
+            expect(document.cookie).toContain('__fa_device_proof__=1000.sig1');
+        });
+
+        it('does not reset the device key on an SDK null', async () => {
+            const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+            render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+            await flush();
+
+            await act(async () => {
+                await idTokenListener?.(null);
+            });
+
+            expect(resetDeviceKeyMock).not.toHaveBeenCalled();
+        });
+
+        it('resets the device key on explicit logout', async () => {
+            let ctxValue: AuthUserContextType | undefined;
+            const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
+            function Consumer() {
+                ctxValue = useContext(AuthUserContext);
+                return null;
+            }
+            render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
+            await flush();
+
+            await act(async () => {
+                await ctxValue?.logout();
+            });
+
+            expect(resetDeviceKeyMock).toHaveBeenCalledTimes(1);
+        });
+
+        it('re-binds a lost key after a fresh sign-in when server asks for proof', async () => {
+            document.cookie = '__fa_proof_required__=1; path=/';
+            // getDeviceKey(false) returns null (key lost), getDeviceKey(true) creates a fresh key
+            getDeviceKeyMock.mockImplementation((create?: boolean) => {
+                if (create) return Promise.resolve(dummyKey);
+                return Promise.resolve(null);
+            });
+
+            const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+            render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+            await flush();
+
+            const user = makeUser({ uid: 'u-lost-key', refreshToken: 'ref-lost' });
+            syncSessionAction.mockResolvedValueOnce({ status: 'synced' });
+
+            await act(async () => {
+                await idTokenListener?.(user);
+            });
+
+            expect(syncSessionAction).toHaveBeenCalledWith(expect.objectContaining({
+                refreshToken: 'ref-lost',
+                devicePublicJwk: dummyKey.publicJwk,
+            }));
+            expect(routerRefresh).toHaveBeenCalledTimes(1);
+            expect(document.cookie).not.toContain('__fa_proof_required__=1');
+        });
+
+        it('calls onReauthRequired when server refuses rebind on lost key', async () => {
+            document.cookie = '__fa_proof_required__=1; path=/';
+            getDeviceKeyMock.mockImplementation((create?: boolean) => {
+                if (create) return Promise.resolve(dummyKey);
+                return Promise.resolve(null);
+            });
+
+            const onReauth = vi.fn(async () => {});
+            currentConfig.firebaseAuth!.onReauthRequired = onReauth;
+
+            syncSessionAction.mockResolvedValueOnce({ status: 'rebind-refused' });
+
+            const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+            render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+            await flush();
+
+            const user = makeUser({ uid: 'u-rebind-refused', refreshToken: 'ref-refused' });
+            await act(async () => {
+                await idTokenListener?.(user);
+            });
+
+            expect(onReauth).toHaveBeenCalledTimes(1);
+        });
+
+        it('retries restore once when restore answers proof-required and currentUser refreshToken is present', async () => {
+            const { encodeSessionMarker } = await import('../session_marker.js');
+            const marker = await encodeSessionMarker(Math.floor(Date.now() / 1000) + 3600, 'tok', true);
+            document.cookie = `__fa_has_session__=${marker}; path=/`;
+
+            authObj.currentUser = makeUser({ uid: 'u-split', refreshToken: 'ref-split' });
+
+            restoreSessionAction
+                .mockResolvedValueOnce({ status: 'proof-required' })
+                .mockResolvedValueOnce({ status: 'restored', customToken: 'token-abc' });
+
+            const { default: AuthUserProvider } = await import('./auth_user_provider.js');
+            render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
+            await flush();
+
+            await act(async () => {
+                await idTokenListener?.(null);
+            });
+
+            expect(createDeviceProofMock).toHaveBeenCalledWith(dummyKey, 'ref-split', expect.any(Number));
+            expect(restoreSessionAction).toHaveBeenCalledTimes(2);
+            expect(signInWithCustomToken).toHaveBeenCalledWith(authObj, 'token-abc');
+        });
     });
 });

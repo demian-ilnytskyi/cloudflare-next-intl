@@ -39,3 +39,5 @@ export const getAuthUser = iGetAuthUser;
 export default async function useAuthUser(): Promise<{ user: User | null; loading: false }> {
     return getAuthUser();
 }
+
+export { isAuthProofPending } from '../guarded_refresh.js';

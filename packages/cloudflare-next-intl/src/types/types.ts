@@ -753,6 +753,8 @@ export interface FirebaseAuthRoutingConfig {
     sessionCookieName?: string;
     /** Refresh-token cookie name. Defaults to `'__fa_refresh_token__'`. Override this if your app already uses a different name for its Firebase refresh-token cookie. */
     refreshTokenCookieName?: string;
+    /** Session marker cookie name. Defaults to `'__fa_has_session__'`. Non-httpOnly; indicates the server holds a session. */
+    sessionMarkerCookieName?: string;
     /** Email-verified hint cookie name. Defaults to `'__fa_email_verified_hint__'`. Client-written, non-httpOnly; lets the middleware avoid an unnecessary token refresh when its view already matches the client's. */
     emailVerifiedHintCookieName?: string;
     /**
@@ -799,6 +801,26 @@ export interface FirebaseAuthRoutingConfig {
      * `console.error`.
      */
     onSignOut?: () => void | Promise<void>;
+    /**
+     * Opt-in device binding configuration. When set, sessions are bound to a client-side
+     * non-extractable device key stored in IndexedDB.
+     */
+    deviceBinding?: DeviceBindingConfig;
+    /** Device proof cookie name. Defaults to `'__fa_device_proof__'`. */
+    deviceProofCookieName?: string;
+    /** Called when a lost device key cannot be silently rebound and requires reauthentication. */
+    onReauthRequired?: () => void | Promise<void>;
+}
+
+export interface DeviceBindingStore {
+    get(key: string): Promise<string | null>;
+    put(key: string, value: string): Promise<void>;
+    delete(key: string): Promise<void>;
+}
+
+export interface DeviceBindingConfig {
+    store: DeviceBindingStore;
+    proofMaxAgeSeconds?: number;
 }
 
 export interface FirebaseAppCheckConfig {

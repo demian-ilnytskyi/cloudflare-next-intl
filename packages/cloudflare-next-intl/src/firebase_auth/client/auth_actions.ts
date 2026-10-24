@@ -3,6 +3,7 @@
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config.js';
 import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client.js';
+import { ensureSessionSynced } from './session_sync.js';
 import firebaseAuthErrorMessage from '../error_messages/firebase_auth_error_helper.js';
 import type { AuthActionCodeSettings, AuthActionMessages, AuthFormState } from '../types.js';
 
@@ -39,7 +40,9 @@ export function createLoginAction(locale: string, _messages: AuthActionMessages)
         const { email, password } = readCredentials(formData);
 
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            const credential = await signInWithEmailAndPassword(auth, email, password);
+            const user = credential?.user ?? auth.currentUser;
+            if (user) await ensureSessionSynced(user);
             return { success: true };
         } catch (e) {
             return { error: firebaseAuthErrorMessage(locale, e) };
@@ -78,7 +81,9 @@ export function createSignUpAction(locale: string, messages: AuthActionMessages)
         }
 
         try {
-            await createUserWithEmailAndPassword(auth, email, password);
+            const credential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = credential?.user ?? auth.currentUser;
+            if (user) await ensureSessionSynced(user);
             return { success: true };
         } catch (e) {
             return { error: firebaseAuthErrorMessage(locale, e) };
@@ -198,7 +203,9 @@ export async function completeSignInWithLink(
     }
 
     try {
-        await signInWithEmailLink(auth, email, url);
+        const credential = await signInWithEmailLink(auth, email, url);
+        const user = credential?.user ?? auth.currentUser;
+        if (user) await ensureSessionSynced(user);
         return { success: true };
     } catch (e) {
         return { error: firebaseAuthErrorMessage(locale, e) };

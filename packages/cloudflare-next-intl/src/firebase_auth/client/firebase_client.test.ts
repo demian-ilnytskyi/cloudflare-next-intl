@@ -486,10 +486,12 @@ describe('explicit reCAPTCHA CustomProvider', () => {
         vi.doMock('@intl-config', () => recaptchaConfig);
         delete (window as { grecaptcha?: unknown }).grecaptcha;
         document.body.innerHTML = '';
+        document.cookie = '__fa_app_check_token__=; max-age=0; path=/';
     });
 
     afterEach(() => {
         delete (window as { grecaptcha?: unknown }).grecaptcha;
+        document.cookie = '__fa_app_check_token__=; max-age=0; path=/';
         vi.unstubAllGlobals();
     });
 
@@ -650,6 +652,54 @@ describe('explicit reCAPTCHA CustomProvider', () => {
         installGrecaptcha();
         vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(okResponse('not-a-duration'))));
         await expect(getProviderToken()).rejects.toThrow(/Unexpected ttl format/);
+    });
+
+    function makeJwt(exp: number): string {
+        const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
+        const payload = Buffer.from(JSON.stringify({ exp })).toString('base64url');
+        return `${header}.${payload}.sig`;
+    }
+
+    it('returns the seeded cookie token without loading reCAPTCHA', async () => {
+        const exp = Math.floor(Date.now() / 1000) + 3600;
+        const seededToken = makeJwt(exp);
+        document.cookie = `__fa_app_check_token__=${seededToken}; path=/`;
+        const fetchSpy = vi.fn();
+        vi.stubGlobal('fetch', fetchSpy);
+
+        const result = await getProviderToken();
+        expect(result.token).toBe(seededToken);
+        expect(result.expireTimeMillis).toBe(exp * 1000);
+        expect(fetchSpy).not.toHaveBeenCalled();
+        expect((window as { grecaptcha?: unknown }).grecaptcha).toBeUndefined();
+    });
+
+    it('falls back to reCAPTCHA when the seeded token expires within 5 minutes', async () => {
+        const exp = Math.floor(Date.now() / 1000) + 120; // 2 minutes left (< 5 min)
+        document.cookie = `__fa_app_check_token__=${makeJwt(exp)}; path=/`;
+        installGrecaptcha();
+        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(okResponse())));
+
+        const result = await getProviderToken();
+        expect(result.token).toBe('exchanged-token');
+        expect(fetch).toHaveBeenCalled();
+    });
+
+    it('rejects after RECAPTCHA_TOKEN_TIMEOUT_MS when grecaptcha.execute never settles', async () => {
+        installGrecaptcha();
+        execute.mockReturnValueOnce(new Promise(() => {}));
+        vi.useFakeTimers();
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.advanceTimersByTimeAsync(0);
+        const options = CustomProvider.mock.calls[0]![0] as {
+            getToken: () => Promise<{ token: string }>;
+        };
+        const pending = options.getToken();
+        const assertion = expect(pending).rejects.toThrow('reCAPTCHA timed out');
+        await vi.advanceTimersByTimeAsync(8_000);
+        await assertion;
+        vi.useRealTimers();
     });
 });
 

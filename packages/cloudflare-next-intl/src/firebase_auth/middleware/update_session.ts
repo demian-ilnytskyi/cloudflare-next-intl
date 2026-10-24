@@ -3,23 +3,30 @@ import config from '@intl-config';
 import decodeJwtPayload from '../decode_jwt_payload.js';
 import isWhitelisted from '../is_whitelisted.js';
 import withRedirectQuery from '../preserve_redirect_query.js';
+import { encodeSessionMarker } from '../session_marker.js';
+import seedAppCheckCookie from './seed_app_check_cookie.js';
+import { guardedRefresh } from '../guarded_refresh.js';
+import {
+    defaultSessionCookieName,
+    defaultRefreshTokenCookieName,
+    defaultSessionMarkerCookieName,
+    defaultEmailVerifiedHintCookieName,
+    defaultProofRequiredCookieName,
+    defaultDeviceProofCookieName,
+    DEFAULT_REFRESH_MAX_AGE,
+} from '../cookie_names.js';
 
-export const defaultSessionCookieName = '__fa_session__';
-export const defaultRefreshTokenCookieName = '__fa_refresh_token__';
-// Non-httpOnly: written by AuthUserProvider (client) every time it observes
-// the live Firebase user's emailVerified state, so the middleware can tell
-// "the client already agrees with this claim" (no refresh needed) apart
-// from "the client last observed something different" (claim may be stale
-// — force one refresh). Readable client-side is fine: it carries no secret,
-// only a boolean mirror of a claim already inside the session JWT.
-export const defaultEmailVerifiedHintCookieName = '__fa_email_verified_hint__';
-// Non-httpOnly: written by AuthUserProvider (client) whenever it mints a
-// fresh App Check token, so the server can forward it to
-// `initializeServerApp` — required whenever App Check enforcement is on for
-// Auth, or every server-side `getAuthUser()` call is rejected with
-// `auth/firebase-app-check-token-is-invalid`. Carries no secret beyond what
-// the client already attaches to every Firebase SDK request itself.
-export const defaultAppCheckTokenCookieName = '__fa_app_check_token__';
+export {
+    defaultSessionCookieName,
+    defaultRefreshTokenCookieName,
+    defaultSessionMarkerCookieName,
+    defaultEmailVerifiedHintCookieName,
+    defaultAppCheckTokenCookieName,
+    defaultProofRequiredCookieName,
+    defaultDeviceProofCookieName,
+    DEFAULT_REFRESH_MAX_AGE,
+    REBIND_MAX_AUTH_AGE_SECONDS,
+} from '../cookie_names.js';
 
 export const defaultResetPasswordPath = '/reset-password';
 
@@ -41,7 +48,6 @@ function resolveActionModePaths(fa: NonNullable<typeof config.firebaseAuth>): Re
 }
 
 export const DEFAULT_SESSION_MAX_AGE = 60 * 60 * 24 * 5;
-export const DEFAULT_REFRESH_MAX_AGE = 60 * 60 * 24 * 365;
 
 /**
  * The session/refresh cookie attributes, shared by every writer so the
@@ -62,157 +68,22 @@ export function sessionCookieOptions(
     };
 }
 
+export function isSecureRequest(request: NextRequest): boolean {
+    return request.nextUrl.protocol === 'https:';
+}
+
 // Refresh slightly before the real expiry — treating a token as expired
 // right up to its last second means normal clock skew or in-flight request
 // time can hand a client a token that dies moments after this check, forcing
 // an extra round-trip on the very next request.
-const CLOCK_SKEW_MARGIN_MS = 60 * 1000;
-
-export function isIdTokenExpired(token: string): boolean {
-    return isJwtExpired(token);
-}
-
-function isTokenExpired(decoded: ReturnType<typeof decodeJwtPayload>): boolean {
-    return !decoded?.exp || decoded.exp * 1000 - CLOCK_SKEW_MARGIN_MS <= Date.now();
-}
-
-function isJwtExpired(token: string): boolean {
-    return isTokenExpired(decodeJwtPayload(token));
-}
-
-// Refreshing an ID token is a real network round-trip to Google on the
-// Edge middleware's critical path, on every request where the session
-// cookie has expired — which, for any session older than the ~1hr ID-token
-// lifetime, is every request until the client re-syncs. Firebase refresh
-// tokens don't rotate on use (the API returns the same refresh_token back)
-// — THIS is the precondition that makes caching by refresh-token identity
-// safe: if Firebase ever changed that behavior, this cache would hand out
-// a refresh token the client no longer holds. Given that precondition,
-// caching a successful refresh result is a pure memoization: a cache hit
-// skips the round-trip entirely, a miss falls through to the exact same
-// fetch this function always made. Only available on Cloudflare Workers
-// (`caches.default`); everywhere else this is a no-op and every request
-// pays the full round-trip, same as before this change. The synthetic
-// origin below is safe as a Cache API key specifically because
-// `.internal` is a non-resolvable TLD reserved by convention — no real
-// `fetch()` in this Worker could ever have populated (or could ever
-// collide with) an entry under it.
-const REFRESH_CACHE_TTL_SECONDS = 30 * 60;
-const REFRESH_CACHE_KEY_ORIGIN = 'https://firebase-auth-refresh-cache.internal';
-
-function getEdgeCache(): Cache | undefined {
-    const cachesApi = (globalThis as { caches?: { default?: Cache } }).caches;
-    return cachesApi?.default;
-}
-
-async function hashRefreshToken(refreshToken: string): Promise<string> {
-    const data = new TextEncoder().encode(refreshToken);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function getCachedRefresh(refreshToken: string): Promise<{ idToken: string; refreshToken: string } | null> {
-    const cache = getEdgeCache();
-    if (!cache) return null;
-    try {
-        const key = `${REFRESH_CACHE_KEY_ORIGIN}/${await hashRefreshToken(refreshToken)}`;
-        const cached = await cache.match(key);
-        if (!cached) return null;
-        return await cached.json() as { idToken: string; refreshToken: string };
-    } catch {
-        return null;
-    }
-}
-
-async function setCachedRefresh(refreshToken: string, refreshed: { idToken: string; refreshToken: string }): Promise<void> {
-    const cache = getEdgeCache();
-    if (!cache) return;
-    try {
-        const key = `${REFRESH_CACHE_KEY_ORIGIN}/${await hashRefreshToken(refreshToken)}`;
-        await cache.put(key, new Response(JSON.stringify(refreshed), {
-            headers: { 'Cache-Control': `max-age=${REFRESH_CACHE_TTL_SECONDS}` },
-        }));
-    } catch {
-        // Best-effort: a caching failure must never affect the actual
-        // refresh result already returned to the caller.
-    }
-}
-
-// Google's Secure Token API returns 400 with one of these error codes when
-// the refresh token itself is the problem (expired/revoked/malformed/the
-// associated user no longer exists) — this is the ONLY case that should
-// sign the user out. Any other failure (5xx, network error, timeout,
-// unrecognized 400 body) is transient/unexpected and must NOT clear the
-// refresh-token cookie or redirect to login: doing so previously caused a
-// signed-in user with a perfectly valid refresh token to flash to /login
-// and bounce back home the moment their ID token merely expired and a
-// single refresh attempt happened to fail.
-const INVALID_REFRESH_TOKEN_ERRORS = new Set([
-    'INVALID_REFRESH_TOKEN',
-    'TOKEN_EXPIRED',
-    'USER_DISABLED',
-    'USER_NOT_FOUND',
-]);
-
-export type RefreshResult =
-    | { status: 'refreshed'; idToken: string; refreshToken: string }
-    | { status: 'invalid' }
-    | { status: 'transient-failure' };
-
-/**
- * Mints a fresh ID token from a stored refresh token via Google's Secure
- * Token API. No `firebase/auth` import: this runs in the Edge middleware
- * runtime, and `firebase/auth` pulls in Node-only APIs that break Edge
- * bundles even though this function never touches that module.
- */
-export async function refreshIdToken(
-    apiKey: string,
-    refreshToken: string,
-    options?: { skipCache?: boolean },
-): Promise<RefreshResult> {
-    // `skipCache` exists for the caller that already HAS a token the Auth
-    // service rejected: the cache entry is what produced that token, so a
-    // normal cache hit would hand back the exact same rejected token and the
-    // retry could never recover.
-    const cached = options?.skipCache ? null : await getCachedRefresh(refreshToken);
-    if (cached && !isJwtExpired(cached.idToken)) return { status: 'refreshed', ...cached };
-
-    try {
-        const res = await fetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`,
-            cache: 'no-store',
-        });
-
-        if (!res.ok) {
-            if (res.status === 400) {
-                try {
-                    const errorBody = await res.json() as { error?: { message?: string } };
-                    if (errorBody.error?.message && INVALID_REFRESH_TOKEN_ERRORS.has(errorBody.error.message)) {
-                        return { status: 'invalid' };
-                    }
-                } catch {
-                    // Unparseable body on a 400 — treat as transient rather
-                    // than assuming the token is invalid.
-                }
-            }
-            return { status: 'transient-failure' };
-        }
-
-        const data = await res.json() as { id_token: string; refresh_token: string };
-        const refreshed = { idToken: data.id_token, refreshToken: data.refresh_token };
-        // Not awaited: the cache write is a pure optimization for FUTURE
-        // requests, not this one — blocking this response on it would
-        // reintroduce the exact latency this fix exists to remove.
-        // setCachedRefresh already swallows its own errors, so a rejected
-        // write here would otherwise surface as an unhandled rejection.
-        void setCachedRefresh(refreshToken, refreshed);
-        return { status: 'refreshed', ...refreshed };
-    } catch {
-        return { status: 'transient-failure' };
-    }
-}
+export {
+    refreshIdToken,
+    type RefreshResult,
+    isIdTokenExpired,
+    isTokenExpired,
+    isJwtExpired,
+} from '../refresh_id_token.js';
+import { isTokenExpired } from '../refresh_id_token.js';
 
 /**
  * Layers Firebase session-cookie validation/refresh and auth redirects onto
@@ -257,7 +128,10 @@ export default async function updateSession(
 
     const sessionCookieName = fa.sessionCookieName ?? defaultSessionCookieName;
     const refreshTokenCookieName = fa.refreshTokenCookieName ?? defaultRefreshTokenCookieName;
+    const sessionMarkerCookieName = fa.sessionMarkerCookieName ?? defaultSessionMarkerCookieName;
     const emailVerifiedHintCookieName = fa.emailVerifiedHintCookieName ?? defaultEmailVerifiedHintCookieName;
+    const proofCookieName = fa.deviceProofCookieName ?? defaultDeviceProofCookieName;
+    const proof = request.cookies.get(proofCookieName)?.value;
 
     const rawPath = request.nextUrl.pathname;
     const requestPrefix = `/${locale}`;
@@ -373,7 +247,7 @@ export default async function updateSession(
 
     const isAuthPage = fa.isAuthPath(path);
     let token = request.cookies.get(sessionCookieName)?.value;
-    let refreshedToken: { idToken: string; refreshToken: string } | null = null;
+    let refreshedToken: { idToken: string; refreshToken: string; bound?: boolean } | null = null;
     let clearInvalidSession = false;
     // A transient refresh failure (network blip, Google 5xx, timeout) means
     // "couldn't confirm the session right now" — NOT "this user is signed
@@ -382,6 +256,7 @@ export default async function updateSession(
     // the client SDK (which still has a live session independent of these
     // cookies) then bounces them straight back, producing a login flash.
     let refreshWasTransientFailure = false;
+    let proofRequired = false;
 
     if (token && isTokenExpired(decodeTokenOnce(token))) {
         token = undefined;
@@ -390,12 +265,15 @@ export default async function updateSession(
     if (!token) {
         const refreshToken = request.cookies.get(refreshTokenCookieName)?.value;
         if (refreshToken) {
-            const result = await refreshIdToken(fa.apiKey, refreshToken);
+            const result = await guardedRefresh(fa, refreshToken, proof);
             if (result.status === 'refreshed') {
-                refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken };
+                refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken, bound: result.bound };
                 token = refreshedToken.idToken;
             } else if (result.status === 'invalid') {
                 clearInvalidSession = true;
+            } else if (result.status === 'proof-required') {
+                refreshWasTransientFailure = true;
+                proofRequired = true;
             } else {
                 refreshWasTransientFailure = true;
             }
@@ -432,12 +310,14 @@ export default async function updateSession(
         && request.cookies.get(emailVerifiedHintCookieName)?.value === 'true') {
         const refreshToken = request.cookies.get(refreshTokenCookieName)?.value;
         if (refreshToken) {
-            const result = await refreshIdToken(fa.apiKey, refreshToken);
+            const result = await guardedRefresh(fa, refreshToken, proof);
             if (result.status === 'refreshed') {
-                refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken };
+                refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken, bound: result.bound };
                 token = refreshedToken.idToken;
             } else if (result.status === 'invalid') {
                 clearInvalidSession = true;
+            } else if (result.status === 'proof-required') {
+                proofRequired = true;
             }
         }
     }
@@ -466,9 +346,9 @@ export default async function updateSession(
                 // `skipCache`: the cached entry is what produced the very
                 // token whose claim is in question, so a cached refresh can
                 // hand back that same token and confirm nothing.
-                const result = await refreshIdToken(fa.apiKey, refreshToken, { skipCache: true });
+                const result = await guardedRefresh(fa, refreshToken, proof, { skipCache: true });
                 if (result.status === 'refreshed') {
-                    refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken };
+                    refreshedToken = { idToken: result.idToken, refreshToken: result.refreshToken, bound: result.bound };
                     token = refreshedToken.idToken;
                     // A `true` hint means the client already observed
                     // verification live; never redirect against it, even if
@@ -476,6 +356,9 @@ export default async function updateSession(
                     unverifiedEmail = hint !== 'true' && decodeTokenOnce(token)?.email_verified === false;
                 } else if (result.status === 'invalid') {
                     clearInvalidSession = true;
+                } else if (result.status === 'proof-required') {
+                    proofRequired = true;
+                    unverifiedEmail = true;
                 } else {
                     // Transient failure — can't confirm the live claim, fall
                     // back to trusting the (possibly stale) existing claim
@@ -528,6 +411,22 @@ export default async function updateSession(
     if (clearInvalidSession) {
         response.cookies.delete(sessionCookieName);
         response.cookies.delete(refreshTokenCookieName);
+        response.cookies.delete(sessionMarkerCookieName);
+        response.cookies.delete(defaultProofRequiredCookieName);
+    }
+
+    let didModifyRequest = false;
+
+    if (proofRequired) {
+        request.cookies.set(defaultProofRequiredCookieName, '1');
+        didModifyRequest = true;
+        response.cookies.set(defaultProofRequiredCookieName, '1', {
+            httpOnly: false,
+            secure: isSecureRequest(request),
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 60,
+        });
     }
 
     if (refreshedToken) {
@@ -539,16 +438,36 @@ export default async function updateSession(
         // render too.
         request.cookies.set(sessionCookieName, refreshedToken.idToken);
         request.cookies.set(refreshTokenCookieName, refreshedToken.refreshToken);
-        if (rebuildResponse && response === baseResponse) {
-            const rebuilt = rebuildResponse(request);
-            baseResponse.cookies.getAll().forEach((cookie) => rebuilt.cookies.set(cookie));
-            baseResponse.headers.forEach((value, key) => rebuilt.headers.set(key, value));
-            response = rebuilt;
-        }
+        didModifyRequest = true;
 
-        const cookieOptions = sessionCookieOptions(fa, request.nextUrl.protocol === 'https');
+        const cookieOptions = sessionCookieOptions(fa, isSecureRequest(request));
         response.cookies.set(sessionCookieName, refreshedToken.idToken, cookieOptions.session);
         response.cookies.set(refreshTokenCookieName, refreshedToken.refreshToken, cookieOptions.refresh);
+        response.cookies.delete(defaultProofRequiredCookieName);
+        const markerMaxAge = fa.refreshTokenCookieMaxAge ?? DEFAULT_REFRESH_MAX_AGE;
+        const markerValue = await encodeSessionMarker(
+            Math.floor(Date.now() / 1000) + markerMaxAge,
+            refreshedToken.refreshToken,
+            Boolean(refreshedToken.bound),
+        );
+        response.cookies.set(sessionMarkerCookieName, markerValue, {
+            httpOnly: false,
+            secure: isSecureRequest(request),
+            sameSite: 'lax',
+            path: '/',
+            maxAge: markerMaxAge,
+        });
+    }
+
+    if (hasSession && !clearInvalidSession && !refreshWasTransientFailure) {
+        const didSeed = await seedAppCheckCookie(request, response, fa);
+        if (didSeed) didModifyRequest = true;
+    }
+
+    if (didModifyRequest && rebuildResponse && response === baseResponse) {
+        const rebuilt = rebuildResponse(request);
+        copyResponseState(baseResponse, rebuilt);
+        response = rebuilt;
     }
 
     return response;
@@ -564,10 +483,20 @@ export default async function updateSession(
 // An empty 204 is treated as an un-cacheable prefetch miss instead: the router
 // backs off, and the guard still runs in full on the real navigation, which
 // is never a prefetch.
-function isPrefetchRequest(request: NextRequest): boolean {
+export function isPrefetchRequest(request: NextRequest): boolean {
     return request.headers.get('next-router-prefetch') === '1'
         || request.headers.get('purpose') === 'prefetch'
         || request.headers.get('x-purpose') === 'prefetch';
+}
+
+// `Headers.forEach` yields each Set-Cookie separately and `headers.set` keeps
+// only the last one, so copying them as headers drops every cookie but one
+// (e.g. `__cf_country__`, which the consent banner needs on first paint).
+function copyResponseState(from: NextResponse, to: NextResponse): void {
+    from.headers.forEach((value, key) => {
+        if (key !== 'set-cookie') to.headers.set(key, value);
+    });
+    from.cookies.getAll().forEach((cookie) => to.cookies.set(cookie));
 }
 
 function buildRedirect(baseResponse: NextResponse, url: URL, isPrefetch = false): NextResponse {
@@ -578,9 +507,10 @@ function buildRedirect(baseResponse: NextResponse, url: URL, isPrefetch = false)
         });
     }
     const redirectResponse = NextResponse.redirect(url);
-    baseResponse.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
-    baseResponse.headers.forEach((value, key) => redirectResponse.headers.set(key, value));
+    copyResponseState(baseResponse, redirectResponse);
     // Explicitly prevent OpenNext/Cloudflare from caching these auth redirects.
     redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
     return redirectResponse;
 }
+
+export { isAuthProofPending } from '../guarded_refresh.js';

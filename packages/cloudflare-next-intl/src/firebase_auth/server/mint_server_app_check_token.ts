@@ -1,7 +1,7 @@
 import config from '@intl-config';
 import type { FirebaseAppCheckConfig } from '../../types/types.js';
 import reportError from '../../error_handling/report_error.js';
-import signCustomTokenRemote from './sign_custom_token_remote.js';
+import signServiceAccountJwt from './sign_service_account_jwt.js';
 
 // Matches `firebase-admin`'s own `AppCheckTokenGenerator.createCustomToken`
 // exactly (`token-generator.js`) — this specific audience (the App Check
@@ -12,15 +12,6 @@ import signCustomTokenRemote from './sign_custom_token_remote.js';
 // no indication the audience is the problem.
 const APP_CHECK_CUSTOM_TOKEN_AUDIENCE =
     'https://firebaseappcheck.googleapis.com/google.firebase.appcheck.v1.TokenExchangeService';
-// `firebase-admin` hardcodes this custom token's own lifetime to 5 minutes
-// and does not expose it as configurable — it's a short-lived credential
-// whose only job is to be immediately exchanged for the actual App Check
-// token (whose own lifetime is controlled by Firebase, separately). Mirrored
-// here as a fixed value rather than the configurable
-// `customTokenLifetime` this used to be: Google's real backend rejects
-// longer lifetimes outright, so making it configurable only offered a
-// footgun with no working range above this default.
-const CUSTOM_TOKEN_LIFETIME = '5m';
 
 // Reported once per process, not once per request: the config can't change
 // between requests, so repeating it would flood `onError` (Sentry, Telegram)
@@ -103,33 +94,15 @@ export default async function mintServerAppCheckToken(
     }
 
     try {
-        const claims = {
+        const now = Math.floor(Date.now() / 1000);
+        const customToken = await signServiceAccountJwt(appCheck, {
             iss: appCheck.clientEmail,
             sub: appCheck.clientEmail,
             aud: APP_CHECK_CUSTOM_TOKEN_AUDIENCE,
-            iat: Math.floor(Date.now() / 1000),
-            exp: Math.floor(Date.now() / 1000) + 300,
+            iat: now,
+            exp: now + 300,
             app_id: appCheck.appId,
-        };
-
-        const customToken = appCheck.privateKey
-            ? await (async () => {
-                const { SignJWT, importPKCS8 } = await import('jose');
-                const privateKey = await importPKCS8(appCheck.privateKey!.replace(/\\n/g, '\n'), 'RS256');
-                return new SignJWT({ app_id: appCheck.appId })
-                    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
-                    .setIssuer(appCheck.clientEmail)
-                    .setSubject(appCheck.clientEmail)
-                    .setAudience(APP_CHECK_CUSTOM_TOKEN_AUDIENCE)
-                    .setIssuedAt()
-                    .setExpirationTime(CUSTOM_TOKEN_LIFETIME)
-                    .sign(privateKey);
-            })()
-            : await signCustomTokenRemote(appCheck.clientEmail, claims, {
-                clientId: appCheck.oauthClientId!,
-                clientSecret: appCheck.oauthClientSecret!,
-                refreshToken: appCheck.oauthRefreshToken!,
-            });
+        });
 
         const url = `https://firebaseappcheck.googleapis.com/v1/projects/${projectId}/apps/${appCheck.appId}:exchangeCustomToken?key=${apiKey}`;
         const res = await fetch(url, {
