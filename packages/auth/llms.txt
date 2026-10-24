@@ -1,0 +1,4 @@
+# cloudflare-next-intl-auth
+
+Firebase Auth & App Check integration for Next.js App Router and Cloudflare Workers.
+Standalone companion package to `cloudflare-next-intl-intl`.

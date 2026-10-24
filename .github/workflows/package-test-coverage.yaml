@@ -6,6 +6,7 @@ on:
     paths:
       - "packages/cloudflare-next-intl/**"
       - "packages/intl/**"
+      - "packages/auth/**"
       - "packages/db/**"
       - "packages/db-codegen/**"
     branches: [main]
@@ -24,6 +25,7 @@ jobs:
     outputs:
       cloudflare_next_intl: ${{ steps.filter.outputs.cloudflare_next_intl }}
       intl: ${{ steps.filter.outputs.intl }}
+      auth: ${{ steps.filter.outputs.auth }}
       db: ${{ steps.filter.outputs.db }}
       db_codegen: ${{ steps.filter.outputs.db_codegen }}
     steps:
@@ -37,6 +39,8 @@ jobs:
               - 'packages/cloudflare-next-intl/**'
             intl:
               - 'packages/intl/**'
+            auth:
+              - 'packages/auth/**'
             db:
               - 'packages/db/**'
             db_codegen:
@@ -80,6 +84,22 @@ jobs:
       run_bench: true
       send_notifications: false
 
+  build_tests_auth:
+    needs: [changes]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.auth == 'true' }}
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
+    secrets: inherit
+    with:
+      project_type: nextjs
+      working_directory: packages/auth
+      test_path: src
+      min_coverage: 100
+      min_overall_coverage: 99
+      per_file_exceptions: |
+        firebase_auth_check/check_firebase_auth_config.ts:96
+      run_bench: false
+      send_notifications: false
+
   build_tests_db:
     needs: [changes]
     if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.db == 'true' }}
@@ -112,6 +132,7 @@ jobs:
     needs:
       - build_tests_cloudflare_next_intl
       - build_tests_intl
+      - build_tests_auth
       - build_tests_db
       - build_tests_db_codegen
     uses: demian-ilnytskyi/workflows/.github/workflows/notification.yml@main
@@ -119,4 +140,4 @@ jobs:
     with:
       job_status: ${{ (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && 'failure' || 'success' }}
       workflow: ${{ github.workflow }}
-      dop_text: "cloudflare-next-intl ${{ needs.build_tests_cloudflare_next_intl.result }}, intl ${{ needs.build_tests_intl.result }}, db ${{ needs.build_tests_db.result }}, db-codegen ${{ needs.build_tests_db_codegen.result }}"
+      dop_text: "cloudflare-next-intl ${{ needs.build_tests_cloudflare_next_intl.result }}, intl ${{ needs.build_tests_intl.result }}, auth ${{ needs.build_tests_auth.result }}, db ${{ needs.build_tests_db.result }}, db-codegen ${{ needs.build_tests_db_codegen.result }}"
