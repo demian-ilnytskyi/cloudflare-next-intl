@@ -186,7 +186,7 @@ appCheck: {
 }
 ```
 
-To use Turnstile, create an **invisible** widget in the Cloudflare dashboard and set both Turnstile keys.
+To use Turnstile, create a widget in the Cloudflare dashboard and set both Turnstile keys. Any widget mode works: **Invisible** never shows anything, while **Managed** and **Non-interactive** show the challenge in a centered overlay only when Cloudflare asks a visitor to interact, and hide it again once solved.
 
 ### Useful `firebaseAuth` options
 

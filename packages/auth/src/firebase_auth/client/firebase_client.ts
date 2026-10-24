@@ -45,6 +45,8 @@ interface Turnstile {
             callback?: (token: string) => void;
             'error-callback'?: (error?: unknown) => void;
             'timeout-callback'?: () => void;
+            'before-interactive-callback'?: () => void;
+            'after-interactive-callback'?: () => void;
         },
     ) => string;
     execute: (container?: HTMLElement | string, params?: { action?: string }) => void;
@@ -63,6 +65,44 @@ const TURNSTILE_POLL_INTERVAL_MS = 50;
 const TURNSTILE_SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
 let turnstileScriptFailed = false;
+
+/**
+ * Managed widgets may ask a risky visitor to click a checkbox. While that
+ * challenge is on screen, the regular challenge/token timeouts would abort a
+ * visitor mid-click, so each timeout is extended once by this amount.
+ */
+export const TURNSTILE_INTERACTIVE_TIMEOUT_MS = 120_000;
+
+let turnstileInteractive = false;
+
+function interactionAwareTimeout(ms: number, message: string): { promise: Promise<never>; clear: () => void } {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const promise = new Promise<never>((_, reject) => {
+        const arm = (delay: number, extended: boolean) => {
+            timer = setTimeout(() => {
+                if (turnstileInteractive && !extended) arm(TURNSTILE_INTERACTIVE_TIMEOUT_MS, true);
+                else reject(new Error(message));
+            }, delay);
+        };
+        arm(ms, false);
+    });
+    return { promise, clear: () => clearTimeout(timer) };
+}
+
+function setTurnstileContainerVisible(container: HTMLElement, visible: boolean): void {
+    turnstileInteractive = visible;
+    Object.assign(container.style, visible
+        ? {
+            display: 'flex',
+            position: 'fixed',
+            inset: '0',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.4)',
+            zIndex: '2147483647',
+        }
+        : { display: 'none' });
+}
 
 function ensureTurnstileScript(): void {
     if (document.querySelector(`script[src="${TURNSTILE_SCRIPT_SRC}"]`)) return;
@@ -274,16 +314,14 @@ function createTurnstileProvider(
     CustomProviderCtor: typeof CustomProvider,
 ) {
     let widgetReady: Promise<{
-        turnstile: Turnstile;
-        widgetId: string;
         executeChallenge: () => Promise<string>;
+        resetWidget: () => void;
     }> | undefined;
     let inFlightExecute: Promise<{ token: string; expireTimeMillis: number }> | undefined;
 
     function ensureWidget(): Promise<{
-        turnstile: Turnstile;
-        widgetId: string;
         executeChallenge: () => Promise<string>;
+        resetWidget: () => void;
     }> {
         if (widgetReady) return widgetReady;
         const pending = (async () => {
@@ -296,6 +334,7 @@ function createTurnstileProvider(
                 container.style.display = 'none';
                 document.body.appendChild(container);
             }
+            const widgetContainer = container;
             let activeResolve: ((token: string) => void) | undefined;
             let activeReject: ((err: Error) => void) | undefined;
 
@@ -313,6 +352,8 @@ function createTurnstileProvider(
                 'timeout-callback': () => {
                     activeReject?.(new Error('Turnstile timed out'));
                 },
+                'before-interactive-callback': () => setTurnstileContainerVisible(widgetContainer, true),
+                'after-interactive-callback': () => setTurnstileContainerVisible(widgetContainer, false),
             });
 
             const executeChallenge = (): Promise<string> => {
@@ -327,7 +368,12 @@ function createTurnstileProvider(
                 });
             };
 
-            return { turnstile, widgetId, executeChallenge };
+            const resetWidget = () => {
+                setTurnstileContainerVisible(widgetContainer, false);
+                turnstile.reset(widgetId);
+            };
+
+            return { executeChallenge, resetWidget };
         })();
 
         widgetReady = pending.catch(error => {
@@ -345,21 +391,18 @@ function createTurnstileProvider(
             if (inFlightExecute) return inFlightExecute;
 
             inFlightExecute = (async () => {
-                let timer: ReturnType<typeof setTimeout> | undefined;
-                const timeoutPromise = new Promise<never>((_, reject) => {
-                    timer = setTimeout(
-                        () => reject(new Error('Turnstile timed out')),
-                        APP_CHECK_CHALLENGE_TIMEOUT_MS,
-                    );
-                });
+                const timeout = interactionAwareTimeout(APP_CHECK_CHALLENGE_TIMEOUT_MS, 'Turnstile timed out');
+                let resetActiveWidget: (() => void) | undefined;
 
                 const executeFlow = (async () => {
-                    const { turnstile, widgetId, executeChallenge } = await ensureWidget();
+                    const { executeChallenge, resetWidget } = await ensureWidget();
+                    resetActiveWidget = resetWidget;
                     let turnstileToken: string;
                     try {
                         turnstileToken = await executeChallenge();
                     } finally {
-                        turnstile.reset(widgetId);
+                        resetActiveWidget = undefined;
+                        resetWidget();
                     }
                     const result = await exchangeTurnstileTokenAction(turnstileToken);
                     if (result.status !== 'ok') {
@@ -372,9 +415,10 @@ function createTurnstileProvider(
                 })();
 
                 try {
-                    return await Promise.race([executeFlow, timeoutPromise]);
+                    return await Promise.race([executeFlow, timeout.promise]);
                 } finally {
-                    if (timer) clearTimeout(timer);
+                    timeout.clear();
+                    resetActiveWidget?.();
                 }
             })().finally(() => {
                 inFlightExecute = undefined;
@@ -449,13 +493,13 @@ export async function getAppCheckToken(): Promise<string | undefined> {
     if (!cachedAppCheck) return undefined;
     const { getToken } = await import('@firebase/app-check');
     try {
-        const result = await Promise.race([
-            getToken(cachedAppCheck),
-            new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('App Check token timed out')), APP_CHECK_TOKEN_TIMEOUT_MS),
-            ),
-        ]);
-        return result.token;
+        const timeout = interactionAwareTimeout(APP_CHECK_TOKEN_TIMEOUT_MS, 'App Check token timed out');
+        try {
+            const result = await Promise.race([getToken(cachedAppCheck), timeout.promise]);
+            return result.token;
+        } finally {
+            timeout.clear();
+        }
     } catch (error) {
         console.warn('App Check token fetch failed, continuing without it', error);
         return undefined;

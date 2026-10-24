@@ -904,6 +904,74 @@ describe('Turnstile CustomProvider', () => {
         vi.useRealTimers();
     });
 
+    it('shows the widget while a managed challenge needs interaction and outlasts the regular timeouts', async () => {
+        let params: {
+            callback?: (t: string) => void;
+            'before-interactive-callback'?: () => void;
+            'after-interactive-callback'?: () => void;
+        } = {};
+        installTurnstile();
+        turnstileRender.mockImplementation((_container: HTMLElement, p: typeof params) => {
+            params = p;
+            return 'turnstile-widget-id';
+        });
+        turnstileExecute.mockImplementation(() => params['before-interactive-callback']?.());
+        exchangeTurnstileTokenActionMock.mockResolvedValueOnce({
+            status: 'ok',
+            token: 'minted-app-check-token',
+            expireTimeMillis: 1800000000000,
+        });
+        vi.useFakeTimers();
+
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.advanceTimersByTimeAsync(0);
+        const options = CustomProvider.mock.calls[0]![0] as {
+            getToken: () => Promise<{ token: string; expireTimeMillis: number }>;
+        };
+        const pending = options.getToken();
+        await vi.advanceTimersByTimeAsync(0);
+
+        const container = document.getElementById('fire_app_check_turnstile')!;
+        expect(container.style.display).toBe('flex');
+        expect(container.style.position).toBe('fixed');
+
+        await vi.advanceTimersByTimeAsync(30_000);
+        params['after-interactive-callback']?.();
+        params.callback?.('turnstile-token');
+
+        await expect(pending).resolves.toEqual({
+            token: 'minted-app-check-token',
+            expireTimeMillis: 1800000000000,
+        });
+        expect(container.style.display).toBe('none');
+        vi.useRealTimers();
+    });
+
+    it('rejects and hides the widget when an interactive challenge exceeds TURNSTILE_INTERACTIVE_TIMEOUT_MS', async () => {
+        let params: { 'before-interactive-callback'?: () => void } = {};
+        installTurnstile();
+        turnstileRender.mockImplementation((_container: HTMLElement, p: typeof params) => {
+            params = p;
+            return 'turnstile-widget-id';
+        });
+        turnstileExecute.mockImplementation(() => params['before-interactive-callback']?.());
+        vi.useFakeTimers();
+
+        const { getAppCheckToken, TURNSTILE_INTERACTIVE_TIMEOUT_MS } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.advanceTimersByTimeAsync(0);
+        const options = CustomProvider.mock.calls[0]![0] as { getToken: () => Promise<unknown> };
+        const pending = options.getToken();
+        const assertion = expect(pending).rejects.toThrow(/timed out/);
+
+        await vi.advanceTimersByTimeAsync(8_000 + TURNSTILE_INTERACTIVE_TIMEOUT_MS);
+        await assertion;
+        expect(document.getElementById('fire_app_check_turnstile')!.style.display).toBe('none');
+        expect(turnstileReset).toHaveBeenCalledWith('turnstile-widget-id');
+        vi.useRealTimers();
+    });
+
     it('prefers Turnstile over reCAPTCHA when both site keys are set', async () => {
         vi.doMock('@intl-config', () => ({
             default: {
