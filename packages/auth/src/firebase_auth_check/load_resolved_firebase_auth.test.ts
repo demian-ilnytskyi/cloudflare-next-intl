@@ -3,9 +3,31 @@ import { describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadResolvedFirebaseAuth } from "./load_resolved_firebase_auth.js";
+import { CFNI_NO_EXTERNAL, loadResolvedFirebaseAuth } from "./load_resolved_firebase_auth.js";
 
 describe("loadResolvedFirebaseAuth", () => {
+    it("CFNI_NO_EXTERNAL matches only cloudflare-next-intl packages", () => {
+        const matches = [
+            "cloudflare-next-intl",
+            "cloudflare-next-intl/vite",
+            "cloudflare-next-intl-errors",
+            "cloudflare-next-intl-auth/server/x",
+            "cloudflare-next-intl-db-codegen",
+        ];
+        for (const pkg of matches) {
+            expect(CFNI_NO_EXTERNAL.test(pkg)).toBe(true);
+        }
+
+        const nonMatches = [
+            "cloudflare-next-intlx",
+            "cloudflare-foo",
+            "cloudflare:workers",
+            "@scope/cloudflare-next-intl",
+        ];
+        for (const pkg of nonMatches) {
+            expect(CFNI_NO_EXTERNAL.test(pkg)).toBe(false);
+        }
+    });
     function setupTempDir(): { dir: string; cleanup: () => void } {
         const dir = mkdtempSync(join(tmpdir(), "vite-load-resolved-"));
         mkdirSync(join(dir, "src", "l18n"), { recursive: true });
@@ -53,6 +75,45 @@ describe("loadResolvedFirebaseAuth", () => {
                 projectId: "resolved-proj",
                 helperLoaded: true,
             });
+        } finally {
+            cleanup();
+        }
+    });
+
+    it("bundles cloudflare-next-intl-* sub-packages so their @intl-config imports resolve", async () => {
+        const { dir, cleanup } = setupTempDir();
+        try {
+            const pkgDir = join(dir, "node_modules", "cloudflare-next-intl-errors");
+            mkdirSync(join(pkgDir, "dist"), { recursive: true });
+            writeFileSync(join(pkgDir, "package.json"), JSON.stringify({
+                name: "cloudflare-next-intl-errors",
+                type: "module",
+                exports: { "./report": "./dist/report.js" },
+            }));
+            writeFileSync(join(pkgDir, "dist", "report.js"), `
+                import config from "@intl-config";
+                export const hasConfig = () => typeof config;
+            `);
+
+            const configPath = join(dir, "src", "l18n", "intl_config.ts");
+            writeFileSync(configPath, `
+                import { hasConfig } from "cloudflare-next-intl-errors/report";
+                export default {
+                    firebaseAuth: { subPackageLoaded: typeof hasConfig === "function" },
+                };
+            `);
+
+            const result = await loadResolvedFirebaseAuth({
+                intlConfigPath: configPath,
+                viteConfig: {
+                    root: dir,
+                    envDir: dir,
+                    mode: "development",
+                    resolve: { alias: [] },
+                },
+            });
+
+            expect(result).toEqual({ subPackageLoaded: true });
         } finally {
             cleanup();
         }

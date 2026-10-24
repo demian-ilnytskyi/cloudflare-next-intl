@@ -37,6 +37,8 @@ export interface LoadResolvedFirebaseAuthOptions {
  * default export, or that export has no `firebaseAuth` object — the caller
  * decides how to degrade (e.g. falling back to the static-text scan).
  */
+export const CFNI_NO_EXTERNAL = /^cloudflare-next-intl(-[a-z-]+)?(\/|$)/;
+
 export async function loadResolvedFirebaseAuth(
     options: LoadResolvedFirebaseAuthOptions,
 ): Promise<Record<string, unknown> | undefined> {
@@ -67,7 +69,7 @@ export async function loadResolvedFirebaseAuth(
             // report_client_error_action.js) import "@intl-config" too, so
             // without this they'd hit Node's resolver and fail with
             // "Invalid module '@intl-config'".
-            ssr: { noExternal: ["cloudflare-next-intl", /^cloudflare:/] },
+            ssr: { noExternal: [CFNI_NO_EXTERNAL, /^cloudflare:/] },
             plugins: [
                 {
                     // cloudflare-next-intl's own internals (e.g.
