@@ -1,11 +1,11 @@
-import type { ErrorHandlingParams, ErrorHandlingRoutingConfig, GenerateRoutingConfig } from './types.js';
+import type { ErrorHandlingParams, ErrorHandlingRoutingConfig, ErrorsGenerateRoutingConfig } from './types.js';
 import formatErrorMessage from './format_error_message.js';
 import stringifyUnknown from './stringify_unknown.js';
 import { defaultIgnoredConsoleErrors } from './default_ignored_console_errors.js';
 
 export interface ReportErrorConfig {
     errorHandling?: ErrorHandlingRoutingConfig;
-    generate?: GenerateRoutingConfig;
+    generate?: ErrorsGenerateRoutingConfig;
 }
 
 const DEFAULT_THROTTLE_MS = 5000;

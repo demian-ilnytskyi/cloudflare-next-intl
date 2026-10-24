@@ -178,12 +178,12 @@ export interface ErrorsGetCloudflareContext {
     (options?: { async: false }): ErrorsCloudflareContext | null;
 }
 
-export interface GenerateRoutingConfig {
+export interface ErrorsGenerateRoutingConfig {
     ctx?: ErrorsCloudflareContext['ctx'] | (() => ErrorsCloudflareContext['ctx']);
     getCloudflareContext?: ErrorsGetCloudflareContext;
 }
 
 export type ErrorsRoutingConfig = {
     errorHandling?: ErrorHandlingRoutingConfig;
-    generate?: GenerateRoutingConfig;
+    generate?: ErrorsGenerateRoutingConfig;
 };

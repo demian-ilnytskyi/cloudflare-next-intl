@@ -18,4 +18,4 @@ export { default as useStaleDeployRecovery, shouldRecoverFromStaleDeploy } from 
 export { default as StaleDeployScripts, defaultReloadHtml } from './stale_deploy_scripts.js';
 export { default as createServerErrorAction } from './create_server_error_action.js';
 export { default as reportClientError } from './report_client_error.js';
-export type { ErrorHandlingParams, ErrorHandlingRoutingConfig, ConsentValue, ErrorsRoutingConfig, GenerateRoutingConfig } from './types.js';
+export type { ErrorHandlingParams, ErrorHandlingRoutingConfig, ConsentValue, ErrorsRoutingConfig, ErrorsGenerateRoutingConfig } from './types.js';
