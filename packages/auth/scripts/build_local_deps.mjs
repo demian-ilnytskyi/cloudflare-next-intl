@@ -19,25 +19,14 @@ for (const pkg of depsToBuild) {
     if (!existsSync(tsconfig)) continue;
 
     const targetNm = resolve(pkgDir, 'node_modules');
-    let createdSymlink = false;
+    if (!existsSync(targetNm)) {
+        symlinkSync(cwdNodeModules, targetNm, 'junction');
+    }
 
-    try {
-        if (!existsSync(targetNm)) {
-            symlinkSync(cwdNodeModules, targetNm, 'junction');
-            createdSymlink = true;
-        }
+    execSync(`npx tsc --project ${tsconfig}`, { stdio: 'inherit' });
 
-        execSync(`npx tsc --project ${tsconfig}`, { stdio: 'inherit' });
-
-        const writeType = resolve(pkgDir, 'scripts/write_dist_type.mjs');
-        if (existsSync(writeType)) {
-            execSync(`node ${writeType}`, { stdio: 'inherit' });
-        }
-    } finally {
-        if (createdSymlink) {
-            try {
-                unlinkSync(targetNm);
-            } catch {}
-        }
+    const writeType = resolve(pkgDir, 'scripts/write_dist_type.mjs');
+    if (existsSync(writeType)) {
+        execSync(`node ${writeType}`, { stdio: 'inherit' });
     }
 }

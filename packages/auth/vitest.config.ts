@@ -1,5 +1,10 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const nextHeadersPath = require.resolve('next/headers');
+const nextNavigationPath = require.resolve('next/navigation');
 
 export default defineConfig({
     test: {
@@ -8,7 +13,7 @@ export default defineConfig({
         setupFiles: ['./vitest.setup.ts'],
         server: {
             deps: {
-                inline: ['react', 'cloudflare-next-intl-intl'],
+                inline: ['react', 'cloudflare-next-intl-intl', 'cloudflare-next-intl-errors'],
             },
         },
         coverage: {
@@ -49,7 +54,10 @@ export default defineConfig({
         },
     },
     resolve: {
+        dedupe: ['react', 'react-dom', 'next'],
         alias: {
+            'next/headers': nextHeadersPath,
+            'next/navigation': nextNavigationPath,
             '@intl-config': path.resolve(__dirname, './src/test_utils/mock_intl_config.ts'),
         },
     },
