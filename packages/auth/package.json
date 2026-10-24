@@ -89,7 +89,7 @@
     }
   },
   "scripts": {
-    "postinstall": "node -e \"import('fs').then(f => f.existsSync('./scripts/build_local_deps.mjs') && import('child_process').then(c => c.execSync('node scripts/build_local_deps.mjs', {stdio:'inherit'})))\"",
+    "postinstall": "node -e \"import('fs').then(f => f.existsSync('./scripts/build_local_deps.mjs') && import('child_process').then(c => c.execSync('node scripts/build_local_deps.mjs errors intl', {stdio:'inherit'})))\"",
     "build": "rm -rf dist && tsc && node scripts/write_dist_type.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
