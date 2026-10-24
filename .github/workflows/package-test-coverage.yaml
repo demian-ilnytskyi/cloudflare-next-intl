@@ -7,6 +7,7 @@ on:
       - "packages/cloudflare-next-intl/**"
       - "packages/intl/**"
       - "packages/errors/**"
+      - "packages/theme/**"
       - "packages/auth/**"
       - "packages/db/**"
       - "packages/db-codegen/**"
@@ -27,6 +28,7 @@ jobs:
       cloudflare_next_intl: ${{ steps.filter.outputs.cloudflare_next_intl }}
       intl: ${{ steps.filter.outputs.intl }}
       errors: ${{ steps.filter.outputs.errors }}
+      theme: ${{ steps.filter.outputs.theme }}
       auth: ${{ steps.filter.outputs.auth }}
       db: ${{ steps.filter.outputs.db }}
       db_codegen: ${{ steps.filter.outputs.db_codegen }}
@@ -43,6 +45,8 @@ jobs:
               - 'packages/intl/**'
             errors:
               - 'packages/errors/**'
+            theme:
+              - 'packages/theme/**'
             auth:
               - 'packages/auth/**'
             db:
@@ -52,7 +56,7 @@ jobs:
 
   build_tests_cloudflare_next_intl:
     needs: [changes]
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.cloudflare_next_intl == 'true' || needs.changes.outputs.intl == 'true' || needs.changes.outputs.errors == 'true' || needs.changes.outputs.auth == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.cloudflare_next_intl == 'true' || needs.changes.outputs.intl == 'true' || needs.changes.outputs.errors == 'true' || needs.changes.outputs.theme == 'true' || needs.changes.outputs.auth == 'true' }}
     uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
     secrets: inherit
     with:
@@ -97,6 +101,20 @@ jobs:
     with:
       project_type: nextjs
       working_directory: packages/errors
+      test_path: src
+      min_coverage: 100
+      min_overall_coverage: 100
+      run_bench: true
+      send_notifications: false
+
+  build_tests_theme:
+    needs: [changes]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.theme == 'true' }}
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
+    secrets: inherit
+    with:
+      project_type: nextjs
+      working_directory: packages/theme
       test_path: src
       min_coverage: 100
       min_overall_coverage: 100
@@ -161,6 +179,7 @@ jobs:
       - build_tests_cloudflare_next_intl
       - build_tests_intl
       - build_tests_errors
+      - build_tests_theme
       - build_tests_auth
       - build_tests_db
       - build_tests_db_codegen
@@ -169,4 +188,4 @@ jobs:
     with:
       job_status: ${{ (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && 'failure' || 'success' }}
       workflow: ${{ github.workflow }}
-      dop_text: "cloudflare-next-intl ${{ needs.build_tests_cloudflare_next_intl.result }}, intl ${{ needs.build_tests_intl.result }}, errors ${{ needs.build_tests_errors.result }}, auth ${{ needs.build_tests_auth.result }}, db ${{ needs.build_tests_db.result }}, db-codegen ${{ needs.build_tests_db_codegen.result }}"
+      dop_text: "cloudflare-next-intl ${{ needs.build_tests_cloudflare_next_intl.result }}, intl ${{ needs.build_tests_intl.result }}, errors ${{ needs.build_tests_errors.result }}, theme ${{ needs.build_tests_theme.result }}, auth ${{ needs.build_tests_auth.result }}, db ${{ needs.build_tests_db.result }}, db-codegen ${{ needs.build_tests_db_codegen.result }}"

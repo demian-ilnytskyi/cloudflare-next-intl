@@ -1,12 +1,11 @@
-import { Suspense } from "react";
+import React, { Suspense } from "react";
 import { Moon, Sun } from "./icons.js";
 import ThemeSwticherButton from "./theme_switcher_button.js";
 
-
 /**
  * Light/dark theme toggle button, exported as `ThemeSwitcher` from
- * `cloudflare-next-intl/ThemeSwitcher`. Persists the choice via the
- * theme cookie this package's `IntlHelperScript` reads on load (so the
+ * `cloudflare-next-intl-theme/ThemeSwitcher`. Persists the choice via the
+ * theme cookie `ThemeScript` reads on load (so the
  * correct theme applies before hydration, no flash).
  *
  * @param lightLabelText Accessible label shown/used when in light mode.
@@ -17,8 +16,7 @@ export default function ThemeSwticher(params: {
     className?: string;
     lightLabelText: string;
     darkLabelText: string;
-}): Component {
-
+}): React.JSX.Element {
     return (
         <Suspense
             fallback={

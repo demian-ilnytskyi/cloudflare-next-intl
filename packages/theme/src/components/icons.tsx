@@ -1,4 +1,6 @@
-export function Sun({ className }: { className: string }): Component {
+import React from 'react';
+
+export function Sun({ className }: { className: string }): React.JSX.Element {
     return <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
@@ -21,7 +23,7 @@ export function Sun({ className }: { className: string }): Component {
     </svg>;
 }
 
-export function Moon({ className }: { className: string }): Component {
+export function Moon({ className }: { className: string }): React.JSX.Element {
     return <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
