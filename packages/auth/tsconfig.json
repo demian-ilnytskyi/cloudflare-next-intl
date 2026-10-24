@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "target": "es2020",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "removeComments": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "rootDir": "src",
+    "outDir": "./dist/src",
+    "paths": {
+      "@intl-config": [
+        "./src/types/intl_config"
+      ],
+      "@locale-file": [
+        "./src/types/locale_file"
+      ]
+    }
+  },
+  "include": [
+    "./**/*.ts",
+    "./**/*.tsx",
+    "./**/*.d.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.test-d.ts",
+    "**/*.bench.ts",
+    "**/*.bench.tsx",
+    "src/test_utils/**",
+    "vitest.setup.ts",
+    "vitest.config.ts",
+    "vitest.bench.config.ts",
+    "dist/**"
+  ]
+}

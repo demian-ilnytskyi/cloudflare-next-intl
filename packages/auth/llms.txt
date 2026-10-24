@@ -1,0 +1,18 @@
+# cloudflare-next-intl-auth
+
+> Firebase Auth & App Check integration for Next.js App Router and Cloudflare Workers.
+
+## Key Subpaths
+
+- `cloudflare-next-intl-auth`: core auth functions
+- `cloudflare-next-intl-auth/firebaseAuthClient`: client initialization
+- `cloudflare-next-intl-auth/firebaseAuthClientProvider`: React client provider
+- `cloudflare-next-intl-auth/firebaseAuthServerProvider`: RSC server provider
+- `cloudflare-next-intl-auth/useFirebaseAuthUser`: user hook
+- `cloudflare-next-intl-auth/getFirebaseAuthUser`: server user getter
+- `cloudflare-next-intl-auth/resolveOptionalAuthUser`: optional auth getter
+- `cloudflare-next-intl-auth/firebaseAuthActions`: actions helper
+- `cloudflare-next-intl-auth/firebaseAuthMiddleware`: updateSession middleware handler
+- `cloudflare-next-intl-auth/checkFirebaseAuthConfig`: static build checker
+- `cloudflare-next-intl-auth/types`: auth types
+- `cloudflare-next-intl-auth/normalizeConfig`: leading-slash path normalization

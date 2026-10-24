@@ -2,6 +2,8 @@ import type { Plugin } from "vite";
 import { buildIdAsset } from "./build_id_asset.js";
 import { userAgentStubPlugin } from "./user_agent_stub.js";
 import { cfWorkersClientStubPlugin } from "./cf_workers_client_stub.js";
+import { tailwindSourcesPlugin } from "./tailwind_sources_plugin.js";
+import { staticNotFoundNoStorePlugin } from "./static_not_found_no_store.js";
 import { bufferStubPlugin } from "./buffer_stub.js";
 import { reactEvalStubPlugin } from "./react_eval_stub.js";
 import { optionalFirebaseStubPlugin } from "./optional_firebase_stub.js";
@@ -60,6 +62,22 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
      * @default true
      */
     cfWorkersClientStub?: boolean;
+
+    /**
+     * Inject `@source` entries for cloudflare-next-intl and its
+     * `cloudflare-next-intl-*` sub-packages after `@import "tailwindcss"`,
+     * so their Tailwind classes are generated without manual `@source` lines.
+     * @default true
+     */
+    tailwindSources?: boolean;
+
+    /**
+     * Append a `Cache-Control: no-store` config header rule for `/_next/static/*`,
+     * so a chunk 404 during a Worker rollout is never cached at the edge.
+     * Existing assets are served by the assets binding and keep their own headers.
+     * @default true
+     */
+    staticNotFoundNoStore?: boolean;
 
     /**
      * Stubs `node:buffer` in client (browser) builds with the `buffer` polyfill
@@ -291,6 +309,14 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
 
     if (options.cfWorkersClientStub !== false) {
         plugins.push(cfWorkersClientStubPlugin());
+    }
+
+    if (options.tailwindSources !== false) {
+        plugins.push(tailwindSourcesPlugin());
+    }
+
+    if (options.staticNotFoundNoStore !== false) {
+        plugins.push(staticNotFoundNoStorePlugin());
     }
 
     if (options.userAgentStub !== false) {

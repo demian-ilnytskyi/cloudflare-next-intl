@@ -1,136 +1,36 @@
-import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
-import { getMessage } from "../functions/server.js";
-import type { TranslationObject } from "../../types/types.js";
-import { Suspense } from "react";
-import dynamic from "next/dynamic.js";
-import { localesSet } from "../../config/middleware.js";
-import config from "../../config/intl_config.js";
-import pickClientMessages from "../../general/pick_client_messages.js";
-import type { SerializedAuthUser } from "../../firebase_auth/types.js";
-import type { CookieConsentAnalyticsConfig } from "../../types/types.js";
-import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
-import reportError from "../../error_handling/report_error.js";
-import type * as AuthUserServerProviderModule from "../../firebase_auth/server/auth_user_server_provider.js";
-
-const LocationzationClientProvider = dynamic(
-    () => import("../../client/components/client_provider.js"),
-);
-import LocaleProvider from "../../client/components/locale_provider.js";
+import React from 'react';
+import CoreIntlProvider from 'cloudflare-next-intl-intl/serverProvider';
+import { localesSet } from 'cloudflare-next-intl-intl/middleware';
+import ClientExtensions from '../../client/components/client_extensions.js';
+import config from '../../config/intl_config.js';
+import type { TranslationObject } from '../../types/types.js';
+import type { SerializedAuthUser } from '../../firebase_auth/types.js';
+import type { CookieConsentAnalyticsConfig } from '../../types/types.js';
+import reportError from '../../error_handling/report_error.js';
+import installConsoleErrorOverride from '../../error_handling/install_console_error_override.js';
+import type * as AuthUserServerProviderModule from '../../firebase_auth/server/auth_user_server_provider.js';
 
 let authUserServerProviderModule: typeof AuthUserServerProviderModule | undefined;
 
-/**
- * Server component that provides locale/messages context to the rest of the
- * tree. Exported publicly as `IntlProvider` from `cloudflare-next-intl/serverProvider`.
- *
- * Wrap this around your app once, near the root layout, below `[locale]`.
- * It seeds the server-side locale/message caches (for `getLocale`/`getTranslations`)
- * and also passes them to the client `LocaleContext` (for `useLocale`/`useTranslations`
- * in client components).
- *
- * @param language The current route's locale (typically the `[locale]` route
- *   param). Must be one of your configured `locales` — calls `notFound()`
- *   otherwise.
- * @param messages Optional pre-loaded messages for `language`. If omitted,
- *   they're loaded via `getMessage(language)`.
- * @param staticSafe Marks THIS RENDER of `IntlProvider` as one that's safe
- *   to serve from static rendering / ISR — i.e. the caller already knows
- *   the current route never needs a server-resolved auth user (a public
- *   page: marketing, privacy policy, docs, etc). Concretely, setting this
- *   to `true` (the default) skips the internal `resolveAuthUserAndRedirect()`
- *   call. Pass `staticSafe: false` to opt back into resolving it.
- *
- *   ── Why this call exists, and why skipping it by default is safe ──
- *   When `firebaseAuth` is configured and `staticSafe: false` is passed,
- *   `IntlProvider` calls `resolveAuthUserAndRedirect()`, which:
- *     1. Reads the session cookie via `cookies()` and verifies it against
- *        Firebase (server-side, authoritative check for "who is this?").
- *     2. Reads the current pathname via `headers()` (`x-pathname`, set by
- *        `intlMiddleware`) to redirect guest → `redirectAuthPath` or
- *        signed-in → `homePath` on an auth page.
- *     3. Returns the resolved user so the client `AuthUserProvider` can
- *        render the correct signed-in/signed-out UI on the FIRST paint,
- *        with zero flash.
- *   Both `cookies()` and `headers()` are request-scoped APIs — calling
- *   either one forces Next.js to render the ENTIRE subtree dynamically on
- *   every request. No static HTML, no ISR, no caching — for that route
- *   AND every route nested under this same `IntlProvider` call, whether
- *   or not that specific route actually needs auth. A page in
- *   `firebaseAuth.whiteListPaths` (meant to be public) is NOT exempt from
- *   this cost today: the whitelist check happens only AFTER `cookies()`/
- *   `headers()` are already read, so it's just as dynamic as a protected
- *   page.
- *
- *   The redirect part of step 2 is redundant on any project using the
- *   default middleware wiring (`firebaseAuth.middlewareEnabled !== false`,
- *   the default): `intlMiddleware`'s `update_session` step already
- *   validates the session JWT (refreshing it via Firebase's token API if
- *   expired) and performs the exact same guest/auth-page redirects —
- *   authoritatively, on every request, BEFORE this component ever runs.
- *   So `staticSafe: true` does not weaken auth enforcement — the
- *   middleware gate still applies unchanged. The only thing you give up
- *   is step 3: `initialAuthUser` is not seeded server-side, so the client
- *   `AuthUserProvider` resolves it itself after mount instead. In
- *   practice this means a signed-in user MAY see this route's
- *   logged-out-state UI (e.g. a nav avatar placeholder) for one client
- *   render before the real user data appears — never wrong/protected
- *   content, since middleware already gated that; just a delayed value.
- *
- *   ── When to opt out (staticSafe: false) ──
- *   Pass `staticSafe: false` on `IntlProvider` calls that wrap protected
- *   routes or routes where the auth-state flash would be visually jarring
- *   (dashboards, account pages, anything showing `initialAuthUser`-derived
- *   content immediately). Leave the default (`true`) for routes you know
- *   are always public and don't render auth-dependent UI above the fold
- *   (or can tolerate that UI appearing a moment late). If you need
- *   different behavior for public vs protected routes within the SAME
- *   app, render `IntlProvider` twice — once per layout/route-group, each
- *   with its own `staticSafe` value — rather than picking one value for
- *   the whole app. If `firebaseAuth.middlewareEnabled` is explicitly
- *   `false` (middleware auth disabled), always pass `staticSafe: false` —
- *   this component becomes the ONLY place performing the auth redirect,
- *   so leaving the `true` default there really does remove the security
- *   check, not just the flash.
- *
- * @example
- * ```tsx
- * export default async function RootLayout({ children, params }) {
- *   const { locale } = await params;
- *   return (
- *     <html lang={locale}>
- *       <body>
- *         <IntlProvider language={locale}>{children}</IntlProvider>
- *       </body>
- *     </html>
- *   );
- * }
- * ```
- */
-export default async function LocationzationProvider({ language, messages, staticSafe = true, children }: { language: string, messages?: TranslationObject, staticSafe?: boolean, children: React.ReactNode }): Promise<Component> {
+export default async function LocationzationProvider({
+    language,
+    messages,
+    staticSafe = true,
+    children,
+}: {
+    language: string;
+    messages?: TranslationObject;
+    staticSafe?: boolean;
+    children: React.ReactNode;
+}): Promise<React.JSX.Element> {
     if (!localesSet.has(language)) {
-        const { notFound } = await import("next/navigation.js");
+        const { notFound } = await import('next/navigation.js');
         notFound();
     }
-
-    if (language) {
-        setLocaleCache(language);
-    }
-    if (messages) {
-        setMessageForLocaleCache(language, messages);
-    }
-    const messagesValue = pickClientMessages(messages ?? await getMessage(language), config.clientMessages);
-
-    installConsoleErrorOverride(config);
 
     let initialAuthUser: SerializedAuthUser | null = null;
     const autoWireClientProvider = config.firebaseAuth?.autoWireClientProvider !== false;
     if (config.firebaseAuth && autoWireClientProvider) {
-        // `staticSafe: true` with middleware auth disabled would silently
-        // drop the ONLY auth redirect this app has — not just the flash-
-        // prevention seed. Warn loudly rather than let that combination
-        // slip through unnoticed; still honor the caller's choice, since a
-        // hard throw here would be a worse failure mode than a console
-        // warning for what is, after all, a caller-controlled flag.
         if (staticSafe && config.firebaseAuth.middlewareEnabled === false) {
             console.warn(
                 '[cloudflare-next-intl] IntlProvider was called with `staticSafe: true` while ' +
@@ -143,7 +43,7 @@ export default async function LocationzationProvider({ language, messages, stati
 
         if (!staticSafe) {
             if (!authUserServerProviderModule) {
-                authUserServerProviderModule = await import("../../firebase_auth/server/auth_user_server_provider.js");
+                authUserServerProviderModule = await import('../../firebase_auth/server/auth_user_server_provider.js');
             }
             initialAuthUser = await authUserServerProviderModule.resolveAuthUserAndRedirect();
         }
@@ -153,12 +53,6 @@ export default async function LocationzationProvider({ language, messages, stati
     let requiresConsent = true;
     if (config.cookieConsent) {
         const isDevEnvironment = process.env.NODE_ENV === 'development';
-
-        // Country-based gating is handled client-side by CookieConsentProvider
-        // via the __cf_country__ cookie set by intlMiddleware on every response
-        // (including Cloudflare edge-cache hits). Passing true here is the safe
-        // default; the client corrects it on mount without flicker because the
-        // isMounted gate keeps the dialog hidden until after the cookie is read.
         requiresConsent = !isDevEnvironment;
 
         const analyticsAllowedInEnv = config.cookieConsent.enableAnalyticsInDevMode === true || !isDevEnvironment;
@@ -176,20 +70,28 @@ export default async function LocationzationProvider({ language, messages, stati
         }
     }
 
-    return (
-        <LocaleProvider language={language} messages={messagesValue}>
-            <Suspense fallback={children}>
-                <LocationzationClientProvider
-                    language={language}
-                    messages={messagesValue}
-                    initialAuthUser={initialAuthUser}
-                    skipAuthProvider={!autoWireClientProvider}
-                    analyticsConfig={analyticsConfig}
-                    requiresConsent={requiresConsent}
-                    autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}>
-                    {children}
-                </LocationzationClientProvider>
-            </Suspense>
-        </LocaleProvider>
-    );
+    installConsoleErrorOverride(config);
+
+    return await CoreIntlProvider({
+        language,
+        messages,
+        children: (
+            <ClientExtensions
+                initialAuthUser={initialAuthUser}
+                skipAuthProvider={!autoWireClientProvider}
+                hasFirebaseAuth={Boolean(config.firebaseAuth)}
+                enableFirebasePerformance={config.firebaseAuth?.performance !== false}
+                hasCookieConsent={Boolean(config.cookieConsent)}
+                cookieConsentConfig={config.cookieConsent}
+                analyticsConfig={analyticsConfig}
+                requiresConsent={requiresConsent}
+                autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}
+                dialogProps={config.cookieConsent?.dialogProps}
+                updateDialogProps={config.cookieConsent?.updateDialogProps}
+                autoAnalyticsEventsConfig={config.cookieConsent?.autoAnalyticsEvents}
+            >
+                {children}
+            </ClientExtensions>
+        ),
+    });
 }

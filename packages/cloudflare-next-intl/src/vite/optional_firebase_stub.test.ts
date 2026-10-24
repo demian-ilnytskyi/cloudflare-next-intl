@@ -44,4 +44,17 @@ describe('optionalFirebaseStubPlugin', () => {
         expect(isModuleInstalled('vitest', process.cwd())).toBe(true);
         expect(isModuleInstalled('@firebase/definitely-not-real', process.cwd())).toBe(false);
     });
+
+    it('stubs firebase import from auth package path', () => {
+        const plugin = optionalFirebaseStubPlugin({ root: '/nonexistent-root-for-test' });
+        call(plugin, 'config', {});
+        expect(
+            call(
+                plugin,
+                'resolveId',
+                '@firebase/auth',
+                '/x/node_modules/cloudflare-next-intl-auth/dist/src/firebase_auth/client/firebase_client.js',
+            ),
+        ).toBe(optionalFirebaseStubId('@firebase/auth'));
+    });
 });

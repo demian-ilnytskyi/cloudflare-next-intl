@@ -2,20 +2,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import * as React from 'react';
 
-vi.mock('next/dynamic', () => ({
-    default: (loader: () => Promise<{ default: React.ComponentType<Record<string, unknown>> }>) => {
-        return function DynamicWrapper(props: Record<string, unknown>) {
-            const [Comp, setComp] = React.useState<React.ComponentType<Record<string, unknown>> | null>(null);
-            React.useEffect(() => {
-                loader().then((m) => setComp(() => m.default));
-            }, []);
-            if (!Comp) return null;
-            const C = Comp;
-            return <C {...props} />;
-        };
-    },
-}));
-vi.mock('../functions/server', () => ({ getMessage: vi.fn(async () => ({ Common: { title: 'Hello' } })) }));
+const dynamicMock = (loader: () => Promise<{ default: React.ComponentType<Record<string, unknown>> }>) => {
+    return function DynamicWrapper(props: Record<string, unknown>) {
+        const [Comp, setComp] = React.useState<React.ComponentType<Record<string, unknown>> | null>(null);
+        React.useEffect(() => {
+            loader().then((m) => setComp(() => m.default));
+        }, []);
+        if (!Comp) return null;
+        const C = Comp;
+        return <C {...props} />;
+    };
+};
+vi.mock('next/dynamic', () => ({ default: dynamicMock }));
+vi.mock('next/dynamic.js', () => ({ default: dynamicMock }));
+const getMessageMock = vi.fn(async () => ({ Common: { title: 'Hello' } }));
+vi.mock('../functions/server', () => ({ getMessage: getMessageMock }));
+vi.mock('cloudflare-next-intl-intl/internal/server', () => ({ getMessage: getMessageMock }));
 
 let firebaseAuthValue: Record<string, unknown> | undefined;
 let cookieConsentValue: Record<string, unknown> | undefined;

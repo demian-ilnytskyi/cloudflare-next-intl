@@ -3,6 +3,58 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.1] - 2026-10-24
+
+### Added
+
+- `staticNotFoundNoStore`: Vite plugin / option appending `Cache-Control: no-store, must-revalidate` rule for `/_next/static/*` routes to prevent caching chunk 404s during rollout.
+
+## [0.13.0] - 2026-10-24
+
+### Changed
+
+- Firebase Auth & App Check module extracted to standalone `cloudflare-next-intl-auth` package (`packages/auth`).
+- Umbrella `cloudflare-next-intl` re-exports all auth primitives with full backward compatibility via shims, including default exports for `resolveOptionalAuthUser` and `useFirebaseAuthUser`.
+- `LocationzationClientProvider` exported from `./client` retains full auth and cookie consent wrapping.
+- `IntlProvider` validates locale prior to executing any auth resolution, ensuring invalid locales yield 404 rather than triggering auth redirects.
+- Replaced direct dependency on `jose` with `cloudflare-next-intl-auth`.
+
+## [0.12.0] - 2026-10-24
+
+### Changed
+
+- Core internationalization logic extracted to standalone `cloudflare-next-intl-intl` package (`packages/intl`).
+- Umbrella `cloudflare-next-intl` re-exports all intl primitives and wires Firebase Auth middleware extensions and client extensions seamlessly.
+
+## [0.11.0] - 2026-10-24
+
+### Added
+
+- `firebaseAuth.appCheck.turnstileSiteKey` and `turnstileSecretKey`: Cloudflare Turnstile provider for Firebase App Check. Lets client challenges use Turnstile instead of Google reCAPTCHA, avoiding loading Google challenge scripts on the client.
+- `verifyTurnstileToken`: server-side Turnstile siteverify verification with 5s timeout and action validation.
+- `exchangeTurnstileTokenAction`: server action exchanging verified Turnstile challenge tokens for minted App Check tokens.
+- `HelperScript`: added `<link rel="preconnect" href="https://challenges.cloudflare.com">` when `turnstileSiteKey` is configured.
+
+## [0.10.35] - 2026-10-24
+
+### Fixed
+
+- `clearSession`: only clear `__fa_has_session__`, device proof, and proof required marker cookies when `clearServerCookies === true`, keeping the session marker intact across transient restore failures (e.g. App Check failure on idle restore) so future page loads can still attempt session restoration.
+- `DEFAULT_REFRESH_MAX_AGE`: moved constant to `cookie_names.ts` to prevent client bundle from importing `update_session.ts` and pulling in `next/headers` and server-only dependencies.
+- `update_session.ts`: passed `bound: result.bound` on email verification refresh path to prevent redundant client session sync.
+- `syncSessionAction`: fixed Next.js `"use server"` export error by moving non-async constant `REBIND_MAX_AUTH_AGE_SECONDS` and cookie names to a separate zero-dependency `cookie_names.ts`.
+- `logout()`: eagerly clear session marker and device proof cookies, reset active device key, and set active logout flag before calling Firebase `signOut()` to prevent `onIdTokenChanged(null)` listener from triggering `restoreSessionAction` and inadvertently re-authenticating the user.
+- Device binding re-bind security: `syncSessionAction` now verifies the refresh token with Google's Secure Token API and extracts `auth_time` from Google's response rather than an untrusted client token. Store read failures fail open without mutating or re-binding keys.
+- Device binding restore: signed device proof supports signing the 8-character prefix of the refresh token hash (`${ts}.${hash8}`) from the `__fa_has_session__` marker, allowing session restoration when `currentUser` is null on the client. `verifyDeviceProof` supports both short-hash and full-hash formats.
+- Session marker `bound` bit: `update_session.ts` and `restoreSessionAction` now verify key existence in store before asserting `bound` in the session marker, preventing `needsSessionSync` from falsely considering unbound sessions as bound.
+- Login redirect race: on auth pages, `AuthUserProvider` now awaits `writeSession` before updating user state and triggering navigation, preventing RSC requests from firing before cookies are written.
+- Client bundle purity: isolated cookie name constants in `cookie_names.ts` and App Check token validation in `app_check_token.ts` to avoid leaking `next/headers` or server-only modules into client bundles.
+- Middleware App Check: call `seedAppCheckCookie` before rebuilding response in `update_session.ts` and rebuild only when request cookies were modified, avoiding duplicate token mints.
+- `session_sync.ts`: route error reporting through package `reportClientError` rather than browser global `reportError`.
+- `clearSessionAction`: ensure `__fa_device_proof__` and `__fa_proof_required__` cookies are deleted upon clearing session.
+- `getDeviceKey`: memoize in-flight key generation calls to prevent concurrent duplicate key creations.
+- Preserved explanatory comments in `refresh_id_token.ts` explaining refresh caching and error classification rationale.
+
 ## [0.10.34] - 2026-10-15
 
 ### Fixed

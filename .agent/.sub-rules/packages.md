@@ -94,12 +94,8 @@ and `npm publish --access public` themselves.
 
 ## Repo shape (always relevant)
 
-- `package/` — the published npm package (`cloudflare-next-intl`), built via
-  `tsc` (see `package/package.json`'s `build` script) into `package/dist`,
-  which is **committed to git** (not gitignored) — see the "`dist/` check"
-  step above.
-- `example/` — a Next.js app that consumes the package locally for manual
-  testing; not covered by automated test/coverage work.
-- No runtime dependency on `next-intl` — this is a from-scratch,
-  Cloudflare-Workers-friendly reimplementation (small bundle, no heavy i18n
-  framework).
+- `packages/intl/` — core i18n package (`cloudflare-next-intl-intl`), built via `tsc` into `dist/`. Zero external dependencies.
+- `packages/cloudflare-next-intl/` — umbrella package, built via `tsc` into `dist/`. Wires core intl, db, and optional extensions.
+- Dependency direction: `intl ← auth ← umbrella`. `cloudflare-next-intl-db` is independent.
+- `example/` — a Next.js app that consumes the package locally for manual testing; not covered by automated test/coverage work.
+- No runtime dependency on `next-intl` — this is a from-scratch, Cloudflare-Workers-friendly reimplementation.

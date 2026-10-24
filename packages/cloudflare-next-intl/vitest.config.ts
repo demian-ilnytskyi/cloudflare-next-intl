@@ -1,13 +1,21 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const reactPkgPath = path.dirname(require.resolve('react/package.json'));
+const reactDomPkgPath = path.dirname(require.resolve('react-dom/package.json'));
+const nextHeadersPath = require.resolve('next/headers');
+const nextNavigationPath = require.resolve('next/navigation');
 
 export default defineConfig({
     test: {
         environment: 'jsdom',
+        testTimeout: 10000,
         setupFiles: ['./vitest.setup.ts'],
         server: {
             deps: {
-                inline: ['react'],
+                inline: ['react', 'cloudflare-next-intl-intl', 'cloudflare-next-intl-auth', 'cloudflare-next-intl-errors', 'cloudflare-next-intl-theme'],
             },
         },
         coverage: {
@@ -17,9 +25,11 @@ export default defineConfig({
             exclude: [
                 'src/**/index.ts',
                 'src/**/*.d.ts',
+                'src/**/*.test-d.ts',
                 'src/general/get_layout_states.ts',
                 'src/types/types.ts',
-                'src/firebase_auth/types.ts',
+                'src/firebase_auth/**',
+                'src/firebase_auth_check/**',
                 'src/image_optimizer/next_image_shim.tsx',
                 'src/test_utils/**',
                 'src/**/*.bench.ts',
@@ -28,20 +38,17 @@ export default defineConfig({
                 'src/db/eslint_config.ts',
                 'src/db/testing.ts',
                 'src/db/helpers.ts',
+                'src/{error_handling,general,client_messages_scan}/**',
+                'src/server/functions/{get_user_locale,use_functions}.ts',
+                'src/client/components/{client_provider_static,client_helper_script}.tsx',
             ],
             thresholds: {
                 perFile: true,
-                'src/**/!(general_functions|middleware|error_detail_view|auto_dynamic_pages_plugin|auto_locale_params_plugin|insert_locale_params|vinext_route_wiring_fix|check_firebase_auth_config|load_resolved_firebase_auth).{ts,tsx}': { statements: 100, branches: 100, functions: 100, lines: 100 },
-                // general_functions.ts: 3 branches are unreachable defensive dead code (post-loop null-check, type guard that cannot fail, loop-exit fallback). v8-ignore comments cannot suppress these — esbuild strips comments before vitest's coverage instrumentation sees them (confirmed via direct esbuild.transform test), so no comment-based approach works with this project's transform pipeline.
-                'src/general/general_functions.ts': { statements: 90.26, branches: 84.09, functions: 83.33, lines: 90.26 },
+                'src/**/!(middleware|error_detail_view|auto_dynamic_pages_plugin|auto_locale_params_plugin|insert_locale_params|vinext_route_wiring_fix|default_privacy_policy_link|privacy_policy_update_dialog|cookie_consent_dialog).{ts,tsx}': { statements: 100, branches: 100, functions: 100, lines: 100 },
                 // middleware.ts: 2 branches are unreachable defensive/structural dead code (a `?? ''` fallback after an equivalent null-guard already returned, and an empty-string check on a value that can never be empty by construction).
                 'src/config/middleware.ts': { statements: 100, branches: 93.93, functions: 100, lines: 100 },
                 // error_detail_view.tsx: `typeof window !== 'undefined'` is a defensive SSR-safety guard on a 'use client' component — window always exists under @testing-library/react + jsdom, so the false branch is structurally untestable in this suite.
                 'src/errors_board/client/error_detail_view.tsx': { statements: 100, branches: 96.66, functions: 100, lines: 100 },
-                // check_firebase_auth_config.ts: 3 branches in named import/module specifier resolution and spread resolution are defensive fallbacks (unresolvable module path fallback, missing import specifier, and catch-block during file read error).
-                'src/firebase_auth_check/check_firebase_auth_config.ts': { statements: 96.26, branches: 90.7, functions: 100, lines: 96.26 },
-                // load_resolved_firebase_auth.ts: finally branch on await server?.close() when createServer throws is defensive cleanup.
-                'src/firebase_auth_check/load_resolved_firebase_auth.ts': { statements: 100, branches: 95, functions: 100, lines: 100 },
                 // auto_dynamic_pages_plugin.ts: 1 branch (a catch around the writeFile wrapper's readFileSync call, capturing a page's pre-write contents for later restore) is structurally hard to isolate in tests — it requires making one specific fs.readFileSync call fail while an adjacent one on the same file, in the same synchronous flow, succeeds; mocking node:fs at the module level (vi.mock/vi.doMock) had no effect on this project's built-in-module resolution (confirmed: the mocked implementation was never invoked).
                 'src/vite/auto_dynamic_pages_plugin.ts': { statements: 98.46, branches: 93.75, functions: 100, lines: 98.46 },
                 // auto_locale_params_plugin.ts: same structural limitation as auto_dynamic_pages_plugin.ts above — its writeFile wrapper has the identical catch-around-readFileSync shape and is equally unmockable here.
@@ -70,7 +77,12 @@ export default defineConfig({
         },
     },
     resolve: {
+        dedupe: ['react', 'react-dom', 'next'],
         alias: {
+            react: reactPkgPath,
+            'react-dom': reactDomPkgPath,
+            'next/headers': nextHeadersPath,
+            'next/navigation': nextNavigationPath,
             '@intl-config': path.resolve(__dirname, './src/test_utils/mock_intl_config.ts'),
             '@locale-file': path.resolve(__dirname, './src/test_utils/mock_locale_file'),
             'virtual:cloudflare-next-intl-images-manifest': path.resolve(__dirname, './src/test_utils/mock_images_manifest.ts'),

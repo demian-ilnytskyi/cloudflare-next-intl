@@ -5,6 +5,10 @@ on:
   pull_request:
     paths:
       - "packages/cloudflare-next-intl/**"
+      - "packages/intl/**"
+      - "packages/errors/**"
+      - "packages/theme/**"
+      - "packages/auth/**"
       - "packages/db/**"
       - "packages/db-codegen/**"
     branches: [main]
@@ -22,6 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       cloudflare_next_intl: ${{ steps.filter.outputs.cloudflare_next_intl }}
+      intl: ${{ steps.filter.outputs.intl }}
+      errors: ${{ steps.filter.outputs.errors }}
+      theme: ${{ steps.filter.outputs.theme }}
+      auth: ${{ steps.filter.outputs.auth }}
       db: ${{ steps.filter.outputs.db }}
       db_codegen: ${{ steps.filter.outputs.db_codegen }}
     steps:
@@ -33,6 +41,14 @@ jobs:
           filters: |
             cloudflare_next_intl:
               - 'packages/cloudflare-next-intl/**'
+            intl:
+              - 'packages/intl/**'
+            errors:
+              - 'packages/errors/**'
+            theme:
+              - 'packages/theme/**'
+            auth:
+              - 'packages/auth/**'
             db:
               - 'packages/db/**'
             db_codegen:
@@ -40,7 +56,7 @@ jobs:
 
   build_tests_cloudflare_next_intl:
     needs: [changes]
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.cloudflare_next_intl == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.cloudflare_next_intl == 'true' || needs.changes.outputs.intl == 'true' || needs.changes.outputs.errors == 'true' || needs.changes.outputs.theme == 'true' || needs.changes.outputs.auth == 'true' }}
     uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
     secrets: inherit
     with:
@@ -50,15 +66,84 @@ jobs:
       min_coverage: 100
       min_overall_coverage: 99
       per_file_exceptions: |
-        general/general_functions.ts:87
         config/middleware.ts:93
         errors_board/client/error_detail_view.tsx:96
         vite/auto_dynamic_pages_plugin.ts:98
         vite/auto_locale_params_plugin.ts:98
         locale_params_check/insert_locale_params.ts:97
         vite/vinext_route_wiring_fix.ts:98
-        firebase_auth_check/check_firebase_auth_config.ts:96
+        cookie_consent/client/components/cookie_consent_dialog.tsx:98
+        cookie_consent/client/components/privacy_policy_update_dialog.tsx:98
       run_bench: true
+      send_notifications: false
+
+  build_tests_intl:
+    needs: [changes]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.intl == 'true' }}
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
+    secrets: inherit
+    with:
+      project_type: nextjs
+      working_directory: packages/intl
+      test_path: src
+      min_coverage: 100
+      min_overall_coverage: 99
+      per_file_exceptions: |
+        general/general_functions.ts:87
+      run_bench: true
+      send_notifications: false
+
+  build_tests_errors:
+    needs: [changes]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.errors == 'true' }}
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
+    secrets: inherit
+    with:
+      project_type: nextjs
+      working_directory: packages/errors
+      test_path: src
+      min_coverage: 100
+      min_overall_coverage: 100
+      run_bench: true
+      send_notifications: false
+
+  build_tests_theme:
+    needs: [changes]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.theme == 'true' }}
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
+    secrets: inherit
+    with:
+      project_type: nextjs
+      working_directory: packages/theme
+      test_path: src
+      min_coverage: 100
+      min_overall_coverage: 100
+      run_bench: true
+      send_notifications: false
+
+  build_tests_auth:
+    needs: [changes]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.auth == 'true' }}
+    uses: demian-ilnytskyi/workflows/.github/workflows/package_ci_build_and_test.yml@main
+    secrets: inherit
+    with:
+      project_type: nextjs
+      working_directory: packages/auth
+      test_path: src
+      min_coverage: 100
+      min_overall_coverage: 96
+      per_file_exceptions: |
+        firebase_auth_check/check_firebase_auth_config.ts:96
+        firebase_auth/client/auth_user_provider.tsx:92
+        firebase_auth/client/device_key.ts:88
+        firebase_auth/client/firebase_client.ts:98
+        firebase_auth/client/session_sync.ts:87
+        firebase_auth/device_proof.ts:98
+        firebase_auth/guarded_refresh.ts:88
+        firebase_auth/middleware/update_session.ts:98
+        firebase_auth/server/clear_session_action.ts:93
+        firebase_auth/server/restore_session_action.ts:88
+      run_bench: false
       send_notifications: false
 
   build_tests_db:
@@ -92,6 +177,10 @@ jobs:
     if: always()
     needs:
       - build_tests_cloudflare_next_intl
+      - build_tests_intl
+      - build_tests_errors
+      - build_tests_theme
+      - build_tests_auth
       - build_tests_db
       - build_tests_db_codegen
     uses: demian-ilnytskyi/workflows/.github/workflows/notification.yml@main
@@ -99,4 +188,4 @@ jobs:
     with:
       job_status: ${{ (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && 'failure' || 'success' }}
       workflow: ${{ github.workflow }}
-      dop_text: "cloudflare-next-intl ${{ needs.build_tests_cloudflare_next_intl.result }}, db ${{ needs.build_tests_db.result }}, db-codegen ${{ needs.build_tests_db_codegen.result }}"
+      dop_text: "cloudflare-next-intl ${{ needs.build_tests_cloudflare_next_intl.result }}, intl ${{ needs.build_tests_intl.result }}, errors ${{ needs.build_tests_errors.result }}, theme ${{ needs.build_tests_theme.result }}, auth ${{ needs.build_tests_auth.result }}, db ${{ needs.build_tests_db.result }}, db-codegen ${{ needs.build_tests_db_codegen.result }}"

@@ -1,0 +1,241 @@
+// @vitest-environment node
+import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { CFNI_NO_EXTERNAL, loadResolvedFirebaseAuth } from "./load_resolved_firebase_auth.js";
+
+describe("loadResolvedFirebaseAuth", () => {
+    it("CFNI_NO_EXTERNAL matches only cloudflare-next-intl packages", () => {
+        const matches = [
+            "cloudflare-next-intl",
+            "cloudflare-next-intl/vite",
+            "cloudflare-next-intl-errors",
+            "cloudflare-next-intl-auth/server/x",
+            "cloudflare-next-intl-db-codegen",
+        ];
+        for (const pkg of matches) {
+            expect(CFNI_NO_EXTERNAL.test(pkg)).toBe(true);
+        }
+
+        const nonMatches = [
+            "cloudflare-next-intlx",
+            "cloudflare-foo",
+            "cloudflare:workers",
+            "@scope/cloudflare-next-intl",
+        ];
+        for (const pkg of nonMatches) {
+            expect(CFNI_NO_EXTERNAL.test(pkg)).toBe(false);
+        }
+    });
+    function setupTempDir(): { dir: string; cleanup: () => void } {
+        const dir = mkdtempSync(join(tmpdir(), "vite-load-resolved-"));
+        mkdirSync(join(dir, "src", "l18n"), { recursive: true });
+        return {
+            dir,
+            cleanup: () => rmSync(dir, { recursive: true, force: true }),
+        };
+    }
+
+    it("loads evaluated firebaseAuth object and resolves cloudflare:* and @intl-config", async () => {
+        const { dir, cleanup } = setupTempDir();
+        try {
+            const helperPath = join(dir, "src", "l18n", "helper.ts");
+            writeFileSync(helperPath, `
+                import config from "@intl-config";
+                export const getHasConfig = () => typeof config;
+            `);
+
+            const configPath = join(dir, "src", "l18n", "intl_config.ts");
+            writeFileSync(configPath, `
+                import { env } from "cloudflare:workers";
+                import sockets from "cloudflare:sockets";
+                import { getHasConfig } from "./helper.js";
+                export default {
+                    firebaseAuth: {
+                        apiKey: "resolved-api-key-" + typeof env + "-" + typeof sockets,
+                        projectId: "resolved-proj",
+                        helperLoaded: typeof getHasConfig === "function",
+                    },
+                };
+            `);
+
+            const result = await loadResolvedFirebaseAuth({
+                intlConfigPath: configPath,
+                viteConfig: {
+                    root: dir,
+                    envDir: dir,
+                    mode: "development",
+                    resolve: { alias: [] },
+                },
+            });
+
+            expect(result).toEqual({
+                apiKey: "resolved-api-key-object-object",
+                projectId: "resolved-proj",
+                helperLoaded: true,
+            });
+        } finally {
+            cleanup();
+        }
+    });
+
+    it("bundles cloudflare-next-intl-* sub-packages so their @intl-config imports resolve", async () => {
+        const { dir, cleanup } = setupTempDir();
+        try {
+            const pkgDir = join(dir, "node_modules", "cloudflare-next-intl-errors");
+            mkdirSync(join(pkgDir, "dist"), { recursive: true });
+            writeFileSync(join(pkgDir, "package.json"), JSON.stringify({
+                name: "cloudflare-next-intl-errors",
+                type: "module",
+                exports: { "./report": "./dist/report.js" },
+            }));
+            writeFileSync(join(pkgDir, "dist", "report.js"), `
+                import config from "@intl-config";
+                export const hasConfig = () => typeof config;
+            `);
+
+            const configPath = join(dir, "src", "l18n", "intl_config.ts");
+            writeFileSync(configPath, `
+                import { hasConfig } from "cloudflare-next-intl-errors/report";
+                export default {
+                    firebaseAuth: { subPackageLoaded: typeof hasConfig === "function" },
+                };
+            `);
+
+            const result = await loadResolvedFirebaseAuth({
+                intlConfigPath: configPath,
+                viteConfig: {
+                    root: dir,
+                    envDir: dir,
+                    mode: "development",
+                    resolve: { alias: [] },
+                },
+            });
+
+            expect(result).toEqual({ subPackageLoaded: true });
+        } finally {
+            cleanup();
+        }
+    });
+
+    it("applies envDefaults for unset keys and restores process.env afterwards", async () => {
+        const { dir, cleanup } = setupTempDir();
+        const existingKey = "CFNI_TEST_ENV_DEFAULTS_EXISTING";
+        const missingKey = "CFNI_TEST_ENV_DEFAULTS_MISSING";
+        const emptyKey = "CFNI_TEST_ENV_DEFAULTS_EMPTY";
+        process.env[existingKey] = "already-set";
+        delete process.env[missingKey];
+        process.env[emptyKey] = "";
+        try {
+            const configPath = join(dir, "src", "l18n", "intl_config.ts");
+            writeFileSync(configPath, `
+                export default {
+                    firebaseAuth: {
+                        existing: process.env.${existingKey},
+                        missing: process.env.${missingKey},
+                        empty: process.env.${emptyKey},
+                    },
+                };
+            `);
+
+            const result = await loadResolvedFirebaseAuth({
+                intlConfigPath: configPath,
+                viteConfig: {
+                    root: dir,
+                    envDir: dir,
+                    mode: "development",
+                    resolve: { alias: [] },
+                },
+                envDefaults: {
+                    [existingKey]: "default-value",
+                    [missingKey]: "default-value",
+                    [emptyKey]: "default-value",
+                },
+            });
+
+            expect(result).toEqual({
+                existing: "already-set",
+                missing: "default-value",
+                empty: "default-value",
+            });
+
+            expect(process.env[existingKey]).toBe("already-set");
+            expect(process.env[missingKey]).toBeUndefined();
+            expect(process.env[emptyKey]).toBe("");
+        } finally {
+            delete process.env[existingKey];
+            delete process.env[missingKey];
+            delete process.env[emptyKey];
+            cleanup();
+        }
+    });
+
+    it("returns undefined when module fails to load or file does not exist", async () => {
+        const result = await loadResolvedFirebaseAuth({
+            intlConfigPath: "/path/to/nonexistent/config.ts",
+            viteConfig: {
+                root: "/path/to/nonexistent",
+                envDir: "/path/to/nonexistent",
+                mode: "development",
+                resolve: { alias: [] },
+            },
+        });
+        expect(result).toBeUndefined();
+
+        const resultCreateServerThrows = await loadResolvedFirebaseAuth({
+            intlConfigPath: "/path/to/config.ts",
+            viteConfig: {
+                root: "\0invalid-null-byte-root",
+                envDir: "/path/to/nonexistent",
+                mode: "development",
+                resolve: { alias: [] },
+            },
+        });
+        expect(resultCreateServerThrows).toBeUndefined();
+    });
+
+    it("returns undefined when default export is missing or firebaseAuth is not an object", async () => {
+        const { dir, cleanup } = setupTempDir();
+        try {
+            const configPath = join(dir, "src", "l18n", "intl_config.ts");
+            writeFileSync(configPath, `
+                export default {
+                    firebaseAuth: "not-an-object",
+                };
+            `);
+
+            const result = await loadResolvedFirebaseAuth({
+                intlConfigPath: configPath,
+                viteConfig: {
+                    root: dir,
+                    envDir: dir,
+                    mode: "development",
+                    resolve: { alias: [] },
+                },
+            });
+
+            expect(result).toBeUndefined();
+
+            writeFileSync(configPath, `
+                export default {
+                    noAuthHere: true,
+                };
+            `);
+
+            const resultNoAuth = await loadResolvedFirebaseAuth({
+                intlConfigPath: configPath,
+                viteConfig: {
+                    root: dir,
+                    envDir: dir,
+                    mode: "development",
+                    resolve: { alias: [] },
+                },
+            });
+
+            expect(resultNoAuth).toBeUndefined();
+        } finally {
+            cleanup();
+        }
+    });
+});

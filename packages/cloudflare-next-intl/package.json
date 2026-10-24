@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.10.34",
+  "version": "0.13.1",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -318,6 +318,7 @@
     }
   },
   "scripts": {
+    "postinstall": "node -e \"import('fs').then(f => f.existsSync('./scripts/build_local_deps.mjs') && import('child_process').then(c => c.execSync('node scripts/build_local_deps.mjs errors intl auth', {stdio:'inherit'})))\"",
     "test": "vitest run --coverage",
     "bench": "vitest bench --run --config vitest.bench.config.ts",
     "build": "rm -rf dist && tsc && node scripts/write_dist_type.mjs",
@@ -327,7 +328,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/demian-ilnytskyi/cloudflare-next-intl.git"
+    "url": "git+https://github.com/demian-ilnytskyi/cloudflare-next-intl.git",
+    "directory": "packages/cloudflare-next-intl"
   },
   "keywords": [
     "nextjs",
@@ -362,9 +364,12 @@
   "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl#readme",
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",
+    "cloudflare-next-intl-auth": "^0.2.1",
     "cloudflare-next-intl-db": "^0.3.0",
     "cloudflare-next-intl-db-codegen": "^0.1.4",
-    "jose": "^6.2.8",
+    "cloudflare-next-intl-errors": "^0.1.0",
+    "cloudflare-next-intl-intl": "^0.2.0",
+    "cloudflare-next-intl-theme": "^0.1.0",
     "sharp": "^0.34.5 || ^0.35.0"
   },
   "peerDependencies": {
@@ -402,7 +407,9 @@
     "eslint": "^9.28.0",
     "eslint-config-next": "15.3.3",
     "eslint-config-prettier": "^10.1.2",
+    "fake-indexeddb": "^6.2.6",
     "jiti": "^2.7.0",
+    "jose": "^6.2.13",
     "jsdom": "^29.1.1",
     "next": "^16.2.12",
     "react": "19.2.0",

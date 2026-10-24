@@ -1,0 +1,285 @@
+{
+  "name": "cloudflare-next-intl-intl",
+  "version": "0.2.0",
+  "description": "Core internationalization and localization for Next.js App Router and Cloudflare",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "llms.txt"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./client": {
+      "types": "./dist/src/client/index.d.ts",
+      "import": "./dist/src/client/index.js"
+    },
+    "./server": {
+      "types": "./dist/src/server/index.d.ts",
+      "import": "./dist/src/server/index.js"
+    },
+    "./geo": {
+      "types": "./dist/src/server/functions/geo.d.ts",
+      "import": "./dist/src/server/functions/geo.js"
+    },
+    "./getCountry": {
+      "types": "./dist/src/server/functions/geo.d.ts",
+      "import": "./dist/src/server/functions/geo.js"
+    },
+    "./getTimezone": {
+      "types": "./dist/src/server/functions/geo.d.ts",
+      "import": "./dist/src/server/functions/geo.js"
+    },
+    "./serverProvider": {
+      "types": "./dist/src/server/components/server_provider.d.ts",
+      "import": "./dist/src/server/components/server_provider.js"
+    },
+    "./serverProviderStatic": {
+      "types": "./dist/src/server/components/server_provider_static.d.ts",
+      "import": "./dist/src/server/components/server_provider_static.js"
+    },
+    "./LocaleLink": {
+      "types": "./dist/src/client/components/locale_link.d.ts",
+      "import": "./dist/src/client/components/locale_link.js"
+    },
+    "./usePathname": {
+      "types": "./dist/src/client/hooks/use_path_name.d.ts",
+      "import": "./dist/src/client/hooks/use_path_name.js"
+    },
+    "./setCookieClient": {
+      "types": "./dist/src/client/functions/set_cookie.d.ts",
+      "import": "./dist/src/client/functions/set_cookie.js"
+    },
+    "./setCookie": {
+      "types": "./dist/src/client/functions/set_cookie.d.ts",
+      "import": "./dist/src/client/functions/set_cookie.js"
+    },
+    "./getCookieClient": {
+      "types": "./dist/src/client/functions/get_cookie.d.ts",
+      "import": "./dist/src/client/functions/get_cookie.js"
+    },
+    "./getCookie": {
+      "types": "./dist/src/client/functions/get_cookie.d.ts",
+      "import": "./dist/src/client/functions/get_cookie.js"
+    },
+    "./localeStaticParams": {
+      "types": "./dist/src/server/functions/locale_static_params.d.ts",
+      "import": "./dist/src/server/functions/locale_static_params.js"
+    },
+    "./use": {
+      "react-server": {
+        "types": "./dist/src/server/functions/use_functions.d.ts",
+        "import": "./dist/src/server/functions/use_functions.js"
+      },
+      "default": {
+        "types": "./dist/src/client/hooks/client_hooks.d.ts",
+        "import": "./dist/src/client/hooks/client_hooks.js"
+      }
+    },
+    "./middleware": {
+      "types": "./dist/src/config/middleware.d.ts",
+      "import": "./dist/src/config/middleware.js"
+    },
+    "./setIntlConfig": {
+      "types": "./dist/src/config/init_config.d.ts",
+      "import": "./dist/src/config/init_config.js"
+    },
+    "./metadata": {
+      "types": "./dist/src/general/metadata.d.ts",
+      "import": "./dist/src/general/metadata.js"
+    },
+    "./types": {
+      "types": "./dist/src/types/types.d.ts",
+      "import": "./dist/src/types/types.js"
+    },
+    "./internal/cacheVariables": {
+      "types": "./dist/src/general/cache_variables.d.ts",
+      "import": "./dist/src/general/cache_variables.js"
+    },
+    "./internal/generalIndex": {
+      "types": "./dist/src/general/index.d.ts",
+      "import": "./dist/src/general/index.js"
+    },
+    "./internal/generalFunctions": {
+      "types": "./dist/src/general/general_functions.d.ts",
+      "import": "./dist/src/general/general_functions.js"
+    },
+    "./internal/pickClientMessages": {
+      "types": "./dist/src/general/pick_client_messages.d.ts",
+      "import": "./dist/src/general/pick_client_messages.js"
+    },
+    "./internal/clientMessagesScan": {
+      "types": "./dist/src/client_messages_scan/index.d.ts",
+      "import": "./dist/src/client_messages_scan/index.js"
+    },
+    "./internal/scanFile": {
+      "types": "./dist/src/client_messages_scan/scan_file.d.ts",
+      "import": "./dist/src/client_messages_scan/scan_file.js"
+    },
+    "./internal/scanProject": {
+      "types": "./dist/src/client_messages_scan/scan_project.d.ts",
+      "import": "./dist/src/client_messages_scan/scan_project.js"
+    },
+    "./internal/matchNamespace": {
+      "types": "./dist/src/client_messages_scan/match_namespace.d.ts",
+      "import": "./dist/src/client_messages_scan/match_namespace.js"
+    },
+    "./internal/createIntlMiddleware": {
+      "types": "./dist/src/config/create_intl_middleware.d.ts",
+      "import": "./dist/src/config/create_intl_middleware.js"
+    },
+    "./internal/cookieKey": {
+      "types": "./dist/src/config/cookie_key.d.ts",
+      "import": "./dist/src/config/cookie_key.js"
+    },
+    "./internal/intlConfig": {
+      "types": "./dist/src/config/intl_config.d.ts",
+      "import": "./dist/src/config/intl_config.js"
+    },
+    "./internal/intlSitemap": {
+      "types": "./dist/src/config/intl_sitemap.d.ts",
+      "import": "./dist/src/config/intl_sitemap.js"
+    },
+    "./internal/configIndex": {
+      "types": "./dist/src/config/index.d.ts",
+      "import": "./dist/src/config/index.js"
+    },
+    "./internal/geo": {
+      "types": "./dist/src/server/functions/geo.d.ts",
+      "import": "./dist/src/server/functions/geo.js"
+    },
+    "./internal/getUserLocale": {
+      "types": "./dist/src/server/functions/get_user_locale.d.ts",
+      "import": "./dist/src/server/functions/get_user_locale.js"
+    },
+    "./internal/localeStaticParams": {
+      "types": "./dist/src/server/functions/locale_static_params.d.ts",
+      "import": "./dist/src/server/functions/locale_static_params.js"
+    },
+    "./internal/server": {
+      "types": "./dist/src/server/functions/server.d.ts",
+      "import": "./dist/src/server/functions/server.js"
+    },
+    "./internal/useFunctions": {
+      "types": "./dist/src/server/functions/use_functions.d.ts",
+      "import": "./dist/src/server/functions/use_functions.js"
+    },
+    "./Link": {
+      "types": "./dist/src/server/components/link.d.ts",
+      "import": "./dist/src/server/components/link.js"
+    },
+    "./IntlHelperScript": {
+      "types": "./dist/src/server/components/helper_script.d.ts",
+      "import": "./dist/src/server/components/helper_script.js"
+    },
+    "./internal/link": {
+      "types": "./dist/src/server/components/link.d.ts",
+      "import": "./dist/src/server/components/link.js"
+    },
+    "./internal/helperScript": {
+      "types": "./dist/src/server/components/helper_script.d.ts",
+      "import": "./dist/src/server/components/helper_script.js"
+    },
+    "./internal/clientProvider": {
+      "types": "./dist/src/client/components/client_provider.d.ts",
+      "import": "./dist/src/client/components/client_provider.js"
+    },
+    "./internal/clientProviderStatic": {
+      "types": "./dist/src/client/components/client_provider_static.d.ts",
+      "import": "./dist/src/client/components/client_provider_static.js"
+    },
+    "./internal/localeProvider": {
+      "types": "./dist/src/client/components/locale_provider.d.ts",
+      "import": "./dist/src/client/components/locale_provider.js"
+    },
+    "./internal/localeLink": {
+      "types": "./dist/src/client/components/locale_link.d.ts",
+      "import": "./dist/src/client/components/locale_link.js"
+    },
+    "./internal/localeLinkClient": {
+      "types": "./dist/src/client/components/locale_link_client.d.ts",
+      "import": "./dist/src/client/components/locale_link_client.js"
+    },
+    "./internal/clientHooks": {
+      "types": "./dist/src/client/hooks/client_hooks.d.ts",
+      "import": "./dist/src/client/hooks/client_hooks.js"
+    },
+    "./internal/usePathName": {
+      "types": "./dist/src/client/hooks/use_path_name.d.ts",
+      "import": "./dist/src/client/hooks/use_path_name.js"
+    },
+    "./internal/getCookie": {
+      "types": "./dist/src/client/functions/get_cookie.d.ts",
+      "import": "./dist/src/client/functions/get_cookie.js"
+    },
+    "./internal/setCookie": {
+      "types": "./dist/src/client/functions/set_cookie.d.ts",
+      "import": "./dist/src/client/functions/set_cookie.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest run --coverage",
+    "bench": "vitest bench --run --config vitest.bench.config.ts",
+    "build": "rm -rf dist && tsc && node scripts/write_dist_type.mjs",
+    "check:exports": "node scripts/check_exports.mjs",
+    "check:size": "node scripts/check_size.mjs",
+    "prepublishOnly": "npm run build && npm run check:exports && npm run check:size"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/demian-ilnytskyi/cloudflare-next-intl.git",
+    "directory": "packages/intl"
+  },
+  "keywords": [
+    "nextjs",
+    "i18n",
+    "internationalization",
+    "localization",
+    "cloudflare"
+  ],
+  "author": "Demian Ilnutskyi",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/issues"
+  },
+  "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/tree/main/packages/intl#readme",
+  "dependencies": {},
+  "peerDependencies": {
+    "next": ">=12.0.0",
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || >=19.0.0-rc <19.0.0 || ^19.0.0",
+    "typescript": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@eslint/js": "^9.27.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^20.14.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitest/coverage-v8": "^3.2.7",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.2",
+    "jiti": "^2.7.0",
+    "jsdom": "^29.1.1",
+    "next": "^16.2.12",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.33.1",
+    "vitest": "^3.0.8"
+  }
+}

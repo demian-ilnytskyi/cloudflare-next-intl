@@ -30,8 +30,10 @@ export default async function resolveDbConfig(dbOverride?: DbRoutingConfig): Pro
     let base: RoutingConfig<Locales, LocalePrefixMode> = { locales: [], defaultLocale: '' };
     try {
         base = (await import('../config/intl_config.js')).default;
+        void base.locales;
     } catch {
         // `@intl-config` alias not set — fine as long as `dbOverride` is given.
+        base = { locales: [], defaultLocale: '' };
     }
 
     const db = dbOverride ?? base.db;

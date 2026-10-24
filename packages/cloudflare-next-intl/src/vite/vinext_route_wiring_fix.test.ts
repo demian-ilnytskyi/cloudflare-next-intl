@@ -32,6 +32,11 @@ import {
     isPageInvokerSuspensionReleaseFile,
     isPageInvokerSuspensionReleaseAlreadyFixed,
     patchPageInvokerSuspensionRelease,
+    patchAppPageBoundaryRender,
+    isAppPageBoundaryRenderFile,
+    isAppPageBoundaryRenderAlreadyFixed,
+    resolveVinextAppPageBoundaryRenderPath,
+    isVinextAppPageBoundaryRenderSafeOnDisk,
 } from "./vinext_route_wiring_fix.js";
 
 describe("isAppPageRouteWiringFile", () => {
@@ -3067,5 +3072,398 @@ describe("vinextRouteWiringFixPlugin: optimisticLearningTimeout as a number end-
         const res = transformHook.call({}, buggy, "/node_modules/vinext/dist/server/app-browser-entry.js");
         expect(res).toBeDefined();
         expect(res!.code).toContain("setTimeout(resolve, 1234)");
+    });
+});
+
+describe("isAppPageBoundaryRenderFile", () => {
+    it("returns true for app-page-boundary-render.js and .ts paths", () => {
+        expect(isAppPageBoundaryRenderFile("/project/node_modules/vinext/dist/server/app-page-boundary-render.js")).toBe(true);
+        expect(isAppPageBoundaryRenderFile("C:\\project\\node_modules\\vinext\\dist\\server\\app-page-boundary-render.ts?v=123")).toBe(true);
+    });
+
+    it("returns false for other files", () => {
+        expect(isAppPageBoundaryRenderFile("/project/node_modules/vinext/dist/server/app-page-route-wiring.js")).toBe(false);
+        expect(isAppPageBoundaryRenderFile("/project/src/app/page.tsx")).toBe(false);
+    });
+});
+
+describe("isAppPageBoundaryRenderAlreadyFixed", () => {
+    const buggyCode = `
+if (metadata) headElements.push(createElement(MetadataHead, {
+    key: "metadata",
+    metadata,
+    pathname,
+    trailingSlash: options.trailingSlash
+}));
+if (viewport) headElements.push(createElement(ViewportHead, {
+    key: "viewport",
+    viewport
+}));
+`;
+
+    const fixedCode = `
+if (metadata) headElements.push(MetadataHead({
+    metadata,
+    pathname,
+    trailingSlash: options.trailingSlash
+}));
+if (viewport) headElements.push(ViewportHead({
+    viewport
+}));
+`;
+
+    it("returns false when buggy createElement(MetadataHead) pattern is present", () => {
+        expect(isAppPageBoundaryRenderAlreadyFixed(buggyCode)).toBe(false);
+    });
+
+    it("returns true when code uses direct evaluation and has no uninvoked MetadataHead", () => {
+        expect(isAppPageBoundaryRenderAlreadyFixed(fixedCode)).toBe(true);
+    });
+
+    it("returns true when upstream refactored code does not have uninvoked pattern", () => {
+        expect(isAppPageBoundaryRenderAlreadyFixed("function futureBoundary() { return null; }")).toBe(true);
+    });
+});
+
+describe("patchAppPageBoundaryRender", () => {
+    const sampleBoundaryCode = `
+function renderAppPageHttpAccessFallback() {
+    MetadataHead;
+    ViewportHead;
+    if (metadata) headElements.push(createElement(MetadataHead, {
+        key: "metadata",
+        metadata,
+        pathname,
+        trailingSlash: options.trailingSlash
+    }));
+    if (viewport) headElements.push(createElement(ViewportHead, {
+        key: "viewport",
+        viewport
+    }));
+}
+`;
+
+    it("replaces uninvoked MetadataHead and ViewportHead with direct function calls", () => {
+        const patched = patchAppPageBoundaryRender(sampleBoundaryCode);
+        expect(patched).not.toContain("createElement(MetadataHead");
+        expect(patched).not.toContain("createElement(ViewportHead");
+        expect(patched).toContain("MetadataHead({\n\t\tmetadata,\n\t\tpathname,\n\t\ttrailingSlash: options.trailingSlash\n\t})");
+        expect(patched).toContain("ViewportHead({\n\t\tviewport\n\t})");
+        expect(isAppPageBoundaryRenderAlreadyFixed(patched)).toBe(true);
+    });
+
+    it("is idempotent", () => {
+        const patchedOnce = patchAppPageBoundaryRender(sampleBoundaryCode);
+        const patchedTwice = patchAppPageBoundaryRender(patchedOnce);
+        expect(patchedTwice).toBe(patchedOnce);
+    });
+});
+
+describe("resolveVinextAppPageBoundaryRenderPath and isVinextAppPageBoundaryRenderSafeOnDisk", () => {
+    it("returns null when vinext does not exist", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-bnd-resolve-"));
+        try {
+            expect(resolveVinextAppPageBoundaryRenderPath(tempDir)).toBeNull();
+            expect(isVinextAppPageBoundaryRenderSafeOnDisk(tempDir)).toBe(false);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("detects unpatched vs patched files on disk", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-bnd-safe-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-boundary-render.js");
+            writeFileSync(filePath, "if (metadata) headElements.push(createElement(MetadataHead, { key: 'metadata', metadata, pathname, trailingSlash: options.trailingSlash }));", "utf8");
+            expect(isVinextAppPageBoundaryRenderSafeOnDisk(tempDir)).toBe(false);
+
+            const patched = patchAppPageBoundaryRender(writeFileSync && "if (metadata) headElements.push(MetadataHead({ metadata, pathname, trailingSlash: options.trailingSlash }));");
+            writeFileSync(filePath, patched, "utf8");
+            expect(isVinextAppPageBoundaryRenderSafeOnDisk(tempDir)).toBe(true);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("patchAppPageRouteWiring: createAppPageRouteHead", () => {
+    const routeHeadCode = `
+function createAppPageRouteHead(metadata, viewport, pathname, metadataPlacement, trailingSlash) {
+	return /* @__PURE__ */ jsxs(Fragment$1, { children: [
+		/* @__PURE__ */ jsx("meta", { charSet: "utf-8" }),
+		metadata && metadataPlacement === "head" ? /* @__PURE__ */ jsx(MetadataHead, {
+			metadata,
+			pathname,
+			trailingSlash
+		}) : null,
+		/* @__PURE__ */ jsx(ViewportHead, { viewport })
+	] });
+}
+`;
+
+    it("replaces uninvoked MetadataHead and ViewportHead in createAppPageRouteHead", () => {
+        const patched = patchAppPageRouteWiring(routeHeadCode, { unblockRenderDependencies: false });
+        expect(patched).toContain("MetadataHead({\n\t\t\tmetadata,\n\t\t\tpathname,\n\t\t\ttrailingSlash\n\t\t})");
+        expect(patched).toContain("ViewportHead({ viewport })");
+        expect(patched).not.toContain("jsx(MetadataHead");
+        expect(patched).not.toContain("jsx(ViewportHead");
+    });
+});
+
+describe("syncPatchVinextOnDisk: boundaryRender", () => {
+    it("patches boundary render on disk when enabled", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-bnd-sync-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-boundary-render.js");
+            const raw = `
+function renderAppPageHttpAccessFallback() {
+    MetadataHead;
+    ViewportHead;
+    if (metadata) headElements.push(createElement(MetadataHead, {
+        key: "metadata",
+        metadata,
+        pathname,
+        trailingSlash: options.trailingSlash
+    }));
+}
+`;
+            writeFileSync(filePath, raw, "utf8");
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+                boundaryRender: true,
+            });
+            expect(changed).toBe(true);
+            expect(isVinextAppPageBoundaryRenderSafeOnDisk(tempDir)).toBe(true);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("skips boundary render when boundaryRender is false", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-bnd-skip-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-boundary-render.js");
+            const raw = `
+function renderAppPageHttpAccessFallback() {
+    MetadataHead;
+    ViewportHead;
+    if (metadata) headElements.push(createElement(MetadataHead, {
+        key: "metadata",
+        metadata,
+        pathname,
+        trailingSlash: options.trailingSlash
+    }));
+}
+`;
+            writeFileSync(filePath, raw, "utf8");
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+                boundaryRender: false,
+            });
+            expect(changed).toBe(false);
+            expect(isVinextAppPageBoundaryRenderSafeOnDisk(tempDir)).toBe(false);
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("vinextRouteWiringFixPlugin: boundaryRender transform", () => {
+    it("transforms app-page-boundary-render.js when boundaryRender is true", () => {
+        const plugin = vinextRouteWiringFixPlugin({ boundaryRender: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const code = `
+function renderAppPageHttpAccessFallback() {
+    MetadataHead;
+    ViewportHead;
+    if (metadata) headElements.push(createElement(MetadataHead, {
+        key: "metadata",
+        metadata,
+        pathname,
+        trailingSlash: options.trailingSlash
+    }));
+}
+`;
+        const res = transformHook.call({}, code, "/node_modules/vinext/dist/server/app-page-boundary-render.js");
+        expect(res).toBeDefined();
+        expect(res!.code).toContain("MetadataHead({");
+    });
+
+    it("skips transform when boundaryRender is false", () => {
+        const plugin = vinextRouteWiringFixPlugin({ boundaryRender: false });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const code = `
+function renderAppPageHttpAccessFallback() {
+    MetadataHead;
+    ViewportHead;
+    if (metadata) headElements.push(createElement(MetadataHead, {
+        key: "metadata",
+        metadata,
+        pathname,
+        trailingSlash: options.trailingSlash
+    }));
+}
+`;
+        const res = transformHook.call({}, code, "/node_modules/vinext/dist/server/app-page-boundary-render.js");
+        expect(res).toBeUndefined();
+    });
+
+    it("returns undefined when app-page-boundary-render.js lacks required symbols", () => {
+        const plugin = vinextRouteWiringFixPlugin({ boundaryRender: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const code = `createElement(MetadataHead, {})`;
+        const res = transformHook.call({}, code, "/node_modules/vinext/dist/server/app-page-boundary-render.js");
+        expect(res).toBeUndefined();
+    });
+
+    it("returns undefined when app-page-boundary-render.js patch is a no-op", () => {
+        const plugin = vinextRouteWiringFixPlugin({ boundaryRender: true });
+        const transformHook = plugin.transform as (this: unknown, code: string, id: string) => { code: string } | undefined;
+        const code = `
+function renderAppPageHttpAccessFallback() {
+    MetadataHead;
+    ViewportHead;
+    // has createElement(MetadataHead but does not match regex shape
+    const x = createElement(MetadataHead, { otherProp: 1 });
+}
+`;
+        const res = transformHook.call({}, code, "/node_modules/vinext/dist/server/app-page-boundary-render.js");
+        expect(res).toBeUndefined();
+    });
+});
+
+describe("boundaryRender: unreadable and warning edge cases", () => {
+    it("returns false when the boundary render file exists but cannot be read", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-bnd-unreadable-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-boundary-render.js");
+            writeFileSync(filePath, "x", "utf8");
+            chmodSync(filePath, 0o000);
+            try {
+                expect(isVinextAppPageBoundaryRenderSafeOnDisk(tempDir)).toBe(false);
+            } finally {
+                chmodSync(filePath, 0o644);
+            }
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("warns when boundary render file lacks required symbols", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-bnd-warn-symbols-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-boundary-render.js");
+            writeFileSync(filePath, "createElement(MetadataHead, {})", "utf8");
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+                boundaryRender: true,
+            });
+            expect(changed).toBe(false);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("no longer exposes"));
+        } finally {
+            warnSpy.mockRestore();
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("warns when boundary render shape has drifted (patch returns unchanged)", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-bnd-warn-drift-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-boundary-render.js");
+            const drifted = `
+function renderAppPageHttpAccessFallback() {
+    MetadataHead;
+    ViewportHead;
+    const x = createElement(MetadataHead, { other: 1 });
+}
+`;
+            writeFileSync(filePath, drifted, "utf8");
+            const changed = syncPatchVinextOnDisk(tempDir, {
+                routeWiring: false,
+                routeMatching: false,
+                optimisticRouting: false,
+                prefetchLearning: false,
+                suspenseProbe: false,
+                renderDependency: false,
+                optimisticLearningTimeout: false,
+                pageInvokerSuspensionRelease: false,
+                refreshDeferral: false,
+                boundaryRender: true,
+            });
+            expect(changed).toBe(false);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("does not match the expected shape for patchAppPageBoundaryRender"));
+        } finally {
+            warnSpy.mockRestore();
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("skips boundary render file when it cannot be read during syncPatchVinextOnDisk", () => {
+        const tempDir = mkdtempSync(join(tmpdir(), "cfni-bnd-unreadable-sync-"));
+        try {
+            const dir = join(tempDir, "node_modules/vinext/dist/server");
+            mkdirSync(dir, { recursive: true });
+            const filePath = join(dir, "app-page-boundary-render.js");
+            writeFileSync(filePath, "x", "utf8");
+            chmodSync(filePath, 0o000);
+            try {
+                expect(() =>
+                    syncPatchVinextOnDisk(tempDir, {
+                        routeWiring: false,
+                        routeMatching: false,
+                        optimisticRouting: false,
+                        prefetchLearning: false,
+                        suspenseProbe: false,
+                        renderDependency: false,
+                        optimisticLearningTimeout: false,
+                        pageInvokerSuspensionRelease: false,
+                        refreshDeferral: false,
+                        boundaryRender: true,
+                    })
+                ).not.toThrow();
+            } finally {
+                chmodSync(filePath, 0o644);
+            }
+        } finally {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
     });
 });

@@ -3,6 +3,8 @@
 Optimized internationalization (i18n) package specialized for Next.js App Router
 and Cloudflare environment.
 
+> **Note**: Core internationalization logic lives in [`cloudflare-next-intl-intl`](https://github.com/demian-ilnytskyi/cloudflare-next-intl/tree/main/packages/intl#readme), and Firebase Auth & App Check logic lives in [`cloudflare-next-intl-auth`](https://github.com/demian-ilnytskyi/cloudflare-next-intl/tree/main/packages/auth#readme). This umbrella package re-exports all primitives with full backward compatibility plus wires optional extensions.
+
 ## Features
 
 - **Optimized for Cloudflare**: Designed to work seamlessly with Cloudflare

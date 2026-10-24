@@ -26,26 +26,26 @@ function pickVariant(entry: ManifestEntry, requestedWidth: number | undefined): 
     return entry.variants.reduce((best, v) => (v.width > best.width ? v : best));
 }
 
-let manifestData: { images?: Record<string, ManifestEntry> } | undefined;
-try {
-    manifestData = (await import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-images-manifest")).default;
-} catch {
-    manifestData = undefined;
-}
-const images: Record<string, ManifestEntry> = (manifestData && typeof manifestData === "object" && manifestData.images)
-    ? manifestData.images
-    : {};
+const images: Record<string, ManifestEntry> = {};
+import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-images-manifest")
+    .then((mod) => {
+        const manifestData = (mod as { default?: { images?: Record<string, ManifestEntry> } })?.default;
+        if (manifestData && typeof manifestData === "object" && manifestData.images) {
+            Object.assign(images, manifestData.images);
+        }
+    })
+    .catch(() => undefined);
 
 let defaultCustomLoader: ((props: { src: string; width: number; quality?: number }) => string) | undefined;
-try {
-    const loaderMod = (await import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-image-loader")) as {
-        defaultLoader?: (props: { src: string; width: number; quality?: number }) => string;
-        default?: (props: { src: string; width: number; quality?: number }) => string;
-    };
-    defaultCustomLoader = loaderMod.defaultLoader ?? loaderMod.default;
-} catch {
-    defaultCustomLoader = undefined;
-}
+import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-image-loader")
+    .then((mod) => {
+        const loaderMod = mod as {
+            defaultLoader?: (props: { src: string; width: number; quality?: number }) => string;
+            default?: (props: { src: string; width: number; quality?: number }) => string;
+        };
+        defaultCustomLoader = loaderMod?.defaultLoader ?? loaderMod?.default;
+    })
+    .catch(() => undefined);
 
 function findEntry(srcVal: unknown): ManifestEntry | undefined {
     if (!srcVal) return undefined;

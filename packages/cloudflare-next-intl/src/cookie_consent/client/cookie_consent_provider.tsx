@@ -8,6 +8,7 @@ import getCookie from '../../client/functions/get_cookie.js';
 import setCookie from '../../client/functions/set_cookie.js';
 import { cookieConsentCookieKey, countryCookieKey, privacyPolicyDateCookieKey } from '../../config/cookie_key.js';
 import type { ConsentValue, CookieConsentContextType } from '../types.js';
+import type { CookieConsentRoutingConfig } from '../../types/types.js';
 import { defaultGdprCountries } from '../gdpr_countries.js';
 
 export const CookieConsentContext = createContext<CookieConsentContextType | null>(null);
@@ -57,12 +58,17 @@ const defaultGdprCountriesSet = new Set(defaultGdprCountries);
  * </CookieConsentProvider>
  * ```
  */
-export default function CookieConsentProvider({ requiresConsent: requiresConsentProp = true, children }: {
+export default function CookieConsentProvider({
+    requiresConsent: requiresConsentProp = true,
+    cookieConsentConfig,
+    children,
+}: {
     requiresConsent?: boolean;
+    cookieConsentConfig?: CookieConsentRoutingConfig;
     children: React.ReactNode;
 }): React.ReactElement {
     const { consentCookieName, dateCookieName, maxAge, policyDate, privacyPolicyPath, showPrivacyPolicy, gdprCountries } = useMemo(() => {
-        const cc = requireCookieConsentConfig(config.cookieConsent);
+        const cc = requireCookieConsentConfig(cookieConsentConfig ?? config.cookieConsent);
         return {
             consentCookieName: cc.consentCookieName ?? cookieConsentCookieKey,
             dateCookieName: cc.privacyPolicyDateCookieName ?? privacyPolicyDateCookieKey,
@@ -73,7 +79,7 @@ export default function CookieConsentProvider({ requiresConsent: requiresConsent
             gdprCountries: cc.gdprCountries,
         };
          
-    }, []);
+    }, [cookieConsentConfig]);
 
     const [consent, setConsentState] = useState<ConsentValue>(null);
     const [privacyPolicyUpdated, setPrivacyPolicyUpdated] = useState(false);
