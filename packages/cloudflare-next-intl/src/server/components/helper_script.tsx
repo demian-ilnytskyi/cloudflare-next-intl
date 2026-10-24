@@ -52,6 +52,7 @@ export default function HelperScript({ locale }: { locale?: string }): Component
     const hasGoogle = !!(analytics?.googleAnalyticsId || analytics?.googleAdsId || analytics?.googleAdSenseId);
     const hasClarity = !!analytics?.clarityProjectId;
     const hasFirebase = !!config.firebaseAuth;
+    const hasTurnstile = !!config.firebaseAuth?.appCheck?.turnstileSiteKey;
 
     return <>
         {locale && <meta httpEquiv="Content-Language" content={locale} />}
@@ -59,6 +60,7 @@ export default function HelperScript({ locale }: { locale?: string }): Component
         {hasClarity && <link rel="dns-prefetch" href="https://www.clarity.ms" />}
         {hasClarity && <link rel="dns-prefetch" href="https://scripts.clarity.ms" />}
         {hasFirebase && <link rel="dns-prefetch" href="https://firebaseinstallations.googleapis.com" />}
+        {hasTurnstile && <link rel="preconnect" href="https://challenges.cloudflare.com" />}
         {!isDev &&
             <script
                 id="stale-deploy-early-catch"

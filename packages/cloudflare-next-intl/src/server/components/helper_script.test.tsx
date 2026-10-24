@@ -594,6 +594,38 @@ describe('HelperScript', () => {
         vi.doUnmock('../../config/intl_config');
     });
 
+    it('adds a Cloudflare Turnstile preconnect hint when turnstileSiteKey is configured', async () => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                defaultLocale: 'en',
+                firebaseAuth: { appCheck: { turnstileSiteKey: 'cf-site-key' } },
+            },
+        }));
+        const { default: TurnstileHelperScript } = await import('./helper_script.js');
+        render(<TurnstileHelperScript />);
+        expect(
+            document.head.querySelector('link[rel="preconnect"][href="https://challenges.cloudflare.com"]'),
+        ).not.toBeNull();
+        vi.doUnmock('../../config/intl_config');
+    });
+
+    it('omits Cloudflare Turnstile preconnect hint when turnstileSiteKey is not configured', async () => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                defaultLocale: 'en',
+                firebaseAuth: { appCheck: { recaptchaV3SiteKey: 'rc-key' } },
+            },
+        }));
+        const { default: RecaptchaHelperScript } = await import('./helper_script.js');
+        render(<RecaptchaHelperScript />);
+        expect(
+            document.head.querySelector('link[rel="preconnect"][href="https://challenges.cloudflare.com"]'),
+        ).toBeNull();
+        vi.doUnmock('../../config/intl_config');
+    });
+
     it('embeds the default white-screen spinner in the stale-deploy early-catch script', () => {
         vi.stubEnv('NODE_ENV', 'production');
         const { container: root } = render(<HelperScript />);

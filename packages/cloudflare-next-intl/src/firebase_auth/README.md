@@ -24,6 +24,34 @@ SPA route-change duration, long tasks, and slow non-fetch resource loads as
 Firebase Performance custom traces — nothing for the consumer to render or
 call, same as the page-load/network traces above it.
 
+## Turnstile App Check Provider
+
+Use Cloudflare Turnstile instead of Google reCAPTCHA for client App Check challenges so no Google challenge scripts load on the client.
+
+### Setup
+
+1. **Cloudflare Dashboard → Turnstile → Add widget**
+   - Hostnames: every domain the app runs on (production, staging, preview), plus `localhost` for local development.
+   - Widget mode: **Invisible**.
+   - Copy the **Site Key** and **Secret Key**.
+2. **Secrets & Environment Variables**
+   - Public site key: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (client-accessible).
+   - Secret key: `TURNSTILE_SECRET_KEY` (server-only secret, e.g. `npx wrangler secret put TURNSTILE_SECRET_KEY`).
+   - Service-account credentials (`clientEmail` + `appId` + `privateKey` or the OAuth triple) must be configured on the server, as Turnstile tokens are verified server-side and exchanged for minted App Check tokens.
+3. **Configuration in `intl_config.ts`**
+   ```ts
+   firebaseAuth: {
+     appCheck: {
+       turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+       turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY,
+       clientEmail: process.env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL,
+       privateKey: process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY,
+       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+     },
+   }
+   ```
+   When `turnstileSiteKey` is set, it takes priority over `recaptchaV3SiteKey` and `recaptchaEnterpriseSiteKey`.
+
 ## Layout
 
 - `client/` — browser-side: `firebase_client.ts` (lazy SDK getter; also
