@@ -93,4 +93,31 @@ describe('ClientExtensions', () => {
         expect(screen.queryByTestId('consent-provider')).toBeNull();
         expect(screen.getByTestId('child-locale').textContent).toBe('en');
     });
+
+    it('renders analytics components when configured', async () => {
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                locales: ['en'],
+                defaultLocale: 'en',
+                cookieConsent: {},
+                firebaseAuth: { performance: true },
+            },
+        }));
+
+        const { default: Extensions } = await import('./client_extensions.js');
+
+        render(
+            <LocaleContext.Provider value={{ language: 'en', messages: {} }}>
+                <Extensions
+                    analyticsConfig={{ googleAnalyticsId: 'G-123' }}
+                    autoAnalyticsEventsConfig={{}}
+                >
+                    <ChildConsumer />
+                </Extensions>
+            </LocaleContext.Provider>,
+        );
+
+        expect(screen.getByTestId('consent-provider')).not.toBeNull();
+    });
 });
+

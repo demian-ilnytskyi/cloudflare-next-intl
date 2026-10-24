@@ -61,4 +61,36 @@ describe('Umbrella HelperScript', () => {
 
         vi.doUnmock('../../config/intl_config');
     });
+
+    it('supports googleAdsId and googleAdSenseId', async () => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                cookieConsent: {
+                    analytics: {
+                        googleAdsId: 'AW-123',
+                    },
+                },
+            },
+        }));
+        const { default: AdsScript } = await import('./helper_script.js');
+        render(<AdsScript />);
+        expect(document.head.querySelector('link[href="https://www.googletagmanager.com"]')).not.toBeNull();
+        cleanup();
+
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                cookieConsent: {
+                    analytics: {
+                        googleAdSenseId: 'ca-pub-123',
+                    },
+                },
+            },
+        }));
+        const { default: AdSenseScript } = await import('./helper_script.js');
+        render(<AdSenseScript />);
+        expect(document.head.querySelector('link[href="https://www.googletagmanager.com"]')).not.toBeNull();
+        vi.doUnmock('../../config/intl_config');
+    });
 });

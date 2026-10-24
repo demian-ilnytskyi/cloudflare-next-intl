@@ -692,7 +692,7 @@ describe('AuthUserProvider', () => {
     });
 
     it('exposes reloadUser which refreshes the current user and calls sync', async () => {
-        authObj.currentUser = makeUser({ uid: 'reload-user' });
+        authObj.currentUser = makeUser({ uid: 'reload-user', refreshToken: 'reload-refresh-token' });
         let ctxValue: AuthUserContextType | undefined;
         const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
         function Consumer() {

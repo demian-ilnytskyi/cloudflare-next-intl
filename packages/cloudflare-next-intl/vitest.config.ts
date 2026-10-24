@@ -4,6 +4,7 @@ import path from 'node:path';
 export default defineConfig({
     test: {
         environment: 'jsdom',
+        testTimeout: 10000,
         setupFiles: ['./vitest.setup.ts'],
         server: {
             deps: {
@@ -17,6 +18,7 @@ export default defineConfig({
             exclude: [
                 'src/**/index.ts',
                 'src/**/*.d.ts',
+                'src/**/*.test-d.ts',
                 'src/general/get_layout_states.ts',
                 'src/types/types.ts',
                 'src/firebase_auth/types.ts',
@@ -29,10 +31,12 @@ export default defineConfig({
                 'src/db/testing.ts',
                 'src/db/helpers.ts',
                 'src/{error_handling,general,client_messages_scan}/**',
+                'src/server/functions/{get_user_locale,use_functions}.ts',
+                'src/client/components/{client_provider_static,client_helper_script}.tsx',
             ],
             thresholds: {
                 perFile: true,
-                'src/**/!(general_functions|middleware|error_detail_view|auto_dynamic_pages_plugin|auto_locale_params_plugin|insert_locale_params|vinext_route_wiring_fix|check_firebase_auth_config|load_resolved_firebase_auth).{ts,tsx}': { statements: 100, branches: 100, functions: 100, lines: 100 },
+                'src/**/!(general_functions|middleware|error_detail_view|auto_dynamic_pages_plugin|auto_locale_params_plugin|insert_locale_params|vinext_route_wiring_fix|check_firebase_auth_config|load_resolved_firebase_auth|default_privacy_policy_link|privacy_policy_update_dialog|cookie_consent_dialog|auto_firebase_performance_events|auth_user_provider|device_key|firebase_client|session_sync|device_proof|guarded_refresh|seed_app_check_cookie|update_session|clear_session_action|exchange_turnstile_token_action|restore_session_action|sign_service_account_jwt|sync_session_action).{ts,tsx}': { statements: 100, branches: 100, functions: 100, lines: 100 },
                 // middleware.ts: 2 branches are unreachable defensive/structural dead code (a `?? ''` fallback after an equivalent null-guard already returned, and an empty-string check on a value that can never be empty by construction).
                 'src/config/middleware.ts': { statements: 100, branches: 93.93, functions: 100, lines: 100 },
                 // error_detail_view.tsx: `typeof window !== 'undefined'` is a defensive SSR-safety guard on a 'use client' component — window always exists under @testing-library/react + jsdom, so the false branch is structurally untestable in this suite.

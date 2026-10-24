@@ -70,6 +70,20 @@ describe('createIntlMiddleware', () => {
         expect(rewriteResult?.headers.get('x-middleware-rewrite')).toContain('/en/x');
     });
 
+    it('ctx.next uses NextResponse.next when the request was not rewritten', async () => {
+        let nextResult: NextResponse | undefined;
+        const hook: IntlMiddlewareHook = async (res, ctx) => {
+            nextResult = ctx.next(ctx.request);
+            return res;
+        };
+        const middleware = createIntlMiddleware({ afterResponse: hook });
+        const req = makeRequest('https://example.com/de/x');
+        await middleware(req);
+
+        expect(nextResult).toBeDefined();
+        expect(nextResult?.headers.get('x-middleware-rewrite')).toBeNull();
+    });
+
     it('hook throw is reported and falls back to NextResponse.next', async () => {
         const hook: IntlMiddlewareHook = async () => {
             throw new Error('hook boom');

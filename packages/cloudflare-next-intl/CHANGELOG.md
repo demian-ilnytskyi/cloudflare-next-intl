@@ -3,6 +3,13 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.12.0] - 2026-10-24
+
+### Changed
+
+- Core internationalization logic extracted to standalone `cloudflare-next-intl-intl` package (`packages/intl`).
+- Umbrella `cloudflare-next-intl` re-exports all intl primitives and wires Firebase Auth middleware extensions and client extensions seamlessly.
+
 ## [0.11.0] - 2026-10-24
 
 ### Added

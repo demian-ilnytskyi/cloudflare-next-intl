@@ -209,4 +209,88 @@ describe('syncSessionAction', () => {
         expect(putMock).not.toHaveBeenCalled();
         vi.unstubAllGlobals();
     });
+
+    it('sets isBound when existing key equals new key', async () => {
+        const jwk = { kty: 'EC', crv: 'P-256', x: 'same' };
+        const getMock = vi.fn().mockResolvedValue(JSON.stringify(jwk));
+        currentConfig.firebaseAuth!.deviceBinding = {
+            store: { get: getMock, put: vi.fn(), delete: vi.fn() },
+        };
+        const { default: syncSessionAction } = await import('./sync_session_action.js');
+        const now = Math.floor(Date.now() / 1000);
+        const idToken = makeJwt(now + 3600);
+        const result = await syncSessionAction({ idToken, refreshToken: 'ref', devicePublicJwk: jwk });
+        expect(result).toEqual({ status: 'synced' });
+    });
+
+    it('catches and reports error when store.put fails on initial bind', async () => {
+        const putMock = vi.fn().mockRejectedValue(new Error('store put error'));
+        currentConfig.firebaseAuth!.deviceBinding = {
+            store: { get: vi.fn().mockResolvedValue(null), put: putMock, delete: vi.fn() },
+        };
+        const { default: syncSessionAction } = await import('./sync_session_action.js');
+        const now = Math.floor(Date.now() / 1000);
+        const idToken = makeJwt(now + 3600);
+        const result = await syncSessionAction({ idToken, refreshToken: 'ref', devicePublicJwk: { kty: 'EC', crv: 'P-256', x: '1' } });
+        expect(result).toEqual({ status: 'synced' });
+    });
+
+    it('catches and reports error when store.put fails on rebind', async () => {
+        const putMock = vi.fn().mockRejectedValue(new Error('store put rebind error'));
+        const oldJwk = { kty: 'EC', crv: 'P-256', x: 'old' };
+        currentConfig.firebaseAuth!.deviceBinding = {
+            store: { get: vi.fn().mockResolvedValue(JSON.stringify(oldJwk)), put: putMock, delete: vi.fn() },
+        };
+        const { default: syncSessionAction } = await import('./sync_session_action.js');
+        const now = Math.floor(Date.now() / 1000);
+        const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
+        const payload = Buffer.from(JSON.stringify({ exp: now + 3600, sub: 'user-1', auth_time: now - 50 })).toString('base64url');
+        const idToken = `${header}.${payload}.sig`;
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: idToken, refresh_token: 'ref' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const result = await syncSessionAction({ idToken, refreshToken: 'ref', devicePublicJwk: { kty: 'EC', crv: 'P-256', x: 'new' } });
+        expect(result).toEqual({ status: 'synced' });
+        vi.unstubAllGlobals();
+    });
+
+    it('refuses rebind when refresh token call fails', async () => {
+        const oldJwk = { kty: 'EC', crv: 'P-256', x: 'old' };
+        currentConfig.firebaseAuth!.deviceBinding = {
+            store: { get: vi.fn().mockResolvedValue(JSON.stringify(oldJwk)), put: vi.fn(), delete: vi.fn() },
+        };
+        const { default: syncSessionAction } = await import('./sync_session_action.js');
+        const now = Math.floor(Date.now() / 1000);
+        const idToken = makeJwt(now + 3600);
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 400,
+            json: async () => ({ error: { message: 'INVALID_REFRESH_TOKEN' } }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const result = await syncSessionAction({ idToken, refreshToken: 'bad-ref', devicePublicJwk: { kty: 'EC', crv: 'P-256', x: 'new' } });
+        expect(result).toEqual({ status: 'rebind-refused' });
+        vi.unstubAllGlobals();
+    });
+
+    it('extractAuthTime handles malformed token payload', async () => {
+        const oldJwk = { kty: 'EC', crv: 'P-256', x: 'old' };
+        currentConfig.firebaseAuth!.deviceBinding = {
+            store: { get: vi.fn().mockResolvedValue(JSON.stringify(oldJwk)), put: vi.fn(), delete: vi.fn() },
+        };
+        const { default: syncSessionAction } = await import('./sync_session_action.js');
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id_token: 'invalid.payload!!!.sig', refresh_token: 'ref' }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const now = Math.floor(Date.now() / 1000);
+        const idToken = makeJwt(now + 3600);
+        const result = await syncSessionAction({ idToken, refreshToken: 'ref', devicePublicJwk: { kty: 'EC', crv: 'P-256', x: 'new' } });
+        expect(result).toEqual({ status: 'rebind-refused' });
+        vi.unstubAllGlobals();
+    });
+
 });

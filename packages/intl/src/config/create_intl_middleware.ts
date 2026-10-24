@@ -37,7 +37,7 @@ async function getIsBotValue(userAgent: string | null): Promise<boolean> {
     if (!userAgentModule) {
         userAgentModule = await import('next/dist/server/web/spec-extension/user-agent');
     }
-    return userAgentModule.isBot(userAgent ?? '');
+    return userAgentModule.isBot(userAgent);
 }
 
 const getIsBotValueCache = cache(getIsBotValue);
