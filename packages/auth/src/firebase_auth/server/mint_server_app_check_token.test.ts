@@ -5,7 +5,7 @@ const fa: Record<string, unknown> = {};
 vi.mock('@intl-config', () => ({ default: { firebaseAuth: fa } }));
 
 const reportError = vi.fn(async (..._args: unknown[]) => {});
-vi.mock('cloudflare-next-intl-intl/internal/reportError', () => ({
+vi.mock('cloudflare-next-intl-errors/internal/reportError', () => ({
     default: (...args: unknown[]) => reportError(...args),
 }));
 

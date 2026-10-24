@@ -1,7 +1,7 @@
 "use server";
 
 import config from "@intl-config";
-import reportError from "cloudflare-next-intl-intl/internal/reportError";
+import reportError from "cloudflare-next-intl-errors/internal/reportError";
 import decodeJwtPayload from "../decode_jwt_payload.js";
 import {
     TURNSTILE_ACTION,

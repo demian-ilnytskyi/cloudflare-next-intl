@@ -26,7 +26,7 @@ vi.mock('@firebase/performance', () => ({
 }));
 
 const reportError = vi.fn();
-vi.mock('cloudflare-next-intl-intl/internal/reportError', () => ({
+vi.mock('cloudflare-next-intl-errors/internal/reportError', () => ({
     default: (...args: unknown[]) => reportError(...args),
 }));
 

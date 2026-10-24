@@ -1,7 +1,7 @@
 'use client';
 
 import { useReportWebVitals } from 'next/web-vitals.js';
-import reportError from 'cloudflare-next-intl-intl/internal/reportError';
+import reportError from 'cloudflare-next-intl-errors/internal/reportError';
 import { getFirebaseAuthClient, getFirebasePerformanceSync } from '../firebase_client.js';
 
 interface WebVitalMetric {

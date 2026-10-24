@@ -3,7 +3,7 @@ import type { DeviceBindingConfig, DeviceBindingStore } from '../types.js';
 import type { DeviceKey } from './client/device_key.js';
 
 const reportError = vi.fn(async () => {});
-vi.mock('cloudflare-next-intl-intl/internal/reportError', () => ({
+vi.mock('cloudflare-next-intl-errors/internal/reportError', () => ({
     default: (...args: unknown[]) => reportError(...args),
 }));
 

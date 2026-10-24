@@ -13,7 +13,7 @@ import {
 import { isIdTokenExpired, sessionCookieOptions } from '../middleware/update_session.js';
 import { guardedRefresh } from '../guarded_refresh.js';
 import { isAppCheckTokenUsable } from '../app_check_token.js';
-import reportError from 'cloudflare-next-intl-intl/internal/reportError';
+import reportError from 'cloudflare-next-intl-errors/internal/reportError';
 import mintServerAppCheckToken from './mint_server_app_check_token.js';
 
 const baseAppName = 'firebase-auth-server-base';

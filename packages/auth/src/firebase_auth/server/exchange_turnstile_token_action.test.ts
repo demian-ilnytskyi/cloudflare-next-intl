@@ -11,7 +11,7 @@ vi.mock('@intl-config', () => ({
 }));
 
 const reportError = vi.fn(async (..._args: unknown[]) => {});
-vi.mock('cloudflare-next-intl-intl/internal/reportError', () => ({
+vi.mock('cloudflare-next-intl-errors/internal/reportError', () => ({
     default: (...args: unknown[]) => reportError(...args),
 }));
 

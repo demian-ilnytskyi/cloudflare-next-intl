@@ -1,5 +1,5 @@
 import config from '@intl-config';
-import reportError from 'cloudflare-next-intl-intl/internal/reportError';
+import reportError from 'cloudflare-next-intl-errors/internal/reportError';
 import type { DeviceBindingConfig } from '../types.js';
 import type { DeviceKey } from './client/device_key.js';
 

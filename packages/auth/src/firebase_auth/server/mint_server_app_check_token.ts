@@ -1,6 +1,6 @@
 import config from '@intl-config';
 import type { FirebaseAppCheckConfig } from '../../types.js';
-import reportError from 'cloudflare-next-intl-intl/internal/reportError';
+import reportError from 'cloudflare-next-intl-errors/internal/reportError';
 import signServiceAccountJwt from './sign_service_account_jwt.js';
 
 // Matches `firebase-admin`'s own `AppCheckTokenGenerator.createCustomToken`

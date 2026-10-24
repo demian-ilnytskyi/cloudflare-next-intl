@@ -1,7 +1,7 @@
 import type { User } from '@firebase/auth';
 import config from '@intl-config';
 import getCookie from 'cloudflare-next-intl-intl/getCookie';
-import reportClientError from 'cloudflare-next-intl-intl/reportClientError';
+import reportClientError from 'cloudflare-next-intl-errors/reportClientError';
 import { defaultSessionMarkerCookieName, DEFAULT_REFRESH_MAX_AGE } from '../cookie_names.js';
 import { decodeSessionMarker, refreshTokenHash } from '../session_marker.js';
 import syncSessionAction from '../server/sync_session_action.js';

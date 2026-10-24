@@ -7,7 +7,7 @@ vi.mock('../server/sync_session_action.js', () => ({
 }));
 
 const reportClientErrorMock = vi.fn(async () => {});
-vi.mock('cloudflare-next-intl-intl/reportClientError', () => ({
+vi.mock('cloudflare-next-intl-errors/reportClientError', () => ({
     default: (...args: unknown[]) => reportClientErrorMock(...args),
 }));
 

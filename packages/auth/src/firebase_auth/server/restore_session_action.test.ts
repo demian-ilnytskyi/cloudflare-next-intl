@@ -67,7 +67,7 @@ vi.mock('./sign_service_account_jwt.js', () => ({
     default: signServiceAccountJwtMock,
 }));
 
-vi.mock('cloudflare-next-intl-intl/internal/reportError', () => ({
+vi.mock('cloudflare-next-intl-errors/internal/reportError', () => ({
     default: vi.fn(async () => {}),
 }));
 
