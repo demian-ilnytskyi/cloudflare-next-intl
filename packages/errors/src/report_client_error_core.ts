@@ -12,7 +12,7 @@ import mergeReportParams from './merge_report_params.js';
  */
 async function resolveRequestContext(): Promise<{ path?: string; userAgent?: string; referer?: string }> {
     try {
-        const { headers } = await import('next/headers.js');
+        const { headers } = await import('next/headers');
         const headerList = await headers();
         return {
             path: headerList.get('x-pathname') ?? undefined,
