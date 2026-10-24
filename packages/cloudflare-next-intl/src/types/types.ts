@@ -824,6 +824,10 @@ export interface DeviceBindingConfig {
 }
 
 export interface FirebaseAppCheckConfig {
+    /** Cloudflare Turnstile site key. When set, Turnstile is used for App Check client challenges instead of reCAPTCHA. */
+    turnstileSiteKey?: string;
+    /** Cloudflare Turnstile secret key, used ONLY server-side to verify Turnstile challenge tokens before minting an App Check token. Never read on the client. */
+    turnstileSecretKey?: string;
     /** reCAPTCHA v3 site key. Mutually exclusive with `recaptchaEnterpriseSiteKey`. */
     recaptchaV3SiteKey?: string;
     /** reCAPTCHA Enterprise site key. Mutually exclusive with `recaptchaV3SiteKey`. */
