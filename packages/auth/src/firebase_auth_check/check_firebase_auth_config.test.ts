@@ -21,7 +21,7 @@ const fullEnv = {
 };
 
 const source = `
-import { setIntlConfig } from "cloudflare-next-intl";
+import { setIntlConfig } from "cloudflare-next-intl-intl";
 export default setIntlConfig({
     locales: ["en"] as const,
     defaultLocale: "en",
