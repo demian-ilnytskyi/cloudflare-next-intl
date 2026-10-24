@@ -118,4 +118,21 @@ describe('intlMiddleware with firebaseAuth configured', () => {
         expect(rebuilt.status).toBe(200);
         expect(rebuilt.headers.get('x-middleware-rewrite')).toContain('/en/dashboard');
     });
+
+    it('does not import update_session without firebaseAuth', async () => {
+        vi.doMock('./intl_config', () => ({
+            default: {
+                locales: ['en', 'de'],
+                defaultLocale: 'en',
+            },
+        }));
+        const factory = vi.fn(() => ({ default: vi.fn() }));
+        vi.doMock('../firebase_auth/middleware/update_session.js', factory);
+
+        const { default: intlMiddleware } = await import('./middleware.js');
+        const req = makeRequest('https://example.com/en/dashboard');
+        await intlMiddleware(req);
+
+        expect(factory).not.toHaveBeenCalled();
+    });
 });

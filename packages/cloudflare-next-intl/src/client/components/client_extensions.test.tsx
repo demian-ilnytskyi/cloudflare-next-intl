@@ -13,6 +13,10 @@ vi.mock('../../firebase_auth/client/auth_user_provider.js', () => ({
     default: ({ children }: { children: React.ReactNode }) => <div data-testid="auth-provider">{children}</div>,
 }));
 
+vi.mock('../../cookie_consent/client/components/auto_analytics_events.js', () => ({
+    default: () => null,
+}));
+
 function ChildConsumer() {
     const locale = useLocale();
     return <span data-testid="child-locale">{locale}</span>;
