@@ -104,7 +104,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/demian-ilnytskyi/cloudflare-next-intl.git"
+    "url": "git+https://github.com/demian-ilnytskyi/cloudflare-next-intl.git",
+    "directory": "packages/errors"
   },
   "keywords": [
     "nextjs",
