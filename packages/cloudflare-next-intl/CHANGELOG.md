@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.1] - 2026-10-24
+
+### Added
+
+- `staticNotFoundNoStore`: Vite plugin / option appending `Cache-Control: no-store, must-revalidate` rule for `/_next/static/*` routes to prevent caching chunk 404s during rollout.
+
 ## [0.13.0] - 2026-10-24
 
 ### Changed

@@ -134,9 +134,14 @@ export default function StaleDeployScripts({
                         var sameBuild = marker === buildId;
                         var attempts = 0;
                         if (sameBuild) {
-                            var rawCount = sessionStorage.getItem(countKey);
-                            attempts = rawCount ? Number(rawCount) : 0;
-                            if (!(attempts >= 0)) attempts = 0;
+                            var lastAttemptTime = Number(sessionStorage.getItem(timeKey) || 0);
+                            if (Date.now() - lastAttemptTime > 30000) {
+                                attempts = 0;
+                            } else {
+                                var rawCount = sessionStorage.getItem(countKey);
+                                attempts = rawCount ? Number(rawCount) : 0;
+                                if (!(attempts >= 0)) attempts = 0;
+                            }
                         }
                         if (sameBuild && attempts >= maxAttempts) {
                             console.warn('[StaleDeploy early-catch] Skipping reload, attempts exhausted for buildId:', buildId, attempts);

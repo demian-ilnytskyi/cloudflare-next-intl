@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl-errors",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Error reporting and stale deploy recovery for Next.js App Router and Cloudflare",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",

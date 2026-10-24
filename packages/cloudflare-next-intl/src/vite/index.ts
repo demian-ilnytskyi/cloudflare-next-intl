@@ -8,6 +8,7 @@ export { userAgentStubPlugin, USER_AGENT_STUB_ID, USER_AGENT_STUB_CODE } from ".
 export { cfWorkersClientStubPlugin, CF_WORKERS_CLIENT_STUB_ID, CF_WORKERS_CLIENT_STUB_CODE } from "./cf_workers_client_stub.js";
 export { bufferStubPlugin, BUFFER_STUB_ID } from "./buffer_stub.js";
 export { tailwindSourcesPlugin } from "./tailwind_sources_plugin.js";
+export { staticNotFoundNoStorePlugin, appendStaticNoStoreRule, STATIC_NO_STORE_RULE } from "./static_not_found_no_store.js";
 export {
     optionalFirebaseStubPlugin,
     optionalFirebaseStubId,
