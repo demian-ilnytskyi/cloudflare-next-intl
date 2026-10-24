@@ -28,12 +28,11 @@ export default defineConfig({
                 'src/db/eslint_config.ts',
                 'src/db/testing.ts',
                 'src/db/helpers.ts',
+                'src/{error_handling,general,client_messages_scan}/**',
             ],
             thresholds: {
                 perFile: true,
                 'src/**/!(general_functions|middleware|error_detail_view|auto_dynamic_pages_plugin|auto_locale_params_plugin|insert_locale_params|vinext_route_wiring_fix|check_firebase_auth_config|load_resolved_firebase_auth).{ts,tsx}': { statements: 100, branches: 100, functions: 100, lines: 100 },
-                // general_functions.ts: 3 branches are unreachable defensive dead code (post-loop null-check, type guard that cannot fail, loop-exit fallback). v8-ignore comments cannot suppress these — esbuild strips comments before vitest's coverage instrumentation sees them (confirmed via direct esbuild.transform test), so no comment-based approach works with this project's transform pipeline.
-                'src/general/general_functions.ts': { statements: 90.26, branches: 84.09, functions: 83.33, lines: 90.26 },
                 // middleware.ts: 2 branches are unreachable defensive/structural dead code (a `?? ''` fallback after an equivalent null-guard already returned, and an empty-string check on a value that can never be empty by construction).
                 'src/config/middleware.ts': { statements: 100, branches: 93.93, functions: 100, lines: 100 },
                 // error_detail_view.tsx: `typeof window !== 'undefined'` is a defensive SSR-safety guard on a 'use client' component — window always exists under @testing-library/react + jsdom, so the false branch is structurally untestable in this suite.

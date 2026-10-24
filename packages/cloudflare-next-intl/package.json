@@ -364,6 +364,7 @@
     "@microsoft/clarity": "^1.0.2",
     "cloudflare-next-intl-db": "^0.3.0",
     "cloudflare-next-intl-db-codegen": "^0.1.4",
+    "cloudflare-next-intl-intl": "file:../intl",
     "jose": "^6.2.8",
     "sharp": "^0.34.5 || ^0.35.0"
   },

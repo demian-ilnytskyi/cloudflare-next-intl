@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { scanFile, findJsxPropValues } from "./scan_file.js";
 
-const imp = `import { useTranslations } from "cloudflare-next-intl/use";\n`;
+const imp = `import { useTranslations } from "cloudflare-next-intl-intl/use";\n`;
 
 describe("scanFile", () => {
     it("extracts literal namespace and trims to top level", () => {
@@ -13,7 +13,7 @@ describe("scanFile", () => {
         expect(scanFile("a.tsx", `const t = useTranslations("X");`).namespaces).toEqual([]);
     });
     it("handles aliased import", () => {
-        const r = scanFile("a.tsx", `import { useTranslations as useT } from "cloudflare-next-intl/use";\nuseT("Header");`);
+        const r = scanFile("a.tsx", `import { useTranslations as useT } from "cloudflare-next-intl-intl/use";\nuseT("Header");`);
         expect(r.namespaces).toEqual(["Header"]);
     });
     it("works without 'use client' directive", () => {

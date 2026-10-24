@@ -1,5 +1,5 @@
-/** Consent value: `true` accepted, `false` necessary-only, `null` not yet decided. */
-export type ConsentValue = boolean | null;
+import type { ConsentValue } from 'cloudflare-next-intl-intl/types';
+export type { ConsentValue };
 
 /** Context value returned by `useCookieConsent()`. */
 export interface CookieConsentContextType {

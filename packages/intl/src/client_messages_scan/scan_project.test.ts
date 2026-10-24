@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { scanProject, matchesNamespacePattern } from "./scan_project.js";
 
-const imp = `import { useTranslations } from "cloudflare-next-intl/use";\n`;
+const imp = `import { useTranslations } from "cloudflare-next-intl-intl/use";\n`;
 function fixture(files: Record<string, string>): string {
     const root = mkdtempSync(join(tmpdir(), "cfni-scan-"));
     for (const [p, c] of Object.entries(files)) {
