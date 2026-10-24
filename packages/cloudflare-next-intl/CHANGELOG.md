@@ -8,7 +8,9 @@ All notable changes to this package are documented here. Format follows
 ### Changed
 
 - Firebase Auth & App Check module extracted to standalone `cloudflare-next-intl-auth` package (`packages/auth`).
-- Umbrella `cloudflare-next-intl` re-exports all auth primitives with full backward compatibility via shims.
+- Umbrella `cloudflare-next-intl` re-exports all auth primitives with full backward compatibility via shims, including default exports for `resolveOptionalAuthUser` and `useFirebaseAuthUser`.
+- `LocationzationClientProvider` exported from `./client` retains full auth and cookie consent wrapping.
+- `IntlProvider` validates locale prior to executing any auth resolution, ensuring invalid locales yield 404 rather than triggering auth redirects.
 - Replaced direct dependency on `jose` with `cloudflare-next-intl-auth`.
 
 ## [0.12.0] - 2026-10-24

@@ -10,9 +10,9 @@ import type * as UpdateSessionModule from '../firebase_auth/middleware/update_se
 
 let updateSessionModule: typeof UpdateSessionModule | undefined;
 
-export const defaultAfterResponse = async (
+export const defaultAfterResponse: IntlMiddlewareHook = async (
     response: NextResponse,
-    ctx: { request: NextRequest; locale: string; next: (refreshedRequest: NextRequest) => NextResponse },
+    ctx: IntlMiddlewareContext,
 ): Promise<NextResponse> => {
     if (config.firebaseAuth && config.firebaseAuth.middlewareEnabled !== false) {
         if (!updateSessionModule) {
@@ -35,11 +35,19 @@ export {
     type IntlMiddlewareHook,
 };
 
-import type { MiddlewareCustomHandler } from '../types/types.js';
+/**
+ * This middleware function runs for every incoming request. Handles locale
+ * detection/routing, then optionally defers to your own custom logic.
+ *
+ * @param request The incoming request (pass through from your `middleware.ts`).
+ * @param options.middlewareHandler  Your own logic (auth, feature flags, etc.),
+ *   run alongside locale routing — see {@link MiddlewareCustomHandler} for the
+ *   full contract (`rewriteUrl` / `redirectUrl` and what to return).
+ * @param options.runHandlerOnRedirect  By default, `middlewareHandler` does
+ *   NOT run for the locale-redirect case (so it never receives a
+ *   `redirectUrl`). Set to `true` to also run it on redirects.
+ *   Defaults to `false`.
+ */
+const intlMiddleware = createIntlMiddleware({ afterResponse: defaultAfterResponse });
 
-const middleware: (
-    request: NextRequest,
-    options?: { middlewareHandler?: MiddlewareCustomHandler; runHandlerOnRedirect?: boolean },
-) => Promise<NextResponse> = createIntlMiddleware({ afterResponse: defaultAfterResponse as never }) as never;
-
-export default middleware;
+export default intlMiddleware;

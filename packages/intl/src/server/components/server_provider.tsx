@@ -17,11 +17,13 @@ export default async function LocationzationProvider({
     language,
     messages,
     children,
+    fallback,
 }: {
     language: string;
     messages?: TranslationObject;
     staticSafe?: boolean;
     children: React.ReactNode;
+    fallback?: React.ReactNode;
 }): Promise<React.JSX.Element> {
     if (!localesSet.has(language)) {
         const { notFound } = await import("next/navigation.js");
@@ -40,14 +42,13 @@ export default async function LocationzationProvider({
 
     return (
         <LocaleProvider language={language} messages={messagesValue}>
-            <Suspense fallback={children}>
+            <Suspense fallback={fallback ?? null}>
                 <LocationzationClientProvider
                     language={language}
                     messages={messagesValue}
-                >
-                    {children}
-                </LocationzationClientProvider>
+                />
             </Suspense>
+            {children}
         </LocaleProvider>
     );
 }

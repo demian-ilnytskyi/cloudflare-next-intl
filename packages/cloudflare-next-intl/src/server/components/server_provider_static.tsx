@@ -50,6 +50,10 @@ export default async function LocationzationProvider({
         messages,
         children: (
             <ClientExtensions
+                hasFirebaseAuth={false}
+                enableFirebasePerformance={false}
+                hasCookieConsent={Boolean(config.cookieConsent)}
+                cookieConsentConfig={config.cookieConsent}
                 requiresConsent={requiresConsent}
                 autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}
                 dialogProps={config.cookieConsent?.dialogProps}

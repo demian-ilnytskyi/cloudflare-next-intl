@@ -17,7 +17,7 @@ export default function LocationzationClientProvider({
 }: {
     language: string;
     messages: TranslationObject;
-    children: React.ReactNode;
+    children?: React.ReactNode;
 }) {
     setLocaleCache(language);
     setMessageForLocaleCache(language, messages);

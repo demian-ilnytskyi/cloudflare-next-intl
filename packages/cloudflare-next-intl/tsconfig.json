@@ -28,6 +28,7 @@
   "exclude": [
     "**/*.test.ts",
     "**/*.test.tsx",
+    "**/*.test-d.ts",
     "**/*.bench.ts",
     "**/*.bench.tsx",
     "src/test_utils/**",

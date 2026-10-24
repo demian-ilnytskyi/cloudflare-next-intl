@@ -6,7 +6,7 @@ import CookieConsentProvider from '../../cookie_consent/client/cookie_consent_pr
 import AuthUserProvider from '../../firebase_auth/client/auth_user_provider.js';
 import config from '../../config/intl_config.js';
 import type { SerializedAuthUser } from '../../firebase_auth/types.js';
-import type { CookieConsentAnalyticsConfig, AutoAnalyticsEventsConfig } from '../../types/types.js';
+import type { CookieConsentAnalyticsConfig, AutoAnalyticsEventsConfig, CookieConsentRoutingConfig } from '../../types/types.js';
 import type { CookieConsentDialogProps } from '../../cookie_consent/client/components/cookie_consent_dialog.js';
 import type { PrivacyPolicyUpdateDialogProps } from '../../cookie_consent/client/components/privacy_policy_update_dialog.js';
 
@@ -29,6 +29,10 @@ const PrivacyPolicyUpdateDialog = dynamic(
 export interface ClientExtensionsProps {
     initialAuthUser?: SerializedAuthUser | null;
     skipAuthProvider?: boolean;
+    hasFirebaseAuth?: boolean;
+    enableFirebasePerformance?: boolean;
+    hasCookieConsent?: boolean;
+    cookieConsentConfig?: CookieConsentRoutingConfig;
     requiresConsent?: boolean;
     autoWireDialogs?: boolean;
     dialogProps?: CookieConsentDialogProps;
@@ -41,6 +45,10 @@ export interface ClientExtensionsProps {
 export default function ClientExtensions({
     initialAuthUser = null,
     skipAuthProvider = false,
+    hasFirebaseAuth,
+    enableFirebasePerformance,
+    hasCookieConsent,
+    cookieConsentConfig,
     requiresConsent = true,
     autoWireDialogs = true,
     dialogProps,
@@ -49,17 +57,23 @@ export default function ClientExtensions({
     autoAnalyticsEventsConfig,
     children,
 }: ClientExtensionsProps) {
+    const isConsent = hasCookieConsent ?? Boolean(config.cookieConsent);
+    const isAuth = hasFirebaseAuth ?? Boolean(config.firebaseAuth);
+    const isPerf = enableFirebasePerformance ?? (config.firebaseAuth?.performance !== false);
+
+    const resolvedConsent = cookieConsentConfig ?? (hasCookieConsent !== undefined ? undefined : config.cookieConsent);
+
     useEffect(() => {
-        if (!config.cookieConsent || !autoWireDialogs) return;
+        if (!isConsent || !autoWireDialogs) return;
         loadCookieConsentDialog().catch(() => undefined);
-    }, [autoWireDialogs]);
+    }, [isConsent, autoWireDialogs]);
 
     let providedChildren = children;
-    if (config.firebaseAuth && !skipAuthProvider) {
+    if (isAuth && !skipAuthProvider) {
         providedChildren = (
             <AuthUserProvider initialUser={initialAuthUser}>
                 {children}
-                {config.firebaseAuth.performance !== false && (
+                {isPerf && (
                     <Suspense fallback={null}>
                         <AutoFirebasePerformanceEvents />
                     </Suspense>
@@ -68,27 +82,27 @@ export default function ClientExtensions({
         );
     }
 
-    if (config.cookieConsent) {
+    if (isConsent) {
         providedChildren = (
-            <CookieConsentProvider requiresConsent={requiresConsent}>
+            <CookieConsentProvider requiresConsent={requiresConsent} cookieConsentConfig={resolvedConsent}>
                 {providedChildren}
                 {analyticsConfig && (
                     <Suspense fallback={null}>
                         <CookieConsentAnalytics config={analyticsConfig} />
                     </Suspense>
                 )}
-                {autoAnalyticsEventsConfig && (
+                {analyticsConfig && (analyticsConfig.googleAnalyticsId || analyticsConfig.googleAdsId) && (
                     <Suspense fallback={null}>
-                        <AutoAnalyticsEvents config={autoAnalyticsEventsConfig} />
+                        <AutoAnalyticsEvents config={autoAnalyticsEventsConfig ?? resolvedConsent?.autoAnalyticsEvents} />
                     </Suspense>
                 )}
                 {autoWireDialogs && (
                     <>
                         <Suspense fallback={null}>
-                            <CookieConsentDialog {...dialogProps} />
+                            <CookieConsentDialog {...(dialogProps ?? resolvedConsent?.dialogProps)} />
                         </Suspense>
                         <Suspense fallback={null}>
-                            <PrivacyPolicyUpdateDialog {...updateDialogProps} />
+                            <PrivacyPolicyUpdateDialog {...(updateDialogProps ?? resolvedConsent?.updateDialogProps)} />
                         </Suspense>
                     </>
                 )}

@@ -1,5 +1,12 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const reactPkgPath = path.dirname(require.resolve('react/package.json'));
+const reactDomPkgPath = path.dirname(require.resolve('react-dom/package.json'));
+const nextHeadersPath = require.resolve('next/headers');
+const nextNavigationPath = require.resolve('next/navigation');
 
 export default defineConfig({
     test: {
@@ -37,7 +44,7 @@ export default defineConfig({
             ],
             thresholds: {
                 perFile: true,
-                'src/**/!(general_functions|middleware|error_detail_view|auto_dynamic_pages_plugin|auto_locale_params_plugin|insert_locale_params|vinext_route_wiring_fix|default_privacy_policy_link|privacy_policy_update_dialog|cookie_consent_dialog).{ts,tsx}': { statements: 100, branches: 100, functions: 100, lines: 100 },
+                'src/**/!(middleware|error_detail_view|auto_dynamic_pages_plugin|auto_locale_params_plugin|insert_locale_params|vinext_route_wiring_fix|default_privacy_policy_link|privacy_policy_update_dialog|cookie_consent_dialog).{ts,tsx}': { statements: 100, branches: 100, functions: 100, lines: 100 },
                 // middleware.ts: 2 branches are unreachable defensive/structural dead code (a `?? ''` fallback after an equivalent null-guard already returned, and an empty-string check on a value that can never be empty by construction).
                 'src/config/middleware.ts': { statements: 100, branches: 93.93, functions: 100, lines: 100 },
                 // error_detail_view.tsx: `typeof window !== 'undefined'` is a defensive SSR-safety guard on a 'use client' component — window always exists under @testing-library/react + jsdom, so the false branch is structurally untestable in this suite.
@@ -70,7 +77,12 @@ export default defineConfig({
         },
     },
     resolve: {
+        dedupe: ['react', 'react-dom', 'next'],
         alias: {
+            react: reactPkgPath,
+            'react-dom': reactDomPkgPath,
+            'next/headers': nextHeadersPath,
+            'next/navigation': nextNavigationPath,
             '@intl-config': path.resolve(__dirname, './src/test_utils/mock_intl_config.ts'),
             '@locale-file': path.resolve(__dirname, './src/test_utils/mock_locale_file'),
             'virtual:cloudflare-next-intl-images-manifest': path.resolve(__dirname, './src/test_utils/mock_images_manifest.ts'),

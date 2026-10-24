@@ -7,12 +7,8 @@ export default defineConfig({
         setupFiles: ['./vitest.setup.ts'],
         benchmark: {
             include: [
-                'src/db/*.bench.ts',
-                'src/server/components/helper_script.bench.ts',
-                'src/image_optimizer/*.bench.ts',
-                'src/config/middleware.bench.ts',
-                'src/server/functions/get_user_locale.bench.ts',
-                'src/firebase_auth/**/*.bench.ts',
+                'src/**/*.bench.ts',
+                'src/**/*.bench.tsx',
             ],
             outputJson: process.env.BENCH_JSON ?? './bench-result.json',
         },

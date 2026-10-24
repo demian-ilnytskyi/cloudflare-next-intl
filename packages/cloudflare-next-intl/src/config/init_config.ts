@@ -9,5 +9,6 @@ export function setIntlConfig<
     const fa = config.firebaseAuth;
     const normalizedFa = normalizeFirebaseAuthConfig(fa);
     const resolvedConfig = normalizedFa !== fa ? { ...config, firebaseAuth: normalizedFa } : config;
-    return coreSetIntlConfig(resolvedConfig as never) as RoutingConfig<AppLocales, AppLocalePrefixMode>;
+    coreSetIntlConfig(resolvedConfig);
+    return resolvedConfig;
 }

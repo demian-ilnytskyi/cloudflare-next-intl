@@ -30,7 +30,8 @@ concurrency:
 
 jobs:
   publish_cloudflare_next_intl:
-    if: ${{ inputs.publish_cloudflare_next_intl }}
+    needs: [publish_intl, publish_auth]
+    if: ${{ always() && inputs.publish_cloudflare_next_intl && needs.publish_intl.result != 'failure' && needs.publish_intl.result != 'cancelled' && needs.publish_auth.result != 'failure' && needs.publish_auth.result != 'cancelled' }}
     uses: demian-ilnytskyi/workflows/.github/workflows/package_publish.yml@main
     secrets: inherit
     with:

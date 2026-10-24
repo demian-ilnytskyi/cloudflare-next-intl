@@ -1,4 +1,5 @@
 import CoreIntlProvider from 'cloudflare-next-intl-intl/serverProvider';
+import { localesSet } from 'cloudflare-next-intl-intl/middleware';
 import ClientExtensions from '../../client/components/client_extensions.js';
 import config from '../../config/intl_config.js';
 import type { TranslationObject } from '../../types/types.js';
@@ -20,6 +21,11 @@ export default async function LocationzationProvider({
     staticSafe?: boolean;
     children: React.ReactNode;
 }) {
+    if (!localesSet.has(language)) {
+        const { notFound } = await import('next/navigation.js');
+        notFound();
+    }
+
     let initialAuthUser: SerializedAuthUser | null = null;
     const autoWireClientProvider = config.firebaseAuth?.autoWireClientProvider !== false;
     if (config.firebaseAuth && autoWireClientProvider) {
@@ -69,6 +75,10 @@ export default async function LocationzationProvider({
             <ClientExtensions
                 initialAuthUser={initialAuthUser}
                 skipAuthProvider={!autoWireClientProvider}
+                hasFirebaseAuth={Boolean(config.firebaseAuth)}
+                enableFirebasePerformance={config.firebaseAuth?.performance !== false}
+                hasCookieConsent={Boolean(config.cookieConsent)}
+                cookieConsentConfig={config.cookieConsent}
                 analyticsConfig={analyticsConfig}
                 requiresConsent={requiresConsent}
                 autoWireDialogs={config.cookieConsent?.autoWireDialogs !== false}

@@ -6,4 +6,3 @@ export { default as getCookie } from './functions/get_cookie.js';
 export { default as setCookie } from './functions/set_cookie.js';
 export { usePathname } from './hooks/use_path_name.js';
 export { useLocale, useTranslations } from './hooks/client_hooks.js';
-export { default as ClientExtensions } from './components/client_extensions.js';

@@ -17,6 +17,13 @@ function getConfig(): RoutingConfig<Locales, LocalePrefixMode> {
     }
 }
 
-const config = getConfig();
+const config = new Proxy({} as RoutingConfig<Locales, LocalePrefixMode>, {
+    get(target, prop) {
+        if (prop === 'then' || prop === 'default' || typeof prop === 'symbol') {
+            return Reflect.get(target, prop);
+        }
+        return (getConfig() as unknown as Record<string | symbol, unknown>)[prop];
+    },
+});
 
 export default config;
