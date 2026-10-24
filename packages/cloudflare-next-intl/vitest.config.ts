@@ -7,7 +7,7 @@ export default defineConfig({
         setupFiles: ['./vitest.setup.ts'],
         server: {
             deps: {
-                inline: ['react'],
+                inline: ['react', 'cloudflare-next-intl-intl'],
             },
         },
         coverage: {
