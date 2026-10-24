@@ -1,5 +1,4 @@
 import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types.js';
-import { setStaleDeployPatterns } from '../error_handling/is_stale_deploy_error.js';
 
 // Every path this package compares against `request.nextUrl.pathname`
 // (always `/`-prefixed) must itself start with `/` — a missing leading
@@ -14,8 +13,5 @@ export function setIntlConfig<
     const AppLocales extends Locales,
     const AppLocalePrefixMode extends LocalePrefixMode = 'as-needed'>
     (config: RoutingConfig<AppLocales, AppLocalePrefixMode>): RoutingConfig<AppLocales, AppLocalePrefixMode> {
-    if (config.errorHandling?.staleDeployPatterns) {
-        setStaleDeployPatterns(config.errorHandling.staleDeployPatterns);
-    }
     return config;
 }

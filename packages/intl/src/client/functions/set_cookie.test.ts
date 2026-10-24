@@ -21,7 +21,11 @@ describe('setCookie', () => {
         });
         try {
             expect(() => setCookie({ name: 'theme', value: 'dark' })).not.toThrow();
-            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[setCookie] Error:'));
+            expect(console.error).toHaveBeenCalledWith(
+                '[cloudflare-next-intl-intl]',
+                'setCookie',
+                expect.any(Error),
+            );
         } finally {
             delete (document as unknown as { cookie?: unknown }).cookie;
         }

@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl-intl",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Core internationalization and localization for Next.js App Router and Cloudflare",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -91,50 +91,6 @@
       "types": "./dist/src/config/init_config.d.ts",
       "import": "./dist/src/config/init_config.js"
     },
-    "./errorHandling": {
-      "types": "./dist/src/error_handling/index.d.ts",
-      "import": "./dist/src/error_handling/index.js"
-    },
-    "./installConsoleErrorOverride": {
-      "types": "./dist/src/error_handling/install_console_error_override.d.ts",
-      "import": "./dist/src/error_handling/install_console_error_override.js"
-    },
-    "./installGlobalErrorOverride": {
-      "types": "./dist/src/error_handling/install_global_error_override.d.ts",
-      "import": "./dist/src/error_handling/install_global_error_override.js"
-    },
-    "./stringifyUnknown": {
-      "types": "./dist/src/error_handling/stringify_unknown.d.ts",
-      "import": "./dist/src/error_handling/stringify_unknown.js"
-    },
-    "./formatErrorMessage": {
-      "types": "./dist/src/error_handling/format_error_message.d.ts",
-      "import": "./dist/src/error_handling/format_error_message.js"
-    },
-    "./defaultIgnoredConsoleErrors": {
-      "types": "./dist/src/error_handling/default_ignored_console_errors.d.ts",
-      "import": "./dist/src/error_handling/default_ignored_console_errors.js"
-    },
-    "./createServerErrorAction": {
-      "types": "./dist/src/error_handling/create_server_error_action.d.ts",
-      "import": "./dist/src/error_handling/create_server_error_action.js"
-    },
-    "./reportClientError": {
-      "types": "./dist/src/error_handling/report_client_error.d.ts",
-      "import": "./dist/src/error_handling/report_client_error.js"
-    },
-    "./isStaleDeployError": {
-      "types": "./dist/src/error_handling/is_stale_deploy_error.d.ts",
-      "import": "./dist/src/error_handling/is_stale_deploy_error.js"
-    },
-    "./clearClientCache": {
-      "types": "./dist/src/error_handling/clear_client_cache.d.ts",
-      "import": "./dist/src/error_handling/clear_client_cache.js"
-    },
-    "./useStaleDeployRecovery": {
-      "types": "./dist/src/error_handling/use_stale_deploy_recovery.d.ts",
-      "import": "./dist/src/error_handling/use_stale_deploy_recovery.js"
-    },
     "./metadata": {
       "types": "./dist/src/general/metadata.d.ts",
       "import": "./dist/src/general/metadata.js"
@@ -154,30 +110,6 @@
     "./internal/generalFunctions": {
       "types": "./dist/src/general/general_functions.d.ts",
       "import": "./dist/src/general/general_functions.js"
-    },
-    "./internal/reportError": {
-      "types": "./dist/src/error_handling/report_error.d.ts",
-      "import": "./dist/src/error_handling/report_error.js"
-    },
-    "./internal/reportClientErrorAction": {
-      "types": "./dist/src/error_handling/report_client_error_action.d.ts",
-      "import": "./dist/src/error_handling/report_client_error_action.js"
-    },
-    "./internal/reportClientErrorCore": {
-      "types": "./dist/src/error_handling/report_client_error_core.d.ts",
-      "import": "./dist/src/error_handling/report_client_error_core.js"
-    },
-    "./internal/withErrorHandling": {
-      "types": "./dist/src/error_handling/with_error_handling.d.ts",
-      "import": "./dist/src/error_handling/with_error_handling.js"
-    },
-    "./internal/matchErrorMessage": {
-      "types": "./dist/src/error_handling/match_error_message.d.ts",
-      "import": "./dist/src/error_handling/match_error_message.js"
-    },
-    "./internal/mergeReportParams": {
-      "types": "./dist/src/error_handling/merge_report_params.d.ts",
-      "import": "./dist/src/error_handling/merge_report_params.js"
     },
     "./internal/pickClientMessages": {
       "types": "./dist/src/general/pick_client_messages.d.ts",
@@ -274,10 +206,6 @@
     "./internal/localeLinkClient": {
       "types": "./dist/src/client/components/locale_link_client.d.ts",
       "import": "./dist/src/client/components/locale_link_client.js"
-    },
-    "./internal/clientHelperScript": {
-      "types": "./dist/src/client/components/client_helper_script.d.ts",
-      "import": "./dist/src/client/components/client_helper_script.js"
     },
     "./internal/clientHooks": {
       "types": "./dist/src/client/hooks/client_hooks.d.ts",

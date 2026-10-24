@@ -6,7 +6,6 @@ export type {
     ReturnType,
     RoutingConfig,
     IntlRoutingConfig,
-    ConsentValue,
     TranslationEntry,
     TranslationObject,
     TranslatorReturnType,

@@ -5,7 +5,7 @@ import type { TranslationObject, TranslatorReturnType } from "../../types/types.
 import { getLocaleCache, getMessageCache, getTranslationCache, setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
 import { cache } from "react";
 import { localesSet } from "../../config/middleware.js";
-import reportError from "../../error_handling/report_error.js";
+import reportIntlError from "../../general/report_intl_error.js";
 import type * as NextHeadersModule from "next/headers.js";
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -127,10 +127,7 @@ async function iGetLocale(): Promise<string> {
         setLocaleCache(localeValue); // Cache the resolved language for future synchronous access
         return localeValue;
     } catch (error) {
-        void reportError({ errorHandling: config.errorHandling, generate: config.generate }, {
-            error,
-            classOrMethodName: 'getLocale',
-        });
+        reportIntlError(error, 'getLocale');
         setLocaleCache(config.defaultLocale); // Cache fallback language on error
         return config.defaultLocale;
     }

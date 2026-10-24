@@ -19,7 +19,6 @@ image or database code. Use it when you only need routing + translations; use
 - Locale-aware `Link` / `LocaleLink`, `usePathname`, `getLocale`, `useLocale`.
 - Cloudflare geo helpers: `getCountry`, `getTimezone`.
 - SEO helpers: `hreflang` / canonical alternates via `alternatesLinks`.
-- Error handling helpers: `reportError`, `withErrorHandling`, console/global error overrides, stale-deploy recovery.
 - One subpath export per feature, so unused code is tree-shaken away.
 
 ## Installation
@@ -247,17 +246,6 @@ import setCookie from "cloudflare-next-intl-intl/setCookie";
 import getCookie from "cloudflare-next-intl-intl/getCookie";
 ```
 
-### Error handling
-
-```ts
-import { reportError, withErrorHandling, installConsoleErrorOverride } from "cloudflare-next-intl-intl/errorHandling";
-```
-
-To send errors to your own sink (database, logging service, ...), configure
-`errorHandling` in `setIntlConfig`. Each helper is also available on its own
-subpath, for example `./reportClientError`, `./useStaleDeployRecovery`,
-`./clearClientCache`.
-
 ## Public subpath exports
 
 | Subpath | Contents |
@@ -274,8 +262,7 @@ subpath, for example `./reportClientError`, `./useStaleDeployRecovery`,
 | `./metadata` | `alternatesLinks`, `languages` |
 | `./localeStaticParams` | `getLocaleStaticParams` |
 | `./setCookie`, `./getCookie`, `./setCookieClient`, `./getCookieClient` | Cookie helpers |
-| `./errorHandling` and its per-helper subpaths | Error handling |
-| `./types` | TypeScript types (`RoutingConfig`, ...) |
+| `./types` | TypeScript types (`IntlRoutingConfig`, `RoutingConfig`, ...) |
 
 `./internal/*` subpaths are only for wrapper packages such as
 `cloudflare-next-intl` and `cloudflare-next-intl-auth`. Don't import them in
@@ -283,7 +270,9 @@ your app; they can change in any release.
 
 ## Related packages
 
-- [`cloudflare-next-intl`](https://www.npmjs.com/package/cloudflare-next-intl): all-in-one package (i18n + auth + cookie consent + images + DB), auto-wired.
+- [`cloudflare-next-intl`](https://www.npmjs.com/package/cloudflare-next-intl): all-in-one package (i18n + auth + cookie consent + theme + errors + images + DB), auto-wired.
+- [`cloudflare-next-intl-errors`](https://www.npmjs.com/package/cloudflare-next-intl-errors): Error reporting, overrides, and stale-deploy recovery.
+- [`cloudflare-next-intl-theme`](https://www.npmjs.com/package/cloudflare-next-intl-theme): Theme switcher and dark mode cookies.
 - [`cloudflare-next-intl-auth`](https://www.npmjs.com/package/cloudflare-next-intl-auth): Firebase Auth & App Check built on this package.
 
 ## License

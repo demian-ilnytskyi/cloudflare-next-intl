@@ -1,6 +1,6 @@
 import { cache } from "react";
 import config from "../config/intl_config.js";
-import reportError from "../error_handling/report_error.js";
+import reportIntlError from "./report_intl_error.js";
 
 /**
  * Builds the `alternates` field for Next's `generateMetadata` — a canonical
@@ -40,11 +40,7 @@ export function iAlternatesLinks({ locale, url, canonical, linkPart }: {
             languages: languages(url, linkPartValue),
         };
     } catch (e) {
-        void reportError({ errorHandling: config.errorHandling, generate: config.generate }, {
-            error: e,
-            classOrMethodName: 'alternatesLinks',
-            params: { url, linkPart },
-        });
+        reportIntlError(e, 'alternatesLinks');
         return undefined;
     }
 }

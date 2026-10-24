@@ -1,7 +1,7 @@
 import { cache } from "react";
 import config from "../../config/intl_config.js";
 import { localesSet } from "../../config/middleware.js";
-import reportError from "../../error_handling/report_error.js";
+import reportIntlError from "../../general/report_intl_error.js";
 
 export const languageDetecotr = cache(languageDetecotrImpl);
 
@@ -38,11 +38,7 @@ function languageDetecotrImpl(
         // If none of the languages in the Accept-Language header are supported, return the default locale
         return localeValue ? localeValue.locale : config.defaultLocale;
     } catch (e) {
-        void reportError({ errorHandling: config.errorHandling, generate: config.generate }, {
-            error: e,
-            classOrMethodName: 'languageDetecotr',
-            params: { acceptLanguageHeader },
-        });
+        reportIntlError(e, 'languageDetecotr');
         return config.defaultLocale;
     }
 }

@@ -4,9 +4,9 @@ import { NextResponse } from 'next/server';
 import { createIntlMiddleware, type IntlMiddlewareHook } from './create_intl_middleware.js';
 import { makeTestRequest as makeRequest } from '../test_utils/mock_next_server.js';
 import { localeCookieName } from './cookie_key.js';
-import reportError from '../error_handling/report_error.js';
+import reportIntlError from '../general/report_intl_error.js';
 
-vi.mock('../error_handling/report_error.js', () => ({
+vi.mock('../general/report_intl_error.js', () => ({
     default: vi.fn(),
 }));
 
@@ -92,11 +92,9 @@ describe('createIntlMiddleware', () => {
         const req = makeRequest('https://example.com/de/x');
         const res = await middleware(req);
 
-        expect(reportError).toHaveBeenCalledWith(
+        expect(reportIntlError).toHaveBeenCalledWith(
             expect.anything(),
-            expect.objectContaining({
-                classOrMethodName: 'intlMiddleware',
-            }),
+            'intlMiddleware',
         );
         expect(res.status).toBe(200);
     });

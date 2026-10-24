@@ -11,7 +11,6 @@ Zero external runtime dependencies. Zero dependencies on auth, cookie consent, o
 - `cloudflare-next-intl-intl/middleware`: `intlMiddleware` edge routing middleware with extension point hooks (`onBeforeRouting`, `onAfterRouting`).
 - `cloudflare-next-intl-intl/setIntlConfig`: `setIntlConfig` helper to build validated `IntlRoutingConfig`.
 - `cloudflare-next-intl-intl/types`: `IntlRoutingConfig`, `RoutingConfig`, `Locales`, `LocalePrefixMode`, etc.
-- `cloudflare-next-intl-intl/errorHandling`: Error reporting (`reportError`, `withErrorHandling`, `installConsoleErrorOverride`).
 
 ## Required Setup
 Requires `@intl-config` module alias in `next.config` (and `wrangler.toml` for Workers) pointing to your `intl_config.ts` and `@locale-file` pointing to messages directory.

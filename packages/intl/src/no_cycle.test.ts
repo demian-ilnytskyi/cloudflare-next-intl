@@ -24,13 +24,38 @@ function getAllTsFiles(dir: string): string[] {
 describe('no cycle', () => {
     it('core never imports optional modules', () => {
         const files = getAllTsFiles(srcDir);
-        const bannedImportPattern = /(?:from\s+['"][^'"]*(?:firebase_auth|cookie_consent|\/db\/|cloudflare-next-intl-(?:auth|db)|cloudflare-next-intl['"/])|import\(\s*['"][^'"]*(?:firebase_auth|cookie_consent|\/db\/|cloudflare-next-intl-(?:auth|db)|cloudflare-next-intl['"/]))/;
+        const bannedImportPattern = /(?:from\s+['"][^'"]*(?:firebase_auth|cookie_consent|\/db\/|cloudflare-next-intl-(?:auth|db|errors|theme)|cloudflare-next-intl['"/]|error_handling)|import\(\s*['"][^'"]*(?:firebase_auth|cookie_consent|\/db\/|cloudflare-next-intl-(?:auth|db|errors|theme)|cloudflare-next-intl['"/]|error_handling))/;
 
         const violations: string[] = [];
         for (const file of files) {
             const content = readFileSync(file, 'utf8');
             if (bannedImportPattern.test(content)) {
                 violations.push(file);
+            }
+        }
+
+        expect(violations).toEqual([]);
+    });
+
+    it('core never contains error handling, theme, or consent concepts', () => {
+        const files = getAllTsFiles(srcDir).filter(
+            (f) => !f.endsWith('.test.ts') && !f.endsWith('.test.tsx') && !f.endsWith('.bench.ts'),
+        );
+        const forbiddenTerms = [
+            'error_handling',
+            'cloudflare-next-intl-errors',
+            'isDark',
+            'setTheme',
+            'cookieConsent',
+            'privacyPolicyDate',
+        ];
+        const violations: string[] = [];
+        for (const file of files) {
+            const content = readFileSync(file, 'utf8');
+            for (const term of forbiddenTerms) {
+                if (content.includes(term)) {
+                    violations.push(`${file}: contains ${term}`);
+                }
             }
         }
 

@@ -5,7 +5,7 @@ import type { CookieAttributes, MiddlewareCustomHandler } from '../types/types.j
 import config from './intl_config.js';
 import { countryCookieKey, isBotCookieKey, localeCookieName, timezoneCookieKey } from './cookie_key.js';
 import { cache } from 'react';
-import reportError from '../error_handling/report_error.js';
+import reportIntlError from '../general/report_intl_error.js';
 import type * as UserAgentModule from 'next/dist/server/web/spec-extension/user-agent';
 import { defaultCountryHeaderNames, defaultTimezoneHeaderNames } from '../server/functions/geo.js';
 
@@ -103,14 +103,11 @@ export function createIntlMiddleware(middlewareOptions?: {
             const effectiveLocaleForRequest = urlLocale ?? initialChosenLocale;
 
             const cf = (request as unknown as { cf?: { country?: string; timezone?: string } }).cf;
-            const cookieConsentConfig = (config as { cookieConsent?: { countryHeaderNames?: readonly string[]; countryCookieName?: string } }).cookieConsent;
-            const countryHeaderNames = cookieConsentConfig?.countryHeaderNames
-                ?? config.generate?.countryHeaderNames
+            const countryHeaderNames = config.generate?.countryHeaderNames
                 ?? defaultCountryHeaderNames;
             const timezoneHeaderNames = config.generate?.timezoneHeaderNames
                 ?? defaultTimezoneHeaderNames;
-            const countryCookieName = cookieConsentConfig?.countryCookieName
-                ?? config.generate?.countryCookieName
+            const countryCookieName = config.generate?.countryCookieName
                 ?? countryCookieKey;
             const timezoneCookieName = config.generate?.timezoneCookieName
                 ?? timezoneCookieKey;
@@ -211,10 +208,7 @@ export function createIntlMiddleware(middlewareOptions?: {
 
             return response;
         } catch (e) {
-            void reportError({ errorHandling: config.errorHandling, generate: config.generate }, {
-                error: e,
-                classOrMethodName: 'intlMiddleware',
-            });
+            reportIntlError(e, 'intlMiddleware');
             return NextResponse.next({
                 request,
             });

@@ -43,7 +43,11 @@ describe('getCookie', () => {
         });
         try {
             expect(getCookie('foo')).toBeNull();
-            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[getCookie] Error:'));
+            expect(console.error).toHaveBeenCalledWith(
+                '[cloudflare-next-intl-intl]',
+                'getCookie',
+                expect.any(Error),
+            );
         } finally {
             delete (document as unknown as { cookie?: unknown }).cookie;
         }

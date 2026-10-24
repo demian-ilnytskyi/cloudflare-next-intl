@@ -6,7 +6,6 @@ import dynamic from "next/dynamic.js";
 import { localesSet } from "../../config/middleware.js";
 import config from "../../config/intl_config.js";
 import pickClientMessages from "../../general/pick_client_messages.js";
-import installConsoleErrorOverride from "../../error_handling/install_console_error_override.js";
 
 const LocationzationClientProvider = dynamic(
     () => import("../../client/components/client_provider.js"),
@@ -37,8 +36,6 @@ export default async function LocationzationProvider({
         setMessageForLocaleCache(language, messages);
     }
     const messagesValue = pickClientMessages(messages ?? await getMessage(language), config.clientMessages);
-
-    installConsoleErrorOverride(config);
 
     return (
         <LocaleProvider language={language} messages={messagesValue}>

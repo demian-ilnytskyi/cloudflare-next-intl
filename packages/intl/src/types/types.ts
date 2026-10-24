@@ -2,7 +2,6 @@ import type { NextResponse } from 'next/server.js';
 import type { Languages } from 'next/dist/lib/metadata/types/alternative-urls-types';
 import type { Videos } from 'next/dist/lib/metadata/types/metadata-types';
 
-export type ConsentValue = boolean | null;
 
 /**
  * Custom middleware hook, run by `intlMiddleware` for your own logic
@@ -98,12 +97,10 @@ export interface IntlRoutingConfig<AppLocales extends Locales, AppLocalePrefixMo
      */
     clientMessages?: boolean | "auto" | readonly string[];
     /**
-     * Configures the optional `error_handling` submodule (shared
-     * `withErrorHandling`/`reportError` helpers used internally by this
-     * package and available to your own app code). Omit entirely to keep
-     * the defaults: enabled, reporting via `console.error`.
+     * Called whenever an internal error occurs in this package (e.g.
+     * message import failure). Omit to log via `console.error`.
      */
-    errorHandling?: ErrorHandlingRoutingConfig;
+    onError?: (error: unknown, source: string) => void | Promise<void>;
     /**
      * Configures the `Link` component's default `prefetch` value. Omit to
      * keep the safe default (`false` — no prefetching unless a given `Link`
@@ -137,9 +134,6 @@ export interface IntlGetCloudflareContext {
     (options?: { async: false }): IntlCloudflareContext | null;
 }
 
-export type CookieConsentCloudflareContext = IntlCloudflareContext;
-export type CookieConsentGetCloudflareContext = IntlGetCloudflareContext;
-
 export interface GenerateRoutingConfig {
     /**
      * Cloudflare environment bindings (or getter returning bindings).
@@ -155,31 +149,18 @@ export interface GenerateRoutingConfig {
      * Pass `getCloudflareContext` from `@opennextjs/cloudflare` directly
      * (not a dependency of this package, so bring your own import) — its
      * exact overloaded signature is accepted as-is; called internally with
-     * `{ async: true }`, so you never need to wrap it yourself. Only
-     * `cf.country` is read from the resolved context by `cookieConsent`.
-     *
-     * Country-based gating (via either `cookieConsent.getCountryCode` or
-     * this getter) decides whether the cookie-consent banner is required at
-     * all: visitors outside `gdprCountries` skip the banner and get
-     * analytics immediately (still gated by `enableAnalyticsInDevMode`).
-     * Omit BOTH to require consent for everyone (fail-safe default — the
-     * visitor's country can't be determined at all without either getter).
-     * Set one of the two getters to scope the banner to GDPR regions only.
+     * `{ async: true }`, so you never need to wrap it yourself.
      */
-    getCloudflareContext?: CookieConsentGetCloudflareContext;
+    getCloudflareContext?: IntlGetCloudflareContext;
     /**
      * Request headers read (in order) by `getCountry()` to resolve the
      * visitor's country. Defaults to `['x-cf-country', 'cf-ipcountry']` —
      * override when your edge/proxy forwards it under a different name.
-     * `cookieConsent.countryHeaderNames` takes precedence for the
-     * cookie-consent banner's own resolution.
      */
     countryHeaderNames?: readonly string[];
     /**
      * Cookie name read by `getCountry()` when request headers do not contain
      * country metadata. Defaults to `'__cf_country__'`.
-     * `cookieConsent.countryCookieName` takes precedence for the
-     * cookie-consent banner's own client/server resolution.
      */
     countryCookieName?: string;
     /**
@@ -208,171 +189,6 @@ export type RequestOrHeaders =
     }
     | undefined;
 
-export interface ErrorHandlingParams {
-    /** The caught error, in whatever shape it was thrown/rejected with. */
-    error: unknown;
-    /** Name of the function/method the error was caught in, e.g. `"resolveRequiresConsent"`. */
-    classOrMethodName: string;
-    /** Extra context to include in the report (arguments, request info, etc). */
-    params?: unknown;
-    /** Whether this error originated in a client-side (browser) call. */
-    isClient?: boolean;
-    /**
-     * The visitor's current cookie-consent value (from `useCookieConsent()`
-     * or your own server-side resolution), when known. When passed and not
-     * `true`, `reportError`/`withErrorHandling` skip reporting entirely —
-     * sending error reports to a third party (Telegram, Sentry, etc.)
-     * without consent can itself be GDPR-relevant. Omit when consent isn't
-     * applicable (e.g. `cookieConsent` isn't configured at all).
-     */
-    consent?: ConsentValue;
-    /**
-     * Human-readable one-string summary — `[classOrMethodName] Error:
-     * <message>` plus non-empty `Params`/client-origin sections. Set by
-     * `reportError` before calling `onError`/`console.error`; read this
-     * instead of `error`/`params` directly when you just want something
-     * printable. Ignore when passing `params` to `withErrorHandling`
-     * yourself — it's always overwritten.
-     */
-    formattedMessage?: string;
-    /**
-     * Key used by `config.errorHandling.dedupGate` to dedup this report
-     * against the immediately preceding one. Defaults to
-     * `` `${classOrMethodName} ${stringifyUnknown(error)} ${stringifyUnknown(params ?? '')}` ``
-     * when omitted (built by `reportError` itself) — set this explicitly
-     * only if you want a coarser/different dedup key.
-     */
-    dedupKey?: string;
-    /**
-     * Opt-in for your own `onError` sink to attach the reporting user (see
-     * `cloudflare-next-intl/resolveOptionalAuthUser`'s
-     * `resolveErrorReportingUser(params.useAuthUser)`). Defaults to `false`
-     * — an `onError` sink honoring this never calls `getAuthUser()` unless
-     * the specific `reportError()` call site that raised this report passed
-     * `true`, so a page whose only reason to resolve the user would be
-     * "attach them to this error report" stays static by default instead of
-     * being flagged dynamic by `checkDynamicPages`. Set `true` per call site
-     * only where you actually want the user on that specific report and
-     * don't mind the page becoming dynamic.
-     */
-    useAuthUser?: boolean;
-}
-
-export interface ErrorHandlingRoutingConfig {
-    /**
-     * Whether errors caught by this package's `withErrorHandling`/
-     * `reportError` helpers are reported at all. Defaults to `true`. Set
-     * `false` to fully disable reporting (errors are still rethrown by
-     * `withErrorHandling`, just never reported).
-     */
-    enable?: boolean;
-    /**
-     * Called with the caught error whenever one is reported, in ADDITION to
-     * the always-on `console.error(params.formattedMessage)` (see
-     * `logToConsole` to disable that). Use this to wire your own
-     * error-tracking/logging transport (Sentry, Telegram, etc) alongside the
-     * console log, not instead of it. Omit to just log to the console.
-     */
-    onError?: (params: ErrorHandlingParams) => void | Promise<void>;
-    /**
-     * Whether `reportError` also logs `params.formattedMessage` via the
-     * real, unpatched `console.error` (captured at module load, before
-     * `installConsoleErrorOverride` can touch it — so this never loops back
-     * into `reportError` even when the override is installed). Defaults to
-     * `true`. Set `false` if `onError` is your only sink and you don't want
-     * console output at all.
-     */
-    logToConsole?: boolean;
-    /**
-     * Whether `reportError`/`withErrorHandling` replace the global
-     * `console.error` so every `console.error(...)` call in your app is
-     * also routed through `onError` (the original `console.error` still
-     * runs afterwards — nothing is swallowed). Defaults to `false`; call
-     * `installConsoleErrorOverride()` (or pass this `true` and call
-     * `IntlProvider`/`setIntlConfig`'s setup) to install it. Off by default
-     * since this package is shared across apps and a global override is a
-     * bigger behavior change than a plain function call.
-     */
-    overrideConsoleError?: boolean;
-    /**
-     * On the CLIENT only (`installConsoleErrorOverride(config, true)`),
-     * suppresses the browser's own `console.error(...)` output for a call
-     * once it's been routed to `onError`/`reportError` — the error is still
-     * reported (server-side logging, Sentry, etc), it just never shows up
-     * in browser devtools. Has no effect server-side (the server override
-     * always keeps logging normally — there's no "hide it from the
-     * terminal" use case). Only consulted when `overrideConsoleError` is
-     * `true`. Defaults to `false` (nothing is swallowed anywhere, matching
-     * `overrideConsoleError`'s own doc).
-     */
-    suppressClientConsoleError?: boolean;
-    /**
-     * Substrings matched against the stringified message of each
-     * `console.error(...)` call (only consulted when `overrideConsoleError`
-     * is `true`) — a match skips reporting it (it's still logged normally).
-     * Defaults to `defaultIgnoredConsoleErrors` (this package's own Firebase
-     * Auth error codes for expected user-input failures — wrong password,
-     * email already in use, etc). Pass your own array to replace the
-     * default entirely; pass `[]` to report everything.
-     */
-    ignoreConsoleErrors?: readonly string[];
-    /**
-     * Error message patterns matched by `isStaleDeployError(error)` to detect
-     * stale deploy / chunk load errors (e.g. `'chunk'`, `'failed to fetch'`,
-     * `'loading css chunk'`, `'connection closed'`, `'rsc payload'`,
-     * `'minified react error #412'`). Defaults to `defaultStaleDeployPatterns`.
-     */
-    staleDeployPatterns?: readonly string[];
-    /**
-     * Custom HTML string rendered into `document.body` when a stale deploy
-     * error is caught and an automatic cache-busting reload is triggered.
-     * Defaults to a centered loading spinner on a clean white background.
-     */
-    staleDeployReloadHtml?: string;
-    /**
-     * Called with the stringified message of each `console.error(...)` call
-     * (only consulted when `overrideConsoleError` is `true`), in addition to
-     * `ignoreConsoleErrors` — return `true` to skip reporting it (it's still
-     * logged normally). Use this for custom filtering logic beyond a plain
-     * substring match.
-     */
-    ignoreConsoleError?: (message: string) => boolean;
-    /**
-     * Whether the client `LocationzationClientProvider` also installs
-     * `window.addEventListener('error'|'unhandledrejection', ...)` handlers
-     * that route through `onError`/`reportError` the same way
-     * `overrideConsoleError` does for `console.error(...)` calls. Catches
-     * uncaught exceptions and unhandled promise rejections that never go
-     * through `console.error` at all — e.g. Next.js's own internal
-     * "Failed to fetch RSC payload" navigation-fallback error. Defaults to
-     * `overrideConsoleError`'s value (so setting just `overrideConsoleError:
-     * true` catches everything by default) — pass `false` explicitly to
-     * enable console overriding without the window listeners. No-op on the
-     * server (no `window` there).
-     */
-    overrideWindowErrors?: boolean;
-    /**
-     * Dedup: `reportError` skips reporting an error whose key (`dedupKey`,
-     * or a built-in key derived from `classOrMethodName`/`error`/`params`
-     * when omitted) matches the immediately preceding reported error's key,
-     * within `throttleMs`. On by default (matches this package's own
-     * internal call sites and `installConsoleErrorOverride`'s console-loop
-     * guard). Set `false` to report every distinct call with no dedup at
-     * all.
-     *
-     * The dedup state lives inside `reportError`'s own module — this is
-     * shared mutable state, safe by default only because a fresh JS realm
-     * (isolate/Worker instance) starts with it cleared; in a long-lived
-     * server process reused across many requests, pass `resetDedup: true`
-     * on the first `reportError` call of each request/cron tick to clear it
-     * (otherwise one request's errors can suppress another's).
-     */
-    dedup?: boolean;
-    /** Throttle window in ms: the same dedup key reported again within this window is skipped. Defaults to `5000`. Only consulted when `dedup` isn't `false`. */
-    throttleMs?: number;
-    /** Clears the dedup last-key/timestamp state before processing this call. Pass `true` on the first `reportError` call of each request/cron tick in a long-lived server process. */
-    resetDedup?: boolean;
-}
 
 export interface CookieAttributes {
     /**

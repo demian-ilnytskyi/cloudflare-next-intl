@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { isDarkCookieKey } from '../../config/cookie_key.js';
+import { localeCookieName } from '../../config/cookie_key.js';
 
 const getCookieRegex = (name: string): string | null => {
     const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -31,54 +31,19 @@ const getCookieIndexOf = (name: string): string | null => {
     return null;
 };
 
-document.cookie = `${isDarkCookieKey}=true`;
-document.cookie = 'NEXT_LOCALE=uk';
+document.cookie = `${localeCookieName}=uk`;
 document.cookie = 'session=abcdefghijklmnop';
 
 describe('cookie read strategies', () => {
     bench('regex constructed per call (current)', () => {
-        getCookieRegex(isDarkCookieKey);
+        getCookieRegex(localeCookieName);
     });
 
     bench('regex cached', () => {
-        getCookieCachedRegex(isDarkCookieKey);
+        getCookieCachedRegex(localeCookieName);
     });
 
     bench('indexOf scan, no decode', () => {
-        getCookieIndexOf(isDarkCookieKey);
-    });
-});
-
-describe('theme apply', () => {
-    bench('guarded toggle (current)', () => {
-        const classList = document.documentElement.classList;
-        const isDark = true;
-        if (classList.contains('dark') !== isDark) {
-            classList.toggle('dark', isDark);
-        }
-    });
-
-    bench('unguarded toggle', () => {
-        document.documentElement.classList.toggle('dark', true);
-    });
-});
-
-describe('full inline script path', () => {
-    bench('current: read cookie + guarded toggle', () => {
-        const isDark = getCookieRegex(isDarkCookieKey);
-        const classList = document.documentElement.classList;
-        const want = isDark === 'true';
-        if (classList.contains('dark') !== want) {
-            classList.toggle('dark', want);
-        }
-    });
-
-    bench('optimized: indexOf + guarded toggle', () => {
-        const isDark = getCookieIndexOf(isDarkCookieKey);
-        const classList = document.documentElement.classList;
-        const want = isDark === 'true';
-        if (classList.contains('dark') !== want) {
-            classList.toggle('dark', want);
-        }
+        getCookieIndexOf(localeCookieName);
     });
 });

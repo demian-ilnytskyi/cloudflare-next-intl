@@ -52,7 +52,11 @@ describe('iAlternatesLinks', () => {
         const { iAlternatesLinks: brokenAlternatesLinks } = await import('./metadata.js');
         const result = brokenAlternatesLinks({ url: 'https://example.com', locale: 'en' });
         expect(result).toBeUndefined();
-        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[alternatesLinks] Error:'));
+        expect(console.error).toHaveBeenCalledWith(
+            '[cloudflare-next-intl-intl]',
+            'alternatesLinks',
+            expect.any(TypeError),
+        );
         vi.doUnmock('@intl-config');
         vi.resetModules();
     });

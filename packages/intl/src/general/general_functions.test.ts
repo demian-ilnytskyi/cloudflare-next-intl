@@ -40,6 +40,8 @@ describe('getTranslationsImpl', () => {
         const t = getTranslationsImpl('en', { Common: 'not-an-object' }, 'Common');
         expect(t('anything')).toBe('anything');
         expect(console.error).toHaveBeenCalledWith(
+            '[cloudflare-next-intl-intl]',
+            'getTranslationsImpl',
             expect.stringContaining('does not resolve to an object'),
         );
     });
@@ -48,6 +50,8 @@ describe('getTranslationsImpl', () => {
         const t = getTranslationsImpl('en', { A: 'not-an-object' }, 'A.B');
         expect(t('x')).toBe('x');
         expect(console.error).toHaveBeenCalledWith(
+            '[cloudflare-next-intl-intl]',
+            'getTranslationsImpl',
             expect.stringContaining('invalid structure'),
         );
     });
@@ -56,6 +60,8 @@ describe('getTranslationsImpl', () => {
         const t = getTranslationsImpl('en', {}, 'Missing');
         expect(t('x')).toBe('x');
         expect(console.error).toHaveBeenCalledWith(
+            '[cloudflare-next-intl-intl]',
+            'getTranslationsImpl',
             expect.stringContaining('does not resolve to an object'),
         );
     });
@@ -96,6 +102,8 @@ describe('getTranslationsImpl', () => {
         const t = getTranslationsImpl('en', messages, '');
         expect(t('anything')).toBe('anything');
         expect(console.error).toHaveBeenCalledWith(
+            '[cloudflare-next-intl-intl]',
+            'getTranslationsImpl',
             expect.stringContaining('does not resolve to an object'),
         );
     });

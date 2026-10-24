@@ -1,6 +1,6 @@
 "use client";
 
-import reportError from "../../error_handling/report_error.js";
+import reportIntlError from "../../general/report_intl_error.js";
 
 /**
  * Client-only: reads a `document.cookie` value by name. Pairs with
@@ -30,12 +30,7 @@ export default function getCookie(name: string): string | null {
         const value = end === -1 ? cookie.slice(start) : cookie.slice(start, end);
         return decodeURIComponent(value);
     } catch (e) {
-        void reportError(undefined, {
-            error: e,
-            classOrMethodName: 'getCookie',
-            isClient: true,
-            params: { name },
-        });
+        reportIntlError(e, 'getCookie');
         return null;
     }
 };

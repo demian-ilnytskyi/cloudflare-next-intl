@@ -1,6 +1,6 @@
 "use client";
 
-import reportError from "../../error_handling/report_error.js";
+import reportIntlError from "../../general/report_intl_error.js";
 
 /**
  * Client-only: sets a `document.cookie` value directly. Not used by this
@@ -24,11 +24,6 @@ export default function setCookie({ name, value, maxAge }: { name: string, value
 
         document.cookie = cookieString;
     } catch (e) {
-        void reportError(undefined, {
-            error: e,
-            classOrMethodName: 'setCookie',
-            isClient: true,
-            params: { name },
-        });
+        reportIntlError(e, 'setCookie');
     }
 };
