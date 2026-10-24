@@ -1,0 +1,4 @@
+# cloudflare-next-intl-intl
+
+Core internationalization and localization package for Next.js App Router and Cloudflare.
+Zero optional module dependencies.
