@@ -82,6 +82,16 @@ const PREFETCH_SLOT_LOADING_CALL_RE =
 const FIXED_PREFETCH_SLOT_LOADING_CALL =
     "slotElement = /* @__PURE__ */ jsx(getDefaultExport(prefetchSlotLoadingEntry.loadingModule), { params: options.makeThenableParams(slotParams) })";
 
+const ROUTE_HEAD_METADATA_RE =
+    /metadata\s*&&\s*metadataPlacement\s*===\s*["']head["']\s*\?\s*(?:\/\*\s*@__PURE__\s*\*\/)?\s*(?:jsx|React\.createElement)\s*\(\s*MetadataHead\s*,\s*\{\s*metadata\s*,\s*pathname\s*,\s*trailingSlash\s*\}\s*\)\s*:\s*null/;
+const FIXED_ROUTE_HEAD_METADATA =
+    'metadata && metadataPlacement === "head" ? MetadataHead({\n\t\t\tmetadata,\n\t\t\tpathname,\n\t\t\ttrailingSlash\n\t\t}) : null';
+
+const ROUTE_HEAD_VIEWPORT_RE =
+    /(?:\/\*\s*@__PURE__\s*\*\/)?\s*(?:jsx|React\.createElement)\s*\(\s*ViewportHead\s*,\s*\{\s*viewport\s*\}\s*\)/;
+const FIXED_ROUTE_HEAD_VIEWPORT =
+    "viewport ? ViewportHead({ viewport }) : null";
+
 /**
  * Checks if the route wiring method is already fixed (either patched or fixed upstream).
  * If already fixed, the plugin will make no modifications.
@@ -121,6 +131,7 @@ const REQUIRED_SYMBOLS = {
         "rscUrl",
     ],
     suspenseProbe: ["REACT_CLIENT_REFERENCE_TYPE"],
+    boundaryRender: ["MetadataHead", "ViewportHead", "renderAppPageHttpAccessFallback"],
 } as const;
 
 export type VinextPatchName = keyof typeof REQUIRED_SYMBOLS;
@@ -190,7 +201,9 @@ export function isAppPageRouteWiringAlreadyFixed(code: string, options: AppPageR
     const hasBlockingPageDeps =
         options.unblockPageElementDependencies === true &&
         (PAGE_RESULT_DEPS_RE.test(code) || PAGE_ELEMENT_BLOCKING_DEP_RE.test(code));
-    return !hasBuggyPrefetch && !hasBuggySuspense && !hasEmptyLoadingProps && !hasBlockingLayoutDependencies && !hasBlockingPageDeps;
+    const hasUninvokedHeadMetadata =
+        ROUTE_HEAD_METADATA_RE.test(code) || ROUTE_HEAD_VIEWPORT_RE.test(code);
+    return !hasBuggyPrefetch && !hasBuggySuspense && !hasEmptyLoadingProps && !hasBlockingLayoutDependencies && !hasBlockingPageDeps && !hasUninvokedHeadMetadata;
 }
 
 /**
@@ -305,6 +318,13 @@ export function patchAppPageRouteWiring(code: string, options: AppPageRouteWirin
                 "elements[pageElementId] = isPrefetchLoadingShell ? null : pageElement;"
             );
         }
+    }
+
+    if (ROUTE_HEAD_METADATA_RE.test(result)) {
+        result = result.replace(ROUTE_HEAD_METADATA_RE, FIXED_ROUTE_HEAD_METADATA);
+    }
+    if (ROUTE_HEAD_VIEWPORT_RE.test(result)) {
+        result = result.replace(ROUTE_HEAD_VIEWPORT_RE, FIXED_ROUTE_HEAD_VIEWPORT);
     }
 
     return result;
@@ -918,6 +938,54 @@ export function isVinextAppPageRouteWiringSafeOnDisk(root: string = process.cwd(
     }
 }
 
+export function isAppPageBoundaryRenderFile(id: string): boolean {
+    const cleanId = id.split("?")[0].replace(/\\/g, "/");
+    return cleanId.endsWith("/app-page-boundary-render.js") || cleanId.endsWith("/app-page-boundary-render.ts");
+}
+
+export function isAppPageBoundaryRenderAlreadyFixed(code: string): boolean {
+    return !code.includes("createElement(MetadataHead") && !code.includes("createElement(ViewportHead");
+}
+
+const BOUNDARY_METADATA_HEAD_RE =
+    /if\s*\(\s*metadata\s*\)\s*headElements\.push\(\s*(?:React\.)?createElement\s*\(\s*MetadataHead\s*,\s*\{\s*key:\s*["']metadata["']\s*,\s*metadata\s*,\s*pathname\s*,\s*trailingSlash:\s*options\.trailingSlash\s*\}\s*\)\s*\);/g;
+
+const BOUNDARY_VIEWPORT_HEAD_RE =
+    /if\s*\(\s*viewport\s*\)\s*headElements\.push\(\s*(?:React\.)?createElement\s*\(\s*ViewportHead\s*,\s*\{\s*key:\s*["']viewport["']\s*,\s*viewport\s*\}\s*\)\s*\);/g;
+
+export function patchAppPageBoundaryRender(code: string): string {
+    if (isAppPageBoundaryRenderAlreadyFixed(code)) {
+        return code;
+    }
+
+    let result = code;
+    result = result.replace(
+        BOUNDARY_METADATA_HEAD_RE,
+        "if (metadata) headElements.push(MetadataHead({\n\t\tmetadata,\n\t\tpathname,\n\t\ttrailingSlash: options.trailingSlash\n\t}));"
+    );
+    result = result.replace(
+        BOUNDARY_VIEWPORT_HEAD_RE,
+        "if (viewport) headElements.push(ViewportHead({\n\t\tviewport\n\t}));"
+    );
+    return result;
+}
+
+export function resolveVinextAppPageBoundaryRenderPath(root: string = process.cwd()): string | null {
+    const directPath = resolve(root, "node_modules/vinext/dist/server/app-page-boundary-render.js");
+    return existsSync(directPath) ? directPath : null;
+}
+
+export function isVinextAppPageBoundaryRenderSafeOnDisk(root: string = process.cwd()): boolean {
+    const filePath = resolveVinextAppPageBoundaryRenderPath(root);
+    if (!filePath) return false;
+    try {
+        const content = readFileSync(filePath, "utf8");
+        return isAppPageBoundaryRenderAlreadyFixed(content);
+    } catch {
+        return false;
+    }
+}
+
 export function resolveVinextRouteMatchingPath(root: string = process.cwd()): string | null {
     const directPath = resolve(root, "node_modules/vinext/dist/routing/route-matching.js");
     return existsSync(directPath) ? directPath : null;
@@ -940,10 +1008,11 @@ export interface SyncPatchVinextOnDiskOptions {
     renderDependency?: boolean;
     optimisticLearningTimeout?: boolean | number;
     pageInvokerSuspensionRelease?: boolean;
+    boundaryRender?: boolean;
 }
 
 export function syncPatchVinextOnDisk(root: string = process.cwd(), options: SyncPatchVinextOnDiskOptions = {}): boolean {
-    const { routeWiring = true, routeMatching = true, optimisticRouting = true, prefetchLearning = true, suspenseProbe = true, renderDependency = true, optimisticLearningTimeout = true, pageInvokerSuspensionRelease = true, unblockRenderDependencies = true, unblockPageElementDependencies = false, refreshDeferral = true } = options;
+    const { routeWiring = true, routeMatching = true, optimisticRouting = true, prefetchLearning = true, suspenseProbe = true, renderDependency = true, optimisticLearningTimeout = true, pageInvokerSuspensionRelease = true, unblockRenderDependencies = true, unblockPageElementDependencies = false, refreshDeferral = true, boundaryRender = true } = options;
     const optimisticLearningTimeoutMs = typeof optimisticLearningTimeout === "number" ? optimisticLearningTimeout : undefined;
     let changed = false;
 
@@ -960,6 +1029,26 @@ export function syncPatchVinextOnDisk(root: string = process.cwd(), options: Syn
                     changed = true;
                 } else {
                     console.warn(`cfni:vinext-route-wiring-fix: ${wiringPath} does not match the expected shape for patchAppPageRouteWiring — this vinext version may have changed; the route-wiring fix was NOT applied.`);
+                }
+            }
+        } catch {
+            // Failed read/write
+        }
+    }
+
+    const boundaryRenderPath = boundaryRender ? resolveVinextAppPageBoundaryRenderPath(root) : null;
+    if (boundaryRenderPath) {
+        try {
+            const content = readFileSync(boundaryRenderPath, "utf8");
+            if (!isAppPageBoundaryRenderAlreadyFixed(content) && !hasRequiredSymbols(content, "boundaryRender")) {
+                warnIncompatible(boundaryRenderPath, "boundaryRender", content);
+            } else if (!isAppPageBoundaryRenderAlreadyFixed(content)) {
+                const patched = patchAppPageBoundaryRender(content);
+                if (patched !== content) {
+                    writeFileSync(boundaryRenderPath, patched, "utf8");
+                    changed = true;
+                } else {
+                    console.warn(`cfni:vinext-route-wiring-fix: ${boundaryRenderPath} does not match the expected shape for patchAppPageBoundaryRender — this vinext version may have changed; the boundary-render fix was NOT applied.`);
                 }
             }
         } catch {
@@ -1185,6 +1274,7 @@ export function bustVinextOptimizeDepsCache(cacheDir: string): boolean {
 export function isVinextOptimizeDepsCacheStale(root: string, cacheDir: string): boolean {
     const patchedFiles = [
         resolveVinextAppPageRouteWiringPath(root),
+        resolveVinextAppPageBoundaryRenderPath(root),
         resolveVinextRouteMatchingPath(root),
         resolveVinextOptimisticRoutingPath(root),
         resolveVinextBrowserEntryPath(root),
@@ -1326,6 +1416,16 @@ export interface VinextRouteWiringFixPluginOptions {
      * @default true
      */
     refreshDeferral?: boolean;
+
+    /**
+     * Evaluate MetadataHead and ViewportHead directly in boundary renders
+     * (e.g. 404 / error fallbacks) instead of serializing un-invoked component
+     * elements across Flight, avoiding RSC serialization failure on non-plain objects.
+     *
+     * ⚠️ **DANGER**: Monkey-patches vinext server boundary render on disk.
+     * @default true
+     */
+    boundaryRender?: boolean;
 }
 
 export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOptions = {}): Plugin {
@@ -1344,13 +1444,14 @@ export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOp
     const unblockRenderDependencies = options.unblockRenderDependencies !== false;
     const unblockPageElementDependencies = options.unblockPageElementDependencies === true;
     const refreshDeferral = options.refreshDeferral !== false;
+    const boundaryRender = options.boundaryRender !== false;
 
     return {
         name: "cfni:vinext-route-wiring-fix",
         enforce: "pre",
         configResolved(config) {
             const root = config.root || process.cwd();
-            const changed = syncPatchVinextOnDisk(root, { routeWiring, routeMatching, optimisticRouting, prefetchLearning, suspenseProbe, renderDependency, optimisticLearningTimeout: options.optimisticLearningTimeout ?? true, pageInvokerSuspensionRelease, unblockRenderDependencies, unblockPageElementDependencies, refreshDeferral });
+            const changed = syncPatchVinextOnDisk(root, { routeWiring, routeMatching, optimisticRouting, prefetchLearning, suspenseProbe, renderDependency, optimisticLearningTimeout: options.optimisticLearningTimeout ?? true, pageInvokerSuspensionRelease, unblockRenderDependencies, unblockPageElementDependencies, refreshDeferral, boundaryRender });
             const cacheDir = config.cacheDir || resolve(root, "node_modules/.vite");
             if (changed || isVinextOptimizeDepsCacheStale(root, cacheDir)) {
                 const busted = bustVinextOptimizeDepsCache(cacheDir);
@@ -1365,6 +1466,19 @@ export function vinextRouteWiringFixPlugin(options: VinextRouteWiringFixPluginOp
                     return;
                 }
                 const patched = patchAppPageRouteWiring(code, { unblockRenderDependencies, unblockPageElementDependencies });
+                if (patched === code) {
+                    return;
+                }
+                return {
+                    code: patched,
+                    map: null,
+                };
+            }
+            if (boundaryRender && isAppPageBoundaryRenderFile(id)) {
+                if (isAppPageBoundaryRenderAlreadyFixed(code) || !hasRequiredSymbols(code, "boundaryRender")) {
+                    return;
+                }
+                const patched = patchAppPageBoundaryRender(code);
                 if (patched === code) {
                     return;
                 }

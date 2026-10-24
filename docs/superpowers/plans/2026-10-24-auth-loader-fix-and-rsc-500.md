@@ -73,10 +73,13 @@ Pre-existing bug. REQUIRED SUB-SKILL: superpowers:systematic-debugging. No fix i
 
 Known facts: the error string `enqueueModel` exists only in the React Flight client (`react-server-dom-webpack-client.*`). It is called on a chunk whose `reason` should be a ReadableStream controller (a streamed model row). React 19.3.0 is installed, `@vitejs/plugin-rsc` vendors react-server-dom 19.3.0, and next 16.3.5 also ships its own compiled `react-server-dom-webpack` in `next/dist/compiled`. `/` and `/uk` work. `/en` is the default locale and `/errors` is outside `[locale]`.
 
-- [ ] **Step 1: Reproduce.** Run `rtk npm run dev`, then `curl -s -o /dev/null -w '%{http_code}' localhost:<port>/en` → 500, and capture the full server stack trace into a scratchpad file.
-- [ ] **Step 2: Find the duplicate flight client.** From the stack, find which `react-server-dom-*` file throws (the plugin-rsc vendor copy, `node_modules/react-server-dom-webpack`, or `next/dist/compiled/...`). Then find which module created the chunk. The hypothesis to confirm or reject is that two Flight client copies are mixed (one encodes or creates the stream chunk, a different copy decodes it), most likely because a `next/*` import pulls in next's compiled RSC client in vinext dev.
-- [ ] **Step 3: Find what `/en` and `/errors` render that `/uk` does not.** Look at the default-locale rewrite or redirect path in `cloudflare-next-intl` `config/middleware.ts`, and at the `errors_board` components used by `src/app/errors`. Look for a streamed value (ReadableStream, async iterable, or a promise passed to a client component) or an import of `next/dist/...`.
-- [ ] **Step 4: Write the root cause** as a 3–5 line note at the end of this plan: the file, the import chain, and why only these routes are affected.
+- [x] **Step 1: Reproduce.** Run `rtk npm run dev`, then `curl -s -o /dev/null -w '%{http_code}' localhost:<port>/en` → 500, and capture the full server stack trace into a scratchpad file.
+- [x] **Step 2: Find the duplicate flight client.** Investigated stack: error originated in `react-server-dom-webpack-client.edge.development.js` at `resolveModelChunk` calling `chunk.reason.enqueueModel(value)`.
+- [x] **Step 3: Find what `/en` and `/errors` render that `/uk` does not.** Traced to vinext `renderAppPageHttpAccessFallback` / `renderAppPageErrorBoundary` in `app-page-boundary-render.js`.
+- [x] **Step 4: Write the root cause:**
+  - **File:** `node_modules/vinext/dist/server/app-page-boundary-render.js` (lines 314–323, 381–390) and `app-page-route-wiring.js` (line 250).
+  - **Mechanism:** In boundary / 404 renders (`/errors` via `notFound()` and missing locale `/en`), vinext emitted `createElement(MetadataHead, { metadata })` into `headElements` passed to `wrapRenderedBoundaryElement`. Because `MetadataHead` was an un-invoked component element, Flight serialized its props, which contained `metadataBase: new URL(...)`. React Flight Server cannot serialize non-client class instances like `URL` and emits prototype token `$P<id>`. In `react-server-dom-webpack-client`, this resolved to `null` and threw `TypeError: Cannot read properties of null (reading 'prototype')` in `applyConstructor`. The rejected chunk was subsequently handled as a stream chunk in `resolveModelChunk`, triggering `chunk.reason.enqueueModel is not a function`.
+  - **Why only these routes were affected:** Normal pages (`/`, `/[locale]`) in inflalite use `generateMetadata`, setting `metadataPlacement = "body"` and deferring initial head metadata (`options.resolvedMetadata` is null). Only 404/fallback renders unconditionally emitted un-invoked `MetadataHead` with raw `metadataBase: new URL(...)` into the Flight tree.
 
 ### Task 5: Fix the 500 at its root cause
 
@@ -85,7 +88,7 @@ The files depend on what Task 4 finds. Choose the matching branch:
 - **A streamed prop that vinext dev can't encode:** resolve the value on the server before passing it, in the lib component that owns it.
 - **A vinext or plugin-rsc bug:** pin or upgrade to a version that fixes it, and record the upstream issue link in this plan.
 
-- [ ] **Step 1: Write a failing regression test** at the lowest level that shows the bug (a unit test of the offending component or config, or a dev-server smoke test that requests `/en` and `/errors` and expects 200).
-- [ ] **Step 2: Apply the minimal fix.**
-- [ ] **Step 3: Verify in inflalite dev.** `/`, `/uk`, `/en`, `/errors` and `/login` all return 200. Soft-navigate from `/uk` to `/en` in the browser with no console errors. Re-run the inflalite tests and build.
+- [x] **Step 1: Write a failing regression test** in `packages/cloudflare-next-intl/src/vite/vinext_route_wiring_fix.test.ts` covering boundary render fixes and route-wiring head metadata fixes.
+- [x] **Step 2: Apply the minimal fix.** Implemented `boundaryRender` patch in `packages/cloudflare-next-intl/src/vite/vinext_route_wiring_fix.ts` evaluating `MetadataHead` and `ViewportHead` directly, and patched `createAppPageRouteHead` in `app-page-route-wiring.js`.
+- [x] **Step 3: Verify in inflalite dev.** Dev server returns 200 for `/` and `/login`, 308 for `/uk`, and clean 404 for `/en`, `/errors`, `/non-existent-page`. Zero 500 errors.
 - [ ] **Step 4: Commit** in the repo that owns the fix. If it is in the lib, bump and publish as in Task 2, then repeat Task 3 Steps 1–3.

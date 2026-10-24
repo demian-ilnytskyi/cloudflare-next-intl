@@ -6,7 +6,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
     it("returns array of plugins by default", () => {
         const plugins = cloudflareNextIntl();
         expect(Array.isArray(plugins)).toBe(true);
-        expect(plugins.length).toBe(16);
+        expect(plugins.length).toBe(17);
 
         const pluginNames = plugins.map((p) => p.name);
         expect(pluginNames).toContain("cloudflare-next-intl-layout-queries-check");
@@ -25,6 +25,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(pluginNames).toContain("cfni:buffer-stub");
         expect(pluginNames).toContain("cfni:react-eval-stub");
         expect(pluginNames).toContain("cfni:optional-firebase-stub");
+        expect(pluginNames).toContain("cfni:tailwind-sources");
     });
 
     it("includes vinext-route-wiring-fix when explicitly enabled", () => {
@@ -51,6 +52,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: false,
             localeFiles: false,
@@ -74,6 +76,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             imageOptimizer: false,
             buildIdAsset: "CUSTOM_BUILD_ID",
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: false,
             localeFiles: false,
@@ -101,6 +104,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             },
             buildIdAsset: false,
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: false,
             localeFiles: false,
@@ -127,6 +131,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: false,
             localeFiles: false,
@@ -153,6 +158,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: false,
             localeFiles: false,
@@ -180,6 +186,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: false,
             localeFiles: false,
@@ -204,6 +211,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: false,
             localeFiles: false,
@@ -231,6 +239,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: false,
             localeFiles: false,
@@ -258,6 +267,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: false,
             localeFiles: false,
@@ -282,6 +292,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: true,
             localeFiles: false,
@@ -306,6 +317,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: { routeMatching: false },
             localeFiles: false,
@@ -350,6 +362,7 @@ describe("cloudflareNextIntl (main plugin)", () => {
             imageOptimizer: false,
             buildIdAsset: false,
             cfWorkersClientStub: false,
+            tailwindSources: false,
             userAgentStub: false,
             vinextRouteWiringFix: false,
             localeFiles: false,
