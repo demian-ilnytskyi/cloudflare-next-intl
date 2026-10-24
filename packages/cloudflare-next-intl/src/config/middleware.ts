@@ -4,7 +4,7 @@ import {
     type IntlMiddlewareContext,
     type IntlMiddlewareHook,
 } from 'cloudflare-next-intl-intl/middleware';
-import type { NextRequest, NextResponse } from 'next/server.js';
+import type { NextResponse } from 'next/server.js';
 import type { MiddlewareCustomHandler } from 'cloudflare-next-intl-intl/types';
 import config from './intl_config.js';
 import type * as UpdateSessionModule from '../firebase_auth/middleware/update_session.js';
@@ -50,6 +50,7 @@ export {
  *   Defaults to `false`.
  */
 export type IntlMiddleware = (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     request: any,
     options?: { middlewareHandler?: MiddlewareCustomHandler; runHandlerOnRedirect?: boolean },
 ) => Promise<NextResponse>;
