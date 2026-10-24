@@ -55,10 +55,12 @@ function getFirstHeaderValue(headers: Headers, names: readonly string[]): string
 export function createIntlMiddleware(middlewareOptions?: {
     afterResponse?: IntlMiddlewareHook;
 }): (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     request: any,
     options?: { middlewareHandler?: MiddlewareCustomHandler; runHandlerOnRedirect?: boolean },
 ) => Promise<NextResponse> {
     return async function intlMiddleware(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         request: any,
         options?: { middlewareHandler?: MiddlewareCustomHandler; runHandlerOnRedirect?: boolean },
     ): Promise<NextResponse<unknown>> {

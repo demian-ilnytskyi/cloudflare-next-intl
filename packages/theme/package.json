@@ -41,7 +41,6 @@
   "scripts": {
     "test": "vitest run --coverage",
     "bench": "vitest bench --run --config vitest.bench.config.ts",
-    "prepare": "npm run build",
     "build": "rm -rf dist && tsc && node scripts/write_dist_type.mjs",
     "check:exports": "node scripts/check_exports.mjs",
     "check:size": "node scripts/check_size.mjs",

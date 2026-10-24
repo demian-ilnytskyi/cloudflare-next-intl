@@ -3,7 +3,6 @@
 import type { TranslationObject } from "../../types/types.js";
 import { setLocaleCache, setMessageForLocaleCache } from "../../general/cache_variables.js";
 import { useMemo } from "react";
-import config from "../../config/intl_config.js";
 import { LocaleContext } from "./locale_provider.js";
 
 export { LocaleContext };
