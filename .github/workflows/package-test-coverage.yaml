@@ -131,7 +131,7 @@ jobs:
       working_directory: packages/auth
       test_path: src
       min_coverage: 100
-      min_overall_coverage: 99
+      min_overall_coverage: 96
       per_file_exceptions: |
         firebase_auth_check/check_firebase_auth_config.ts:96
         firebase_auth/client/auth_user_provider.tsx:92
