@@ -106,6 +106,11 @@
   ],
   "author": "Demian Ilnutskyi",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/demian-ilnytskyi/cloudflare-next-intl.git",
+    "directory": "packages/auth"
+  },
   "bugs": {
     "url": "https://github.com/demian-ilnytskyi/cloudflare-next-intl/issues"
   },
