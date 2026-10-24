@@ -9,7 +9,7 @@ const isDev = process.env.NODE_ENV === 'development';
 /**
  * React Server Component `useLocale`, reached via the `cloudflare-next-intl/use`
  * subpath's `react-server` condition (resolved automatically — you always
- * just `import { useLocale } from "cloudflare-next-intl/use"`; the matching
+ * just `import { useLocale } from "cloudflare-next-intl-intl/use"`; the matching
  * client-hook version from `client_hooks.ts` is used automatically in client
  * components instead).
  *

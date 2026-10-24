@@ -1,4 +1,3 @@
-
 import intlConfig from '@intl-config';
 import type { LocalePrefixMode, Locales, RoutingConfig } from '../types/types.js';
 

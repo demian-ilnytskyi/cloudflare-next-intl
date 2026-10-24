@@ -17,6 +17,14 @@
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
     },
+    "./middleware": {
+      "types": "./dist/src/config/middleware.d.ts",
+      "import": "./dist/src/config/middleware.js"
+    },
+    "./setIntlConfig": {
+      "types": "./dist/src/config/init_config.d.ts",
+      "import": "./dist/src/config/init_config.js"
+    },
     "./errorHandling": {
       "types": "./dist/src/error_handling/index.d.ts",
       "import": "./dist/src/error_handling/index.js"
@@ -120,6 +128,42 @@
     "./internal/matchNamespace": {
       "types": "./dist/src/client_messages_scan/match_namespace.d.ts",
       "import": "./dist/src/client_messages_scan/match_namespace.js"
+    },
+    "./internal/createIntlMiddleware": {
+      "types": "./dist/src/config/create_intl_middleware.d.ts",
+      "import": "./dist/src/config/create_intl_middleware.js"
+    },
+    "./internal/cookieKey": {
+      "types": "./dist/src/config/cookie_key.d.ts",
+      "import": "./dist/src/config/cookie_key.js"
+    },
+    "./internal/intlConfig": {
+      "types": "./dist/src/config/intl_config.d.ts",
+      "import": "./dist/src/config/intl_config.js"
+    },
+    "./internal/intlSitemap": {
+      "types": "./dist/src/config/intl_sitemap.d.ts",
+      "import": "./dist/src/config/intl_sitemap.js"
+    },
+    "./internal/configIndex": {
+      "types": "./dist/src/config/index.d.ts",
+      "import": "./dist/src/config/index.js"
+    },
+    "./internal/geo": {
+      "types": "./dist/src/server/functions/geo.d.ts",
+      "import": "./dist/src/server/functions/geo.js"
+    },
+    "./internal/getUserLocale": {
+      "types": "./dist/src/server/functions/get_user_locale.d.ts",
+      "import": "./dist/src/server/functions/get_user_locale.js"
+    },
+    "./internal/localeStaticParams": {
+      "types": "./dist/src/server/functions/locale_static_params.d.ts",
+      "import": "./dist/src/server/functions/locale_static_params.js"
+    },
+    "./internal/server": {
+      "types": "./dist/src/server/functions/server.d.ts",
+      "import": "./dist/src/server/functions/server.js"
     }
   },
   "scripts": {
