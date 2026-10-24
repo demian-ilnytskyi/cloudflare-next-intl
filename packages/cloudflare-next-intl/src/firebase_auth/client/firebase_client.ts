@@ -12,8 +12,10 @@ import { defaultAppCheckTokenCookieName } from '../cookie_names.js';
 import { isAppCheckTokenUsable } from '../app_check_token.js';
 import getCookie from '../../client/functions/get_cookie.js';
 import decodeJwtPayload from '../decode_jwt_payload.js';
+import exchangeTurnstileTokenAction from '../server/exchange_turnstile_token_action.js';
 
-export const RECAPTCHA_TOKEN_TIMEOUT_MS = 8_000;
+export const APP_CHECK_CHALLENGE_TIMEOUT_MS = 8_000;
+export const RECAPTCHA_TOKEN_TIMEOUT_MS = APP_CHECK_CHALLENGE_TIMEOUT_MS;
 
 let cachedAppCheck: AppCheck | undefined;
 let cachedPerformance: FirebasePerformance | undefined;
@@ -32,10 +34,67 @@ interface Grecaptcha {
     execute: (widgetId: string, options: { action: string }) => Promise<string>;
 }
 
+interface Turnstile {
+    render: (
+        container: HTMLElement | string,
+        params: {
+            sitekey: string;
+            action?: string;
+            appearance?: 'always' | 'execute' | 'interaction-only';
+            execution?: 'render' | 'execute';
+            callback?: (token: string) => void;
+            'error-callback'?: (error?: unknown) => void;
+            'timeout-callback'?: () => void;
+        },
+    ) => string;
+    execute: (container?: HTMLElement | string, params?: { action?: string }) => void;
+    reset: (widgetId: string) => void;
+}
+
 declare global {
     interface Window {
         grecaptcha?: Grecaptcha;
+        turnstile?: Turnstile;
     }
+}
+
+const TURNSTILE_LOAD_TIMEOUT_MS = 15_000;
+const TURNSTILE_POLL_INTERVAL_MS = 50;
+const TURNSTILE_SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+
+let turnstileScriptFailed = false;
+
+function ensureTurnstileScript(): void {
+    if (document.querySelector(`script[src="${TURNSTILE_SCRIPT_SRC}"]`)) return;
+    const script = document.createElement('script');
+    script.src = TURNSTILE_SCRIPT_SRC;
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => {
+        turnstileScriptFailed = true;
+    };
+    document.head.appendChild(script);
+}
+
+function waitForTurnstile(): Promise<Turnstile> {
+    if (window.turnstile) return Promise.resolve(window.turnstile);
+    ensureTurnstileScript();
+    return new Promise((resolve, reject) => {
+        const startedAt = Date.now();
+        const timer = setInterval(() => {
+            if (window.turnstile) {
+                clearInterval(timer);
+                resolve(window.turnstile);
+            } else if (turnstileScriptFailed || Date.now() - startedAt >= TURNSTILE_LOAD_TIMEOUT_MS) {
+                clearInterval(timer);
+                reject(
+                    new Error(
+                        `window.turnstile never loaded; ${TURNSTILE_SCRIPT_SRC} failed to load or was blocked`,
+                    ),
+                );
+            }
+        }, TURNSTILE_POLL_INTERVAL_MS);
+    });
 }
 
 const GRECAPTCHA_LOAD_TIMEOUT_MS = 15_000;
@@ -90,6 +149,19 @@ function waitForGrecaptcha(): Promise<Grecaptcha> {
             }
         }, GRECAPTCHA_POLL_INTERVAL_MS);
     });
+}
+
+function readSeededAppCheckToken(): { token: string; expireTimeMillis: number } | null {
+    const fa = config.firebaseAuth;
+    const cookieName = fa?.appCheckTokenCookieName ?? defaultAppCheckTokenCookieName;
+    const seededToken = getCookie(cookieName);
+    if (isAppCheckTokenUsable(seededToken)) {
+        const decoded = decodeJwtPayload(seededToken!);
+        if (decoded?.exp) {
+            return { token: seededToken!, expireTimeMillis: decoded.exp * 1000 };
+        }
+    }
+    return null;
 }
 
 /**
@@ -153,15 +225,8 @@ function createExplicitRecaptchaProvider(
 
     return new CustomProviderCtor({
         getToken: async () => {
-            const fa = config.firebaseAuth;
-            const cookieName = fa?.appCheckTokenCookieName ?? defaultAppCheckTokenCookieName;
-            const seededToken = getCookie(cookieName);
-            if (isAppCheckTokenUsable(seededToken)) {
-                const decoded = decodeJwtPayload(seededToken!);
-                if (decoded?.exp) {
-                    return { token: seededToken!, expireTimeMillis: decoded.exp * 1000 };
-                }
-            }
+            const seeded = readSeededAppCheckToken();
+            if (seeded) return seeded;
 
             const { grecaptcha, widgetId } = await ensureWidget();
             let timer: ReturnType<typeof setTimeout> | undefined;
@@ -204,6 +269,122 @@ function createExplicitRecaptchaProvider(
     });
 }
 
+function createTurnstileProvider(
+    siteKey: string,
+    CustomProviderCtor: typeof CustomProvider,
+) {
+    let widgetReady: Promise<{
+        turnstile: Turnstile;
+        widgetId: string;
+        executeChallenge: () => Promise<string>;
+    }> | undefined;
+    let inFlightExecute: Promise<{ token: string; expireTimeMillis: number }> | undefined;
+
+    function ensureWidget(): Promise<{
+        turnstile: Turnstile;
+        widgetId: string;
+        executeChallenge: () => Promise<string>;
+    }> {
+        if (widgetReady) return widgetReady;
+        const pending = (async () => {
+            const turnstile = await waitForTurnstile();
+            const containerId = 'fire_app_check_turnstile';
+            let container = document.getElementById(containerId);
+            if (!container) {
+                container = document.createElement('div');
+                container.id = containerId;
+                container.style.display = 'none';
+                document.body.appendChild(container);
+            }
+            let activeResolve: ((token: string) => void) | undefined;
+            let activeReject: ((err: Error) => void) | undefined;
+
+            const widgetId = turnstile.render(container, {
+                sitekey: siteKey,
+                appearance: 'interaction-only',
+                execution: 'execute',
+                action: 'fire_app_check',
+                callback: (token: string) => {
+                    activeResolve?.(token);
+                },
+                'error-callback': () => {
+                    activeReject?.(new Error('Turnstile error'));
+                },
+                'timeout-callback': () => {
+                    activeReject?.(new Error('Turnstile timed out'));
+                },
+            });
+
+            const executeChallenge = (): Promise<string> => {
+                return new Promise<string>((resolve, reject) => {
+                    activeResolve = resolve;
+                    activeReject = reject;
+                    try {
+                        turnstile.execute(widgetId);
+                    } catch (err) {
+                        reject(err instanceof Error ? err : new Error('Turnstile execute failed'));
+                    }
+                });
+            };
+
+            return { turnstile, widgetId, executeChallenge };
+        })();
+
+        widgetReady = pending.catch(error => {
+            widgetReady = undefined;
+            throw error;
+        });
+        return widgetReady;
+    }
+
+    return new CustomProviderCtor({
+        getToken: async () => {
+            const seeded = readSeededAppCheckToken();
+            if (seeded) return seeded;
+
+            if (inFlightExecute) return inFlightExecute;
+
+            inFlightExecute = (async () => {
+                let timer: ReturnType<typeof setTimeout> | undefined;
+                const timeoutPromise = new Promise<never>((_, reject) => {
+                    timer = setTimeout(
+                        () => reject(new Error('Turnstile timed out')),
+                        APP_CHECK_CHALLENGE_TIMEOUT_MS,
+                    );
+                });
+
+                const executeFlow = (async () => {
+                    const { turnstile, widgetId, executeChallenge } = await ensureWidget();
+                    let turnstileToken: string;
+                    try {
+                        turnstileToken = await executeChallenge();
+                    } finally {
+                        turnstile.reset(widgetId);
+                    }
+                    const result = await exchangeTurnstileTokenAction(turnstileToken);
+                    if (result.status !== 'ok') {
+                        throw new Error(`Turnstile exchange rejected with status: ${result.status}`);
+                    }
+                    return {
+                        token: result.token,
+                        expireTimeMillis: result.expireTimeMillis,
+                    };
+                })();
+
+                try {
+                    return await Promise.race([executeFlow, timeoutPromise]);
+                } finally {
+                    if (timer) clearTimeout(timer);
+                }
+            })().finally(() => {
+                inFlightExecute = undefined;
+            });
+
+            return inFlightExecute;
+        },
+    });
+}
+
 async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: FirebaseAppCheckConfig): Promise<AppCheck> {
     const { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider, CustomProvider } = await import(
         '@firebase/app-check'
@@ -212,11 +393,13 @@ async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: Fire
         (globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: boolean | string }).FIREBASE_APPCHECK_DEBUG_TOKEN =
             appCheckConfig.debugToken;
     }
-    const provider = appCheckConfig.recaptchaEnterpriseSiteKey
-        ? new ReCaptchaEnterpriseProvider(appCheckConfig.recaptchaEnterpriseSiteKey)
-        : appCheckConfig.useExplicitRecaptchaScript !== false
-          ? createExplicitRecaptchaProvider(app, appCheckConfig.recaptchaV3SiteKey as string, CustomProvider)
-          : new ReCaptchaV3Provider(appCheckConfig.recaptchaV3SiteKey as string);
+    const provider = appCheckConfig.turnstileSiteKey
+        ? createTurnstileProvider(appCheckConfig.turnstileSiteKey, CustomProvider)
+        : appCheckConfig.recaptchaEnterpriseSiteKey
+          ? new ReCaptchaEnterpriseProvider(appCheckConfig.recaptchaEnterpriseSiteKey)
+          : appCheckConfig.useExplicitRecaptchaScript !== false
+            ? createExplicitRecaptchaProvider(app, appCheckConfig.recaptchaV3SiteKey as string, CustomProvider)
+            : new ReCaptchaV3Provider(appCheckConfig.recaptchaV3SiteKey as string);
     return initializeAppCheck(app, {
         provider,
         isTokenAutoRefreshEnabled: appCheckConfig.isTokenAutoRefreshEnabled ?? true,

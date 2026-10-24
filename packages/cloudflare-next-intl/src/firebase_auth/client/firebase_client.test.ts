@@ -59,6 +59,11 @@ vi.mock('@firebase/app-check', () => ({
     getToken: (...args: unknown[]) => getToken(...args),
 }));
 
+const exchangeTurnstileTokenActionMock = vi.fn();
+vi.mock('../server/exchange_turnstile_token_action.js', () => ({
+    default: (...args: unknown[]) => exchangeTurnstileTokenActionMock(...args),
+}));
+
 describe('getFirebaseAuthClient', () => {
     beforeEach(() => {
         vi.resetModules();
@@ -716,5 +721,207 @@ describe('getFirebaseAuthClient when firebaseAuth is not configured', () => {
         vi.doMock('@intl-config', () => ({ default: {} }));
         const { getAppCheckToken } = await import('./firebase_client.js');
         await expect(getAppCheckToken()).resolves.toBeUndefined();
+    });
+});
+
+describe('Turnstile CustomProvider', () => {
+    const turnstileConfig = {
+        default: {
+            firebaseAuth: {
+                ...baseConfig.firebaseAuth,
+                appCheck: { turnstileSiteKey: 'cf-site-key' },
+            },
+        },
+    };
+
+    let turnstileExecute: ReturnType<typeof vi.fn>;
+    let turnstileRender: ReturnType<typeof vi.fn>;
+    let turnstileReset: ReturnType<typeof vi.fn>;
+
+    function installTurnstile({ fail = false, timeout = false, token = 'turnstile-token' }: { fail?: boolean; timeout?: boolean; token?: string } = {}): void {
+        let capturedParams: {
+            callback?: (t: string) => void;
+            'error-callback'?: () => void;
+            'timeout-callback'?: () => void;
+        } = {};
+        turnstileExecute = vi.fn((_widgetId?: string) => {
+            if (fail) capturedParams['error-callback']?.();
+            else if (timeout) capturedParams['timeout-callback']?.();
+            else capturedParams.callback?.(token);
+        });
+        turnstileRender = vi.fn((_container: HTMLElement | string, params: typeof capturedParams) => {
+            capturedParams = params;
+            return 'turnstile-widget-id';
+        });
+        turnstileReset = vi.fn((_widgetId: string) => {});
+        (window as { turnstile?: unknown }).turnstile = {
+            render: turnstileRender,
+            execute: turnstileExecute,
+            reset: turnstileReset,
+        };
+    }
+
+    function makeJwt(exp: number): string {
+        const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
+        const payload = Buffer.from(JSON.stringify({ exp })).toString('base64url');
+        return `${header}.${payload}.sig`;
+    }
+
+    async function getTurnstileProviderToken(): Promise<{ token: string; expireTimeMillis: number }> {
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.waitFor(() => expect(CustomProvider).toHaveBeenCalled());
+        const options = CustomProvider.mock.calls[0]![0] as {
+            getToken: () => Promise<{ token: string; expireTimeMillis: number }>;
+        };
+        return options.getToken();
+    }
+
+    beforeEach(() => {
+        vi.resetModules();
+        getApps.mockReturnValue([]);
+        CustomProvider.mockClear();
+        ReCaptchaV3Provider.mockClear();
+        ReCaptchaEnterpriseProvider.mockClear();
+        exchangeTurnstileTokenActionMock.mockClear();
+        vi.doMock('@intl-config', () => turnstileConfig);
+        delete (window as { turnstile?: unknown }).turnstile;
+        document.body.innerHTML = '';
+        document.cookie = '__fa_app_check_token__=; max-age=0; path=/';
+    });
+
+    afterEach(() => {
+        delete (window as { turnstile?: unknown }).turnstile;
+        document.cookie = '__fa_app_check_token__=; max-age=0; path=/';
+        document.querySelectorAll('script[src*="challenges.cloudflare.com"]').forEach(node => node.remove());
+        vi.unstubAllGlobals();
+    });
+
+    it('uses the seeded cookie without injecting the Turnstile script', async () => {
+        const exp = Math.floor(Date.now() / 1000) + 3600;
+        const seededToken = makeJwt(exp);
+        document.cookie = `__fa_app_check_token__=${seededToken}; path=/`;
+
+        const result = await getTurnstileProviderToken();
+        expect(result.token).toBe(seededToken);
+        expect(result.expireTimeMillis).toBe(exp * 1000);
+        expect(document.querySelector('script[src*="challenges.cloudflare.com"]')).toBeNull();
+        expect((window as { turnstile?: unknown }).turnstile).toBeUndefined();
+        expect(exchangeTurnstileTokenActionMock).not.toHaveBeenCalled();
+    });
+
+    it('injects the Turnstile script once and renders one widget for concurrent getToken calls', async () => {
+        const selector = 'script[src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"]';
+        exchangeTurnstileTokenActionMock.mockResolvedValue({
+            status: 'ok',
+            token: 'minted-app-check-token',
+            expireTimeMillis: 999999999,
+        });
+
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.waitFor(() => expect(CustomProvider).toHaveBeenCalled());
+        const options = CustomProvider.mock.calls[0]![0] as {
+            getToken: () => Promise<{ token: string; expireTimeMillis: number }>;
+        };
+
+        const first = options.getToken();
+        await vi.waitFor(() => expect(document.querySelectorAll(selector)).toHaveLength(1));
+        const second = options.getToken();
+        expect(document.querySelectorAll(selector)).toHaveLength(1);
+
+        installTurnstile();
+        const [res1, res2] = await Promise.all([first, second]);
+        expect(res1.token).toBe('minted-app-check-token');
+        expect(res2.token).toBe('minted-app-check-token');
+        expect(turnstileRender).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns the exchanged App Check token with its expiry', async () => {
+        installTurnstile();
+        exchangeTurnstileTokenActionMock.mockResolvedValueOnce({
+            status: 'ok',
+            token: 'minted-app-check-token',
+            expireTimeMillis: 1800000000000,
+        });
+
+        const result = await getTurnstileProviderToken();
+        expect(result.token).toBe('minted-app-check-token');
+        expect(result.expireTimeMillis).toBe(1800000000000);
+        expect(turnstileRender).toHaveBeenCalledWith(
+            expect.any(HTMLElement),
+            expect.objectContaining({
+                sitekey: 'cf-site-key',
+                appearance: 'interaction-only',
+                execution: 'execute',
+                action: 'fire_app_check',
+            }),
+        );
+        expect(turnstileExecute).toHaveBeenCalledWith('turnstile-widget-id');
+        expect(turnstileReset).toHaveBeenCalledWith('turnstile-widget-id');
+        expect(exchangeTurnstileTokenActionMock).toHaveBeenCalledWith('turnstile-token');
+    });
+
+    it('rejects when the exchange answers rejected', async () => {
+        installTurnstile();
+        exchangeTurnstileTokenActionMock.mockResolvedValueOnce({ status: 'rejected' });
+
+        await expect(getTurnstileProviderToken()).rejects.toThrow(/rejected/);
+        expect(turnstileReset).toHaveBeenCalledWith('turnstile-widget-id');
+    });
+
+    it('rejects immediately when the Turnstile script fails to load', async () => {
+        const selector = 'script[src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"]';
+        vi.useFakeTimers();
+
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.advanceTimersByTimeAsync(0);
+        const options = CustomProvider.mock.calls[0]![0] as { getToken: () => Promise<unknown> };
+        const pending = options.getToken();
+        const assertion = expect(pending).rejects.toThrow(/never loaded/);
+
+        document.head.querySelector(selector)?.dispatchEvent(new Event('error'));
+        await vi.advanceTimersByTimeAsync(50);
+        await assertion;
+        vi.useRealTimers();
+    });
+
+    it('rejects after APP_CHECK_CHALLENGE_TIMEOUT_MS when execute never calls back', async () => {
+        installTurnstile();
+        turnstileExecute.mockImplementationOnce(() => {});
+        vi.useFakeTimers();
+
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.advanceTimersByTimeAsync(0);
+        const options = CustomProvider.mock.calls[0]![0] as { getToken: () => Promise<unknown> };
+        const pending = options.getToken();
+        const assertion = expect(pending).rejects.toThrow(/timed out/);
+
+        await vi.advanceTimersByTimeAsync(8_000);
+        await assertion;
+        vi.useRealTimers();
+    });
+
+    it('prefers Turnstile over reCAPTCHA when both site keys are set', async () => {
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    appCheck: {
+                        turnstileSiteKey: 'cf-site-key',
+                        recaptchaV3SiteKey: 'rc-site-key',
+                        recaptchaEnterpriseSiteKey: 'rc-enterprise-key',
+                    },
+                },
+            },
+        }));
+
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        await getAppCheckToken();
+        expect(CustomProvider).toHaveBeenCalledWith(expect.objectContaining({ getToken: expect.any(Function) }));
+        expect(ReCaptchaV3Provider).not.toHaveBeenCalled();
+        expect(ReCaptchaEnterpriseProvider).not.toHaveBeenCalled();
     });
 });
