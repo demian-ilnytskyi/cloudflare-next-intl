@@ -6,6 +6,7 @@ Companion files: [config-and-routing.md](config-and-routing.md),
 ## Packages Architecture
 
 - `packages/intl` (`cloudflare-next-intl-intl`): Core i18n/l10n engine (routing, middleware, server/client translations, Link). Zero optional module dependencies.
+- `packages/auth` (`cloudflare-next-intl-auth`): Firebase Auth & App Check module (sessions, cookies, Turnstile, verification).
 - `packages/cloudflare-next-intl`: Umbrella package re-exporting core and wiring optional extensions (auth, cookie-consent, db).
 - Dependency direction: `intl ← auth ← umbrella`. `cloudflare-next-intl-db` is independent.
 

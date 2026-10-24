@@ -40,8 +40,8 @@
       }
     },
     "./getFirebaseAuthUser": {
-      "types": "./dist/src/firebase_auth/server/auth_user_server.d.ts",
-      "import": "./dist/src/firebase_auth/server/auth_user_server.js"
+      "types": "./dist/src/firebase_auth/server/use_auth_user_server.d.ts",
+      "import": "./dist/src/firebase_auth/server/use_auth_user_server.js"
     },
     "./resolveOptionalAuthUser": {
       "types": "./dist/src/firebase_auth/server/resolve_optional_auth_user.d.ts",

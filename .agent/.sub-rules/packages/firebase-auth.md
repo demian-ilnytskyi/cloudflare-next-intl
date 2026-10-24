@@ -1,7 +1,6 @@
-# Firebase Auth Module — `package/src/firebase_auth/**`
+# Firebase Auth Module — `packages/auth/src/firebase_auth/**`
 
-Optional, tree-shakeable submodule. Ported from `/Volumes/External/clarivant/CRV`'s
-hand-rolled Firebase auth layer during Phase 2b.
+Optional, tree-shakeable submodule, extracted into standalone `cloudflare-next-intl-auth` package.
 
 ## Enabling it
 
