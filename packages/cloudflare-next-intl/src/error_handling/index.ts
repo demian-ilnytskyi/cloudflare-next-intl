@@ -1,1 +1,1 @@
-export * from "cloudflare-next-intl-intl/errorHandling";
+export * from "cloudflare-next-intl-errors/errorHandling";

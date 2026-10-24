@@ -5,6 +5,7 @@ import config from '../../config/intl_config.js';
 import type { TranslationObject } from '../../types/types.js';
 import type { CookieConsentAnalyticsConfig } from '../../types/types.js';
 import reportError from '../../error_handling/report_error.js';
+import installConsoleErrorOverride from '../../error_handling/install_console_error_override.js';
 
 export default async function LocationzationProvider({
     language,
@@ -45,6 +46,8 @@ export default async function LocationzationProvider({
             }
         }
     }
+
+    installConsoleErrorOverride(config);
 
     return await CoreIntlProviderStatic({
         language,

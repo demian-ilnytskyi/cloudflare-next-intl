@@ -122,5 +122,33 @@ describe('ClientExtensions', () => {
 
         expect(screen.getByTestId('consent-provider')).not.toBeNull();
     });
+
+    it('installs console and global overrides and renders client theme script', async () => {
+        const installConsoleSpy = vi.fn();
+        const installGlobalSpy = vi.fn();
+        vi.doMock('../../error_handling/install_console_error_override.js', () => ({
+            default: installConsoleSpy,
+        }));
+        vi.doMock('../../error_handling/install_global_error_override.js', () => ({
+            default: installGlobalSpy,
+        }));
+        vi.doMock('cloudflare-next-intl-theme/ClientThemeScript', () => ({
+            default: () => <div data-testid="client-theme-script" />,
+        }));
+
+        const { default: Extensions } = await import('./client_extensions.js');
+
+        render(
+            <LocaleContext.Provider value={{ language: 'en', messages: {} }}>
+                <Extensions>
+                    <ChildConsumer />
+                </Extensions>
+            </LocaleContext.Provider>,
+        );
+
+        expect(installConsoleSpy).toHaveBeenCalledWith(expect.anything(), true);
+        expect(installGlobalSpy).toHaveBeenCalledWith(expect.anything());
+        expect(screen.getByTestId('client-theme-script')).not.toBeNull();
+    });
 });
 

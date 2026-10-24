@@ -1,2 +1,2 @@
-export * from "cloudflare-next-intl-intl/createServerErrorAction";
-export { default } from "cloudflare-next-intl-intl/createServerErrorAction";
+export * from "cloudflare-next-intl-errors/createServerErrorAction";
+export { default } from "cloudflare-next-intl-errors/createServerErrorAction";

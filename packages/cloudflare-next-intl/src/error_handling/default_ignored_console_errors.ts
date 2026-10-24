@@ -1,1 +1,1 @@
-export * from "cloudflare-next-intl-intl/defaultIgnoredConsoleErrors";
+export * from "cloudflare-next-intl-errors/defaultIgnoredConsoleErrors";

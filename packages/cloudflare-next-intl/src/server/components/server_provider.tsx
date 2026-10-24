@@ -7,6 +7,7 @@ import type { TranslationObject } from '../../types/types.js';
 import type { SerializedAuthUser } from '../../firebase_auth/types.js';
 import type { CookieConsentAnalyticsConfig } from '../../types/types.js';
 import reportError from '../../error_handling/report_error.js';
+import installConsoleErrorOverride from '../../error_handling/install_console_error_override.js';
 import type * as AuthUserServerProviderModule from '../../firebase_auth/server/auth_user_server_provider.js';
 
 let authUserServerProviderModule: typeof AuthUserServerProviderModule | undefined;
@@ -68,6 +69,8 @@ export default async function LocationzationProvider({
             }
         }
     }
+
+    installConsoleErrorOverride(config);
 
     return await CoreIntlProvider({
         language,

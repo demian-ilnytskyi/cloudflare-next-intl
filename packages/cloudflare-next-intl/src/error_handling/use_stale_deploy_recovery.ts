@@ -1,2 +1,2 @@
-export * from "cloudflare-next-intl-intl/useStaleDeployRecovery";
-export { default } from "cloudflare-next-intl-intl/useStaleDeployRecovery";
+export * from "cloudflare-next-intl-errors/useStaleDeployRecovery";
+export { default } from "cloudflare-next-intl-errors/useStaleDeployRecovery";

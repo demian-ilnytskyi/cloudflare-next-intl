@@ -89,7 +89,7 @@ export function firebaseAuthCheckPlugin(options: FirebaseAuthCheckPluginOptions 
             try {
                 firebaseAuth = await loadResolvedFirebaseAuth({
                     intlConfigPath,
-                    viteConfig: { root: config.root, envDir: config.envDir, mode: config.mode, resolve: { alias: config.resolve?.alias } },
+                    viteConfig: { root: config.root, envDir: config.envDir, mode: config.mode, resolve: { alias: config.resolve?.alias as never } },
                 });
             } finally {
                 process.env = previousEnv;

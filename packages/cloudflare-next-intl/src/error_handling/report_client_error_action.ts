@@ -1,1 +1,1 @@
-export { default } from "cloudflare-next-intl-intl/internal/reportClientErrorAction";
+export { default } from "cloudflare-next-intl-errors/internal/reportClientErrorAction";

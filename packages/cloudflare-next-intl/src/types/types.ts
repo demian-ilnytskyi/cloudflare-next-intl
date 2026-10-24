@@ -1,5 +1,7 @@
 export * from 'cloudflare-next-intl-intl/types';
+export * from 'cloudflare-next-intl-errors/types';
 import type { IntlRoutingConfig, Locales, LocalePrefixMode } from 'cloudflare-next-intl-intl/types';
+import type { ErrorsRoutingConfig } from 'cloudflare-next-intl-errors/types';
 import type { CookieConsentDialogProps } from '../cookie_consent/client/components/cookie_consent_dialog.js';
 import type { PrivacyPolicyUpdateDialogProps } from '../cookie_consent/client/components/privacy_policy_update_dialog.js';
 export type { ConsentValue } from '../cookie_consent/types.js';
@@ -15,7 +17,7 @@ import type { FirebaseAuthRoutingConfig } from 'cloudflare-next-intl-auth/types'
 export interface RoutingConfig<
     AppLocales extends Locales = Locales,
     AppLocalePrefixMode extends LocalePrefixMode = LocalePrefixMode,
-> extends IntlRoutingConfig<AppLocales, AppLocalePrefixMode> {
+> extends IntlRoutingConfig<AppLocales, AppLocalePrefixMode>, Omit<ErrorsRoutingConfig, 'generate'> {
     /**
      * Configures the optional `firebase_auth` submodule. Omit entirely (or
      * leave undefined) to keep it fully disabled — no file in this package

@@ -4,26 +4,27 @@ import {
     type IntlMiddlewareContext,
     type IntlMiddlewareHook,
 } from 'cloudflare-next-intl-intl/middleware';
-import type { NextResponse } from 'next/server.js';
+import type { NextRequest, NextResponse } from 'next/server.js';
+import type { MiddlewareCustomHandler } from 'cloudflare-next-intl-intl/types';
 import config from './intl_config.js';
 import type * as UpdateSessionModule from '../firebase_auth/middleware/update_session.js';
 
 let updateSessionModule: typeof UpdateSessionModule | undefined;
 
 export const defaultAfterResponse: IntlMiddlewareHook = async (
-    response: NextResponse,
-    ctx: IntlMiddlewareContext,
-): Promise<NextResponse> => {
+    response,
+    ctx,
+) => {
     if (config.firebaseAuth && config.firebaseAuth.middlewareEnabled !== false) {
         if (!updateSessionModule) {
             updateSessionModule = await import('../firebase_auth/middleware/update_session.js');
         }
         return updateSessionModule.default(
             ctx.request,
-            response,
+            response as never,
             ctx.locale,
             ctx.next,
-        );
+        ) as never;
     }
     return response;
 };
@@ -48,6 +49,11 @@ export {
  *   `redirectUrl`). Set to `true` to also run it on redirects.
  *   Defaults to `false`.
  */
-const intlMiddleware = createIntlMiddleware({ afterResponse: defaultAfterResponse });
+export type IntlMiddleware = (
+    request: NextRequest,
+    options?: { middlewareHandler?: MiddlewareCustomHandler; runHandlerOnRedirect?: boolean },
+) => Promise<NextResponse>;
+
+const intlMiddleware: IntlMiddleware = createIntlMiddleware({ afterResponse: defaultAfterResponse }) as never;
 
 export default intlMiddleware;

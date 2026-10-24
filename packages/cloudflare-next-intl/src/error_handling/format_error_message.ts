@@ -1,2 +1,2 @@
-export * from "cloudflare-next-intl-intl/formatErrorMessage";
-export { default } from "cloudflare-next-intl-intl/formatErrorMessage";
+export * from "cloudflare-next-intl-errors/formatErrorMessage";
+export { default } from "cloudflare-next-intl-errors/formatErrorMessage";

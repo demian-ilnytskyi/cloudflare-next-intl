@@ -1,1 +1,1 @@
-export * from "cloudflare-next-intl-intl/internal/matchErrorMessage";
+export * from "cloudflare-next-intl-errors/internal/matchErrorMessage";

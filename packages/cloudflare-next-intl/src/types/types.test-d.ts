@@ -18,6 +18,7 @@ describe('RoutingConfig type widenings', () => {
         expectTypeOf<RoutingConfig<['en'], 'always'>['db']>().toEqualTypeOf<
             DbRoutingConfig | undefined
         >();
+        expectTypeOf<RoutingConfig<['en'], 'always'>>().toHaveProperty('errorHandling');
         expectTypeOf(setIntlConfig<['en'], 'always'>)
             .parameter(0)
             .toMatchTypeOf<RoutingConfig<['en'], 'always'>>();

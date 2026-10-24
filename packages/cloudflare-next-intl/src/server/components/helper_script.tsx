@@ -1,8 +1,10 @@
 import React from 'react';
 import CoreHelperScript from 'cloudflare-next-intl-intl/internal/helperScript';
+import ThemeScript from 'cloudflare-next-intl-theme/ThemeScript';
+import StaleDeployScripts, { defaultReloadHtml } from 'cloudflare-next-intl-errors/staleDeployScripts';
 import config from '../../config/intl_config.js';
 
-export { defaultReloadHtml } from 'cloudflare-next-intl-intl/internal/helperScript';
+export { defaultReloadHtml };
 
 export default function HelperScript({ locale }: { locale?: string }): React.JSX.Element {
     const analytics = config.cookieConsent?.analytics;
@@ -27,6 +29,9 @@ export default function HelperScript({ locale }: { locale?: string }): React.JSX
             locale={locale}
             prefetchOrigins={prefetchOrigins.length > 0 ? prefetchOrigins : undefined}
             preconnectOrigins={preconnectOrigins.length > 0 ? preconnectOrigins : undefined}
-        />
+        >
+            <ThemeScript />
+            <StaleDeployScripts reloadHtml={config.errorHandling?.staleDeployReloadHtml} />
+        </CoreHelperScript>
     );
 }

@@ -9,6 +9,9 @@ import type { SerializedAuthUser } from '../../firebase_auth/types.js';
 import type { CookieConsentAnalyticsConfig, AutoAnalyticsEventsConfig, CookieConsentRoutingConfig } from '../../types/types.js';
 import type { CookieConsentDialogProps } from '../../cookie_consent/client/components/cookie_consent_dialog.js';
 import type { PrivacyPolicyUpdateDialogProps } from '../../cookie_consent/client/components/privacy_policy_update_dialog.js';
+import installConsoleErrorOverride from '../../error_handling/install_console_error_override.js';
+import installGlobalErrorOverride from '../../error_handling/install_global_error_override.js';
+import ClientThemeScript from 'cloudflare-next-intl-theme/ClientThemeScript';
 
 const AutoFirebasePerformanceEvents = dynamic(
     () => import('../../firebase_auth/client/components/auto_firebase_performance_events.js'),
@@ -57,6 +60,9 @@ export default function ClientExtensions({
     autoAnalyticsEventsConfig,
     children,
 }: ClientExtensionsProps): React.ReactNode {
+    installConsoleErrorOverride(config, true);
+    installGlobalErrorOverride(config);
+
     const isConsent = hasCookieConsent ?? Boolean(config.cookieConsent);
     const isAuth = hasFirebaseAuth ?? Boolean(config.firebaseAuth);
     const isPerf = enableFirebasePerformance ?? (config.firebaseAuth?.performance !== false);
@@ -110,5 +116,10 @@ export default function ClientExtensions({
         );
     }
 
-    return <>{providedChildren}</>;
+    return (
+        <>
+            <ClientThemeScript />
+            {providedChildren}
+        </>
+    );
 }

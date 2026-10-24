@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 
-vi.mock('../../client/components/client_helper_script', () => ({ default: () => null }));
-
 afterEach(() => {
     cleanup();
 });
@@ -90,6 +88,42 @@ describe('Umbrella HelperScript', () => {
         const { default: AdSenseScript } = await import('./helper_script.js');
         render(<AdSenseScript />);
         expect(document.head.querySelector('link[href="https://www.googletagmanager.com"]')).not.toBeNull();
+        vi.doUnmock('../../config/intl_config');
+    });
+
+    it('renders stale-deploy-early-catch when not in development', async () => {
+        vi.resetModules();
+        const { default: ProdHelperScript } = await import('./helper_script.js');
+        const { container } = render(<ProdHelperScript />);
+        expect(container.querySelector('#stale-deploy-early-catch')).not.toBeNull();
+        expect(container.querySelector('#build-id-script')).not.toBeNull();
+    });
+
+    it('theme script precedes locale script', async () => {
+        vi.resetModules();
+        const { default: HelperScript } = await import('./helper_script.js');
+        const { container } = render(<HelperScript />);
+        const themeScript = container.querySelector('#cfni-theme') || container.querySelector('#cfni-theme-script');
+        const localeScript = container.querySelector('#intl-app-state-checker');
+
+        expect(themeScript).not.toBeNull();
+        expect(localeScript).not.toBeNull();
+        expect(Boolean(themeScript!.compareDocumentPosition(localeScript!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    });
+
+    it('forwards custom staleDeployReloadHtml to StaleDeployScripts', async () => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                errorHandling: {
+                    staleDeployReloadHtml: '<div id="custom-reload-overlay">loading...</div>',
+                },
+            },
+        }));
+        const { default: CustomHelperScript } = await import('./helper_script.js');
+        const { container } = render(<CustomHelperScript />);
+        const script = container.querySelector('#stale-deploy-early-catch');
+        expect(script?.textContent).toContain('custom-reload-overlay');
         vi.doUnmock('../../config/intl_config');
     });
 });

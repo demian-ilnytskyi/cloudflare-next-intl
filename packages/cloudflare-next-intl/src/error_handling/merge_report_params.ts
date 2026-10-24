@@ -1,2 +1,2 @@
-export * from "cloudflare-next-intl-intl/internal/mergeReportParams";
-export { default } from "cloudflare-next-intl-intl/internal/mergeReportParams";
+export * from "cloudflare-next-intl-errors/internal/mergeReportParams";
+export { default } from "cloudflare-next-intl-errors/internal/mergeReportParams";
