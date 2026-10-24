@@ -1,3 +1,9 @@
 # cloudflare-next-intl-theme
 
-Theme switcher and dark mode bootstrap script for Next.js App Router and Cloudflare.
+> Light/dark theme for the Next.js App Router with no flash of the wrong theme. Zero runtime dependencies.
+
+- Setup: render `ThemeScript` (`cloudflare-next-intl-theme/ThemeScript`) in `<head>`, add `suppressHydrationWarning` on `<html>`, and use class-based dark mode (`.dark` on `<html>`).
+- Toggle: `ThemeSwitcher` (`./ThemeSwitcher`, props `lightLabelText`, `darkLabelText`, `className?`) or the unstyled client `ThemeSwitcherButton` (`./ThemeSwitcherButton`).
+- Cookie: `isDarkCookieKey` = `__is_dark_key__` (`./cookieKey`). `setThemeCookie(isDark)` writes it for 1 year. Without the cookie, `prefers-color-scheme` is used.
+- `ClientThemeScript` (`./ClientThemeScript`): optional client re-sync after hydration.
+- Already included and auto-wired in `cloudflare-next-intl`.
