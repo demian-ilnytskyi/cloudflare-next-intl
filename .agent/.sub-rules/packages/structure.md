@@ -5,10 +5,17 @@ Companion files: [config-and-routing.md](config-and-routing.md),
 
 ## Packages Architecture
 
-- `packages/intl` (`cloudflare-next-intl-intl`): Core i18n/l10n engine (routing, middleware, server/client translations, Link). Zero optional module dependencies.
-- `packages/auth` (`cloudflare-next-intl-auth`): Firebase Auth & App Check module (sessions, cookies, Turnstile, verification).
-- `packages/cloudflare-next-intl`: Umbrella package re-exporting core and wiring optional extensions (auth, cookie-consent, db).
-- Dependency direction: `intl ← auth ← umbrella`. `cloudflare-next-intl-db` is independent.
+- `packages/intl` (`cloudflare-next-intl-intl`): Core i18n/l10n engine (routing, middleware, server/client translations, Link). Zero runtime dependencies. Reports internal errors via `onError` routing hook.
+- `packages/errors` (`cloudflare-next-intl-errors`): Error handling, console/global overrides, server error actions, stale deploy detection and recovery scripts. Zero runtime dependencies.
+- `packages/theme` (`cloudflare-next-intl-theme`): Theme switcher UI components, cookie persistence, inline bootstrap and client theme scripts. Zero runtime dependencies.
+- `packages/auth` (`cloudflare-next-intl-auth`): Firebase Auth & App Check module (sessions, cookies, Turnstile, verification). Depends on `cloudflare-next-intl-errors` and `cloudflare-next-intl-intl`.
+- `packages/cloudflare-next-intl`: Umbrella package re-exporting core and composing extensions (errors, theme, auth, cookie-consent, db).
+- Dependency direction:
+  - `errors` (0 deps)
+  - `theme` (0 deps)
+  - `intl` (0 deps)
+  - `auth` → `errors`, `intl`
+  - `umbrella` → `intl`, `errors`, `theme`, `auth` (plus optional `db`)
 
 ## Folder layout
 
