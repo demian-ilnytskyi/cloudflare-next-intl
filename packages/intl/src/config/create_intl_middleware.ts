@@ -55,11 +55,11 @@ function getFirstHeaderValue(headers: Headers, names: readonly string[]): string
 export function createIntlMiddleware(middlewareOptions?: {
     afterResponse?: IntlMiddlewareHook;
 }): (
-    request: NextRequest,
+    request: any,
     options?: { middlewareHandler?: MiddlewareCustomHandler; runHandlerOnRedirect?: boolean },
 ) => Promise<NextResponse> {
     return async function intlMiddleware(
-        request: NextRequest,
+        request: any,
         options?: { middlewareHandler?: MiddlewareCustomHandler; runHandlerOnRedirect?: boolean },
     ): Promise<NextResponse<unknown>> {
         try {

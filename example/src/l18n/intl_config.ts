@@ -1,5 +1,5 @@
 import KTextConstants from "@/shared/constants/variables/text_constants";
-import { setIntlConfig } from "cloudflare-next-intl";
+import { setIntlConfig } from "cloudflare-next-intl/setIntlConfig";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 declare global {

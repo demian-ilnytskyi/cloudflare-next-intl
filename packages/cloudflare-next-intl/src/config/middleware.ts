@@ -50,7 +50,7 @@ export {
  *   Defaults to `false`.
  */
 export type IntlMiddleware = (
-    request: NextRequest,
+    request: any,
     options?: { middlewareHandler?: MiddlewareCustomHandler; runHandlerOnRedirect?: boolean },
 ) => Promise<NextResponse>;
 
