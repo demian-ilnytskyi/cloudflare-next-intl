@@ -57,7 +57,15 @@
       "types": "./dist/src/client/functions/set_cookie.d.ts",
       "import": "./dist/src/client/functions/set_cookie.js"
     },
+    "./setCookie": {
+      "types": "./dist/src/client/functions/set_cookie.d.ts",
+      "import": "./dist/src/client/functions/set_cookie.js"
+    },
     "./getCookieClient": {
+      "types": "./dist/src/client/functions/get_cookie.d.ts",
+      "import": "./dist/src/client/functions/get_cookie.js"
+    },
+    "./getCookie": {
       "types": "./dist/src/client/functions/get_cookie.d.ts",
       "import": "./dist/src/client/functions/get_cookie.js"
     },
