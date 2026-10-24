@@ -227,6 +227,10 @@
       "types": "./dist/src/server/functions/server.d.ts",
       "import": "./dist/src/server/functions/server.js"
     },
+    "./internal/useFunctions": {
+      "types": "./dist/src/server/functions/use_functions.d.ts",
+      "import": "./dist/src/server/functions/use_functions.js"
+    },
     "./Link": {
       "types": "./dist/src/server/components/link.d.ts",
       "import": "./dist/src/server/components/link.js"

@@ -3,6 +3,12 @@
 Companion files: [config-and-routing.md](config-and-routing.md),
 [server-client-split.md](server-client-split.md), [db.md](db.md).
 
+## Packages Architecture
+
+- `packages/intl` (`cloudflare-next-intl-intl`): Core i18n/l10n engine (routing, middleware, server/client translations, Link). Zero optional module dependencies.
+- `packages/cloudflare-next-intl`: Umbrella package re-exporting core and wiring optional extensions (auth, cookie-consent, db).
+- Dependency direction: `intl ← auth ← umbrella`. `cloudflare-next-intl-db` is independent.
+
 ## Folder layout
 
 ```

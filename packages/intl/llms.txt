@@ -1,4 +1,18 @@
 # cloudflare-next-intl-intl
 
-Core internationalization and localization package for Next.js App Router and Cloudflare.
-Zero optional module dependencies.
+Core internationalization (i18n) and localization package specialized for Next.js App Router and Cloudflare environment.
+Zero external runtime dependencies. Zero dependencies on auth, cookie consent, or database modules.
+
+## Key Exports
+- `cloudflare-next-intl-intl`: Barrel re-exporting config, general, server, client, types.
+- `cloudflare-next-intl-intl/client`: Client components (`LocaleLink`, `IntlProvider`), hooks (`useLocale`, `useTranslations`), cookie helpers.
+- `cloudflare-next-intl-intl/server`: RSC server components (`IntlProvider`, `Link`, `IntlHelperScript`), server functions (`getLocale`, `getTranslations`, `getMessage`).
+- `cloudflare-next-intl-intl/use`: Conditional export (`react-server` vs `default`) providing `useLocale` and `useTranslations`.
+- `cloudflare-next-intl-intl/middleware`: `intlMiddleware` edge routing middleware with extension point hooks (`onBeforeRouting`, `onAfterRouting`).
+- `cloudflare-next-intl-intl/setIntlConfig`: `setIntlConfig` helper to build validated `IntlRoutingConfig`.
+- `cloudflare-next-intl-intl/types`: `IntlRoutingConfig`, `RoutingConfig`, `Locales`, `LocalePrefixMode`, etc.
+- `cloudflare-next-intl-intl/errorHandling`: Error reporting (`reportError`, `withErrorHandling`, `installConsoleErrorOverride`).
+
+## Required Setup
+Requires `@intl-config` module alias in `next.config` (and `wrangler.toml` for Workers) pointing to your `intl_config.ts` and `@locale-file` pointing to messages directory.
+Internal subpaths under `cloudflare-next-intl-intl/internal/*` are intended for wrapper packages only.
