@@ -3,6 +3,15 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.0] - 2026-10-24
+
+### Added
+
+- `firebaseAuth.appCheck.turnstileSiteKey` and `turnstileSecretKey`: Cloudflare Turnstile provider for Firebase App Check. Lets client challenges use Turnstile instead of Google reCAPTCHA, avoiding loading Google challenge scripts on the client.
+- `verifyTurnstileToken`: server-side Turnstile siteverify verification with 5s timeout and action validation.
+- `exchangeTurnstileTokenAction`: server action exchanging verified Turnstile challenge tokens for minted App Check tokens.
+- `HelperScript`: added `<link rel="preconnect" href="https://challenges.cloudflare.com">` when `turnstileSiteKey` is configured.
+
 ## [0.10.35] - 2026-10-24
 
 ### Fixed
