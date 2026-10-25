@@ -321,6 +321,7 @@ export default function AuthUserProvider({
                             }
                             if (res.status === 'restored') {
                                 const { signInWithCustomToken } = await getFirebaseAuthModule();
+                                await getAppCheckToken();
                                 await signInWithCustomToken(auth, res.customToken);
                                 return;
                             }
@@ -451,6 +452,7 @@ export default function AuthUserProvider({
         if (!user) return;
         try {
             const { reload } = await getFirebaseAuthModule();
+            await getAppCheckToken();
             await reload(user);
 
             await writeSession(user, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, appCheckTokenMaxAge);
@@ -478,6 +480,7 @@ export default function AuthUserProvider({
         const user = auth.currentUser;
         if (!user) return;
         const { sendEmailVerification } = await getFirebaseAuthModule();
+        await getAppCheckToken();
         await sendEmailVerification(user, actionCodeSettings);
     }, []);
 

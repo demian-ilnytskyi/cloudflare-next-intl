@@ -723,9 +723,12 @@ describe('AuthUserProvider', () => {
         }
         render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
         await flush();
+        getAppCheckToken.mockClear();
         await act(async () => { await ctxValue?.reloadUser(); });
         expect(reload).toHaveBeenCalled();
         expect(syncSessionAction).toHaveBeenCalled();
+        expect(getAppCheckToken).toHaveBeenCalled();
+        expect(getAppCheckToken.mock.invocationCallOrder[0]).toBeLessThan(reload.mock.invocationCallOrder[0]);
     });
 
     it('reloadUser logs and swallows errors from reload', async () => {
@@ -769,8 +772,11 @@ describe('AuthUserProvider', () => {
         render(<AuthUserProvider initialUser={null}><Consumer /></AuthUserProvider>);
         await flush();
         const settings = { url: 'https://example.com/verify' };
+        getAppCheckToken.mockClear();
         await act(async () => { await ctxValue?.sendVerificationEmail(settings); });
         expect(sendEmailVerification).toHaveBeenCalledWith(authObj.currentUser, settings);
+        expect(getAppCheckToken).toHaveBeenCalled();
+        expect(getAppCheckToken.mock.invocationCallOrder[0]).toBeLessThan(sendEmailVerification.mock.invocationCallOrder[0]);
     });
 
 
@@ -937,12 +943,15 @@ describe('AuthUserProvider', () => {
 
         render(<AuthUserProvider initialUser={null}><span>child</span></AuthUserProvider>);
         await flush();
+        getAppCheckToken.mockClear();
         await act(async () => {
             await idTokenListener?.(null);
         });
 
         expect(restoreSessionAction).toHaveBeenCalledTimes(1);
         expect(signInWithCustomToken).toHaveBeenCalledWith(authObj, 'custom-jwt');
+        expect(getAppCheckToken).toHaveBeenCalled();
+        expect(getAppCheckToken.mock.invocationCallOrder[0]).toBeLessThan(signInWithCustomToken.mock.invocationCallOrder[0]);
         expect(routerReplace).not.toHaveBeenCalled();
     });
 

@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] - 2026-10-25
+
+### Fixed
+
+- Auth actions (`createLoginAction`, `createSignUpAction`, `createForgotPasswordAction`, `createSendSignInLinkAction`, `completeSignInWithLink`) and `AuthUserProvider` (session restore via `signInWithCustomToken`, `reloadUser`, `sendVerificationEmail`) now await `getAppCheckToken()` before calling Firebase. Firebase Auth starts its 30 s network timeout before it requests the App Check token, so an interactive Turnstile challenge that took longer failed with `auth/network-request-failed` ("Network error") and the request was never sent.
+
 ## [0.3.0] - 2026-10-25
 
 ### Added

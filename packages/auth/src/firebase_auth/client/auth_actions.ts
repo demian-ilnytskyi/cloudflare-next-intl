@@ -2,7 +2,7 @@
 
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config.js';
-import { getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client.js';
+import { getAppCheckToken, getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client.js';
 import { ensureSessionSynced } from './session_sync.js';
 import firebaseAuthErrorMessage from '../error_messages/firebase_auth_error_helper.js';
 import type { AuthActionCodeSettings, AuthActionMessages, AuthFormState } from '../types.js';
@@ -40,6 +40,7 @@ export function createLoginAction(locale: string, _messages: AuthActionMessages)
         const { email, password } = readCredentials(formData);
 
         try {
+            await getAppCheckToken();
             const credential = await signInWithEmailAndPassword(auth, email, password);
             const user = credential?.user ?? auth.currentUser;
             if (user) await ensureSessionSynced(user);
@@ -81,6 +82,7 @@ export function createSignUpAction(locale: string, messages: AuthActionMessages)
         }
 
         try {
+            await getAppCheckToken();
             const credential = await createUserWithEmailAndPassword(auth, email, password);
             const user = credential?.user ?? auth.currentUser;
             if (user) await ensureSessionSynced(user);
@@ -119,6 +121,7 @@ export function createForgotPasswordAction(
         const email = (formData.get('email')?.toString() ?? '').trim();
 
         try {
+            await getAppCheckToken();
             await sendPasswordResetEmail(auth, email, actionCodeSettings);
             return { success: true };
         } catch (e) {
@@ -167,6 +170,7 @@ export function createSendSignInLinkAction(
         const settingsWithEmail = { ...actionCodeSettings, url: url.toString() };
 
         try {
+            await getAppCheckToken();
             await sendSignInLinkToEmail(auth, email, settingsWithEmail);
             return { success: true, email };
         } catch (e) {
@@ -203,6 +207,7 @@ export async function completeSignInWithLink(
     }
 
     try {
+        await getAppCheckToken();
         const credential = await signInWithEmailLink(auth, email, url);
         const user = credential?.user ?? auth.currentUser;
         if (user) await ensureSessionSynced(user);

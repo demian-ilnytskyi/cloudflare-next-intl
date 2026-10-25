@@ -191,6 +191,13 @@ appCheck: {
 
 To use Turnstile, create a widget in the Cloudflare dashboard and set both Turnstile keys. Any widget mode works: **Invisible** never shows anything, while **Managed** and **Non-interactive** show the challenge in a centered overlay only when Cloudflare asks a visitor to interact, and hide it again once solved. While idle, the widget stays rendered but transparent in a corner instead of `display: none`, so Managed mode can still pass visitors without a checkbox.
 
+Firebase Auth starts its 30 s request timeout before it asks App Check for a token, so a challenge that takes longer to solve would fail the request with `auth/network-request-failed`. The built-in actions and `AuthUserProvider` await `getAppCheckToken()` before every Firebase call to avoid this. Do the same before any Firebase Auth call you make yourself:
+
+```ts
+await getAppCheckToken();
+await updatePassword(user, newPassword);
+```
+
 ### Useful `firebaseAuth` options
 
 | Option | Purpose |

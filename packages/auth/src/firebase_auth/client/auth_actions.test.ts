@@ -14,7 +14,10 @@ vi.mock('@intl-config', () => ({ default: { firebaseAuth: fa } }));
 vi.mock('./firebase_client', () => ({
     getFirebaseAuthClient: vi.fn(async () => ({ auth: {} })),
     getFirebaseAuthModule: () => import('@firebase/auth'),
+    getAppCheckToken: (...args: unknown[]) => getAppCheckToken(...args),
 }));
+
+const getAppCheckToken = vi.fn(async () => 'app-check-token');
 vi.mock('../error_messages/firebase_auth_error_helper', () => ({
     default: vi.fn(() => 'translated error'),
 }));
@@ -308,3 +311,31 @@ describe('completeSignInWithLink', () => {
 });
 
 
+
+describe('App Check token is resolved before the Firebase call', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        isSignInWithEmailLink.mockReturnValue(true);
+    });
+
+    const cases: [string, ReturnType<typeof vi.fn>, () => Promise<unknown>][] = [
+        ['login', signInWithEmailAndPassword, async () => (await import('./auth_actions.js')).createLoginAction('en', {})({}, makeFormData({ email: 'a@b.com', password: 'pw' }))],
+        ['sign-up', createUserWithEmailAndPassword, async () => (await import('./auth_actions.js')).createSignUpAction('en', {})({}, makeFormData({ email: 'a@b.com', password: 'pw', confirmPassword: 'pw' }))],
+        ['forgot password', sendPasswordResetEmail, async () => (await import('./auth_actions.js')).createForgotPasswordAction('en')({}, makeFormData({ email: 'a@b.com' }))],
+        ['send sign-in link', sendSignInLinkToEmail, async () => (await import('./auth_actions.js')).createSendSignInLinkAction('en', { url: 'https://x/complete' })({}, makeFormData({ email: 'a@b.com' }))],
+        ['complete sign-in link', signInWithEmailLink, async () => (await import('./auth_actions.js')).completeSignInWithLink('en', 'https://x/complete', 'a@b.com')],
+    ];
+
+    it.each(cases)('%s waits for getAppCheckToken', async (_name, firebaseCall, run) => {
+        let resolveToken!: (token: string) => void;
+        getAppCheckToken.mockImplementationOnce(() => new Promise<string>((res) => { resolveToken = res; }));
+        firebaseCall.mockResolvedValue(undefined);
+        const pending = run();
+        await new Promise((res) => setTimeout(res, 0));
+        expect(getAppCheckToken).toHaveBeenCalled();
+        expect(firebaseCall).not.toHaveBeenCalled();
+        resolveToken('app-check-token');
+        await pending;
+        expect(firebaseCall).toHaveBeenCalled();
+    });
+});
