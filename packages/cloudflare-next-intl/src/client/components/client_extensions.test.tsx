@@ -123,6 +123,33 @@ describe('ClientExtensions', () => {
         expect(screen.getByTestId('consent-provider')).not.toBeNull();
     });
 
+    it.each([
+        { googleAdsId: 'AW-1' },
+        { googleTagId: 'GT-1' },
+        { googleTagId: false as const },
+        {},
+    ])('renders with analytics config %o', async (analyticsConfig) => {
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                locales: ['en'],
+                defaultLocale: 'en',
+                cookieConsent: {},
+            },
+        }));
+
+        const { default: Extensions } = await import('./client_extensions.js');
+
+        render(
+            <LocaleContext.Provider value={{ language: 'en', messages: {} }}>
+                <Extensions analyticsConfig={analyticsConfig}>
+                    <ChildConsumer />
+                </Extensions>
+            </LocaleContext.Provider>,
+        );
+
+        expect(screen.getByTestId('consent-provider')).not.toBeNull();
+    });
+
     it('installs console and global overrides and renders client theme script', async () => {
         const installConsoleSpy = vi.fn();
         const installGlobalSpy = vi.fn();
