@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.3] - 2026-10-25
+
+### Changed
+
+- `llms.txt` documents the Google tag (`googleTagId` / `googleTag`) in `IntlHelperScript` and `CookieConsentAnalytics`, and the first-visit `__cf_country__` fallback in `CookieConsentProvider`.
+- Lockfile resolves `cloudflare-next-intl-auth`, `-intl` and `-errors` from npm (`^0.3.0`, `^0.2.0`, `^0.1.0`) instead of local `file:` links.
+- Tests cover the `googleAdsId` / `googleTagId` branches in `ClientExtensions`.
+
 ## [0.13.2] - 2026-10-25
 
 ### Added
