@@ -39,8 +39,47 @@ describe('Umbrella HelperScript', () => {
 
         const preconnects = Array.from(document.head.querySelectorAll('link[rel="preconnect"]')).map((el) => el.getAttribute('href'));
         expect(preconnects).toContain('https://challenges.cloudflare.com');
+        expect(document.head.querySelector('script[src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"]')).not.toBeNull();
+    });
 
-        vi.doUnmock('../../config/intl_config');
+    it('allows disabling turnstile preload via prop or config', async () => {
+        vi.resetModules();
+        const mockConfig = {
+            default: {
+                defaultLocale: 'en',
+                firebaseAuth: {
+                    appCheck: {
+                        turnstileSiteKey: 'turnstile-site-key',
+                    },
+                },
+            },
+        };
+        vi.doMock('../../config/intl_config', () => mockConfig);
+
+        const { default: DefaultTurnstileScript } = await import('./helper_script.js');
+
+        // Disabling via prop
+        const { unmount } = render(<DefaultTurnstileScript turnstilePreload={false} />);
+        expect(document.head.querySelector('script[src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"]')).toBeNull();
+        unmount();
+        document.head.innerHTML = '';
+
+        // Disabling via config
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                defaultLocale: 'en',
+                firebaseAuth: {
+                    appCheck: {
+                        turnstileSiteKey: 'turnstile-site-key',
+                        preloadTurnstile: false,
+                    },
+                },
+            },
+        }));
+        const { default: DisabledTurnstileScript } = await import('./helper_script.js');
+        render(<DisabledTurnstileScript />);
+        expect(document.head.querySelector('script[src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"]')).toBeNull();
     });
 
     it('omits hints when analytics and firebaseAuth are missing', async () => {
@@ -56,8 +95,6 @@ describe('Umbrella HelperScript', () => {
 
         expect(document.head.querySelector('link[rel="dns-prefetch"]')).toBeNull();
         expect(document.head.querySelector('link[rel="preconnect"]')).toBeNull();
-
-        vi.doUnmock('../../config/intl_config');
     });
 
     it('supports googleAdsId and googleAdSenseId', async () => {

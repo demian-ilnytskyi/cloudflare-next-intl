@@ -3,6 +3,16 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.5] - 2026-10-25
+
+### Added
+
+- `HelperScript` preloads Turnstile script in `<head>` by default when `turnstileSiteKey` is configured (`turnstilePreload` prop or `firebaseAuth.appCheck.preloadTurnstile` config).
+
+### Changed
+
+- Depends on `cloudflare-next-intl-auth` `^0.3.2` (preloads Turnstile by default, stops auto-retry loops with `retry: 'never'`, prevents premature reset before token exchange).
+
 ## [0.13.4] - 2026-10-25
 
 ### Changed

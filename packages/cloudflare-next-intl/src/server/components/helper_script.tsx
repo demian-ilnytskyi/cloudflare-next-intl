@@ -10,12 +10,19 @@ export interface HelperScriptProps {
     locale?: string;
     googleTag?: boolean;
     googleTagId?: string | false;
+    /**
+     * Whether to preload and render the Cloudflare Turnstile script and container
+     * in `<head>` when `firebaseAuth.appCheck.turnstileSiteKey` is configured.
+     * Defaults to `true` (can also be configured via `firebaseAuth.appCheck.preloadTurnstile`).
+     */
+    turnstilePreload?: boolean;
 }
 
 export default function HelperScript({
     locale,
     googleTag,
     googleTagId,
+    turnstilePreload,
 }: HelperScriptProps = {}): React.JSX.Element {
     const analytics = config.cookieConsent?.analytics;
     const cookieConsent = config.cookieConsent;
@@ -46,6 +53,10 @@ export default function HelperScript({
     const hasClarity = !!analytics?.clarityProjectId;
     const hasFirebase = !!config.firebaseAuth;
     const hasTurnstile = !!config.firebaseAuth?.appCheck?.turnstileSiteKey;
+    const shouldPreloadTurnstile =
+        hasTurnstile &&
+        turnstilePreload !== false &&
+        config.firebaseAuth?.appCheck?.preloadTurnstile !== false;
 
     const prefetchOrigins: string[] = [];
     if (hasGoogle) prefetchOrigins.push('https://www.googletagmanager.com');
@@ -66,6 +77,9 @@ export default function HelperScript({
         >
             <ThemeScript />
             <StaleDeployScripts reloadHtml={config.errorHandling?.staleDeployReloadHtml} />
+            {shouldPreloadTurnstile && (
+                <script async src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" />
+            )}
             {shouldRenderGoogleTag && (
                 <>
                     <script async src={`https://www.googletagmanager.com/gtag/js?id=${resolvedGoogleTagId}`} />
