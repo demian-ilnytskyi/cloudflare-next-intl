@@ -120,6 +120,18 @@ describe('exchangeTurnstileTokenAction', () => {
         expect(mintServerAppCheckTokenMock).toHaveBeenCalledWith('test-proj', 'test-key', mockConfig.firebaseAuth!.appCheck);
     });
 
+    it('passes empty projectId and apiKey when they are not configured', async () => {
+        mockConfig.firebaseAuth!.projectId = undefined;
+        mockConfig.firebaseAuth!.apiKey = undefined;
+        verifyTurnstileTokenMock.mockResolvedValueOnce('ok');
+        mintServerAppCheckTokenMock.mockResolvedValueOnce(undefined);
+
+        const { default: exchangeTurnstileTokenAction } = await import('./exchange_turnstile_token_action.js');
+        await exchangeTurnstileTokenAction('valid-turnstile-token');
+
+        expect(mintServerAppCheckTokenMock).toHaveBeenCalledWith('', '', mockConfig.firebaseAuth!.appCheck);
+    });
+
     it('returns "ok" with token and expireTimeMillis derived from exp in JWT payload', async () => {
         verifyTurnstileTokenMock.mockResolvedValueOnce('ok');
         // JWT header: {"alg":"none"} -> eyJhbGciOiJub25lIn0

@@ -193,6 +193,12 @@ describe("loadResolvedFirebaseAuth", () => {
             },
         });
         expect(resultCreateServerThrows).toBeUndefined();
+
+        const resultBeforeServer = await loadResolvedFirebaseAuth({
+            intlConfigPath: "/path/to/config.ts",
+            viteConfig: {} as never,
+        });
+        expect(resultBeforeServer).toBeUndefined();
     });
 
     it("returns undefined when default export is missing or firebaseAuth is not an object", async () => {

@@ -118,4 +118,22 @@ describe('seedAppCheckCookie', () => {
         await seedAppCheckCookie(req, res, baseFa as unknown as Parameters<typeof seedAppCheckCookie>[2]);
         expect(res.cookies.get('__fa_app_check_token__')).toBeUndefined();
     });
+
+    it('returns false without setting the cookie when the mint yields no token', async () => {
+        mintServerAppCheckToken.mockResolvedValueOnce(null);
+        const req = makeRequest('https://example.com/dashboard');
+        const res = NextResponse.next();
+
+        await expect(seedAppCheckCookie(req, res, baseFa as unknown as Parameters<typeof seedAppCheckCookie>[2])).resolves.toBe(false);
+        expect(res.cookies.get('__fa_app_check_token__')).toBeUndefined();
+    });
+
+    it('falls back to a one hour maxAge when the minted token has no exp', async () => {
+        mintServerAppCheckToken.mockResolvedValueOnce('not-a-jwt');
+        const req = makeRequest('https://example.com/dashboard');
+        const res = NextResponse.next();
+
+        await seedAppCheckCookie(req, res, baseFa as unknown as Parameters<typeof seedAppCheckCookie>[2]);
+        expect(res.cookies.get('__fa_app_check_token__')?.maxAge).toBe(3600);
+    });
 });

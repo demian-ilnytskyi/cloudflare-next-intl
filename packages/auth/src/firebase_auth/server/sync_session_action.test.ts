@@ -210,6 +210,32 @@ describe('syncSessionAction', () => {
         vi.unstubAllGlobals();
     });
 
+    it.each([
+        ['has no payload segment', 'header-only'],
+        ['has no numeric auth_time', `h.${Buffer.from(JSON.stringify({ auth_time: 'x' })).toString('base64url')}.sig`],
+    ])('refuses to re-bind when the refreshed ID token %s', async (_label, refreshedIdToken) => {
+        const putMock = vi.fn();
+        const getMock = vi.fn().mockResolvedValue(JSON.stringify({ kty: 'EC', crv: 'P-256', x: 'old' }));
+        currentConfig.firebaseAuth!.deviceBinding = {
+            store: { get: getMock, put: putMock, delete: vi.fn() },
+        };
+        const { default: syncSessionAction } = await import('./sync_session_action.js');
+        const idToken = makeJwt(Math.floor(Date.now() / 1000) + 3600);
+
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                id_token: refreshedIdToken,
+                refresh_token: 'ref-token',
+            }),
+        }));
+
+        const result = await syncSessionAction({ idToken, refreshToken: 'ref-token', devicePublicJwk: { kty: 'EC', crv: 'P-256', x: 'new' } });
+        expect(result).toEqual({ status: 'rebind-refused' });
+        expect(putMock).not.toHaveBeenCalled();
+        vi.unstubAllGlobals();
+    });
+
     it('sets isBound when existing key equals new key', async () => {
         const jwk = { kty: 'EC', crv: 'P-256', x: 'same' };
         const getMock = vi.fn().mockResolvedValue(JSON.stringify(jwk));

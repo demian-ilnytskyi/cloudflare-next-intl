@@ -30,3 +30,5 @@ ignore:
   - "packages/auth/src/firebase_auth/middleware/update_session.ts"
   - "packages/auth/src/firebase_auth/server/clear_session_action.ts"
   - "packages/auth/src/firebase_auth/server/restore_session_action.ts"
+  - "packages/cloudflare-next-intl/src/cookie_consent/client/components/cookie_consent_dialog.tsx"
+  - "packages/cloudflare-next-intl/src/cookie_consent/client/components/privacy_policy_update_dialog.tsx"

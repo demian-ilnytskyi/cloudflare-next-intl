@@ -57,6 +57,15 @@ describe('signServiceAccountJwt', () => {
         expect(sign).toHaveBeenCalledWith('imported-key');
     });
 
+    it('accepts a string exp claim', async () => {
+        const { default: signServiceAccountJwt } = await import('./sign_service_account_jwt.js');
+        await signServiceAccountJwt(
+            { clientEmail: 'sa@proj.com', privateKey: 'some-key' },
+            { iss: 'sa@proj.com', sub: 'sa@proj.com', aud: 'aud', exp: '1h' },
+        );
+        expect(setExpirationTime).toHaveBeenCalledWith('1h');
+    });
+
     it('signs remotely when OAuth triple is present and privateKey is absent', async () => {
         const { default: signServiceAccountJwt } = await import('./sign_service_account_jwt.js');
         const claims = { iss: 'sa@proj.com', sub: 'sa@proj.com', uid: 'user-2' };

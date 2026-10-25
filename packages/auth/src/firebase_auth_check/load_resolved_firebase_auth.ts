@@ -43,6 +43,7 @@ export async function loadResolvedFirebaseAuth(
     options: LoadResolvedFirebaseAuthOptions,
 ): Promise<Record<string, unknown> | undefined> {
     let server: ViteDevServer | undefined;
+    let resolved: Record<string, unknown> | undefined;
     const restoreEnv: [string, string | undefined][] = [];
     for (const [key, value] of Object.entries(options.envDefaults ?? {})) {
         if (process.env[key]) continue;
@@ -106,11 +107,11 @@ export async function loadResolvedFirebaseAuth(
         const mod = await server.ssrLoadModule(options.intlConfigPath);
         const exported = (mod as { default?: unknown }).default;
         const firebaseAuth = (exported as { firebaseAuth?: unknown } | undefined)?.firebaseAuth;
-        return firebaseAuth && typeof firebaseAuth === "object"
+        resolved = firebaseAuth && typeof firebaseAuth === "object"
             ? (firebaseAuth as Record<string, unknown>)
             : undefined;
     } catch {
-        return undefined;
+        resolved = undefined;
     } finally {
         await server?.close();
         for (const [key, value] of restoreEnv) {
@@ -118,4 +119,5 @@ export async function loadResolvedFirebaseAuth(
             else process.env[key] = value;
         }
     }
+    return resolved;
 }
