@@ -3,7 +3,7 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.14.0] - 2026-10-25
+## [0.13.2] - 2026-10-25
 
 ### Added
 
