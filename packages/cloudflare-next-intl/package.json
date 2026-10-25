@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.13.3",
+  "version": "0.13.4",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -364,7 +364,7 @@
   "homepage": "https://github.com/demian-ilnytskyi/cloudflare-next-intl#readme",
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",
-    "cloudflare-next-intl-auth": "^0.3.0",
+    "cloudflare-next-intl-auth": "^0.3.1",
     "cloudflare-next-intl-db": "^0.3.0",
     "cloudflare-next-intl-db-codegen": "^0.1.4",
     "cloudflare-next-intl-errors": "^0.1.0",

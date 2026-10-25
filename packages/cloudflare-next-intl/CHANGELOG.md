@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.4] - 2026-10-25
+
+### Changed
+
+- Depends on `cloudflare-next-intl-auth` `^0.3.1` (awaits App Check token before Firebase Auth requests; adds reCAPTCHA v3 fallback for failed Turnstile challenges).
+
 ## [0.13.3] - 2026-10-25
 
 ### Changed
