@@ -870,6 +870,25 @@ describe('Turnstile CustomProvider', () => {
         expect(turnstileReset).toHaveBeenCalledWith('turnstile-widget-id');
     });
 
+    it('reuses a just-failed challenge instead of showing a second one', async () => {
+        installTurnstile({ fail: true });
+        vi.useFakeTimers();
+
+        const { getAppCheckToken, TURNSTILE_FAILURE_REUSE_MS } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.advanceTimersByTimeAsync(0);
+        const options = CustomProvider.mock.calls[0]![0] as { getToken: () => Promise<unknown> };
+
+        await expect(options.getToken()).rejects.toThrow(/Turnstile error/);
+        await expect(options.getToken()).rejects.toThrow(/Turnstile error/);
+        expect(turnstileExecute).toHaveBeenCalledTimes(1);
+
+        await vi.advanceTimersByTimeAsync(TURNSTILE_FAILURE_REUSE_MS);
+        await expect(options.getToken()).rejects.toThrow(/Turnstile error/);
+        expect(turnstileExecute).toHaveBeenCalledTimes(2);
+        vi.useRealTimers();
+    });
+
     it('rejects immediately when the Turnstile script fails to load', async () => {
         const selector = 'script[src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"]';
         vi.useFakeTimers();

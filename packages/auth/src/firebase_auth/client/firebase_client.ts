@@ -73,6 +73,13 @@ let turnstileScriptFailed = false;
  */
 export const TURNSTILE_INTERACTIVE_TIMEOUT_MS = 120_000;
 
+/**
+ * A failed challenge is rethrown to `getToken` calls made within this window,
+ * so the Firebase request right after a failed `getAppCheckToken()` fails fast
+ * instead of showing the visitor a second challenge.
+ */
+export const TURNSTILE_FAILURE_REUSE_MS = 3_000;
+
 let turnstileInteractive = false;
 
 function interactionAwareTimeout(ms: number, message: string): { promise: Promise<never>; clear: () => void } {
@@ -332,6 +339,7 @@ function createTurnstileProvider(
         resetWidget: () => void;
     }> | undefined;
     let inFlightExecute: Promise<{ token: string; expireTimeMillis: number }> | undefined;
+    let recentFailure: { error: unknown; at: number } | undefined;
 
     function ensureWidget(): Promise<{
         executeChallenge: () => Promise<string>;
@@ -403,6 +411,7 @@ function createTurnstileProvider(
             if (seeded) return seeded;
 
             if (inFlightExecute) return inFlightExecute;
+            if (recentFailure && Date.now() - recentFailure.at < TURNSTILE_FAILURE_REUSE_MS) throw recentFailure.error;
 
             inFlightExecute = (async () => {
                 const timeout = interactionAwareTimeout(APP_CHECK_CHALLENGE_TIMEOUT_MS, 'Turnstile timed out');
@@ -434,7 +443,13 @@ function createTurnstileProvider(
                     timeout.clear();
                     resetActiveWidget?.();
                 }
-            })().finally(() => {
+            })().then(result => {
+                recentFailure = undefined;
+                return result;
+            }, (error: unknown) => {
+                recentFailure = { error, at: Date.now() };
+                throw error;
+            }).finally(() => {
                 inFlightExecute = undefined;
             });
 
