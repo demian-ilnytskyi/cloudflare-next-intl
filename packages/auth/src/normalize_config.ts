@@ -9,10 +9,21 @@ const FIREBASE_AUTH_PATH_FIELDS = [
     'actionLinkPath',
 ] as const;
 
+export const MIN_CUSTOM_TOKEN_TTL_SECONDS = 30 * 60;
+export const MAX_CUSTOM_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+
 export function normalizeFirebaseAuthConfig(
     fa: FirebaseAuthRoutingConfig | undefined,
 ): FirebaseAuthRoutingConfig | undefined {
     if (!fa) return undefined;
+
+    const ttl = fa.appCheck?.customTokenTtlSeconds;
+    if (ttl !== undefined && (!Number.isInteger(ttl) || ttl < MIN_CUSTOM_TOKEN_TTL_SECONDS || ttl > MAX_CUSTOM_TOKEN_TTL_SECONDS)) {
+        throw new Error(
+            `[cloudflare-next-intl] firebaseAuth.appCheck.customTokenTtlSeconds (${ttl}) must be an integer between ` +
+            `${MIN_CUSTOM_TOKEN_TTL_SECONDS} (30 minutes) and ${MAX_CUSTOM_TOKEN_TTL_SECONDS} (7 days) — Firebase App Check rejects any other value.`,
+        );
+    }
 
     let changed = false;
     const normalizedFa = { ...fa };

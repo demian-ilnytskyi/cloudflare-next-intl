@@ -49,8 +49,19 @@ export interface FirebaseAppCheckConfig {
      * Use only for local development — never set this in production.
      */
     debugToken?: boolean | string;
-    /** Forwarded to `initializeAppCheck`'s `isTokenAutoRefreshEnabled`. Defaults to `true`. */
+    /**
+     * Forwarded to `initializeAppCheck`'s `isTokenAutoRefreshEnabled`. Defaults to `false`:
+     * tokens are fetched on demand only, so a challenge never runs on page load or in a
+     * background tab — set `true` to have the SDK fetch eagerly and refresh before expiry.
+     */
     isTokenAutoRefreshEnabled?: boolean;
+    /**
+     * Lifetime (seconds) of App Check tokens minted server-side via
+     * `exchangeCustomToken` (Turnstile provider + server minting), sent as the
+     * custom token's `ttl` claim. Firebase accepts 1800–604800 (30 min–7 days);
+     * omitted → Firebase default (1 hour).
+     */
+    customTokenTtlSeconds?: number;
     /**
      * Service account client email, used ONLY server-side to mint an App
      * Check token when the client-written App Check cookie is absent (e.g.

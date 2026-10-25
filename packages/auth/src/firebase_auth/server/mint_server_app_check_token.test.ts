@@ -99,6 +99,18 @@ describe('mintServerAppCheckToken', () => {
         expect(result).toBe('ac-token');
     });
 
+    it('adds the ttl claim when customTokenTtlSeconds is set', async () => {
+        fetchMock.mockResolvedValue({ ok: true, json: async () => ({ token: 'ac-token' }) });
+        const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token.js');
+        await mintServerAppCheckToken('proj', 'key', {
+            clientEmail: 'sa@proj.iam.gserviceaccount.com',
+            privateKey: 'line1\\nline2',
+            appId: '1:1:web:1',
+            customTokenTtlSeconds: 86400,
+        });
+        expect(SignJWTConstructor).toHaveBeenCalledWith({ app_id: '1:1:web:1', ttl: '86400s' });
+    });
+
     it('signs remotely via the OAuth triple when privateKey is absent', async () => {
         fetchMock.mockResolvedValue({ ok: true, json: async () => ({ token: 'ac-token' }) });
         const { default: mintServerAppCheckToken } = await import('./mint_server_app_check_token.js');

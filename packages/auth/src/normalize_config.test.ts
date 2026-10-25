@@ -65,4 +65,18 @@ describe('normalizeFirebaseAuthConfig', () => {
         };
         expect(normalizeFirebaseAuthConfig(input)).toBe(input);
     });
+
+    const withTtl = (customTokenTtlSeconds: number) =>
+        ({ ...baseFa, appCheck: { customTokenTtlSeconds } }) as unknown as FirebaseAuthRoutingConfig;
+
+    it('accepts customTokenTtlSeconds at the 30 minute and 7 day bounds', () => {
+        expect(() => normalizeFirebaseAuthConfig(withTtl(1800))).not.toThrow();
+        expect(() => normalizeFirebaseAuthConfig(withTtl(604800))).not.toThrow();
+    });
+
+    it('throws when customTokenTtlSeconds is out of range or not an integer', () => {
+        expect(() => normalizeFirebaseAuthConfig(withTtl(300))).toThrow(/customTokenTtlSeconds/);
+        expect(() => normalizeFirebaseAuthConfig(withTtl(604801))).toThrow(/customTokenTtlSeconds/);
+        expect(() => normalizeFirebaseAuthConfig(withTtl(1800.5))).toThrow(/customTokenTtlSeconds/);
+    });
 });

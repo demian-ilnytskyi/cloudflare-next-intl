@@ -42,8 +42,11 @@ vi.mock('./firebase_client', () => ({
 }));
 
 const setAuthUserCache = vi.fn();
+const getAuthUserCache = vi.fn(() => null);
 vi.mock('./auth_user_cache', () => ({
     setAuthUserCache: (...args: unknown[]) => setAuthUserCache(...args),
+    getAuthUserCache: () => getAuthUserCache(),
+    isAuthUserLoadingCache: () => false,
 }));
 
 let idTokenListener: ((user: unknown) => void | Promise<void>) | undefined;
@@ -178,6 +181,25 @@ describe('AuthUserProvider', () => {
         await act(async () => { idleCallback?.(); });
         await flush();
         expect(onIdTokenChanged).toHaveBeenCalled();
+    });
+
+    it('does not defer the subscription and maintains loading state when a server session marker is present on a whitelisted page', async () => {
+        currentConfig.firebaseAuth!.whiteListPaths = ['/public'];
+        mockPathname = '/public';
+        const { encodeSessionMarker } = await import('../session_marker.js');
+        const marker = await encodeSessionMarker(Math.floor(Date.now() / 1000) + 3600, 'tok');
+        document.cookie = `__fa_has_session__=${marker}; path=/`;
+        (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback =
+            () => { throw new Error('must not defer when session marker is present'); };
+        const { default: AuthUserProvider, AuthUserContext } = await import('./auth_user_provider.js');
+        function Probe() {
+            const ctx = useContext(AuthUserContext) as AuthUserContextType;
+            return <span>{ctx.loading ? 'loading' : 'settled'}</span>;
+        }
+        render(<AuthUserProvider initialUser={null}><Probe /></AuthUserProvider>);
+        await flush();
+        expect(onIdTokenChanged).toHaveBeenCalled();
+        expect(screen.getByText('loading')).toBeInTheDocument();
     });
 
     it('subscribes immediately on a non-whitelisted page even when signed out', async () => {

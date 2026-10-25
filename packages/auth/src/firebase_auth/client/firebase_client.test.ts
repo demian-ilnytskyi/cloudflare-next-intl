@@ -255,7 +255,7 @@ describe('getFirebaseAuthClient App Check', () => {
         expect(ReCaptchaV3Provider).not.toHaveBeenCalled();
         expect(initializeAppCheck).toHaveBeenCalledWith(
             expect.anything(),
-            expect.objectContaining({ isTokenAutoRefreshEnabled: true }),
+            expect.objectContaining({ isTokenAutoRefreshEnabled: false }),
         );
     });
 
@@ -274,7 +274,7 @@ describe('getFirebaseAuthClient App Check', () => {
         expect(CustomProvider).not.toHaveBeenCalled();
         expect(initializeAppCheck).toHaveBeenCalledWith(
             expect.anything(),
-            expect.objectContaining({ isTokenAutoRefreshEnabled: true }),
+            expect.objectContaining({ isTokenAutoRefreshEnabled: false }),
         );
     });
 
@@ -297,7 +297,7 @@ describe('getFirebaseAuthClient App Check', () => {
             default: {
                 firebaseAuth: {
                     ...baseConfig.firebaseAuth,
-                    appCheck: { recaptchaEnterpriseSiteKey: 'enterprise-key', isTokenAutoRefreshEnabled: false },
+                    appCheck: { recaptchaEnterpriseSiteKey: 'enterprise-key', isTokenAutoRefreshEnabled: true },
                 },
             },
         }));
@@ -306,7 +306,7 @@ describe('getFirebaseAuthClient App Check', () => {
         expect(ReCaptchaEnterpriseProvider).toHaveBeenCalledWith('enterprise-key');
         expect(initializeAppCheck).toHaveBeenCalledWith(
             expect.anything(),
-            expect.objectContaining({ isTokenAutoRefreshEnabled: false }),
+            expect.objectContaining({ isTokenAutoRefreshEnabled: true }),
         );
     });
 });
@@ -944,7 +944,7 @@ describe('Turnstile CustomProvider', () => {
             token: 'minted-app-check-token',
             expireTimeMillis: 1800000000000,
         });
-        expect(container.style.display).toBe('none');
+        expect(container.style.display).toBe('block');
         vi.useRealTimers();
     });
 
@@ -967,7 +967,7 @@ describe('Turnstile CustomProvider', () => {
 
         await vi.advanceTimersByTimeAsync(8_000 + TURNSTILE_INTERACTIVE_TIMEOUT_MS);
         await assertion;
-        expect(document.getElementById('fire_app_check_turnstile')!.style.display).toBe('none');
+        expect(document.getElementById('fire_app_check_turnstile')!.style.display).toBe('block');
         expect(turnstileReset).toHaveBeenCalledWith('turnstile-widget-id');
         vi.useRealTimers();
     });

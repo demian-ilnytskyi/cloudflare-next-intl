@@ -89,6 +89,20 @@ function interactionAwareTimeout(ms: number, message: string): { promise: Promis
     return { promise, clear: () => clearTimeout(timer) };
 }
 
+// Never `display: none`: Turnstile's managed mode needs the iframe rendered to
+// collect the signals that let it pass a visitor invisibly — a non-rendered
+// iframe pushes it into the interactive checkbox. `appearance:
+// 'interaction-only'` already keeps the widget invisible until it needs input.
+const TURNSTILE_IDLE_STYLE = {
+    display: 'block',
+    position: 'fixed',
+    inset: 'auto 0 0 auto',
+    alignItems: '',
+    justifyContent: '',
+    background: 'transparent',
+    zIndex: '',
+};
+
 function setTurnstileContainerVisible(container: HTMLElement, visible: boolean): void {
     turnstileInteractive = visible;
     Object.assign(container.style, visible
@@ -101,7 +115,7 @@ function setTurnstileContainerVisible(container: HTMLElement, visible: boolean):
             background: 'rgba(0, 0, 0, 0.4)',
             zIndex: '2147483647',
         }
-        : { display: 'none' });
+        : TURNSTILE_IDLE_STYLE);
 }
 
 function ensureTurnstileScript(): void {
@@ -331,7 +345,7 @@ function createTurnstileProvider(
             if (!container) {
                 container = document.createElement('div');
                 container.id = containerId;
-                container.style.display = 'none';
+                Object.assign(container.style, TURNSTILE_IDLE_STYLE);
                 document.body.appendChild(container);
             }
             const widgetContainer = container;
@@ -446,7 +460,7 @@ async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: Fire
             : new ReCaptchaV3Provider(appCheckConfig.recaptchaV3SiteKey as string);
     return initializeAppCheck(app, {
         provider,
-        isTokenAutoRefreshEnabled: appCheckConfig.isTokenAutoRefreshEnabled ?? true,
+        isTokenAutoRefreshEnabled: appCheckConfig.isTokenAutoRefreshEnabled ?? false,
     });
 }
 

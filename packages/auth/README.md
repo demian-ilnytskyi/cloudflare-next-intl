@@ -183,10 +183,13 @@ appCheck: {
     clientEmail: process.env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL,
     privateKey: process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+
+    // isTokenAutoRefreshEnabled: true, // default false: tokens are fetched on demand only
+    // customTokenTtlSeconds: 21600, // server-minted token lifetime, 1800–604800 (default 1 h)
 }
 ```
 
-To use Turnstile, create a widget in the Cloudflare dashboard and set both Turnstile keys. Any widget mode works: **Invisible** never shows anything, while **Managed** and **Non-interactive** show the challenge in a centered overlay only when Cloudflare asks a visitor to interact, and hide it again once solved.
+To use Turnstile, create a widget in the Cloudflare dashboard and set both Turnstile keys. Any widget mode works: **Invisible** never shows anything, while **Managed** and **Non-interactive** show the challenge in a centered overlay only when Cloudflare asks a visitor to interact, and hide it again once solved. While idle, the widget stays rendered but transparent in a corner instead of `display: none`, so Managed mode can still pass visitors without a checkbox.
 
 ### Useful `firebaseAuth` options
 

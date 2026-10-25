@@ -196,7 +196,7 @@ export default function AuthUserProvider({
     const isAuthPageRef = useRef(isAuthPage);
     isAuthPageRef.current = isAuthPage;
     const initialSignedIn = Boolean(initialUser);
-    const deferAuthSubscribe = initialUser === null && isWhiteListed && !isAuthPage && typeof window !== 'undefined';
+    const deferAuthSubscribe = initialUser === null && isWhiteListed && !isAuthPage && !hasServerSessionMarker() && typeof window !== 'undefined';
     const restoreAttemptedRef = useRef(false);
 
     const userRefreshToken = (() => {

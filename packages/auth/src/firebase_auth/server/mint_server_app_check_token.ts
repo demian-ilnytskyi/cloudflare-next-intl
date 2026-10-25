@@ -102,6 +102,7 @@ export default async function mintServerAppCheckToken(
             iat: now,
             exp: now + 300,
             app_id: appCheck.appId,
+            ...(appCheck.customTokenTtlSeconds ? { ttl: `${appCheck.customTokenTtlSeconds}s` } : {}),
         });
 
         const url = `https://firebaseappcheck.googleapis.com/v1/projects/${projectId}/apps/${appCheck.appId}:exchangeCustomToken?key=${apiKey}`;
