@@ -870,6 +870,65 @@ describe('Turnstile CustomProvider', () => {
         expect(turnstileReset).toHaveBeenCalledWith('turnstile-widget-id');
     });
 
+    describe('with a reCAPTCHA v3 fallback key', () => {
+        beforeEach(() => {
+            vi.doMock('@intl-config', () => ({
+                default: {
+                    firebaseAuth: {
+                        ...baseConfig.firebaseAuth,
+                        appCheck: { turnstileSiteKey: 'cf-site-key', recaptchaV3SiteKey: 'site-key' },
+                    },
+                },
+            }));
+            window.grecaptcha = {
+                ready: (cb: () => void) => cb(),
+                render: (_c: HTMLElement, p: { callback: () => void }) => { p.callback(); return 'widget-id'; },
+                execute: () => Promise.resolve('recaptcha-token'),
+            } as never;
+        });
+
+        afterEach(() => {
+            delete (window as { grecaptcha?: unknown }).grecaptcha;
+        });
+
+        it('falls back to reCAPTCHA v3 when the Turnstile challenge fails', async () => {
+            installTurnstile({ fail: true });
+            vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+                status: 200,
+                json: () => Promise.resolve({ token: 'recaptcha-app-check-token', ttl: '3600s' }),
+            })));
+
+            const result = await getTurnstileProviderToken();
+            expect(result.token).toBe('recaptcha-app-check-token');
+            expect(turnstileExecute).toHaveBeenCalledTimes(1);
+            expect(exchangeTurnstileTokenActionMock).not.toHaveBeenCalled();
+        });
+
+        it('skips the fallback when recaptchaFallback is false', async () => {
+            vi.doMock('@intl-config', () => ({
+                default: {
+                    firebaseAuth: {
+                        ...baseConfig.firebaseAuth,
+                        appCheck: { turnstileSiteKey: 'cf-site-key', recaptchaV3SiteKey: 'site-key', recaptchaFallback: false },
+                    },
+                },
+            }));
+            installTurnstile({ fail: true });
+            const fetchMock = vi.fn();
+            vi.stubGlobal('fetch', fetchMock);
+
+            await expect(getTurnstileProviderToken()).rejects.toThrow(/Turnstile error/);
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it('rejects with the Turnstile error when the fallback fails too', async () => {
+            installTurnstile({ fail: true });
+            vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ status: 403, json: () => Promise.resolve({}) })));
+
+            await expect(getTurnstileProviderToken()).rejects.toThrow(/Turnstile error/);
+        });
+    });
+
     it('reuses a just-failed challenge instead of showing a second one', async () => {
         installTurnstile({ fail: true });
         vi.useFakeTimers();

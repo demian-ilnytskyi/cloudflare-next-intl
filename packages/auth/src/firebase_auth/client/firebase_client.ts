@@ -241,6 +241,13 @@ function createExplicitRecaptchaProvider(
     siteKey: string,
     CustomProviderCtor: typeof CustomProvider,
 ) {
+    return new CustomProviderCtor({ getToken: createExplicitRecaptchaTokenGetter(app, siteKey) });
+}
+
+function createExplicitRecaptchaTokenGetter(
+    app: FirebaseApp,
+    siteKey: string,
+): () => Promise<{ token: string; expireTimeMillis: number }> {
     let widgetReady: Promise<{ grecaptcha: Grecaptcha; widgetId: string }> | undefined;
     let widgetSucceeded = false;
 
@@ -284,8 +291,7 @@ function createExplicitRecaptchaProvider(
         return widgetReady;
     }
 
-    return new CustomProviderCtor({
-        getToken: async () => {
+    return async () => {
             const seeded = readSeededAppCheckToken();
             if (seeded) return seeded;
 
@@ -326,13 +332,13 @@ function createExplicitRecaptchaProvider(
                 throw new Error(`Unexpected ttl format in App Check exchange response: ${body.ttl}`);
             }
             return { token: body.token, expireTimeMillis: Date.now() + Number(match[1]) * 1000 };
-        },
-    });
+    };
 }
 
 function createTurnstileProvider(
     siteKey: string,
     CustomProviderCtor: typeof CustomProvider,
+    fallbackGetToken?: () => Promise<{ token: string; expireTimeMillis: number }>,
 ) {
     let widgetReady: Promise<{
         executeChallenge: () => Promise<string>;
@@ -439,6 +445,11 @@ function createTurnstileProvider(
 
                 try {
                     return await Promise.race([executeFlow, timeout.promise]);
+                } catch (error) {
+                    if (!fallbackGetToken) throw error;
+                    return await fallbackGetToken().catch(() => {
+                        throw error;
+                    });
                 } finally {
                     timeout.clear();
                     resetActiveWidget?.();
@@ -467,7 +478,13 @@ async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: Fire
             appCheckConfig.debugToken;
     }
     const provider = appCheckConfig.turnstileSiteKey
-        ? createTurnstileProvider(appCheckConfig.turnstileSiteKey, CustomProvider)
+        ? createTurnstileProvider(
+            appCheckConfig.turnstileSiteKey,
+            CustomProvider,
+            appCheckConfig.recaptchaV3SiteKey && appCheckConfig.recaptchaFallback !== false
+                ? createExplicitRecaptchaTokenGetter(app, appCheckConfig.recaptchaV3SiteKey)
+                : undefined,
+        )
         : appCheckConfig.recaptchaEnterpriseSiteKey
           ? new ReCaptchaEnterpriseProvider(appCheckConfig.recaptchaEnterpriseSiteKey)
           : appCheckConfig.useExplicitRecaptchaScript !== false

@@ -8,6 +8,7 @@ All notable changes to this package are documented here. Format follows
 ### Fixed
 
 - Auth actions (`createLoginAction`, `createSignUpAction`, `createForgotPasswordAction`, `createSendSignInLinkAction`, `completeSignInWithLink`) and `AuthUserProvider` (session restore via `signInWithCustomToken`, `reloadUser`, `sendVerificationEmail`) now await `getAppCheckToken()` before calling Firebase. Firebase Auth starts its 30 s network timeout before it requests the App Check token, so an interactive Turnstile challenge that took longer failed with `auth/network-request-failed` ("Network error") and the request was never sent.
+- With both `turnstileSiteKey` and `recaptchaV3SiteKey` set, a failed Turnstile challenge (for example Cloudflare rejecting an automated browser with `600010`) falls back to reCAPTCHA v3 once. Set `appCheck.recaptchaFallback: false` to use Turnstile only.
 - A failed Turnstile challenge is rethrown to `getToken` calls made within `TURNSTILE_FAILURE_REUSE_MS` (3 s), so the Firebase request that follows a failed `getAppCheckToken()` fails fast instead of showing the visitor a second challenge.
 
 ## [0.3.0] - 2026-10-25
