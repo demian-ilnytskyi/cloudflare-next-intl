@@ -62,6 +62,7 @@ jobs:
     with:
       project_type: nextjs
       working_directory: packages/cloudflare-next-intl
+      codecov_flags: cloudflare_next_intl
       test_path: src
       min_coverage: 100
       min_overall_coverage: 99
@@ -84,6 +85,7 @@ jobs:
     with:
       project_type: nextjs
       working_directory: packages/intl
+      codecov_flags: intl
       test_path: src
       min_coverage: 100
       min_overall_coverage: 99
@@ -99,6 +101,7 @@ jobs:
     with:
       project_type: nextjs
       working_directory: packages/errors
+      codecov_flags: errors
       test_path: src
       min_coverage: 100
       min_overall_coverage: 100
@@ -112,6 +115,7 @@ jobs:
     with:
       project_type: nextjs
       working_directory: packages/theme
+      codecov_flags: theme
       test_path: src
       min_coverage: 100
       min_overall_coverage: 100
@@ -125,6 +129,7 @@ jobs:
     with:
       project_type: nextjs
       working_directory: packages/auth
+      codecov_flags: auth
       test_path: src
       min_coverage: 100
       min_overall_coverage: 96
@@ -149,6 +154,7 @@ jobs:
     with:
       project_type: nextjs
       working_directory: packages/db
+      codecov_flags: db
       test_path: src
       min_coverage: 100
       min_overall_coverage: 100
@@ -162,6 +168,7 @@ jobs:
     with:
       project_type: nextjs
       working_directory: packages/db-codegen
+      codecov_flags: db_codegen
       test_path: src
       min_coverage: 100
       min_overall_coverage: 100

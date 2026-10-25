@@ -16,6 +16,14 @@ vi.mock('../../cookie_consent/client/components/auto_analytics_events.js', () =>
     default: () => null,
 }));
 
+vi.mock('../../cookie_consent/client/components/cookie_consent_dialog.js', () => ({
+    default: () => null,
+}));
+
+vi.mock('../../cookie_consent/client/components/privacy_policy_update_dialog.js', () => ({
+    default: () => null,
+}));
+
 function ChildConsumer() {
     const locale = useLocale();
     return <span data-testid="child-locale">{locale}</span>;
