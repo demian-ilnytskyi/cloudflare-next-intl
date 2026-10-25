@@ -599,6 +599,8 @@ export default setIntlConfig({
         // countryHeaderNames: ["x-cf-country", "cf-ipcountry"],
         // gdprCountries: [...], // defaults to EU/EEA + UK + Switzerland
         // enableAnalyticsInDevMode: true, // analytics stay off in dev otherwise
+        // googleTagId: "GT-XXXXXXXX", // gtag.js in IntlHelperScript; defaults to analytics.googleAdsId
+        // googleTag: false, // turn off the IntlHelperScript Google tag
         // autoWireDialogs: false, // opt out and render the dialogs yourself
         // dialogProps: { acceptText: "Accept", showPrivacyPolicy: true }, // forwarded to CookieConsentDialog
         // updateDialogProps: { closeText: "Got it", showPrivacyPolicy: true }, // forwarded to PrivacyPolicyUpdateDialog

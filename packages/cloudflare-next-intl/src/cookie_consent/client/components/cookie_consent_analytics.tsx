@@ -50,7 +50,12 @@ export default function CookieConsentAnalytics({ config }: { config: CookieConse
         document.head.appendChild(script);
     }, [granted, config.cloudflareBeaconToken]);
 
-    const hasGoogle = Boolean(config.googleAnalyticsId || config.googleAdsId || config.googleAdSenseId);
+    const hasGoogle = Boolean(
+        config.googleAnalyticsId ||
+        config.googleAdsId ||
+        config.googleAdSenseId ||
+        (typeof config.googleTagId === 'string' && config.googleTagId),
+    );
 
     return (
         <>
@@ -74,16 +79,26 @@ export default function CookieConsentAnalytics({ config }: { config: CookieConse
  * in `config` are included.
  */
 export function googleConsentModeBootstrapScript(config: CookieConsentAnalyticsConfig): string {
-    const configCalls = [config.googleAnalyticsId, config.googleAdsId]
+    const configCalls = [
+        config.googleAnalyticsId,
+        config.googleAdsId,
+        typeof config.googleTagId === 'string' ? config.googleTagId : undefined,
+    ]
         .filter(Boolean)
+        .filter((id, index, arr) => arr.indexOf(id) === index)
         .map((id) => `gtag('config', '${id}');`)
         .join('\n');
 
-    const gtagLoader = config.googleAnalyticsId || config.googleAdsId
+    const gtagTargetId =
+        config.googleAnalyticsId ??
+        config.googleAdsId ??
+        (typeof config.googleTagId === 'string' ? config.googleTagId : undefined);
+
+    const gtagLoader = gtagTargetId
         ? `(function(){
   var s = document.createElement('script');
   s.async = true;
-  s.src = 'https://www.googletagmanager.com/gtag/js?id=${config.googleAnalyticsId ?? config.googleAdsId}';
+  s.src = 'https://www.googletagmanager.com/gtag/js?id=${gtagTargetId}';
   document.head.appendChild(s);
 })();`
         : '';

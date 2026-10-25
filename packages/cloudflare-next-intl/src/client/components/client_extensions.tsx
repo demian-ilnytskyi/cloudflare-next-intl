@@ -97,7 +97,7 @@ export default function ClientExtensions({
                         <CookieConsentAnalytics config={analyticsConfig} />
                     </Suspense>
                 )}
-                {analyticsConfig && (analyticsConfig.googleAnalyticsId || analyticsConfig.googleAdsId) && (
+                {analyticsConfig && (analyticsConfig.googleAnalyticsId || analyticsConfig.googleAdsId || (typeof analyticsConfig.googleTagId === 'string' && analyticsConfig.googleTagId)) && (
                     <Suspense fallback={null}>
                         <AutoAnalyticsEvents config={autoAnalyticsEventsConfig ?? resolvedConsent?.autoAnalyticsEvents} />
                     </Suspense>

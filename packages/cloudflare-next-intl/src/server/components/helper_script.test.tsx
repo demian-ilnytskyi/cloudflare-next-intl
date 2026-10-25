@@ -3,6 +3,7 @@ import { render, cleanup } from '@testing-library/react';
 
 afterEach(() => {
     cleanup();
+    document.head.innerHTML = '';
 });
 
 describe('Umbrella HelperScript', () => {
@@ -71,9 +72,12 @@ describe('Umbrella HelperScript', () => {
             },
         }));
         const { default: AdsScript } = await import('./helper_script.js');
-        render(<AdsScript />);
+        const { container: adsContainer } = render(<AdsScript />);
         expect(document.head.querySelector('link[href="https://www.googletagmanager.com"]')).not.toBeNull();
+        expect(document.head.querySelector('script[src="https://www.googletagmanager.com/gtag/js?id=AW-123"]')).not.toBeNull();
+        expect(adsContainer.querySelector('#google-tag-init')?.innerHTML).toContain("gtag('config', 'AW-123')");
         cleanup();
+        document.head.innerHTML = '';
 
         vi.resetModules();
         vi.doMock('../../config/intl_config', () => ({
@@ -86,8 +90,124 @@ describe('Umbrella HelperScript', () => {
             },
         }));
         const { default: AdSenseScript } = await import('./helper_script.js');
-        render(<AdSenseScript />);
+        const { container: adSenseContainer } = render(<AdSenseScript />);
         expect(document.head.querySelector('link[href="https://www.googletagmanager.com"]')).not.toBeNull();
+        expect(adSenseContainer.querySelector('#google-tag-init')).toBeNull();
+        vi.doUnmock('../../config/intl_config');
+    });
+
+    it('allows turning off googleTag or customizing googleTagId', async () => {
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                cookieConsent: {
+                    analytics: {
+                        googleAdsId: 'AW-123',
+                        googleTag: false,
+                    },
+                },
+            },
+        }));
+        const { default: DisabledScript } = await import('./helper_script.js');
+        const { container: disabledContainer } = render(<DisabledScript />);
+        expect(document.head.querySelector('script[src*="googletagmanager.com/gtag/js"]')).toBeNull();
+        expect(disabledContainer.querySelector('#google-tag-init')).toBeNull();
+        cleanup();
+        document.head.innerHTML = '';
+
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                cookieConsent: {
+                    analytics: {
+                        googleAdsId: 'AW-123',
+                        googleTagId: false,
+                    },
+                },
+            },
+        }));
+        const { default: TagIdDisabledScript } = await import('./helper_script.js');
+        const { container: tagIdDisabledContainer } = render(<TagIdDisabledScript />);
+        expect(tagIdDisabledContainer.querySelector('#google-tag-init')).toBeNull();
+        cleanup();
+        document.head.innerHTML = '';
+
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                cookieConsent: {
+                    googleTag: false,
+                    analytics: {
+                        googleAdsId: 'AW-123',
+                    },
+                },
+            },
+        }));
+        const { default: TopDisabledScript } = await import('./helper_script.js');
+        const { container: topDisabledContainer } = render(<TopDisabledScript />);
+        expect(topDisabledContainer.querySelector('#google-tag-init')).toBeNull();
+        cleanup();
+        document.head.innerHTML = '';
+
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                cookieConsent: {
+                    analytics: {
+                        googleAdsId: 'AW-123',
+                    },
+                },
+            },
+        }));
+        const { default: PropDisabledScript } = await import('./helper_script.js');
+        const { container: propDisabledContainer } = render(<PropDisabledScript googleTag={false} />);
+        expect(propDisabledContainer.querySelector('#google-tag-init')).toBeNull();
+        cleanup();
+        document.head.innerHTML = '';
+
+        const { container: propTagIdDisabledContainer } = render(<PropDisabledScript googleTagId={false} />);
+        expect(propTagIdDisabledContainer.querySelector('#google-tag-init')).toBeNull();
+        cleanup();
+        document.head.innerHTML = '';
+
+        const { container: propTagContainer } = render(<PropDisabledScript googleTagId="GT-PROP" />);
+        expect(document.head.querySelector('script[src="https://www.googletagmanager.com/gtag/js?id=GT-PROP"]')).not.toBeNull();
+        expect(propTagContainer.querySelector('#google-tag-init')?.innerHTML).toContain("gtag('config', 'GT-PROP')");
+        cleanup();
+        document.head.innerHTML = '';
+
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                cookieConsent: {
+                    googleTagId: 'GT-TOP',
+                    analytics: {
+                        googleAdsId: 'AW-123',
+                    },
+                },
+            },
+        }));
+        const { default: TopCustomScript } = await import('./helper_script.js');
+        render(<TopCustomScript />);
+        expect(document.head.querySelector('script[src="https://www.googletagmanager.com/gtag/js?id=GT-TOP"]')).not.toBeNull();
+        cleanup();
+        document.head.innerHTML = '';
+
+        vi.resetModules();
+        vi.doMock('../../config/intl_config', () => ({
+            default: {
+                cookieConsent: {
+                    analytics: {
+                        googleAdsId: 'AW-123',
+                        googleTagId: 'GT-CUSTOM',
+                    },
+                },
+            },
+        }));
+        const { default: CustomTagScript } = await import('./helper_script.js');
+        const { container: customContainer } = render(<CustomTagScript />);
+        expect(document.head.querySelector('script[src="https://www.googletagmanager.com/gtag/js?id=GT-CUSTOM"]')).not.toBeNull();
+        expect(customContainer.querySelector('#google-tag-init')?.innerHTML).toContain("gtag('config', 'GT-CUSTOM')");
         vi.doUnmock('../../config/intl_config');
     });
 

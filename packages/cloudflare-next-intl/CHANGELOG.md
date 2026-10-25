@@ -3,6 +3,21 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.0] - 2026-10-25
+
+### Added
+
+- `cookieConsent.googleTagId` / `cookieConsent.googleTag` (also on `cookieConsent.analytics`) and matching `IntlHelperScript` props: `IntlHelperScript` renders the Google tag (gtag.js) for this ID. Defaults to `analytics.googleAdsId`; set `googleTag: false` or `googleTagId: false` to turn it off.
+- `CookieConsentAnalytics` and `AutoAnalyticsEvents` also load and configure gtag when only `googleTagId` is set. Duplicate `gtag('config')` calls are removed.
+
+### Fixed
+
+- Cookie-consent dialog no longer shows for non-GDPR visitors on their first visit when the page is served from the Cloudflare edge cache. A cache hit skips the Worker, so the `__cf_country__` cookie was missing on mount. `CookieConsentProvider` now sends one cache-busting `HEAD` request to the current path, polls for the cookie, and keeps the dialog hidden for up to 2 s while it waits.
+
+### Changed
+
+- Requires `cloudflare-next-intl-auth` `^0.3.0`.
+
 ## [0.13.1] - 2026-10-24
 
 ### Added

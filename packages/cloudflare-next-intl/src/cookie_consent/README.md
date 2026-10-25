@@ -59,10 +59,16 @@ the server component runs once at render time with a specific visitor's
 headers — but the cached HTML is then served to all subsequent visitors,
 whose countries may differ. To handle this, `intlMiddleware` sets a
 short-lived `__cf_country__` cookie (24 h, JS-readable, `SameSite=Lax`)
-on every response — including Cloudflare edge-cache hits — from
-`cf.country`. `CookieConsentProvider` reads this cookie on client mount
-and re-evaluates GDPR membership, overriding the server-baked
-`requiresConsent` when needed. No additional configuration is required.
+on every response the Worker handles, from `cf.country`.
+`CookieConsentProvider` reads this cookie on client mount and re-evaluates
+GDPR membership, overriding the server-baked `requiresConsent` when needed.
+A Cloudflare edge-cache hit never reaches the Worker, so a first visit can
+arrive without the cookie. In that case the provider sends one `HEAD`
+request to the current path with a unique `?__cfni_country=` query (always a
+cache miss, so the middleware sets the cookie), polls for the cookie every
+200 ms, and keeps the dialog hidden for up to 2 s while it waits. A cookie
+arriving later (up to 15 s) still hides the dialog for non-GDPR visitors.
+No additional configuration is required.
 
 Two optional getters override that resolution: `getCountryCode` resolves the
 country directly (if you already have it from a header/KV/your own logic);

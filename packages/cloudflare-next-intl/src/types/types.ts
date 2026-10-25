@@ -83,6 +83,18 @@ export interface CookieConsentRoutingConfig {
      */
     autoWireAnalytics?: boolean;
     /**
+     * Whether to add Google tag (gtag.js) scripts in `IntlHelperScript`.
+     * Defaults to `true` when `googleAdsId` or `googleTagId` is set.
+     * Set `false` to turn off adding it.
+     */
+    googleTag?: boolean;
+    /**
+     * Google Tag ID, e.g. `"AW-XXXXXXXXX"` or `"GT-XXXXXXXX"`.
+     * Defaults to `googleAdsId` when `googleAdsId` is set.
+     * Set `false` to turn off adding Google tag scripts.
+     */
+    googleTagId?: string | false;
+    /**
      * Static IDs/tokens for the analytics providers below. Use this OR
      * `getAnalytics`, not both — `getAnalytics` takes precedence when both are
      * set (e.g. values only available at request time from a Cloudflare
@@ -220,6 +232,18 @@ export interface CookieConsentAnalyticsConfig {
     googleAnalyticsId?: string;
     /** Google Ads conversion ID, e.g. `"AW-XXXXXXXXX"`. */
     googleAdsId?: string;
+    /**
+     * Google Tag ID, e.g. `"AW-XXXXXXXXX"` or `"GT-XXXXXXXX"`.
+     * Defaults to `googleAdsId` when `googleAdsId` is set.
+     * Set `false` to turn off adding Google tag scripts.
+     */
+    googleTagId?: string | false;
+    /**
+     * Whether to add Google tag (gtag.js) scripts in `IntlHelperScript`.
+     * Defaults to `true` when `googleAdsId` or `googleTagId` is set.
+     * Set `false` to turn off adding it.
+     */
+    googleTag?: boolean;
     /** Google AdSense publisher ID, e.g. `"ca-pub-XXXXXXXXXXXXXXXX"`. */
     googleAdSenseId?: string;
     /**

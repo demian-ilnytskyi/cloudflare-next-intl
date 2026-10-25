@@ -37,6 +37,7 @@ function Consumer() {
             <span data-testid="consent">{ctx.consent === null ? 'null' : String(ctx.consent)}</span>
             <span data-testid="requires-consent">{String(ctx.requiresConsent)}</span>
             <span data-testid="updated">{String(ctx.privacyPolicyUpdated)}</span>
+            <span data-testid="mounted">{String(ctx.isMounted)}</span>
             <span data-testid="privacy-policy-path">{String(ctx.privacyPolicyPath)}</span>
             <span data-testid="show-privacy-policy">{String(ctx.showPrivacyPolicy)}</span>
             <button onClick={() => ctx.setConsent(true)}>accept</button>
@@ -47,8 +48,12 @@ function Consumer() {
     );
 }
 
+const fetchMock = vi.fn(() => Promise.reject(new Error('offline')));
+vi.stubGlobal('fetch', fetchMock);
+
 describe('CookieConsentProvider', () => {
     beforeEach(() => {
+        fetchMock.mockClear();
         cookies.clear();
         currentConfig = { cookieConsent: {} };
         pathname = '/en';
@@ -295,6 +300,7 @@ describe('CookieConsentProvider', () => {
         const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
         render(<CookieConsentProvider requiresConsent={true}><Consumer /></CookieConsentProvider>);
         expect(screen.getByTestId('requires-consent')).toHaveTextContent('false');
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('keeps requiresConsent true when country cookie is a GDPR country', async () => {
@@ -308,6 +314,55 @@ describe('CookieConsentProvider', () => {
         const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
         render(<CookieConsentProvider requiresConsent={true}><Consumer /></CookieConsentProvider>);
         expect(screen.getByTestId('requires-consent')).toHaveTextContent('true');
+    });
+
+    it('waits for a late country cookie before mounting and corrects requiresConsent', async () => {
+        vi.useFakeTimers();
+        try {
+            const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
+            render(<CookieConsentProvider requiresConsent={true}><Consumer /></CookieConsentProvider>);
+            expect(screen.getByTestId('mounted')).toHaveTextContent('false');
+            expect(fetchMock).toHaveBeenCalledWith(
+                expect.stringMatching(/^\/\?__cfni_country=\d+$/),
+                { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' },
+            );
+            cookies.set('__cf_country__', 'UA');
+            await act(async () => { vi.advanceTimersByTime(200); });
+            expect(screen.getByTestId('mounted')).toHaveTextContent('true');
+            expect(screen.getByTestId('requires-consent')).toHaveTextContent('false');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('mounts after the reveal delay and still corrects a country cookie arriving later', async () => {
+        vi.useFakeTimers();
+        try {
+            const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
+            render(<CookieConsentProvider requiresConsent={true}><Consumer /></CookieConsentProvider>);
+            await act(async () => { vi.advanceTimersByTime(2000); });
+            expect(screen.getByTestId('mounted')).toHaveTextContent('true');
+            expect(screen.getByTestId('requires-consent')).toHaveTextContent('true');
+            cookies.set('__cf_country__', 'UA');
+            await act(async () => { vi.advanceTimersByTime(200); });
+            expect(screen.getByTestId('requires-consent')).toHaveTextContent('false');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('stops polling for the country cookie after the max wait', async () => {
+        vi.useFakeTimers();
+        try {
+            const { default: CookieConsentProvider } = await import('./cookie_consent_provider.js');
+            render(<CookieConsentProvider requiresConsent={true}><Consumer /></CookieConsentProvider>);
+            await act(async () => { vi.advanceTimersByTime(15000); });
+            cookies.set('__cf_country__', 'UA');
+            await act(async () => { vi.advanceTimersByTime(1000); });
+            expect(screen.getByTestId('requires-consent')).toHaveTextContent('true');
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('does not re-evaluate country cookie when requiresConsent prop is false', async () => {

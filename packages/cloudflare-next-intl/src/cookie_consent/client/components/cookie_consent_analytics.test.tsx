@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, cleanup } from '@testing-library/react';
 import * as React from 'react';
 import CookieConsentAnalytics from './cookie_consent_analytics.js';
 
@@ -77,6 +77,22 @@ describe('CookieConsentAnalytics', () => {
         const script = container.querySelector('#cookie-consent-google-consent-mode');
         expect(script?.innerHTML).toContain('id=AW-YYY');
         expect(script?.innerHTML).toContain("gtag('config', 'AW-YYY')");
+    });
+
+    it('supports googleTagId for gtag loader and deduplicates config calls with googleAdsId', () => {
+        const { container: standalone } = render(<CookieConsentAnalytics config={{ googleTagId: 'GT-TAG' }} />);
+        const standaloneScript = standalone.querySelector('#cookie-consent-google-consent-mode');
+        expect(standaloneScript?.innerHTML).toContain('id=GT-TAG');
+        expect(standaloneScript?.innerHTML).toContain("gtag('config', 'GT-TAG')");
+        cleanup();
+
+        const { container: deduped } = render(
+            <CookieConsentAnalytics config={{ googleAdsId: 'AW-YYY', googleTagId: 'AW-YYY' }} />,
+        );
+        const dedupedScript = deduped.querySelector('#cookie-consent-google-consent-mode');
+        expect(dedupedScript?.innerHTML).toContain("gtag('config', 'AW-YYY');");
+        const count = (dedupedScript?.innerHTML ?? '').split("gtag('config', 'AW-YYY');").length - 1;
+        expect(count).toBe(1);
     });
 
     it('omits the gtag loader entirely when only googleAdSenseId is set', () => {

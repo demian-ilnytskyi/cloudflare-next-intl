@@ -22,6 +22,11 @@ function parseConsent(raw: string | null): ConsentValue {
 // O(1) lookup — same reasoning as the server-side Set in gdpr_countries.ts.
 const defaultGdprCountriesSet = new Set(defaultGdprCountries);
 
+const countryCookiePollMs = 200;
+const countryCookieRevealMs = 2000;
+const countryCookieMaxWaitMs = 15000;
+const countryCookieRefreshParam = '__cfni_country';
+
 /**
  * Provides cookie-consent + privacy-policy-update state to
  * `useCookieConsent()` and the default `CookieConsentDialog`/
@@ -106,29 +111,50 @@ export default function CookieConsentProvider({
         // (next/headers() has no per-visitor data at cache-hit time), so the
         // server falls back to `requiresConsent=true`. Correct it here using
         // the `__cf_country__` cookie that intlMiddleware sets on every
-        // response — including Cloudflare edge-cache hits — from `cf.country`.
-        if (requiresConsentProp) {
+        // response from `cf.country`. Edge-cache hits skip the worker, so on a
+        // first visit the cookie may only arrive with a later request.
+        const gdprSet = gdprCountries ? new Set(gdprCountries) : defaultGdprCountriesSet;
+        const applyCountryCookie = (): boolean => {
             const countryCookie = getCookie(countryCookieKey);
-            if (countryCookie) {
-                const gdprSet = gdprCountries
-                    ? new Set(gdprCountries)
-                    : defaultGdprCountriesSet;
-                setRequiresConsent(gdprSet.has(countryCookie));
+            if (!countryCookie) return false;
+            setRequiresConsent(gdprSet.has(countryCookie));
+            return true;
+        };
+
+        let pollId: ReturnType<typeof setInterval> | undefined;
+        let revealId: ReturnType<typeof setTimeout> | undefined;
+        let stopId: ReturnType<typeof setTimeout> | undefined;
+        const stopPolling = () => {
+            clearInterval(pollId);
+            clearTimeout(revealId);
+            clearTimeout(stopId);
+        };
+
+        if (!requiresConsentProp || applyCountryCookie()) {
+            setIsMounted(true);
+        } else {
+            fetch(`${window.location.pathname}?${countryCookieRefreshParam}=${Date.now()}`, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' })
+                .catch(() => undefined);
+            pollId = setInterval(() => {
+                if (!applyCountryCookie()) return;
+                stopPolling();
+                setIsMounted(true);
+            }, countryCookiePollMs);
+            revealId = setTimeout(() => setIsMounted(true), countryCookieRevealMs);
+            stopId = setTimeout(stopPolling, countryCookieMaxWaitMs);
+        }
+
+        if (!isFirstVisit && policyDate) {
+            const storedDateRaw = getCookie(dateCookieName);
+            if (!storedDateRaw) {
+                setCookie({ name: dateCookieName, value: policyDate.toISOString(), maxAge });
+            } else {
+                const storedDate = new Date(storedDateRaw);
+                setPrivacyPolicyUpdated(!Number.isNaN(storedDate.getTime()) && storedDate < policyDate);
             }
         }
 
-        setIsMounted(true);
-
-        if (isFirstVisit || !policyDate) return;
-
-        const storedDateRaw = getCookie(dateCookieName);
-        if (!storedDateRaw) {
-            setCookie({ name: dateCookieName, value: policyDate.toISOString(), maxAge });
-            return;
-        }
-
-        const storedDate = new Date(storedDateRaw);
-        setPrivacyPolicyUpdated(!Number.isNaN(storedDate.getTime()) && storedDate < policyDate);
+        return stopPolling;
     }, [consentCookieName, dateCookieName, maxAge, policyDate, requiresConsentProp, gdprCountries]);
 
     // `value: null` stores the literal string `'null'` (rather than clearing
