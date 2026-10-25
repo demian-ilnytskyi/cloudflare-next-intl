@@ -39,6 +39,7 @@ vi.mock('./firebase_client', () => ({
     getFirebaseAuthClient: vi.fn(async () => ({ auth: authObj })),
     getFirebaseAuthModule: () => import('@firebase/auth'),
     getAppCheckToken: (...args: unknown[]) => getAppCheckToken(...args),
+    APP_CHECK_ACTION_TIMEOUT_MS: 90_000,
 }));
 
 const setAuthUserCache = vi.fn();

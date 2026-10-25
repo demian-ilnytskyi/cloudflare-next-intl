@@ -17,6 +17,13 @@ export interface FirebaseAppCheckConfig {
     /** Cloudflare Turnstile secret key, used ONLY server-side to verify Turnstile challenge tokens before minting an App Check token. Never read on the client. */
     turnstileSecretKey?: string;
     /**
+     * When `turnstileSiteKey` is set, Turnstile script and widget are preloaded
+     * on the client as soon as App Check initializes (default `true`), warming up
+     * the container and script in advance. Set to `false` for lazy loading (loads
+     * only upon first challenge execution).
+     */
+    preloadTurnstile?: boolean;
+    /**
      * With both `turnstileSiteKey` and `recaptchaV3SiteKey` set, a failed
      * Turnstile challenge falls back to reCAPTCHA v3 once (default `true`).
      * Set `false` to use Turnstile only.

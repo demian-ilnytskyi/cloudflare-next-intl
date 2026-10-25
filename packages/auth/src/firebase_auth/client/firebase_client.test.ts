@@ -413,8 +413,27 @@ describe('getAppCheckToken', () => {
         const { getFirebaseAuthClient, getAppCheckToken } = await import('./firebase_client.js');
         await getFirebaseAuthClient();
         const promise = getAppCheckToken();
-        await vi.advanceTimersByTimeAsync(10_000);
+        await vi.advanceTimersByTimeAsync(30_000);
         await expect(promise).resolves.toBeUndefined();
+        vi.useRealTimers();
+    });
+
+    it('waits up to the given timeout for a slow token', async () => {
+        vi.useFakeTimers();
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    appCheck: { recaptchaV3SiteKey: 'site-key' },
+                },
+            },
+        }));
+        getToken.mockReturnValueOnce(new Promise(resolve => setTimeout(() => resolve({ token: 'slow-token' }), 40_000)));
+        const { getFirebaseAuthClient, getAppCheckToken, APP_CHECK_ACTION_TIMEOUT_MS } = await import('./firebase_client.js');
+        await getFirebaseAuthClient();
+        const promise = getAppCheckToken(APP_CHECK_ACTION_TIMEOUT_MS);
+        await vi.advanceTimersByTimeAsync(40_000);
+        await expect(promise).resolves.toBe('slow-token');
         vi.useRealTimers();
     });
 });
@@ -702,7 +721,7 @@ describe('explicit reCAPTCHA CustomProvider', () => {
         };
         const pending = options.getToken();
         const assertion = expect(pending).rejects.toThrow('reCAPTCHA timed out');
-        await vi.advanceTimersByTimeAsync(8_000);
+        await vi.advanceTimersByTimeAsync((await import('./firebase_client.js')).RECAPTCHA_TOKEN_TIMEOUT_MS);
         await assertion;
         vi.useRealTimers();
     });
@@ -904,6 +923,32 @@ describe('Turnstile CustomProvider', () => {
             expect(exchangeTurnstileTokenActionMock).not.toHaveBeenCalled();
         });
 
+        it('resets a timed-out Turnstile widget before running the fallback', async () => {
+            installTurnstile();
+            turnstileExecute.mockImplementationOnce(() => {});
+            const order: string[] = [];
+            turnstileReset.mockImplementation(() => { order.push('reset'); });
+            vi.stubGlobal('fetch', vi.fn(() => {
+                order.push('fallback');
+                return Promise.resolve({
+                    status: 200,
+                    json: () => Promise.resolve({ token: 'recaptcha-app-check-token', ttl: '3600s' }),
+                });
+            }));
+
+            vi.useFakeTimers();
+            const { getAppCheckToken, APP_CHECK_CHALLENGE_TIMEOUT_MS } = await import('./firebase_client.js');
+            void getAppCheckToken();
+            await vi.advanceTimersByTimeAsync(0);
+            const options = CustomProvider.mock.calls[0]![0] as { getToken: () => Promise<{ token: string }> };
+            const pending = options.getToken();
+            await vi.advanceTimersByTimeAsync(APP_CHECK_CHALLENGE_TIMEOUT_MS);
+            await expect(pending).resolves.toMatchObject({ token: 'recaptcha-app-check-token' });
+            expect(order[0]).toBe('reset');
+            expect(order).toContain('fallback');
+            vi.useRealTimers();
+        });
+
         it('skips the fallback when recaptchaFallback is false', async () => {
             vi.doMock('@intl-config', () => ({
                 default: {
@@ -977,7 +1022,7 @@ describe('Turnstile CustomProvider', () => {
         const pending = options.getToken();
         const assertion = expect(pending).rejects.toThrow(/timed out/);
 
-        await vi.advanceTimersByTimeAsync(8_000);
+        await vi.advanceTimersByTimeAsync((await import('./firebase_client.js')).APP_CHECK_CHALLENGE_TIMEOUT_MS);
         await assertion;
         vi.useRealTimers();
     });
@@ -1043,7 +1088,7 @@ describe('Turnstile CustomProvider', () => {
         const pending = options.getToken();
         const assertion = expect(pending).rejects.toThrow(/timed out/);
 
-        await vi.advanceTimersByTimeAsync(8_000 + TURNSTILE_INTERACTIVE_TIMEOUT_MS);
+        await vi.advanceTimersByTimeAsync((await import('./firebase_client.js')).APP_CHECK_CHALLENGE_TIMEOUT_MS + TURNSTILE_INTERACTIVE_TIMEOUT_MS);
         await assertion;
         expect(document.getElementById('fire_app_check_turnstile')!.style.display).toBe('block');
         expect(turnstileReset).toHaveBeenCalledWith('turnstile-widget-id');
@@ -1069,5 +1114,40 @@ describe('Turnstile CustomProvider', () => {
         expect(CustomProvider).toHaveBeenCalledWith(expect.objectContaining({ getToken: expect.any(Function) }));
         expect(ReCaptchaV3Provider).not.toHaveBeenCalled();
         expect(ReCaptchaEnterpriseProvider).not.toHaveBeenCalled();
+    });
+
+    it('preloads Turnstile script by default', async () => {
+        vi.resetModules();
+        delete (window as { turnstile?: unknown }).turnstile;
+        turnstileRender?.mockClear();
+        vi.doMock('@intl-config', () => turnstileConfig);
+        const selector = 'script[src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"]';
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.waitFor(() => expect(CustomProvider).toHaveBeenCalled());
+        await vi.waitFor(() => expect(document.querySelectorAll(selector)).toHaveLength(1));
+        installTurnstile();
+    });
+
+    it('does not preload Turnstile script when preloadTurnstile is false', async () => {
+        vi.resetModules();
+        delete (window as { turnstile?: unknown }).turnstile;
+        turnstileRender?.mockClear();
+        vi.doMock('@intl-config', () => ({
+            default: {
+                firebaseAuth: {
+                    ...baseConfig.firebaseAuth,
+                    appCheck: {
+                        turnstileSiteKey: 'cf-site-key',
+                        preloadTurnstile: false,
+                    },
+                },
+            },
+        }));
+        const selector = 'script[src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"]';
+        const { getAppCheckToken } = await import('./firebase_client.js');
+        void getAppCheckToken();
+        await vi.waitFor(() => expect(CustomProvider).toHaveBeenCalled());
+        expect(document.querySelectorAll(selector)).toHaveLength(0);
     });
 });

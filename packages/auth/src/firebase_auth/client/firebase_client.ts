@@ -14,7 +14,7 @@ import getCookie from 'cloudflare-next-intl-intl/getCookie';
 import decodeJwtPayload from '../decode_jwt_payload.js';
 import exchangeTurnstileTokenAction from '../server/exchange_turnstile_token_action.js';
 
-export const APP_CHECK_CHALLENGE_TIMEOUT_MS = 8_000;
+export const APP_CHECK_CHALLENGE_TIMEOUT_MS = 30_000;
 export const RECAPTCHA_TOKEN_TIMEOUT_MS = APP_CHECK_CHALLENGE_TIMEOUT_MS;
 
 let cachedAppCheck: AppCheck | undefined;
@@ -42,6 +42,7 @@ interface Turnstile {
             action?: string;
             appearance?: 'always' | 'execute' | 'interaction-only';
             execution?: 'render' | 'execute';
+            retry?: 'auto' | 'never';
             callback?: (token: string) => void;
             'error-callback'?: (error?: unknown) => void;
             'timeout-callback'?: () => void;
@@ -138,12 +139,12 @@ function ensureTurnstileScript(): void {
 }
 
 function waitForTurnstile(): Promise<Turnstile> {
-    if (window.turnstile) return Promise.resolve(window.turnstile);
+    if (typeof window !== 'undefined' && window.turnstile) return Promise.resolve(window.turnstile);
     ensureTurnstileScript();
     return new Promise((resolve, reject) => {
         const startedAt = Date.now();
         const timer = setInterval(() => {
-            if (window.turnstile) {
+            if (typeof window !== 'undefined' && window.turnstile) {
                 clearInterval(timer);
                 resolve(window.turnstile);
             } else if (turnstileScriptFailed || Date.now() - startedAt >= TURNSTILE_LOAD_TIMEOUT_MS) {
@@ -192,12 +193,12 @@ function ensureRecaptchaScript(): void {
  * before the script has landed — this polls instead of failing outright.
  */
 function waitForGrecaptcha(): Promise<Grecaptcha> {
-    if (window.grecaptcha) return Promise.resolve(window.grecaptcha);
+    if (typeof window !== 'undefined' && window.grecaptcha) return Promise.resolve(window.grecaptcha);
     ensureRecaptchaScript();
     return new Promise((resolve, reject) => {
         const startedAt = Date.now();
         const timer = setInterval(() => {
-            if (window.grecaptcha) {
+            if (typeof window !== 'undefined' && window.grecaptcha) {
                 clearInterval(timer);
                 resolve(window.grecaptcha);
             } else if (recaptchaScriptFailed || Date.now() - startedAt >= GRECAPTCHA_LOAD_TIMEOUT_MS) {
@@ -339,6 +340,7 @@ function createTurnstileProvider(
     siteKey: string,
     CustomProviderCtor: typeof CustomProvider,
     fallbackGetToken?: () => Promise<{ token: string; expireTimeMillis: number }>,
+    preload: boolean = true,
 ) {
     let widgetReady: Promise<{
         executeChallenge: () => Promise<string>;
@@ -370,6 +372,7 @@ function createTurnstileProvider(
                 sitekey: siteKey,
                 appearance: 'interaction-only',
                 execution: 'execute',
+                retry: 'never',
                 action: 'fire_app_check',
                 callback: (token: string) => {
                     activeResolve?.(token);
@@ -411,6 +414,13 @@ function createTurnstileProvider(
         return widgetReady;
     }
 
+    if (preload && typeof window !== 'undefined') {
+        const seeded = readSeededAppCheckToken();
+        if (!seeded) {
+            void ensureWidget().catch(() => undefined);
+        }
+    }
+
     return new CustomProviderCtor({
         getToken: async () => {
             const seeded = readSeededAppCheckToken();
@@ -422,21 +432,20 @@ function createTurnstileProvider(
             inFlightExecute = (async () => {
                 const timeout = interactionAwareTimeout(APP_CHECK_CHALLENGE_TIMEOUT_MS, 'Turnstile timed out');
                 let resetActiveWidget: (() => void) | undefined;
+                let cancelled = false;
 
                 const executeFlow = (async () => {
                     const { executeChallenge, resetWidget } = await ensureWidget();
                     resetActiveWidget = resetWidget;
-                    let turnstileToken: string;
-                    try {
-                        turnstileToken = await executeChallenge();
-                    } finally {
-                        resetActiveWidget = undefined;
-                        resetWidget();
-                    }
+                    const turnstileToken = await executeChallenge();
+                    if (cancelled) return new Promise<never>(() => {});
                     const result = await exchangeTurnstileTokenAction(turnstileToken);
+                    if (cancelled) return new Promise<never>(() => {});
                     if (result.status !== 'ok') {
                         throw new Error(`Turnstile exchange rejected with status: ${result.status}`);
                     }
+                    resetActiveWidget = undefined;
+                    resetWidget();
                     return {
                         token: result.token,
                         expireTimeMillis: result.expireTimeMillis,
@@ -446,13 +455,15 @@ function createTurnstileProvider(
                 try {
                     return await Promise.race([executeFlow, timeout.promise]);
                 } catch (error) {
+                    cancelled = true;
+                    resetActiveWidget?.();
+                    resetActiveWidget = undefined;
                     if (!fallbackGetToken) throw error;
                     return await fallbackGetToken().catch(() => {
                         throw error;
                     });
                 } finally {
                     timeout.clear();
-                    resetActiveWidget?.();
                 }
             })().then(result => {
                 recentFailure = undefined;
@@ -484,6 +495,7 @@ async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: Fire
             appCheckConfig.recaptchaV3SiteKey && appCheckConfig.recaptchaFallback !== false
                 ? createExplicitRecaptchaTokenGetter(app, appCheckConfig.recaptchaV3SiteKey)
                 : undefined,
+            appCheckConfig.preloadTurnstile !== false,
         )
         : appCheckConfig.recaptchaEnterpriseSiteKey
           ? new ReCaptchaEnterpriseProvider(appCheckConfig.recaptchaEnterpriseSiteKey)
@@ -503,7 +515,15 @@ async function initializeFirebaseAppCheck(app: FirebaseApp, appCheckConfig: Fire
  * here so callers (e.g. `AuthUserProvider`'s session-cookie sync) don't need
  * to import `firebase/app-check` themselves.
  */
-const APP_CHECK_TOKEN_TIMEOUT_MS = 10_000;
+const APP_CHECK_TOKEN_TIMEOUT_MS = APP_CHECK_CHALLENGE_TIMEOUT_MS;
+
+/**
+ * Timeout for the `getAppCheckToken()` call the auth actions make before a
+ * Firebase request. It outlasts a slow, non-interactive challenge plus the
+ * reCAPTCHA fallback, so the token is ready before Firebase's own 30 s
+ * request timeout starts.
+ */
+export const APP_CHECK_ACTION_TIMEOUT_MS = 90_000;
 
 let appCheckInitPromise: Promise<void> | undefined;
 
@@ -532,14 +552,14 @@ async function ensureAppCheck(): Promise<void> {
     await getFirebaseAuthClient();
 }
 
-export async function getAppCheckToken(): Promise<string | undefined> {
+export async function getAppCheckToken(timeoutMs: number = APP_CHECK_TOKEN_TIMEOUT_MS): Promise<string | undefined> {
     // Best-effort by contract: a firebase chunk that 404s on a stale deploy
     // must not turn this into a rejection its callers never handled before.
     await ensureAppCheck().catch(() => undefined);
     if (!cachedAppCheck) return undefined;
     const { getToken } = await import('@firebase/app-check');
     try {
-        const timeout = interactionAwareTimeout(APP_CHECK_TOKEN_TIMEOUT_MS, 'App Check token timed out');
+        const timeout = interactionAwareTimeout(timeoutMs, 'App Check token timed out');
         try {
             const result = await Promise.race([getToken(cachedAppCheck), timeout.promise]);
             return result.token;

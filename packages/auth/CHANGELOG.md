@@ -3,6 +3,17 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.2] - 2026-10-25
+
+### Added
+
+- `firebaseAuth.appCheck.preloadTurnstile`: Preloads the Turnstile script and widget as soon as App Check initializes (defaults to `true`), eliminating challenge startup delays. Set to `false` for lazy loading upon first challenge request.
+
+### Fixed
+
+- Turnstile widget configured with `retry: 'never'` to prevent 30-second automated background retry loops on network errors or challenge failures, immediately triggering fallback.
+- Prevent premature `turnstile.reset()` before token is exchanged on the server.
+
 ## [0.3.1] - 2026-10-25
 
 ### Fixed

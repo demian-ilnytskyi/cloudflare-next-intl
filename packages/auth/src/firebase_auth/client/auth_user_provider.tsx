@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation.js';
 import usePathname from 'cloudflare-next-intl-intl/usePathname';
 import config from '@intl-config';
 import requireFirebaseAuthConfig from '../require_config.js';
-import { getAppCheckToken, getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client.js';
+import { APP_CHECK_ACTION_TIMEOUT_MS, getAppCheckToken, getFirebaseAuthClient, getFirebaseAuthModule } from './firebase_client.js';
 import { ensureSessionSynced } from './session_sync.js';
 import { setAuthUserCache } from './auth_user_cache.js';
 import {
@@ -95,7 +95,7 @@ function clearAppCheckTokenCookie(appCheckTokenCookieName: string): void {
 // session sync on it.
 async function writeAppCheckTokenCookie(appCheckTokenCookieName: string, maxAge: number): Promise<void> {
     try {
-        const token = await getAppCheckToken();
+        const token = await getAppCheckToken(APP_CHECK_ACTION_TIMEOUT_MS);
         if (token) {
             const decoded = decodeJwtPayload(token);
             const now = Math.floor(Date.now() / 1000);
@@ -321,7 +321,7 @@ export default function AuthUserProvider({
                             }
                             if (res.status === 'restored') {
                                 const { signInWithCustomToken } = await getFirebaseAuthModule();
-                                await getAppCheckToken();
+                                await getAppCheckToken(APP_CHECK_ACTION_TIMEOUT_MS);
                                 await signInWithCustomToken(auth, res.customToken);
                                 return;
                             }
@@ -452,7 +452,7 @@ export default function AuthUserProvider({
         if (!user) return;
         try {
             const { reload } = await getFirebaseAuthModule();
-            await getAppCheckToken();
+            await getAppCheckToken(APP_CHECK_ACTION_TIMEOUT_MS);
             await reload(user);
 
             await writeSession(user, emailVerifiedHintCookieName, appCheckTokenCookieName, refreshTokenMaxAge, appCheckTokenMaxAge);
@@ -480,7 +480,7 @@ export default function AuthUserProvider({
         const user = auth.currentUser;
         if (!user) return;
         const { sendEmailVerification } = await getFirebaseAuthModule();
-        await getAppCheckToken();
+        await getAppCheckToken(APP_CHECK_ACTION_TIMEOUT_MS);
         await sendEmailVerification(user, actionCodeSettings);
     }, []);
 
