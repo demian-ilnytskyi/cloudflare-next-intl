@@ -181,6 +181,14 @@ describe('Link (server-safe locale-aware)', () => {
         expect(mockPrefetch).toHaveBeenCalledWith('/test-hover-zero-delay');
     });
 
+    it('hover-prefetches the pathname of an object href', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        render(<Link href={{ pathname: '/obj-hover', query: { a: '1' } }} hoverPrefetchDelayMs={0}>Obj Hover</Link>);
+        fireEvent.mouseEnter(screen.getByRole('link', { name: 'Obj Hover' }));
+        expect(mockPrefetch).toHaveBeenCalledWith('/obj-hover');
+    });
+
     it('respects a custom non-default hoverPrefetchDelayMs', async () => {
         vi.useFakeTimers();
         const { getLocaleCache } = await import('../../general/cache_variables.js');
