@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import Link, { PENDING_NAVIGATION_EVENT } from './link.js';
+import { LocaleContext } from '../../client/components/locale_provider.js';
 import type * as ReactModule from 'react';
 
 const mockPush = vi.fn();
@@ -50,6 +51,45 @@ describe('Link (server-safe locale-aware)', () => {
         expect(screen.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about');
     });
 
+    it('uses the IntlProvider locale context when the locale cache is not set yet on the client', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue(undefined);
+        render(
+            <LocaleContext.Provider value={{ language: 'de', messages: {} }}>
+                <Link href="/about">About</Link>
+            </LocaleContext.Provider>
+        );
+        const link = screen.getByRole('link', { name: 'About' });
+        expect(link).toHaveAttribute('href', '/de/about');
+        fireEvent.click(link);
+        expect(mockPush).toHaveBeenCalledWith('/de/about');
+    });
+
+    it('builds the locale root without a trailing slash for href="/"', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('de');
+        mockUsePathname.mockReturnValue('/de/about');
+        const events: (string | null)[] = [];
+        const listener = (e: Event) => events.push((e as CustomEvent<string | null>).detail);
+        window.addEventListener(PENDING_NAVIGATION_EVENT, listener);
+        render(<Link href="/">Home</Link>);
+        fireEvent.click(screen.getByRole('link', { name: 'Home' }));
+        window.removeEventListener(PENDING_NAVIGATION_EVENT, listener);
+        expect(mockPush).toHaveBeenCalledWith('/de');
+        expect(events[0]).toBe('/de');
+    });
+
+    it('does not prefix a hash-only href with the locale', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('de');
+        mockUsePathname.mockReturnValue('/de/about');
+        render(<Link href="#section">Anchor</Link>);
+        const link = screen.getByRole('link', { name: 'Anchor' });
+        expect(link).toHaveAttribute('href', '#section');
+        fireEvent.click(link);
+        expect(mockPush).toHaveBeenCalledWith('#section');
+    });
+
     it('handles an object href by using its pathname with non-default locale', async () => {
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('de');
@@ -87,7 +127,7 @@ describe('Link (server-safe locale-aware)', () => {
         expect(container2.querySelector('a')).toHaveAttribute('href', '');
     });
 
-    it('hover-prefetches by default (100ms dwell) and on pointerdown', async () => {
+    it('hover-prefetches by default (100ms dwell)', async () => {
         vi.useFakeTimers();
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
@@ -99,10 +139,36 @@ describe('Link (server-safe locale-aware)', () => {
             vi.advanceTimersByTime(100);
         });
         expect(mockPrefetch).toHaveBeenCalledWith('/test-hover');
+        vi.useRealTimers();
+    });
 
-        // pointerdown also triggers prefetch, deduped in the session set
+    it('does not prefetch on pointerdown: the click right after it fetches the route itself', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        render(<Link href="/test-pointerdown">Pointer Link</Link>);
+        const link = screen.getByRole('link', { name: 'Pointer Link' });
         fireEvent.pointerDown(link);
-        expect(mockPrefetch).toHaveBeenCalledTimes(1);
+        expect(mockPrefetch).not.toHaveBeenCalled();
+
+        fireEvent.click(link);
+        expect(mockPush).toHaveBeenCalledWith('/test-pointerdown');
+        expect(mockPrefetch).not.toHaveBeenCalled();
+    });
+
+    it('cancels a pending hover dwell prefetch on pointerdown so it cannot race the click navigation', async () => {
+        vi.useFakeTimers();
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        render(<Link href="/test-hover-then-press">Press Link</Link>);
+        const link = screen.getByRole('link', { name: 'Press Link' });
+        fireEvent.mouseEnter(link);
+        fireEvent.pointerDown(link);
+        fireEvent.click(link);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
+        expect(mockPrefetch).not.toHaveBeenCalled();
+        expect(mockPush).toHaveBeenCalledWith('/test-hover-then-press');
         vi.useRealTimers();
     });
 
@@ -133,7 +199,7 @@ describe('Link (server-safe locale-aware)', () => {
         vi.useRealTimers();
     });
 
-    it('does not hover-prefetch when prefetch={false}, but pointerdown still prefetches (already committed to the click)', async () => {
+    it('does not prefetch on hover or pointerdown when prefetch={false}', async () => {
         vi.useFakeTimers();
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');
@@ -146,7 +212,7 @@ describe('Link (server-safe locale-aware)', () => {
         expect(mockPrefetch).not.toHaveBeenCalled();
 
         fireEvent.pointerDown(link);
-        expect(mockPrefetch).toHaveBeenCalledWith('/test-hover-off');
+        expect(mockPrefetch).not.toHaveBeenCalled();
 
         // navigation itself still works via the loop-safe click interceptor
         fireEvent.click(link);
@@ -335,6 +401,22 @@ describe('Link (server-safe locale-aware)', () => {
         expect(mockPush).toHaveBeenCalledWith('/current?tab=b');
     });
 
+    it('does not open a pending-navigation event for a hash-only href', async () => {
+        const { getLocaleCache } = await import('../../general/cache_variables.js');
+        vi.mocked(getLocaleCache).mockReturnValue('en');
+        mockUsePathname.mockReturnValue('/current');
+        const events: (string | null)[] = [];
+        const listener = (e: Event) => events.push((e as CustomEvent<string | null>).detail);
+        window.addEventListener(PENDING_NAVIGATION_EVENT, listener);
+
+        render(<Link href="#section">Anchor Link</Link>);
+        fireEvent.click(screen.getByRole('link', { name: 'Anchor Link' }));
+
+        window.removeEventListener(PENDING_NAVIGATION_EVENT, listener);
+        expect(events).not.toContain('#section');
+        expect(mockPush).toHaveBeenCalledWith('#section');
+    });
+
     it('triggers idle prefetch timer after mount for prefetchType="eager"', async () => {
         vi.useFakeTimers();
         const { getLocaleCache } = await import('../../general/cache_variables.js');
@@ -347,7 +429,7 @@ describe('Link (server-safe locale-aware)', () => {
         vi.useRealTimers();
     });
 
-    it('does NOT trigger the mount timer for prefetchType="custom" (hover/pointerdown only)', async () => {
+    it('does NOT trigger the mount timer for prefetchType="custom" (hover only)', async () => {
         vi.useFakeTimers();
         const { getLocaleCache } = await import('../../general/cache_variables.js');
         vi.mocked(getLocaleCache).mockReturnValue('en');

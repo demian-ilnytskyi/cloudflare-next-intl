@@ -4,6 +4,7 @@ import LinkComponent, { type LinkProps } from 'next/link.js';
 import {
     forwardRef,
     useCallback,
+    useContext,
     useEffect,
     useRef,
     useState,
@@ -14,6 +15,7 @@ import {
 import type { UrlObject } from 'url';
 import config from '../../config/intl_config.js';
 import { getLocaleCache } from '../../general/cache_variables.js';
+import { LocaleContext } from '../../client/components/locale_provider.js';
 import { usePathname, useRouter } from 'next/navigation.js';
 
 type Url = string | UrlObject;
@@ -26,14 +28,14 @@ export const PENDING_NAVIGATION_EVENT = 'cloudflare-next-intl:pending-navigation
 
 /**
  * `prefetch` defaults to `true` — a `'custom'`/`'eager'` Link prefetches on
- * hover (after a 100ms dwell, not on every `mouseenter`) and on pointerdown.
- * Pass `prefetch={false}` on a given Link to opt it out.
+ * hover (after a 100ms dwell, not on every `mouseenter`). Pointerdown never
+ * prefetches: the click right after it fetches the route itself. Pass
+ * `prefetch={false}` on a given Link to opt it out.
  *
  * - `'custom'` (default): loop-safe click interception (`startTransition` +
  *   `router.push`, plus double-click navigation protection) — this is what
  *   avoids the prefetch-loop bug `prefetchType="default"` causes on this
- *   router setup. Hover-dwell and pointerdown prefetch, per the `prefetch`
- *   prop above.
+ *   router setup. Hover-dwell prefetch, per the `prefetch` prop above.
  * - `'eager'`: same click interception as `'custom'`, PLUS (unless
  *   `prefetch={false}` is passed) prefetches ~100ms after mount even without
  *   a hover. Opt into this only for a Link that's alone (or one of a small,
@@ -51,8 +53,8 @@ type NextLinkProps = Omit<ComponentProps<'a'>, keyof LinkProps> &
         /**
          * How long the pointer must dwell on the link before hover-prefetch
          * fires. Defaults to `100` (ms). `0` prefetches immediately on
-         * `mouseenter`, with no dwell. Pointerdown prefetch is unaffected —
-         * it always fires immediately, dwell or not.
+         * `mouseenter`, with no dwell. Pointerdown cancels a dwell still
+         * pending.
          */
         hoverPrefetchDelayMs?: number;
     };
@@ -76,12 +78,14 @@ function CustomLinkFunction(
     }: Props,
     ref: Ref<HTMLAnchorElement>
 ) {
-    const localeValue = getLocaleCache();
+    // The client provider that fills the locale cache is lazy-loaded beside
+    // the page, so on the client this Link can render before it runs.
+    // `LocaleContext` from `IntlProvider` is already there.
+    const localeValue = useContext(LocaleContext)?.language ?? getLocaleCache();
     const router = useRouter();
 
     // Defaults to `true`: a `'custom'`/`'eager'` Link hover-prefetches (100ms
-    // dwell) and pointerdown-prefetches unless a caller explicitly opts out
-    // with `prefetch={false}`.
+    // dwell) unless a caller explicitly opts out with `prefetch={false}`.
     prefetch ??= config.link?.defaultPrefetch ?? true;
 
     // An unset cache (mid-hydration race, a lazily-loaded provider chunk that
@@ -90,18 +94,19 @@ function CustomLinkFunction(
     // to a prefix built from the literal string "undefined" — a broken href
     // is worse than a href that's briefly missing a locale segment it
     // would otherwise have carried.
-    const needsLangPath = localeValue !== undefined && localeValue !== config.defaultLocale;
+    const pathPart = typeof href === 'object' ? (href.pathname || '') : (href || '');
+    // A hash-only href stays on the current page, so it gets no locale prefix.
+    const needsLangPath = localeValue !== undefined && localeValue !== config.defaultLocale && !pathPart.startsWith('#');
 
     let pathnames: Url;
     let urlString: string;
 
     if (needsLangPath) {
-        const pathPart = typeof href === 'object' ? (href.pathname || '') : (href || '');
-        pathnames = `/${localeValue}${pathPart}`;
+        pathnames = `/${localeValue}${pathPart === '/' ? '' : pathPart}`;
         urlString = pathnames;
     } else {
         pathnames = href;
-        urlString = typeof href === 'object' ? (href.pathname || '') : (href || '');
+        urlString = pathPart;
     }
 
     const pathname = usePathname();
@@ -180,16 +185,6 @@ function CustomLinkFunction(
         }
     }, [urlString, pathnames, router]);
 
-    // pointerdown fires only when the user has already committed to this
-    // link (finger/mouse down right before the click lands) — unlike hover,
-    // it can't fire from a cursor merely passing over the link on its way
-    // elsewhere. That makes it safe to prefetch on regardless of the
-    // `prefetch` opt-in that gates hover/eager-mount prefetching.
-    const triggerPointerDownPrefetch = useCallback(() => {
-        if (!isCustom) return;
-        doPrefetch();
-    }, [isCustom, doPrefetch]);
-
     useEffect(() => {
         if (!isEager) return;
         const timer = setTimeout(doPrefetch, 100);
@@ -243,7 +238,7 @@ function CustomLinkFunction(
             // one would read as "different route", arm `isNavigating`, and
             // then never clear it via `[pathname]` — the target pathname is
             // the one we're already on.
-            const targetPathname = targetPath.replace(/[?#].*$/, '');
+            const targetPathname = targetPath.replace(/[?#].*$/, '') || pathname;
             if (pathname !== targetPathname) {
                 setIsNavigating(true);
                 openedPendingEvent.current = true;
@@ -272,7 +267,12 @@ function CustomLinkFunction(
             onMouseLeave?.(e);
         }}
         onPointerDown={(e) => {
-            triggerPointerDownPrefetch();
+            // No prefetch here: the click a few ms later fetches the same
+            // route via `router.push`, and a prefetch still in flight for it
+            // races that navigation (one request gets aborted and the click
+            // can be lost). A pending hover dwell timer is cancelled for the
+            // same reason.
+            clearHoverTimer();
             onPointerDown?.(e);
         }}
         {...rest}

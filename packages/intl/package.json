@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl-intl",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Core internationalization and localization for Next.js App Router and Cloudflare",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",

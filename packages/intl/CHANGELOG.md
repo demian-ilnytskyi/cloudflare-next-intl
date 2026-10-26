@@ -3,6 +3,15 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.1] - 2026-10-26
+
+### Fixed
+
+- `<Link>` no longer prefetches on pointerdown. The click that follows fetches the same route with `router.push`, and the parallel prefetch raced it: two `?_rsc` requests for one URL, one of them aborted, and on vinext the click could be lost (seen most on `href="/"`). This also makes `prefetch={false}` turn off all prefetching for that Link. Pointerdown now also cancels a pending hover-dwell prefetch.
+- `<Link>` reads the locale from `IntlProvider`'s context before the module cache. On the client the cache is filled by a lazy-loaded provider, so a Link could hydrate first and push the unprefixed path (`/test` instead of `/uk/test`), costing an extra redirect.
+- A hash-only `href` (`#section`) no longer gets a locale prefix (it used to become `/uk#section` and leave the page) and no longer fires `cloudflare-next-intl:pending-navigation`.
+- `href="/"` in a non-default locale builds `/uk` instead of `/uk/`.
+
 ## [0.2.0] - 2026-10-24
 
 ### Changed

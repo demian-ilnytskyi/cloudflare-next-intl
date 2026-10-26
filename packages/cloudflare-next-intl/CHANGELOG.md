@@ -3,6 +3,12 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.6] - 2026-10-26
+
+### Changed
+
+- Depends on `cloudflare-next-intl-intl` `^0.2.1` (`<Link>` no longer prefetches on pointerdown, so a click is not raced by a duplicate request; `prefetch={false}` disables all prefetching; locale prefix taken from `IntlProvider` context on the client; hash-only links keep their `#hash` without a locale prefix and no longer fire the pending-navigation event; `href="/"` builds `/uk`, not `/uk/`).
+
 ## [0.13.5] - 2026-10-25
 
 ### Added
