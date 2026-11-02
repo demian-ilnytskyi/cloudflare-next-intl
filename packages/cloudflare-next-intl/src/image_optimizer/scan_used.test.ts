@@ -6,7 +6,9 @@ import {
     collectUsedImages,
     extractImageOverrides,
     extractImageReferences,
+    extractImageUsageDetails,
     findCodeFiles,
+    getPrunableOriginalPaths,
 } from "./scan_used.js";
 import { cleanup, makeTempDir, writeFixturePng } from "../test_utils/image_optimizer_test_helpers.js";
 
@@ -225,5 +227,88 @@ describe("scan_used", () => {
         expect(nonExistent).toEqual([]);
 
         await cleanup(root);
+    });
+
+    describe("image usage classification and pruning", () => {
+        it("classifies usages correctly between Image, metadata, and other", () => {
+            const code = `
+                import Image from "next/image";
+                const localLogo = "/images/local-logo.png";
+                export const metadata = {
+                    openGraph: {
+                        images: ["/images/og.png"]
+                    }
+                };
+                export function Page() {
+                    return (
+                        <div>
+                            <Image src="/images/hero.png" alt="Hero" />
+                            <Image src={localLogo} alt="Logo" />
+                            <img src="/images/raw.png" alt="Raw" />
+                        </div>
+                    );
+                }
+            `;
+            const details = extractImageUsageDetails(code, "page.tsx");
+
+            expect(details.imageComponentRefs).toContain("/images/hero.png");
+            expect(details.imageComponentRefs).toContain("/images/local-logo.png");
+            expect(details.metadataRefs).toContain("/images/og.png");
+            expect(details.otherRefs).toContain("/images/raw.png");
+            expect(details.otherRefs).not.toContain("/images/hero.png");
+            expect(details.otherRefs).not.toContain("/images/og.png");
+        });
+
+        it("getPrunableOriginalPaths prunes appropriately based on optimizeMetadata flag", () => {
+            const classifications = {
+                "/images/hero.png": {
+                    canonicalSrc: "/images/hero.png",
+                    inImageComponent: true,
+                    inMetadata: false,
+                    inOtherPlace: false,
+                },
+                "/images/og.png": {
+                    canonicalSrc: "/images/og.png",
+                    inImageComponent: false,
+                    inMetadata: true,
+                    inOtherPlace: false,
+                },
+                "/images/shared.png": {
+                    canonicalSrc: "/images/shared.png",
+                    inImageComponent: true,
+                    inMetadata: true,
+                    inOtherPlace: false,
+                },
+                "/images/unoptimizable.png": {
+                    canonicalSrc: "/images/unoptimizable.png",
+                    inImageComponent: true,
+                    inMetadata: false,
+                    inOtherPlace: true,
+                },
+            };
+
+            const manifest = {
+                "/images/hero.png": { src: "/generated/images/hero.webp" },
+                "/images/og.png": { src: "/generated/images/og.webp" },
+                "/images/shared.png": { src: "/generated/images/shared.webp" },
+                "/images/unoptimizable.png": { src: "/generated/images/unoptimizable.webp" },
+            };
+
+            // When optimizeMetadata is true:
+            // hero, og, shared are prunable; unoptimizable is NOT prunable.
+            const prunableWithMeta = getPrunableOriginalPaths(classifications, manifest, true);
+            expect(prunableWithMeta).toEqual([
+                "images/hero.png",
+                "images/og.png",
+                "images/shared.png",
+            ]);
+
+            // When optimizeMetadata is false:
+            // ONLY hero is prunable (used solely in <Image>); og and shared are kept.
+            const prunableWithoutMeta = getPrunableOriginalPaths(classifications, manifest, false);
+            expect(prunableWithoutMeta).toEqual([
+                "images/hero.png",
+            ]);
+        });
     });
 });

@@ -27,7 +27,8 @@ describe("next_image_client", () => {
         async function renderWith(mod: () => Record<string, unknown>): Promise<string | null | undefined> {
             vi.resetModules();
             vi.doMock("virtual:cloudflare-next-intl-image-loader", mod);
-            const { NextImageClient: Client } = await import("./next_image_client.js");
+            const { NextImageClient: Client, preloadLoader } = await import("./next_image_client.js");
+            await preloadLoader?.();
             const { container } = render(<Client src="/a.png" alt="x" width={10} height={10} />);
             return container.querySelector("img")?.getAttribute("src");
         }

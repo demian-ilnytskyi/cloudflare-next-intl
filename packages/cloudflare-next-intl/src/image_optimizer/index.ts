@@ -54,9 +54,29 @@ export {
     collectUsedImages,
     findCodeFiles,
     extractImageReferences,
+    extractImageOverrides,
+    extractImageUsageDetails,
+    classifyImageUsages,
+    getPrunableOriginalPaths,
     CODE_EXTENSIONS,
+    ASSET_EXTENSIONS,
+    SCANNED_EXTENSIONS,
     IGNORED_DIRS,
+    IGNORED_FILES,
+    type ImageUsageDetails,
+    type ImageUsageClassification,
 } from "./scan_used.js";
+
+export {
+    transformMetadataImageUrls,
+    getMetadataRanges,
+    findBalancedBraces,
+} from "./metadata_transform.js";
+
+export {
+    pruneBuildOutput,
+    type PruneResult,
+} from "./prune_build.js";
 
 export {
     getImageBlurSvg,

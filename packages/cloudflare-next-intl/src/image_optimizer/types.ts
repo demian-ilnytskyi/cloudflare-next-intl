@@ -72,6 +72,22 @@ export interface ImageOptimizerPluginOptions {
     effort?: number;
     /** Automatic image loader detection settings, or `false` to disable. Default: true */
     autoImageLoader?: boolean | AutoImageLoaderOptions;
+    /**
+     * Automatically optimize images referenced in Next.js metadata (openGraph, twitter, icons)
+     * and rewrite their URLs in metadata to the optimized generated assets.
+     * When enabled (default), images used only in <Image> and/or metadata are pruned from build output.
+     * Set to false to disable metadata URL rewriting and preserve images used in metadata.
+     * @default true
+     */
+    optimizeMetadata?: boolean;
+    /**
+     * Prune unoptimized original images from the final build output directory (e.g. dist/client)
+     * when they are replaced by optimized variants.
+     * Images used in unoptimized contexts (raw <img>, CSS, JSON-LD schema, etc.) are never removed.
+     * Does NOT touch source repository files.
+     * @default true
+     */
+    pruneOriginalsFromBuild?: boolean;
 }
 
 export interface ResolvedBlurOptions {
@@ -97,6 +113,8 @@ export interface ResolvedOptions {
     concurrency: number;
     effort: number | undefined;
     autoImageLoader: boolean | AutoImageLoaderOptions;
+    optimizeMetadata: boolean;
+    pruneOriginalsFromBuild: boolean;
 }
 
 export interface ResolvedImageConfig {
@@ -164,6 +182,8 @@ export const DEFAULT_OPTIONS: ResolvedOptions = {
     concurrency: Math.max(1, Math.min(cpus().length, 8)),
     effort: undefined,
     autoImageLoader: true,
+    optimizeMetadata: true,
+    pruneOriginalsFromBuild: true,
 };
 
 export function resolveBlurOptions(
@@ -211,6 +231,8 @@ export function resolveOptions(
         concurrency: Math.max(1, raw.concurrency ?? DEFAULT_OPTIONS.concurrency),
         effort: raw.effort,
         autoImageLoader: raw.autoImageLoader ?? DEFAULT_OPTIONS.autoImageLoader,
+        optimizeMetadata: raw.optimizeMetadata ?? DEFAULT_OPTIONS.optimizeMetadata,
+        pruneOriginalsFromBuild: raw.pruneOriginalsFromBuild ?? DEFAULT_OPTIONS.pruneOriginalsFromBuild,
     };
 }
 

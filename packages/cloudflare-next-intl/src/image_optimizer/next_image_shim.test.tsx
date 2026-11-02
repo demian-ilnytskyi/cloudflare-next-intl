@@ -4,7 +4,7 @@ import Image, { getImageProps } from "./next_image_shim.js";
 
 describe("next_image_shim", () => {
     beforeAll(async () => {
-        await new Promise((r) => setTimeout(r, 20));
+        await new Promise((r) => setTimeout(r, 200));
     });
     it("renders a plain <img> (no <picture>) when the manifest entry has a single source", () => {
         const { container } = render(<Image src="/images/hero.png" alt="hero" />);

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Plugin } from "vite";
+import type { Plugin, ResolvedConfig } from "vite";
 import { run } from "./run.js";
 import { resolveOptions } from "./types.js";
 import type { ImageOptimizerPluginOptions } from "./types.js";
@@ -11,10 +11,16 @@ import {
     detectImageLoader,
     generateLoaderVirtualModule,
 } from "./detect_loader.js";
+import { transformMetadataImageUrls } from "./metadata_transform.js";
+import { pruneBuildOutput } from "./prune_build.js";
+import { classifyImageUsages, getPrunableOriginalPaths } from "./scan_used.js";
 
 export const VIRTUAL_IMAGE_SHIM_ID = "virtual:cloudflare-next-intl-image";
 export const VIRTUAL_MANIFEST_ID = "virtual:cloudflare-next-intl-images-manifest";
 const RESOLVED_MANIFEST_ID = "\0" + VIRTUAL_MANIFEST_ID;
+
+const sharedPrunableByRoot = new Map<string, string[]>();
+const sharedManifestByRoot = new Map<string, Record<string, { src: string }>>();
 
 export function getShimPath(
     dir: string = path.dirname(fileURLToPath(import.meta.url)),
@@ -29,6 +35,9 @@ export function imageOptimizerPlugin(
 ): Plugin {
     const resolved = resolveOptions(options);
     let command: "build" | "serve" = "build";
+    let viteConfig: ResolvedConfig | undefined;
+    let manifestImages: Record<string, { src: string }> = {};
+    let prunableOriginals: string[] = [];
 
     return {
         name: "cloudflare-next-intl-image-optimizer",
@@ -47,6 +56,7 @@ export function imageOptimizerPlugin(
         // virtual module resolution needs to answer unconditionally so dev gets
         // the same clean "no manifest yet" fallback the shim already handles.
         configResolved(config): void {
+            viteConfig = config;
             command = config.command === "serve" ? "serve" : "build";
         },
         resolveId(id: string): string | undefined {
@@ -84,21 +94,101 @@ export function imageOptimizerPlugin(
             if (!resolved.enabled) return undefined;
             if (id.includes("node_modules")) return undefined;
             if (id === getShimPath()) return undefined;
-            if (!/from\s*["']next\/image["']/.test(code)) return undefined;
 
-            const next = code.replace(
-                /(import\s+(?!type\s)[^;]*?from\s*)(["'])next\/image\2/g,
-                `$1$2${VIRTUAL_IMAGE_SHIM_ID}$2`,
-            );
-            return next === code ? undefined : { code: next, map: null };
+            let transformedCode = code;
+            const root = process.cwd();
+            const activeManifest = sharedManifestByRoot.get(root) ?? manifestImages;
+
+            if (command === "build" && resolved.optimizeMetadata && Object.keys(activeManifest).length > 0) {
+                const metaReplaced = transformMetadataImageUrls(transformedCode, activeManifest);
+                if (metaReplaced !== undefined) {
+                    transformedCode = metaReplaced;
+                }
+            }
+
+            if (/from\s*["']next\/image["']/.test(transformedCode)) {
+                transformedCode = transformedCode.replace(
+                    /(import\s+(?!type\s)[^;]*?from\s*)(["'])next\/image\2/g,
+                    `$1$2${VIRTUAL_IMAGE_SHIM_ID}$2`,
+                );
+            }
+
+            return transformedCode === code ? undefined : { code: transformedCode, map: null };
         },
         async buildStart(): Promise<void> {
             if (!resolved.enabled) return;
-            if (command === "serve" && !resolved.dev) return;
             const root = process.cwd();
+            const manifestPath = path.resolve(root, resolved.manifest);
+
+            if (existsSync(manifestPath)) {
+                try {
+                    const parsed = JSON.parse(readFileSync(manifestPath, "utf8"));
+                    if (parsed?.images && typeof parsed.images === "object") {
+                        manifestImages = parsed.images;
+                        sharedManifestByRoot.set(root, manifestImages);
+                    }
+                } catch {
+                    // Ignore parse error, will be overwritten by run()
+                }
+            }
+
+            if (command === "serve" && !resolved.dev) return;
+
             const cacheFile = path.resolve(root, resolved.cacheDir, "manifest.json");
             const entries = await run(root, resolved, cacheFile);
+
+            manifestImages = {};
+            for (const entry of entries) {
+                manifestImages[entry.originalSrc] = { src: entry.src };
+            }
+            sharedManifestByRoot.set(root, manifestImages);
+
             this.info?.(`[cloudflare-next-intl] image-optimizer: ${entries.length} images in ${resolved.manifest}`);
+
+            if (command === "build" && resolved.pruneOriginalsFromBuild) {
+                try {
+                    const classifications = await classifyImageUsages(root, "public");
+                    prunableOriginals = getPrunableOriginalPaths(
+                        classifications,
+                        manifestImages,
+                        resolved.optimizeMetadata,
+                    );
+                    sharedPrunableByRoot.set(root, prunableOriginals);
+                } catch (err) {
+                    this.warn?.(`[cloudflare-next-intl] image-optimizer: failed to classify image usages for pruning: ${err}`);
+                }
+            }
+        },
+        closeBundle(): void {
+            if (command !== "build" || !resolved.enabled || !resolved.pruneOriginalsFromBuild) return;
+            const root = process.cwd();
+            const prunable = sharedPrunableByRoot.get(root) ?? prunableOriginals;
+            if (!prunable || prunable.length === 0) return;
+
+            // Only prune client-facing asset output directories, never server or root dist dirs
+            const outDirs = new Set<string>();
+
+            const clientDir = path.resolve(root, "dist/client");
+            if (existsSync(clientDir)) {
+                outDirs.add(clientDir);
+            }
+
+            if (viteConfig?.build?.outDir) {
+                const outDir = path.resolve(root, viteConfig.build.outDir);
+                if (!outDir.endsWith("server") && !outDir.endsWith("dist") && existsSync(outDir)) {
+                    outDirs.add(outDir);
+                }
+            }
+
+            if (outDirs.size === 0) return;
+
+            const { prunedFiles, bytesSaved } = pruneBuildOutput(Array.from(outDirs), prunable);
+            if (prunedFiles.length > 0) {
+                const mb = (bytesSaved / (1024 * 1024)).toFixed(2);
+                const kb = (bytesSaved / 1024).toFixed(1);
+                const sizeStr = bytesSaved >= 1024 * 1024 ? `${mb} MB` : `${kb} kB`;
+                this.info?.(`[cloudflare-next-intl] image-optimizer: pruned ${prunedFiles.length} unoptimized images from build output (${sizeStr} saved)`);
+            }
         },
     };
 }

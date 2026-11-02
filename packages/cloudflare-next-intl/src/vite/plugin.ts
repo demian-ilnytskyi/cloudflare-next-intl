@@ -280,15 +280,15 @@ export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plu
         );
     }
 
-    if (options.imageOptimizer !== false) {
-        plugins.push(
-            imageOptimizerPlugin(
-                typeof options.imageOptimizer === "object"
+    plugins.push(
+        imageOptimizerPlugin(
+            options.imageOptimizer === false
+                ? { enabled: false }
+                : typeof options.imageOptimizer === "object"
                     ? options.imageOptimizer
                     : undefined
-            )
-        );
-    }
+        )
+    );
 
     if (options.buildIdAsset !== false) {
         const fileName = typeof options.buildIdAsset === "string" ? options.buildIdAsset : "BUILD_ID";

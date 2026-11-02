@@ -7,15 +7,27 @@ import type { ImageProps } from "next/image.js";
 type Loader = (props: { src: string; width: number; quality?: number }) => string;
 
 let defaultCustomLoader: Loader | undefined;
-try {
-    const loaderMod = (await import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-image-loader")) as {
-        defaultLoader?: Loader;
-        default?: Loader;
-    };
-    const candidate = loaderMod.defaultLoader ?? loaderMod.default;
-    defaultCustomLoader = typeof candidate === "function" ? candidate : undefined;
-} catch {
-    defaultCustomLoader = undefined;
+let loaderInitPromise: Promise<void> | undefined;
+
+function ensureLoader(): Promise<void> {
+    if (!loaderInitPromise) {
+        loaderInitPromise = import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-image-loader")
+            .then((mod) => {
+                const loaderMod = mod as {
+                    defaultLoader?: Loader;
+                    default?: Loader;
+                };
+                const candidate = loaderMod?.defaultLoader ?? loaderMod?.default;
+                defaultCustomLoader = typeof candidate === "function" ? candidate : undefined;
+            })
+            .catch(() => undefined);
+    }
+    return loaderInitPromise;
+}
+ensureLoader();
+
+export async function preloadLoader(): Promise<void> {
+    await ensureLoader();
 }
 
 export function safeLoader(loader: Loader): Loader {
@@ -30,9 +42,8 @@ export function safeLoader(loader: Loader): Loader {
     };
 }
 
-const safeDefaultLoader = defaultCustomLoader ? safeLoader(defaultCustomLoader) : undefined;
-
 export function NextImageClient(props: ImageProps): React.JSX.Element {
-    const loader = typeof props.loader === "function" ? safeLoader(props.loader) : safeDefaultLoader;
+    const loaderCandidate = typeof props.loader === "function" ? props.loader : defaultCustomLoader;
+    const loader = typeof loaderCandidate === "function" ? safeLoader(loaderCandidate) : undefined;
     return <NextImage {...props} loader={loader} />;
 }
