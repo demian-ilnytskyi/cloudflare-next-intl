@@ -357,7 +357,7 @@ export function extractImageUsageDetails(code: string, filePath?: string): Image
     }
 
     // 0. Identify all import/require statements of images (these are bundled image assets, not raw unoptimizable strings)
-    const importRanges: Array<{ start: number; end: number }> = [];
+    const importRanges: { start: number; end: number }[] = [];
     const importRegex = /(?:import\s+(?:type\s+)?[\w\s{},*]+\s+from\s*|require\s*\(\s*)["'`]([^"'`\s\n\r#?]+\.(?:png|jpg|jpeg|webp|avif))["'`]\)?/g;
     let impMatch: RegExpExecArray | null;
     while ((impMatch = importRegex.exec(code)) !== null) {
@@ -366,7 +366,7 @@ export function extractImageUsageDetails(code: string, filePath?: string): Image
     }
 
     // 1. Identify <Image ...> ranges and references
-    const imageRanges: Array<{ start: number; end: number }> = [];
+    const imageRanges: { start: number; end: number }[] = [];
     const tagPattern = /<Image\b([^>]*)\/?>/gs;
     let tagMatch: RegExpExecArray | null;
 
@@ -399,7 +399,7 @@ export function extractImageUsageDetails(code: string, filePath?: string): Image
                 if (matchedSrc && matchedRange) {
                     // Check occurrences of identifier across code
                     const identRegex = new RegExp(`\\b${varName}\\b`, "g");
-                    const totalMatches = code.match(identRegex)?.length ?? 0;
+                    const totalMatches = code.match(identRegex)!.length;
                     // Count how many times varName appears inside <Image ...> tags
                     let inImageCount = 0;
                     const allTags = code.matchAll(/<Image\b([^>]*)\/?>/gs);
@@ -431,7 +431,6 @@ export function extractImageUsageDetails(code: string, filePath?: string): Image
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(code)) !== null) {
         const raw = match[1];
-        if (!raw) continue;
         const offset = match.index;
 
         const inImp = importRanges.some((r) => offset >= r.start && offset < r.end);

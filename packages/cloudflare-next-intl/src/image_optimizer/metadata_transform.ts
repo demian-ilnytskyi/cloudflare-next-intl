@@ -57,8 +57,8 @@ export function findBalancedBraces(code: string, openIndex: number): number {
     return -1;
 }
 
-export function getMetadataRanges(code: string): Array<{ start: number; end: number }> {
-    const ranges: Array<{ start: number; end: number }> = [];
+export function getMetadataRanges(code: string): { start: number; end: number }[] {
+    const ranges: { start: number; end: number }[] = [];
 
     // Match metadata object: `metadata = { ... }` or `metadata: Metadata = { ... }`
     const metadataDeclPattern = /\bmetadata\s*(?::\s*[A-Za-z0-9_$.<>[\]\s]+)?\s*=\s*\{/g;

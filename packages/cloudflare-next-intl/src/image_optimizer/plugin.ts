@@ -36,8 +36,6 @@ export function imageOptimizerPlugin(
     const resolved = resolveOptions(options);
     let command: "build" | "serve" = "build";
     let viteConfig: ResolvedConfig | undefined;
-    let manifestImages: Record<string, { src: string }> = {};
-    let prunableOriginals: string[] = [];
 
     return {
         name: "cloudflare-next-intl-image-optimizer",
@@ -97,9 +95,9 @@ export function imageOptimizerPlugin(
 
             let transformedCode = code;
             const root = process.cwd();
-            const activeManifest = sharedManifestByRoot.get(root) ?? manifestImages;
+            const activeManifest = sharedManifestByRoot.get(root);
 
-            if (command === "build" && resolved.optimizeMetadata && Object.keys(activeManifest).length > 0) {
+            if (command === "build" && resolved.optimizeMetadata && activeManifest && Object.keys(activeManifest).length > 0) {
                 const metaReplaced = transformMetadataImageUrls(transformedCode, activeManifest);
                 if (metaReplaced !== undefined) {
                     transformedCode = metaReplaced;
@@ -124,8 +122,7 @@ export function imageOptimizerPlugin(
                 try {
                     const parsed = JSON.parse(readFileSync(manifestPath, "utf8"));
                     if (parsed?.images && typeof parsed.images === "object") {
-                        manifestImages = parsed.images;
-                        sharedManifestByRoot.set(root, manifestImages);
+                        sharedManifestByRoot.set(root, parsed.images);
                     }
                 } catch {
                     // Ignore parse error, will be overwritten by run()
@@ -137,7 +134,7 @@ export function imageOptimizerPlugin(
             const cacheFile = path.resolve(root, resolved.cacheDir, "manifest.json");
             const entries = await run(root, resolved, cacheFile);
 
-            manifestImages = {};
+            const manifestImages: Record<string, { src: string }> = {};
             for (const entry of entries) {
                 manifestImages[entry.originalSrc] = { src: entry.src };
             }
@@ -146,23 +143,19 @@ export function imageOptimizerPlugin(
             this.info?.(`[cloudflare-next-intl] image-optimizer: ${entries.length} images in ${resolved.manifest}`);
 
             if (command === "build" && resolved.pruneOriginalsFromBuild) {
-                try {
-                    const classifications = await classifyImageUsages(root, "public");
-                    prunableOriginals = getPrunableOriginalPaths(
-                        classifications,
-                        manifestImages,
-                        resolved.optimizeMetadata,
-                    );
-                    sharedPrunableByRoot.set(root, prunableOriginals);
-                } catch (err) {
-                    this.warn?.(`[cloudflare-next-intl] image-optimizer: failed to classify image usages for pruning: ${err}`);
-                }
+                const classifications = await classifyImageUsages(root, "public");
+                const prunableOriginals = getPrunableOriginalPaths(
+                    classifications,
+                    manifestImages,
+                    resolved.optimizeMetadata,
+                );
+                sharedPrunableByRoot.set(root, prunableOriginals);
             }
         },
         closeBundle(): void {
             if (command !== "build" || !resolved.enabled || !resolved.pruneOriginalsFromBuild) return;
             const root = process.cwd();
-            const prunable = sharedPrunableByRoot.get(root) ?? prunableOriginals;
+            const prunable = sharedPrunableByRoot.get(root);
             if (!prunable || prunable.length === 0) return;
 
             // Only prune client-facing asset output directories, never server or root dist dirs

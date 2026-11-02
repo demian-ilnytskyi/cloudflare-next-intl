@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import {
     getShimPath,
@@ -9,7 +9,7 @@ import {
     VIRTUAL_IMAGE_LOADER_ID,
     RESOLVED_IMAGE_LOADER_ID,
 } from "./index.js";
-import { makeTempDir, cleanup } from "../test_utils/image_optimizer_test_helpers.js";
+import { makeTempDir, cleanup, writeFixturePng } from "../test_utils/image_optimizer_test_helpers.js";
 
 describe("imageOptimizerPlugin", () => {
     it("has expected name and enforce pre, with no apply restriction — resolveId/load must answer in dev too", () => {
@@ -197,6 +197,124 @@ describe("imageOptimizerPlugin", () => {
             const disabledPlugin = imageOptimizerPlugin({ enabled: false });
             const disabledBuildStart = disabledPlugin.buildStart as (this: typeof mockContext) => Promise<void>;
             await disabledBuildStart.call(mockContext);
+
+            // Corrupt manifest file error handling in buildStart
+            const corruptManifest = path.join(root, "public", "corrupt.json");
+            await writeFile(corruptManifest, "invalid json");
+            const corruptPlugin = imageOptimizerPlugin({ manifest: path.relative(root, corruptManifest), dirs: [] });
+            await (corruptPlugin.buildStart as (this: typeof mockContext) => Promise<void>).call(mockContext);
+        } finally {
+            cwdSpy.mockRestore();
+            await cleanup(root);
+        }
+    });
+
+    it("transforms metadata image urls during build when optimizeMetadata is enabled", async () => {
+        const root = await makeTempDir();
+        await writeFixturePng(path.join(root, "public", "images"), "og.png", 50, 50);
+
+        const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(root);
+        try {
+            const plugin = imageOptimizerPlugin({
+                dirs: ["public/images"],
+                optimizeMetadata: true,
+            });
+            const configResolved = plugin.configResolved as (config: { command: string }) => void;
+            configResolved({ command: "build" });
+
+            const mockContext = { info: vi.fn() };
+            const buildStart = plugin.buildStart as (this: typeof mockContext) => Promise<void>;
+            await buildStart.call(mockContext);
+
+            const transform = plugin.transform as (code: string, id: string) => { code: string; map: null } | undefined;
+            const code = `export const metadata = { openGraph: { images: ["/images/og.png"] } };`;
+            const result = transform(code, path.join(root, "src", "app", "page.tsx"));
+            expect(result).toBeDefined();
+            expect(result?.code).toContain("/generated/images/og");
+        } finally {
+            cwdSpy.mockRestore();
+            await cleanup(root);
+        }
+    });
+
+    it("handles pruning in buildStart and closeBundle", async () => {
+        const root = await makeTempDir();
+        const clientDir = path.join(root, "dist", "client", "images");
+        const customOutDir = path.join(root, "out-assets", "images");
+        await mkdir(clientDir, { recursive: true });
+        await mkdir(customOutDir, { recursive: true });
+
+        const clientImg = path.join(clientDir, "hero.png");
+        const customImg = path.join(customOutDir, "hero.png");
+        const bigContent = "x".repeat(1024 * 1024 + 10);
+        await writeFile(clientImg, bigContent);
+        await writeFile(customImg, "small");
+
+        const publicImages = path.join(root, "public", "images");
+        await writeFixturePng(publicImages, "hero.png", 50, 50);
+
+        const srcDir = path.join(root, "src");
+        await mkdir(srcDir, { recursive: true });
+        await writeFile(path.join(srcDir, "page.tsx"), '<Image src="/images/hero.png" />');
+
+        const manifestFile = path.join(root, "public", "generated", "images.json");
+        await mkdir(path.dirname(manifestFile), { recursive: true });
+        await writeFile(manifestFile, JSON.stringify({ images: { "/images/hero.png": { src: "/generated/images/hero.webp" } } }));
+
+        const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(root);
+        try {
+            const plugin = imageOptimizerPlugin({
+                manifest: path.relative(root, manifestFile),
+                pruneOriginalsFromBuild: true,
+            });
+            const configResolved = plugin.configResolved as (config: { command: string; build?: { outDir: string } }) => void;
+            configResolved({ command: "build", build: { outDir: "out-assets" } });
+
+            const mockContext = { info: vi.fn(), warn: vi.fn() };
+            const buildStart = plugin.buildStart as (this: typeof mockContext) => Promise<void>;
+            await buildStart.call(mockContext);
+
+            const closeBundle = plugin.closeBundle as (this: typeof mockContext) => void;
+            closeBundle.call(mockContext);
+            expect(mockContext.info).toHaveBeenCalled();
+
+            // Early returns in closeBundle:
+            // 1. command !== 'build'
+            const devPlugin = imageOptimizerPlugin({ pruneOriginalsFromBuild: true });
+            (devPlugin.configResolved as (config: { command: string }) => void)({ command: "serve" });
+            (devPlugin.closeBundle as (this: typeof mockContext) => void).call(mockContext);
+
+            // 2. pruneOriginalsFromBuild is false
+            const noPrunePlugin = imageOptimizerPlugin({ pruneOriginalsFromBuild: false });
+            (noPrunePlugin.configResolved as (config: { command: string }) => void)({ command: "build" });
+            (noPrunePlugin.closeBundle as (this: typeof mockContext) => void).call(mockContext);
+
+            // 3. outDirs.size === 0 and outDir ending with server/dist
+            const emptyOutPlugin = imageOptimizerPlugin({ pruneOriginalsFromBuild: true });
+            (emptyOutPlugin.configResolved as (config: { command: string; build?: { outDir: string } }) => void)({ command: "build", build: { outDir: "dist/server" } });
+            (emptyOutPlugin.closeBundle as (this: typeof mockContext) => void).call(mockContext);
+
+            // 4. kB size branch and prunedFiles.length === 0 branch
+            (plugin.closeBundle as (this: typeof mockContext) => void).call(mockContext);
+
+            // 5. small file pruned (kB branch)
+            await mkdir(clientDir, { recursive: true });
+            await writeFile(clientImg, "small file");
+            (plugin.closeBundle as (this: object) => void).call({});
+
+            // 6. closeBundle on empty prunable list or unbuilt project
+            const emptyRoot = path.join(root, "empty-project");
+            cwdSpy.mockReturnValue(emptyRoot);
+            const unbuiltPlugin = imageOptimizerPlugin({ pruneOriginalsFromBuild: true });
+            (unbuiltPlugin.configResolved as (config: { command: string }) => void)({ command: "build" });
+            (unbuiltPlugin.closeBundle as (this: object) => void).call({});
+            (unbuiltPlugin.transform as (code: string, id: string) => void)("const x = 1;", "/src/test.tsx");
+            cwdSpy.mockReturnValue(root);
+
+            // 7. outDirs.size === 0 when dist/client does not exist
+            await rm(path.join(root, "dist"), { recursive: true, force: true });
+            await rm(path.join(root, "out-assets"), { recursive: true, force: true });
+            (plugin.closeBundle as (this: typeof mockContext) => void).call(mockContext);
         } finally {
             cwdSpy.mockRestore();
             await cleanup(root);

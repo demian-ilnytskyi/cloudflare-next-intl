@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
+    classifyImageUsages,
     collectUsedImageOverrides,
     collectUsedImages,
     extractImageOverrides,
@@ -23,11 +24,13 @@ describe("scan_used", () => {
         const compFile = path.join(root, "src", "components", "button.vue");
         const txtFile = path.join(root, "src", "notes.txt");
         const ignoredFile = path.join(root, "node_modules", "pkg", "index.js");
+        const lockFile = path.join(root, "src", "package-lock.json");
 
         await writeFile(appFile, "export const x = 1;");
         await writeFile(compFile, "<template></template>");
         await writeFile(txtFile, "hello");
         await writeFile(ignoredFile, "module.exports = {};");
+        await writeFile(lockFile, "{}");
 
         const found = await findCodeFiles(root);
         expect(found.sort()).toEqual([appFile, compFile].sort());
@@ -233,17 +236,25 @@ describe("scan_used", () => {
         it("classifies usages correctly between Image, metadata, and other", () => {
             const code = `
                 import Image from "next/image";
+                import importedImg from "/images/imported.png";
                 const localLogo = "/images/local-logo.png";
+                const sharedLogo = "/images/shared-logo.png";
                 export const metadata = {
                     openGraph: {
                         images: ["/images/og.png"]
                     }
                 };
-                export function Page() {
+                export function Page(props: any) {
+                    // sharedLogo used in console.log as well as Image
+                    console.log(sharedLogo);
                     return (
                         <div>
                             <Image src="/images/hero.png" alt="Hero" />
+                            <Image src={"/images/curly.png"} alt="Curly" />
                             <Image src={localLogo} alt="Logo" />
+                            <Image src={importedImg} alt="Imported" />
+                            <Image src={sharedLogo} alt="Shared" />
+                            <Image src={unknownIdentifier} alt="Unknown" />
                             <img src="/images/raw.png" alt="Raw" />
                         </div>
                     );
@@ -253,10 +264,43 @@ describe("scan_used", () => {
 
             expect(details.imageComponentRefs).toContain("/images/hero.png");
             expect(details.imageComponentRefs).toContain("/images/local-logo.png");
+            expect(details.imageComponentRefs).toContain("/images/imported.png");
             expect(details.metadataRefs).toContain("/images/og.png");
             expect(details.otherRefs).toContain("/images/raw.png");
             expect(details.otherRefs).not.toContain("/images/hero.png");
             expect(details.otherRefs).not.toContain("/images/og.png");
+
+            // Non-code asset treating all references as other
+            const cssDetails = extractImageUsageDetails('.bg { background: url("/images/bg.png"); }', "style.css");
+            expect(cssDetails.otherRefs).toContain("/images/bg.png");
+
+            // Usage without specifying filePath
+            const noPathDetails = extractImageUsageDetails('<Image src="/images/hero.png" />');
+            expect(noPathDetails.imageComponentRefs).toContain("/images/hero.png");
+        });
+
+        it("classifyImageUsages collects image classifications from files across the project", async () => {
+            const root = await makeTempDir();
+            const srcDir = path.join(root, "src");
+            const publicDir = path.join(root, "public");
+            await mkdir(srcDir, { recursive: true });
+            await mkdir(publicDir, { recursive: true });
+
+            await writeFile(
+                path.join(root, "package-lock.json"),
+                "{}",
+            );
+            await writeFile(
+                path.join(srcDir, "page.tsx"),
+                '<Image src="/images/used.png" /><img src="/images/other.png" />\nexport const metadata = { openGraph: { images: ["/images/og.png"] } };',
+            );
+
+            const classifications = await classifyImageUsages(root, "public");
+            expect(classifications["/images/used.png"]?.inImageComponent).toBe(true);
+            expect(classifications["/images/og.png"]?.inMetadata).toBe(true);
+            expect(classifications["/images/other.png"]?.inOtherPlace).toBe(true);
+
+            await cleanup(root);
         });
 
         it("getPrunableOriginalPaths prunes appropriately based on optimizeMetadata flag", () => {
@@ -284,6 +328,12 @@ describe("scan_used", () => {
                     inImageComponent: true,
                     inMetadata: false,
                     inOtherPlace: true,
+                },
+                "/images/not-in-manifest.png": {
+                    canonicalSrc: "/images/not-in-manifest.png",
+                    inImageComponent: true,
+                    inMetadata: false,
+                    inOtherPlace: false,
                 },
             };
 

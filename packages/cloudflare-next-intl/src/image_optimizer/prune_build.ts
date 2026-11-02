@@ -29,31 +29,23 @@ export function pruneBuildOutput(
             if (!fullPath.startsWith(outDir)) continue;
 
             if (existsSync(fullPath)) {
-                try {
-                    const st = statSync(fullPath);
-                    if (st.isFile()) {
-                        bytesSaved += st.size;
-                        unlinkSync(fullPath);
-                        prunedFiles.push(fullPath);
+                const st = statSync(fullPath);
+                if (st.isFile()) {
+                    bytesSaved += st.size;
+                    unlinkSync(fullPath);
+                    prunedFiles.push(fullPath);
 
-                        // Clean up empty parent directories up to outDir
-                        let parent = path.dirname(fullPath);
-                        while (parent !== outDir && parent.startsWith(outDir)) {
-                            try {
-                                const remaining = readdirSync(parent);
-                                if (remaining.length === 0) {
-                                    rmdirSync(parent);
-                                    parent = path.dirname(parent);
-                                } else {
-                                    break;
-                                }
-                            } catch {
-                                break;
-                            }
+                    // Clean up empty parent directories up to outDir
+                    let parent = path.dirname(fullPath);
+                    while (parent !== outDir && parent.startsWith(outDir)) {
+                        const remaining = readdirSync(parent);
+                        if (remaining.length === 0) {
+                            rmdirSync(parent);
+                            parent = path.dirname(parent);
+                        } else {
+                            break;
                         }
                     }
-                } catch {
-                    // Ignore transient file system errors during prune
                 }
             }
         }

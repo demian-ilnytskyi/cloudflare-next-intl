@@ -27,6 +27,16 @@ describe("metadata_transform", () => {
             const closeIdx = findBalancedBraces(code, openIdx);
             expect(closeIdx).toBe(code.lastIndexOf("}"));
         });
+
+        it("handles escaped quotes in strings and unclosed braces", () => {
+            const code = 'const x = { a: "escaped \\" brace } still in string" };';
+            const openIdx = code.indexOf("{");
+            const closeIdx = findBalancedBraces(code, openIdx);
+            expect(closeIdx).toBe(code.lastIndexOf("}"));
+
+            expect(findBalancedBraces("not a brace", 0)).toBe(-1);
+            expect(findBalancedBraces("{ unclosed brace", 0)).toBe(-1);
+        });
     });
 
     describe("getMetadataRanges", () => {
@@ -60,6 +70,18 @@ export async function generateMetadata() {
             const snippet = code.slice(ranges[0].start, ranges[0].end + 1);
             expect(snippet).toContain('"/images/og.png"');
         });
+
+        it("extracts ranges for standalone openGraph / twitter / icons blocks", () => {
+            const code = `
+export const standalone = {
+    openGraph: {
+        images: ["/images/standalone.png"]
+    }
+};
+`;
+            const ranges = getMetadataRanges(code);
+            expect(ranges.length).toBeGreaterThan(0);
+        });
     });
 
     describe("transformMetadataImageUrls", () => {
@@ -74,7 +96,7 @@ export const metadata: Metadata = {
     title: "Test",
     twitter: {
         card: "summary_large_image",
-        images: ["/images/logo.png"]
+        images: ["images/logo.png"]
     },
     openGraph: {
         images: ["/images/og.png"]
@@ -111,6 +133,22 @@ export const metadata = {
             const code = `
 export const metadata = {
     title: "No images here"
+};
+`;
+            expect(transformMetadataImageUrls(code, manifest)).toBeUndefined();
+        });
+
+        it("returns undefined for empty manifest, non-metadata code, or unreferenced images", () => {
+            expect(transformMetadataImageUrls("const x = 1;", manifest)).toBeUndefined();
+            expect(transformMetadataImageUrls("export const metadata = {};", {})).toBeUndefined();
+            expect(transformMetadataImageUrls("const metadata = 'not an object';", manifest)).toBeUndefined();
+
+            // Unreferenced image in metadata remains unchanged
+            const code = `
+export const metadata = {
+    openGraph: {
+        images: ["/images/unmatched.png"]
+    }
 };
 `;
             expect(transformMetadataImageUrls(code, manifest)).toBeUndefined();

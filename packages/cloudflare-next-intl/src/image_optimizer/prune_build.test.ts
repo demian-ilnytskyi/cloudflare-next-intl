@@ -44,5 +44,19 @@ describe("pruneBuildOutput", () => {
         expect(result.prunedFiles).toEqual([]);
         expect(result.bytesSaved).toBe(0);
     });
+
+    it("skips paths resolving outside outDir or when target is a directory", () => {
+        const tmpDir = path.join(os.tmpdir(), `test-prune-guard-${Date.now()}`);
+        const clientDir = path.join(tmpDir, "dist", "client");
+        const subDir = path.join(clientDir, "subfolder");
+        mkdirSync(subDir, { recursive: true });
+
+        const outsideResult = pruneBuildOutput([clientDir], ["../../outside.png"]);
+        expect(outsideResult.prunedFiles).toEqual([]);
+
+        const dirResult = pruneBuildOutput([clientDir], ["subfolder"]);
+        expect(dirResult.prunedFiles).toEqual([]);
+        expect(existsSync(subDir)).toBe(true);
+    });
 });
 
