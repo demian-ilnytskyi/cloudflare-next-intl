@@ -25,6 +25,9 @@ function targets(entry) {
  *   alias (see `src/config/intl_config.ts` and the README "Setup" step 2)
  *   — it is never a real, installable module, so it can never resolve
  *   outside a consumer's own aliased build.
+ * - `virtual:*`: Vite virtual modules provided at bundle time by the plugin
+ *   (e.g. `virtual:cloudflare-next-intl-images-manifest`) which plain Node
+ *   cannot load without a bundler.
  *
  * Anything else — a missing dist file, a broken relative import, a syntax
  * error — still fails the check below.
@@ -32,6 +35,7 @@ function targets(entry) {
 function isExpectedConsumerContextFailure(error) {
   const message = String(error.message ?? '');
   if (error.code === 'ERR_INVALID_MODULE_SPECIFIER' && message.includes('@intl-config')) return true;
+  if (error.code === 'ERR_UNSUPPORTED_ESM_URL_SCHEME' && message.includes("'virtual:'")) return true;
   return false;
 }
 
