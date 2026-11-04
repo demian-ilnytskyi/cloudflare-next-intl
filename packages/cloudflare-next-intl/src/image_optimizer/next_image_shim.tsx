@@ -149,7 +149,30 @@ function resolveProps(props: ImageProps, injectLoader = false): ImageProps {
     let width = props.width;
     let height = props.height;
     let style = props.style;
+    let unoptimized = props.unoptimized;
     const loader = injectLoader ? (props.loader ?? defaultCustomLoader) : props.loader;
+
+    const rawSrc = typeof src === "string"
+        ? src
+        : (typeof src === "object" && src !== null && "src" in src)
+            ? String((src as { src: unknown }).src)
+            : "";
+
+    if (
+        rawSrc.startsWith("data:") ||
+        rawSrc.startsWith("blob:") ||
+        rawSrc.endsWith(".svg") ||
+        rawSrc.includes(".svg?") ||
+        rawSrc.includes(".svg#") ||
+        rawSrc.includes("image/svg+xml")
+    ) {
+        unoptimized = true;
+    }
+
+    const fitMatch = props.className?.match(/\bobject-(contain|cover|fill|none|scale-down)\b/);
+    if (fitMatch && !(style as React.CSSProperties | undefined)?.objectFit) {
+        style = { objectFit: fitMatch[1] as React.CSSProperties["objectFit"], ...style };
+    }
 
     const entry = findEntry(src);
     if (entry) {
@@ -168,7 +191,7 @@ function resolveProps(props: ImageProps, injectLoader = false): ImageProps {
                 variant.blurDataURL,
                 variant.blurWidth,
                 variant.blurHeight,
-                (props.style as React.CSSProperties | undefined)?.objectFit,
+                (style as React.CSSProperties | undefined)?.objectFit,
             );
         }
         if (!width && !props.fill && variant.width) {
@@ -183,7 +206,7 @@ function resolveProps(props: ImageProps, injectLoader = false): ImageProps {
         }
     }
 
-    return { ...props, src, blurDataURL, width, height, style, loader };
+    return { ...props, src, blurDataURL, width, height, style, unoptimized, loader };
 }
 
 export default function Image(props: ImageProps): React.JSX.Element {

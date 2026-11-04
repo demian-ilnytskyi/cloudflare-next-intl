@@ -224,5 +224,18 @@ describe("next_image_shim", () => {
         expect(img?.getAttribute("width")).toBeNull();
         expect(img?.getAttribute("height")).toBeNull();
     });
+
+    it("automatically sets unoptimized for SVGs and data URIs", () => {
+        const svgEl = Image({ src: "data:image/svg+xml;charset=utf-8,svgcontent", alt: "icon", width: 20, height: 20 });
+        expect((svgEl.props as { unoptimized?: boolean }).unoptimized).toBe(true);
+
+        const svgFileEl = Image({ src: "/icons/logo.svg", alt: "icon", width: 20, height: 20 });
+        expect((svgFileEl.props as { unoptimized?: boolean }).unoptimized).toBe(true);
+    });
+
+    it("propagates className object-contain into style.objectFit to override vinext cover default", () => {
+        const el = Image({ src: "/app_store.svg", alt: "badge", fill: true, className: "object-contain" });
+        expect(((el.props as { style?: React.CSSProperties }).style)?.objectFit).toBe("contain");
+    });
 });
 
