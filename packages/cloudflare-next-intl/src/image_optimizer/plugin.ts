@@ -64,9 +64,8 @@ export function imageOptimizerPlugin(
                         const parsed = new URL(req.url, "http://localhost:3000");
                         const targetUrl = parsed.searchParams.get("url");
                         if (targetUrl) {
-                            res.writeHead(302, { Location: targetUrl });
-                            res.end();
-                            return;
+                            req.url = targetUrl;
+                            return next();
                         }
                     } catch {
                         // ignore and fall through

@@ -104,28 +104,42 @@ function findEntry(srcVal: unknown): ManifestEntry | undefined {
  */
 function toPlainImgAttrs(resolved: ImageProps, src: string): React.ImgHTMLAttributes<HTMLImageElement> {
     const {
-        src: _src, alt, width, height, fill: _fill, loader: _loader, quality: _quality,
+        src: _src, alt, width, height, fill, loader: _loader, quality: _quality,
         preload: _preload, priority, placeholder: _placeholder, blurDataURL: _blurDataURL,
         unoptimized: _unoptimized, overrideSrc: _overrideSrc, onLoadingComplete: _onLoadingComplete,
         layout: _layout, objectFit: _objectFit, objectPosition: _objectPosition,
         lazyBoundary: _lazyBoundary, lazyRoot: _lazyRoot, loading, style, className, sizes,
         ...rest
     } = resolved as ImageProps & Record<string, unknown>;
-    void _src; void _fill; void _loader; void _quality; void _preload; void _placeholder;
+    void _src; void _loader; void _quality; void _preload; void _placeholder;
     void _blurDataURL; void _unoptimized; void _overrideSrc; void _onLoadingComplete;
     void _layout; void _objectFit; void _objectPosition; void _lazyBoundary; void _lazyRoot;
+
+    const fillStyle: React.CSSProperties = fill
+        ? {
+            position: "absolute",
+            height: "100%",
+            width: "100%",
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0,
+            color: "transparent",
+        }
+        : {};
 
     return {
         ...(rest as React.ImgHTMLAttributes<HTMLImageElement>),
         src,
         alt: alt ?? "",
-        width: width as number | undefined,
-        height: height as number | undefined,
+        width: fill ? undefined : (width as number | undefined),
+        height: fill ? undefined : (height as number | undefined),
         className: className as string | undefined,
-        style: style as React.CSSProperties | undefined,
+        style: { ...fillStyle, ...(style as React.CSSProperties | undefined) },
         sizes: sizes as string | undefined,
         loading: priority ? "eager" : (loading as React.ImgHTMLAttributes<HTMLImageElement>["loading"] ?? "lazy"),
         fetchPriority: priority ? "high" : "auto",
+        ...((fill ? { "data-nimg": "fill" } : { "data-nimg": "1" }) as React.ImgHTMLAttributes<HTMLImageElement>),
     };
 }
 
@@ -169,17 +183,6 @@ function resolveProps(props: ImageProps, injectLoader = false): ImageProps {
         }
     }
 
-    if (props.placeholder === "blur" && blurDataURL) {
-        const objectFit = (props.style as React.CSSProperties | undefined)?.objectFit || (props.className?.includes("object-contain") ? "contain" : "cover");
-        style = {
-            backgroundSize: objectFit,
-            backgroundPosition: "50% 50%",
-            backgroundRepeat: "no-repeat",
-            backgroundImage: `url("${blurDataURL}")`,
-            ...style,
-        };
-    }
-
     return { ...props, src, blurDataURL, width, height, style, loader };
 }
 
@@ -200,7 +203,7 @@ export default function Image(props: ImageProps): React.JSX.Element {
     const imgProps = toPlainImgAttrs(resolved, primarySrc);
 
     return (
-        <picture>
+        <picture style={{ display: "contents" }}>
             {alternates.map((source) => (
                 <source
                     key={source.src}
@@ -209,7 +212,11 @@ export default function Image(props: ImageProps): React.JSX.Element {
                     srcSet={source.src}
                 />
             ))}
-            <ImgWithFallback {...imgProps} originalSrc={originalSrc} />
+            <ImgWithFallback
+                {...imgProps}
+                originalSrc={originalSrc}
+                blurDataURL={props.placeholder === "blur" ? resolved.blurDataURL : undefined}
+            />
         </picture>
     );
 }

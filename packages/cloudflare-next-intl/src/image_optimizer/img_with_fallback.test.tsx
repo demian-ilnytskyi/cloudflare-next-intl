@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { ImgWithFallback } from "./img_with_fallback.js";
 
 describe("ImgWithFallback", () => {
@@ -39,5 +39,17 @@ describe("ImgWithFallback", () => {
         img.dispatchEvent(new Event("error"));
 
         expect(img.src).toBe("/a.png");
+    });
+
+    it("renders blur background and removes it on load", () => {
+        const blurDataURL = "data:image/svg+xml;base64,testblur";
+        const { container } = render(
+            <ImgWithFallback src="/a.avif" alt="a" blurDataURL={blurDataURL} />,
+        );
+        const img = container.querySelector("img") as HTMLImageElement;
+        expect(img.style.backgroundImage).toContain(blurDataURL);
+
+        fireEvent.load(img);
+        expect(img.style.backgroundImage).toBe("");
     });
 });

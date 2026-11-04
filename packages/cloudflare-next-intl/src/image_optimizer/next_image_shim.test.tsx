@@ -207,5 +207,22 @@ describe("next_image_shim", () => {
         });
         expect(props.src).toContain("https://img.cdn.com/avatar.png");
     });
+
+    it("applies fill styles and display:contents on picture when fill=true", () => {
+        const { container } = render(
+            <Image src="/images/multi.png" alt="multi" fill />,
+        );
+        const picture = container.querySelector("picture");
+        expect(picture).toBeTruthy();
+        expect(picture?.style.display).toBe("contents");
+
+        const img = picture?.querySelector("img");
+        expect(img?.getAttribute("data-nimg")).toBe("fill");
+        expect(img?.style.position).toBe("absolute");
+        expect(img?.style.height).toBe("100%");
+        expect(img?.style.width).toBe("100%");
+        expect(img?.getAttribute("width")).toBeNull();
+        expect(img?.getAttribute("height")).toBeNull();
+    });
 });
 
