@@ -124,7 +124,6 @@ function toPlainImgAttrs(resolved: ImageProps, src: string): React.ImgHTMLAttrib
             top: 0,
             right: 0,
             bottom: 0,
-            color: "transparent",
         }
         : {};
 

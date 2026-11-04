@@ -43,7 +43,27 @@ export function safeLoader(loader: Loader): Loader {
 }
 
 export function NextImageClient(props: ImageProps): React.JSX.Element {
+    const [blurComplete, setBlurComplete] = React.useState(false);
+    const innerRef = React.useRef<HTMLImageElement | null>(null);
+
+    React.useEffect(() => {
+        const img = innerRef.current;
+        if (img && img.complete && img.naturalWidth > 0) {
+            setBlurComplete(true);
+        }
+    }, [props.src]);
+
+    const handleLoad: React.ReactEventHandler<HTMLImageElement> = (event) => {
+        setBlurComplete(true);
+        props.onLoad?.(event);
+    };
+
+    const isBlurActive = props.placeholder === "blur" && !blurComplete;
+    const style = isBlurActive
+        ? { ...(props.style as React.CSSProperties | undefined), color: "transparent" }
+        : props.style;
+
     const loaderCandidate = typeof props.loader === "function" ? props.loader : defaultCustomLoader;
     const loader = typeof loaderCandidate === "function" ? safeLoader(loaderCandidate) : undefined;
-    return <NextImage {...props} loader={loader} />;
+    return <NextImage ref={innerRef} {...props} style={style} onLoad={handleLoad} loader={loader} />;
 }

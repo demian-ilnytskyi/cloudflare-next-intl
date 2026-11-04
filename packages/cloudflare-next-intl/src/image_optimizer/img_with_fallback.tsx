@@ -56,7 +56,7 @@ export function ImgWithFallback({
         <img
             ref={imgRef}
             {...imgProps}
-            style={{ ...blurStyle, ...style }}
+            style={{ ...style, ...blurStyle }}
             onLoad={handleLoad}
             onError={onError}
         />

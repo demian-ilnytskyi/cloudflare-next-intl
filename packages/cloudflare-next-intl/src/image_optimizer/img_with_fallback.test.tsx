@@ -8,6 +8,7 @@ describe("ImgWithFallback", () => {
         const img = container.querySelector("img");
         expect(img?.getAttribute("src")).toBe("/a.avif");
         expect(img?.getAttribute("alt")).toBe("a");
+        expect(img?.style.color).toBe("");
     });
 
     it("falls back to originalSrc on a load error", () => {
@@ -57,10 +58,29 @@ describe("ImgWithFallback", () => {
         expect(img.style.backgroundImage).toContain(blurDataURL);
         expect(img.style.backgroundSize).toBe("contain");
         expect(img.style.backgroundPosition).toBe("center top");
+        expect(img.style.color).toBe("transparent");
 
         fireEvent.load(img);
         expect(img.style.backgroundImage).toBe("");
+        expect(img.style.color).toBe("");
         expect(onLoad).toHaveBeenCalled();
+    });
+
+    it("rewrites custom user color to transparent while blur is active and restores it on load", () => {
+        const blurDataURL = "data:image/svg+xml;base64,testblur";
+        const { container } = render(
+            <ImgWithFallback
+                src="/a.avif"
+                alt="a"
+                blurDataURL={blurDataURL}
+                style={{ color: "red" }}
+            />,
+        );
+        const img = container.querySelector("img") as HTMLImageElement;
+        expect(img.style.color).toBe("transparent");
+
+        fireEvent.load(img);
+        expect(img.style.color).toBe("red");
     });
 
     it("detects already completed image on mount and clears blur", () => {

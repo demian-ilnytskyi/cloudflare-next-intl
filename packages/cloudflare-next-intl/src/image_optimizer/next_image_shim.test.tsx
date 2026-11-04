@@ -64,6 +64,7 @@ describe("next_image_shim", () => {
         const img = container.querySelector("img");
         expect(img?.style.backgroundImage).toContain("data:image/svg+xml");
         expect(img?.style.backgroundSize).toBe("cover");
+        expect(img?.style.color).toBe("transparent");
     });
 
     it("does not add a blur background for an entry without blurDataURL", () => {
