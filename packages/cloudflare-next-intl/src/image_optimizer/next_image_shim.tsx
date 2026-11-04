@@ -26,14 +26,7 @@ function pickVariant(entry: ManifestEntry, requestedWidth: number | undefined): 
     return entry.variants.reduce((best, v) => (v.width > best.width ? v : best));
 }
 
-import manifestMod from "virtual:cloudflare-next-intl-images-manifest";
-import loaderMod from "virtual:cloudflare-next-intl-image-loader";
-
-const images: Record<string, ManifestEntry> = {
-    ...((manifestMod && typeof manifestMod === "object" && "images" in manifestMod && manifestMod.images)
-        ? (manifestMod.images as Record<string, ManifestEntry>)
-        : {}),
-};
+const images: Record<string, ManifestEntry> = {};
 import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-images-manifest")
     .then((mod) => {
         const manifestData = (mod as { default?: { images?: Record<string, ManifestEntry> } })?.default;
@@ -43,16 +36,14 @@ import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-images-manifest")
     })
     .catch(() => undefined);
 
-let defaultCustomLoader: ((props: { src: string; width: number; quality?: number }) => string) | undefined =
-    (loaderMod as { defaultLoader?: (props: { src: string; width: number; quality?: number }) => string; default?: (props: { src: string; width: number; quality?: number }) => string })?.defaultLoader
-    ?? (loaderMod as { default?: (props: { src: string; width: number; quality?: number }) => string })?.default;
+let defaultCustomLoader: ((props: { src: string; width: number; quality?: number }) => string) | undefined;
 import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-image-loader")
     .then((mod) => {
-        const parsed = mod as {
+        const loaderMod = mod as {
             defaultLoader?: (props: { src: string; width: number; quality?: number }) => string;
             default?: (props: { src: string; width: number; quality?: number }) => string;
         };
-        defaultCustomLoader = parsed?.defaultLoader ?? parsed?.default ?? defaultCustomLoader;
+        defaultCustomLoader = loaderMod?.defaultLoader ?? loaderMod?.default;
     })
     .catch(() => undefined);
 
