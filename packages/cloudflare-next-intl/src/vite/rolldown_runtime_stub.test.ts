@@ -14,7 +14,7 @@ describe("rolldownRuntimeStubPlugin", () => {
 
     it("resolves _virtual/_rolldown/runtime.js in client environment to virtual ID", () => {
         const plugin = rolldownRuntimeStubPlugin();
-        const resolveId = plugin.resolveId as Function;
+        const resolveId = plugin.resolveId as ((this: unknown, id: string, importer?: string, options?: unknown) => unknown);
 
         const ctxClient = { environment: { name: "client" } };
         const resolvedClient = resolveId.call(
@@ -37,7 +37,7 @@ describe("rolldownRuntimeStubPlugin", () => {
 
     it("loads stub code without node:module import", () => {
         const plugin = rolldownRuntimeStubPlugin();
-        const load = plugin.load as Function;
+        const load = plugin.load as ((this: unknown, id: string) => unknown);
 
         const content = load.call({}, ROLLDOWN_RUNTIME_STUB_ID);
         expect(content).toBe(ROLLDOWN_RUNTIME_STUB_CODE);
@@ -47,7 +47,7 @@ describe("rolldownRuntimeStubPlugin", () => {
 
     it("loads stub code when id directly matches in client environment", () => {
         const plugin = rolldownRuntimeStubPlugin();
-        const load = plugin.load as Function;
+        const load = plugin.load as ((this: unknown, id: string) => unknown);
 
         const ctxClient = { environment: { name: "client" } };
         const content = load.call(

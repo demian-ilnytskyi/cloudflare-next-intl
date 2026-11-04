@@ -33,22 +33,36 @@ export function rolldownRuntimeStubPlugin(): Plugin {
         name: "cfni:rolldown-runtime-stub",
         enforce: "pre",
         resolveId(id, _importer, options) {
+            const cleanId = id.split("?")[0].split("#")[0];
             if (
-                id.includes("_virtual/_rolldown/runtime.js") &&
-                (this.environment?.name === "client" || options?.ssr === false)
+                cleanId.includes("_virtual/_rolldown/runtime.js") &&
+                (this.environment?.name === "client" || (!options?.ssr && this.environment?.name !== "ssr" && this.environment?.name !== "rsc"))
             ) {
                 return ROLLDOWN_RUNTIME_STUB_ID;
             }
         },
         load(id) {
+            const cleanId = id.split("?")[0].split("#")[0];
             if (id === ROLLDOWN_RUNTIME_STUB_ID) {
                 return ROLLDOWN_RUNTIME_STUB_CODE;
             }
             if (
-                id.includes("_virtual/_rolldown/runtime.js") &&
-                this.environment?.name === "client"
+                cleanId.includes("_virtual/_rolldown/runtime.js") &&
+                (this.environment?.name === "client" || this.environment?.name !== "ssr" && this.environment?.name !== "rsc")
             ) {
                 return ROLLDOWN_RUNTIME_STUB_CODE;
+            }
+        },
+        transform(code, id, options) {
+            const cleanId = id.split("?")[0].split("#")[0];
+            if (
+                cleanId.includes("_virtual/_rolldown/runtime.js") &&
+                (this.environment?.name === "client" || (!options?.ssr && this.environment?.name !== "ssr" && this.environment?.name !== "rsc"))
+            ) {
+                return {
+                    code: ROLLDOWN_RUNTIME_STUB_CODE,
+                    map: null,
+                };
             }
         },
     };

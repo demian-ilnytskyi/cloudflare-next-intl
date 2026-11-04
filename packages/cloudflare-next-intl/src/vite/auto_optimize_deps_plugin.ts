@@ -43,6 +43,14 @@ export const DEFAULT_OPTIMIZE_DEPS_EXCLUDE = [
 
 export const DEFAULT_DEDUPE = ["react", "react-dom"];
 
+export const DEFAULT_SSR_NO_EXTERNAL = [
+    "cloudflare-next-intl",
+    "cloudflare-next-intl-intl",
+    "cloudflare-next-intl-theme",
+    "cloudflare-next-intl-auth",
+    "cloudflare-next-intl-errors",
+];
+
 export function autoOptimizeDepsPlugin(options?: AutoOptimizeDepsOptions): Plugin {
     const isEnabled = options?.enabled !== false;
 
@@ -54,6 +62,9 @@ export function autoOptimizeDepsPlugin(options?: AutoOptimizeDepsOptions): Plugi
             return {
                 resolve: {
                     dedupe: [...DEFAULT_DEDUPE],
+                },
+                ssr: {
+                    noExternal: [...DEFAULT_SSR_NO_EXTERNAL],
                 },
                 optimizeDeps: {
                     include: [
