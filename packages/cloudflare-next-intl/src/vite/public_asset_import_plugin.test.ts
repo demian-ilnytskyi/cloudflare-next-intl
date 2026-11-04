@@ -11,6 +11,12 @@ describe("publicAssetImportPlugin", () => {
 
         const resolved = resolveId.call({}, "../../../../public/marketing/shared/logo.svg");
         expect(resolved).toBe(`${PUBLIC_ASSET_IMPORT_PREFIX}/marketing/shared/logo.svg`);
+
+        const resolvedWithQuery = resolveId.call({}, "/app/public/marketing/shared/route.svg?vinext-image-url");
+        expect(resolvedWithQuery).toBe(`${PUBLIC_ASSET_IMPORT_PREFIX}/marketing/shared/route.svg`);
+
+        const resolvedMeta = resolveId.call({}, "/app/public/marketing/shared/route.svg?vinext-meta");
+        expect(resolvedMeta).toBeUndefined();
     });
 
     it("ignores non-asset imports or paths without /public/", () => {

@@ -8,9 +8,13 @@ export function publicAssetImportPlugin(): Plugin {
         name: "cfni:public-asset-import",
         enforce: "pre",
         resolveId(id) {
-            if (id.includes("/public/") && ASSET_EXTENSIONS.test(id)) {
-                const idx = id.lastIndexOf("/public/");
-                const rootPath = id.slice(idx + "/public".length);
+            const cleanId = id.split("?")[0].split("#")[0];
+            if (cleanId.includes("/public/") && ASSET_EXTENSIONS.test(cleanId)) {
+                if (id.includes("?vinext-meta")) {
+                    return undefined;
+                }
+                const idx = cleanId.lastIndexOf("/public/");
+                const rootPath = cleanId.slice(idx + "/public".length);
                 return `${PUBLIC_ASSET_IMPORT_PREFIX}${rootPath}`;
             }
         },
