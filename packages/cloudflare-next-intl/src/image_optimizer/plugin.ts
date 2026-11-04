@@ -57,6 +57,24 @@ export function imageOptimizerPlugin(
             viteConfig = config;
             command = config.command === "serve" ? "serve" : "build";
         },
+        configureServer(server) {
+            server.middlewares.use((req, res, next) => {
+                if (req.url && (req.url.startsWith("/_next/image") || req.url.startsWith("/_vinext/image"))) {
+                    try {
+                        const parsed = new URL(req.url, "http://localhost:3000");
+                        const targetUrl = parsed.searchParams.get("url");
+                        if (targetUrl) {
+                            res.writeHead(302, { Location: targetUrl });
+                            res.end();
+                            return;
+                        }
+                    } catch {
+                        // ignore and fall through
+                    }
+                }
+                next();
+            });
+        },
         resolveId(id: string): string | undefined {
             if (id === VIRTUAL_IMAGE_SHIM_ID) {
                 return getShimPath();
@@ -97,7 +115,7 @@ export function imageOptimizerPlugin(
             const root = process.cwd();
             const activeManifest = sharedManifestByRoot.get(root);
 
-            if (command === "build" && resolved.optimizeMetadata && activeManifest && Object.keys(activeManifest).length > 0) {
+            if ((command === "build" || resolved.dev) && resolved.optimizeMetadata && activeManifest && Object.keys(activeManifest).length > 0) {
                 const metaReplaced = transformMetadataImageUrls(transformedCode, activeManifest);
                 if (metaReplaced !== undefined) {
                     transformedCode = metaReplaced;

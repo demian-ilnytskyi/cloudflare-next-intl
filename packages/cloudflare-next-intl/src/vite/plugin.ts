@@ -18,6 +18,9 @@ import { layoutQueriesPlugin, type LayoutQueriesPluginOptions } from "./layout_q
 import { firebaseAuthCheckPlugin, type FirebaseAuthCheckPluginOptions } from "./firebase_auth_check_plugin.js";
 import { vinextRouteWiringFixPlugin, type VinextRouteWiringFixPluginOptions } from "./vinext_route_wiring_fix.js";
 import { lucideOptimizerPlugin, type LucideOptimizerPluginOptions } from "./lucide_optimizer_plugin.js";
+import { rolldownRuntimeStubPlugin } from "./rolldown_runtime_stub.js";
+import { autoOptimizeDepsPlugin, type AutoOptimizeDepsOptions } from "./auto_optimize_deps_plugin.js";
+import { publicAssetImportPlugin } from "./public_asset_import_plugin.js";
 
 export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
     /**
@@ -127,6 +130,29 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
     imageOptimizer?: boolean | ImageOptimizerPluginOptions;
 
     /**
+     * Stubs `node:module` and rolldown runtime for client/browser bundles to prevent
+     * "Cannot access node:module.createRequire in client code" errors.
+     * @default true
+     */
+    rolldownRuntimeStub?: boolean;
+
+    /**
+     * Normalizes relative static asset imports that point inside `public/` directory
+     * (e.g. `import logo from "../public/logo.svg"`) so they export root-relative URLs
+     * without Vite emitting "Files in the public directory are served at the root path" warnings.
+     * @default true
+     */
+    publicAssetImport?: boolean;
+
+    /**
+     * Automatically configure Vite's `optimizeDeps.include`, `optimizeDeps.exclude`, and
+     * `resolve.dedupe` to prevent mid-session re-optimizations, null React dispatchers, and
+     * inconsistent client component warnings.
+     * @default true
+     */
+    autoOptimizeDeps?: boolean | AutoOptimizeDepsOptions;
+
+    /**
      * Patch Vinext to fix route-wiring, route-matching, and optimistic-routing bugs around
      * nested loading boundaries and leading `:locale` segments. Pass an options object or
      * `true` to enable.
@@ -187,6 +213,24 @@ export interface CloudflareNextIntlOptions extends LocaleFilePluginOptions {
 
 export function cloudflareNextIntl(options: CloudflareNextIntlOptions = {}): Plugin[] {
     const plugins: Plugin[] = [];
+
+    if (options.rolldownRuntimeStub !== false) {
+        plugins.push(rolldownRuntimeStubPlugin());
+    }
+
+    if (options.publicAssetImport !== false) {
+        plugins.push(publicAssetImportPlugin());
+    }
+
+    if (options.autoOptimizeDeps !== false) {
+        plugins.push(
+            autoOptimizeDepsPlugin(
+                typeof options.autoOptimizeDeps === "object"
+                    ? options.autoOptimizeDeps
+                    : undefined
+            )
+        );
+    }
 
     if (options.layoutQueriesCheck !== false) {
         plugins.push(

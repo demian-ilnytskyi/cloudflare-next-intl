@@ -1,3 +1,20 @@
+export {
+    publicAssetImportPlugin,
+    PUBLIC_ASSET_IMPORT_PREFIX,
+    ASSET_EXTENSIONS,
+} from "./public_asset_import_plugin.js";
+export {
+    rolldownRuntimeStubPlugin,
+    ROLLDOWN_RUNTIME_STUB_ID,
+    ROLLDOWN_RUNTIME_STUB_CODE,
+} from "./rolldown_runtime_stub.js";
+export {
+    autoOptimizeDepsPlugin,
+    DEFAULT_OPTIMIZE_DEPS_INCLUDE,
+    DEFAULT_OPTIMIZE_DEPS_EXCLUDE,
+    DEFAULT_DEDUPE,
+    type AutoOptimizeDepsOptions,
+} from "./auto_optimize_deps_plugin.js";
 export { autoClientMessagesPlugin, type AutoClientMessagesOptions } from "./auto_client_messages_plugin.js";
 export { autoDynamicPagesPlugin, type AutoDynamicPagesPluginOptions } from "./auto_dynamic_pages_plugin.js";
 export { autoLocaleParamsPlugin, type AutoLocaleParamsPluginOptions } from "./auto_locale_params_plugin.js";

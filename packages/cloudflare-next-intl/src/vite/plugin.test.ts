@@ -6,9 +6,12 @@ describe("cloudflareNextIntl (main plugin)", () => {
     it("returns array of plugins by default", () => {
         const plugins = cloudflareNextIntl();
         expect(Array.isArray(plugins)).toBe(true);
-        expect(plugins.length).toBe(18);
+        expect(plugins.length).toBe(21);
 
         const pluginNames = plugins.map((p) => p.name);
+        expect(pluginNames).toContain("cfni:rolldown-runtime-stub");
+        expect(pluginNames).toContain("cfni:auto-optimize-deps");
+        expect(pluginNames).toContain("cfni:public-asset-import");
         expect(pluginNames).toContain("cloudflare-next-intl-layout-queries-check");
         expect(pluginNames).toContain("cloudflare-next-intl-auto-dynamic-pages");
         expect(pluginNames).toContain("cloudflare-next-intl-auto-locale-params");
@@ -62,6 +65,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(0);
@@ -87,6 +93,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -116,6 +125,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -144,6 +156,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -172,6 +187,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -201,6 +219,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -227,6 +248,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -256,6 +280,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -285,6 +312,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -311,6 +341,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -337,6 +370,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -383,6 +419,9 @@ describe("cloudflareNextIntl (main plugin)", () => {
             bufferStub: false,
             reactEvalStub: false,
             optionalFirebaseStub: false,
+            rolldownRuntimeStub: false,
+            publicAssetImport: false,
+            autoOptimizeDeps: false,
         });
 
         expect(plugins.length).toBe(1);
@@ -409,5 +448,8 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(typeof viteIndex.vinextRouteWiringFixPlugin).toBe("function");
         expect(typeof viteIndex.lucideOptimizerPlugin).toBe("function");
         expect(typeof viteIndex.layoutQueriesPlugin).toBe("function");
+        expect(typeof viteIndex.publicAssetImportPlugin).toBe("function");
+        expect(typeof viteIndex.rolldownRuntimeStubPlugin).toBe("function");
+        expect(typeof viteIndex.autoOptimizeDepsPlugin).toBe("function");
     });
 });
