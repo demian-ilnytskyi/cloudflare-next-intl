@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
 import { ImgWithFallback } from "./img_with_fallback.js";
 
@@ -43,13 +43,79 @@ describe("ImgWithFallback", () => {
 
     it("renders blur background and removes it on load", () => {
         const blurDataURL = "data:image/svg+xml;base64,testblur";
+        const onLoad = vi.fn();
         const { container } = render(
-            <ImgWithFallback src="/a.avif" alt="a" blurDataURL={blurDataURL} />,
+            <ImgWithFallback
+                src="/a.avif"
+                alt="a"
+                blurDataURL={blurDataURL}
+                style={{ objectFit: "contain", objectPosition: "top" }}
+                onLoad={onLoad}
+            />,
         );
         const img = container.querySelector("img") as HTMLImageElement;
         expect(img.style.backgroundImage).toContain(blurDataURL);
+        expect(img.style.backgroundSize).toBe("contain");
+        expect(img.style.backgroundPosition).toBe("center top");
 
         fireEvent.load(img);
         expect(img.style.backgroundImage).toBe("");
+        expect(onLoad).toHaveBeenCalled();
+    });
+
+    it("detects already completed image on mount and clears blur", () => {
+        const blurDataURL = "data:image/svg+xml;base64,testblur";
+        const origComplete = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "complete");
+        const origNaturalWidth = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "naturalWidth");
+
+        Object.defineProperty(HTMLImageElement.prototype, "complete", { value: true, configurable: true });
+        Object.defineProperty(HTMLImageElement.prototype, "naturalWidth", { value: 100, configurable: true });
+
+        try {
+            const { container } = render(
+                <ImgWithFallback src="/a.avif" alt="a" blurDataURL={blurDataURL} />,
+            );
+            const img = container.querySelector("img") as HTMLImageElement;
+            expect(img.style.backgroundImage).toBe("");
+        } finally {
+            if (origComplete) {
+                Object.defineProperty(HTMLImageElement.prototype, "complete", origComplete);
+            } else {
+                delete (HTMLImageElement.prototype as { complete?: unknown }).complete;
+            }
+            if (origNaturalWidth) {
+                Object.defineProperty(HTMLImageElement.prototype, "naturalWidth", origNaturalWidth);
+            } else {
+                delete (HTMLImageElement.prototype as { naturalWidth?: unknown }).naturalWidth;
+            }
+        }
+    });
+
+    it("keeps blur if complete is true but naturalWidth is 0 on mount", () => {
+        const blurDataURL = "data:image/svg+xml;base64,testblur";
+        const origComplete = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "complete");
+        const origNaturalWidth = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "naturalWidth");
+
+        Object.defineProperty(HTMLImageElement.prototype, "complete", { value: true, configurable: true });
+        Object.defineProperty(HTMLImageElement.prototype, "naturalWidth", { value: 0, configurable: true });
+
+        try {
+            const { container } = render(
+                <ImgWithFallback src="/a.avif" alt="a" blurDataURL={blurDataURL} />,
+            );
+            const img = container.querySelector("img") as HTMLImageElement;
+            expect(img.style.backgroundImage).toContain(blurDataURL);
+        } finally {
+            if (origComplete) {
+                Object.defineProperty(HTMLImageElement.prototype, "complete", origComplete);
+            } else {
+                delete (HTMLImageElement.prototype as { complete?: unknown }).complete;
+            }
+            if (origNaturalWidth) {
+                Object.defineProperty(HTMLImageElement.prototype, "naturalWidth", origNaturalWidth);
+            } else {
+                delete (HTMLImageElement.prototype as { naturalWidth?: unknown }).naturalWidth;
+            }
+        }
     });
 });

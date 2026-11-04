@@ -134,6 +134,14 @@ describe("cloudflareNextIntl (main plugin)", () => {
         expect(plugins[0].name).toBe("cloudflare-next-intl-image-optimizer");
     });
 
+    it("supports custom autoOptimizeDeps configuration", () => {
+        const plugins = cloudflareNextIntl({
+            autoOptimizeDeps: { include: ["custom-pkg"] },
+        });
+        const autoOptPlugin = plugins.find((p) => p.name === "cfni:auto-optimize-deps");
+        expect(autoOptPlugin).toBeDefined();
+    });
+
     it("supports custom autoImageLoader configuration", () => {
         const plugins = cloudflareNextIntl({
             layoutQueriesCheck: false,

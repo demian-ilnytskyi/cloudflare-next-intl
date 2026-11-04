@@ -320,5 +320,93 @@ describe("imageOptimizerPlugin", () => {
             await cleanup(root);
         }
     });
+
+    it("rewrites /_next/image and /_vinext/image urls in dev middleware", () => {
+        const plugin = imageOptimizerPlugin();
+        let middleware: ((req: { url?: string }, res: unknown, next: () => void) => void) | undefined;
+        const mockServer = {
+            middlewares: {
+                use: vi.fn((fn: (req: { url?: string }, res: unknown, next: () => void) => void) => {
+                    middleware = fn;
+                }),
+            },
+        };
+
+        const configureServer = plugin.configureServer as (server: typeof mockServer) => void;
+        configureServer(mockServer);
+        expect(mockServer.middlewares.use).toHaveBeenCalled();
+        expect(middleware).toBeDefined();
+
+        const req1 = { url: "/_next/image?url=%2Fstatic%2Flogo.png" };
+        const next1 = vi.fn();
+        middleware!(req1, {}, next1);
+        expect(req1.url).toBe("/static/logo.png");
+        expect(next1).toHaveBeenCalled();
+
+        const req2 = { url: "/_vinext/image?url=%2Fstatic%2Fhero.png" };
+        const next2 = vi.fn();
+        middleware!(req2, {}, next2);
+        expect(req2.url).toBe("/static/hero.png");
+        expect(next2).toHaveBeenCalled();
+
+        const req3 = { url: "/_next/image" };
+        const next3 = vi.fn();
+        middleware!(req3, {}, next3);
+        expect(req3.url).toBe("/_next/image");
+        expect(next3).toHaveBeenCalled();
+
+        const origURL = globalThis.URL;
+        globalThis.URL = class extends origURL {
+            constructor(url: string | URL, base?: string | URL) {
+                if (typeof url === "string" && url.includes("throw-error")) {
+                    throw new Error("url parsing failure");
+                }
+                super(url, base);
+            }
+        };
+        try {
+            const reqError = { url: "/_next/image?throw-error=true" };
+            const nextError = vi.fn();
+            middleware!(reqError, {}, nextError);
+            expect(nextError).toHaveBeenCalled();
+        } finally {
+            globalThis.URL = origURL;
+        }
+
+        const req5 = { url: "/api/hello" };
+        const next5 = vi.fn();
+        middleware!(req5, {}, next5);
+        expect(req5.url).toBe("/api/hello");
+        expect(next5).toHaveBeenCalled();
+
+        const req6 = {};
+        const next6 = vi.fn();
+        middleware!(req6, {}, next6);
+        expect(next6).toHaveBeenCalled();
+    });
+
+    it("skips metadata transform during dev when dev: false", async () => {
+        const root = await makeTempDir();
+        await writeFixturePng(path.join(root, "public", "images"), "og.png", 50, 50);
+
+        const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(root);
+        try {
+            const plugin = imageOptimizerPlugin({
+                dirs: ["public/images"],
+                optimizeMetadata: true,
+                dev: false,
+            });
+            const configResolved = plugin.configResolved as (config: { command: string }) => void;
+            configResolved({ command: "serve" });
+
+            const transform = plugin.transform as (code: string, id: string) => { code: string; map: null } | undefined;
+            const code = `export const metadata = { openGraph: { images: ["/images/og.png"] } };`;
+            const result = transform(code, path.join(root, "src", "app", "page.tsx"));
+            expect(result).toBeUndefined();
+        } finally {
+            cwdSpy.mockRestore();
+            await cleanup(root);
+        }
+    });
 });
 
