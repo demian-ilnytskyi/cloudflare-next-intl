@@ -27,24 +27,30 @@ function pickVariant(entry: ManifestEntry, requestedWidth: number | undefined): 
 }
 
 const images: Record<string, ManifestEntry> = {};
+
+export function applyManifestModule(mod: unknown): void {
+    const manifestData = (mod as { default?: { images?: Record<string, ManifestEntry> } })?.default;
+    if (manifestData && typeof manifestData === "object" && manifestData.images) {
+        Object.assign(images, manifestData.images);
+    }
+}
+
 import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-images-manifest")
-    .then((mod) => {
-        const manifestData = (mod as { default?: { images?: Record<string, ManifestEntry> } })?.default;
-        if (manifestData && typeof manifestData === "object" && manifestData.images) {
-            Object.assign(images, manifestData.images);
-        }
-    })
+    .then(applyManifestModule)
     .catch(() => undefined);
 
 let defaultCustomLoader: ((props: { src: string; width: number; quality?: number }) => string) | undefined;
+
+export function applyLoaderModule(mod: unknown): void {
+    const loaderMod = mod as {
+        defaultLoader?: (props: { src: string; width: number; quality?: number }) => string;
+        default?: (props: { src: string; width: number; quality?: number }) => string;
+    };
+    defaultCustomLoader = loaderMod?.defaultLoader ?? loaderMod?.default;
+}
+
 import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-image-loader")
-    .then((mod) => {
-        const loaderMod = mod as {
-            defaultLoader?: (props: { src: string; width: number; quality?: number }) => string;
-            default?: (props: { src: string; width: number; quality?: number }) => string;
-        };
-        defaultCustomLoader = loaderMod?.defaultLoader ?? loaderMod?.default;
-    })
+    .then(applyLoaderModule)
     .catch(() => undefined);
 
 function findEntry(srcVal: unknown): ManifestEntry | undefined {

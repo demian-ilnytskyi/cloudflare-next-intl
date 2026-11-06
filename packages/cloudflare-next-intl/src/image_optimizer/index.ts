@@ -4,6 +4,8 @@ export {
     VIRTUAL_IMAGE_SHIM_ID,
     VIRTUAL_MANIFEST_ID,
     getShimPath,
+    rewriteCdnCgiImage,
+    injectSyncVirtualImports,
     default,
 } from "./plugin.js";
 
@@ -52,6 +54,9 @@ export {
 
 export {
     collectUsedImages,
+    collectUnusedImages,
+    blankComments,
+    UNUSED_CANDIDATE_EXTENSIONS,
     findCodeFiles,
     extractImageReferences,
     extractImageOverrides,

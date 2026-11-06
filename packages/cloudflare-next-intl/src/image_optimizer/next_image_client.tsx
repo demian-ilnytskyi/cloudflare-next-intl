@@ -9,17 +9,19 @@ type Loader = (props: { src: string; width: number; quality?: number }) => strin
 let defaultCustomLoader: Loader | undefined;
 let loaderInitPromise: Promise<void> | undefined;
 
+export function applyLoaderModule(mod: unknown): void {
+    const loaderMod = mod as {
+        defaultLoader?: Loader;
+        default?: Loader;
+    };
+    const candidate = loaderMod?.defaultLoader ?? loaderMod?.default;
+    defaultCustomLoader = typeof candidate === "function" ? candidate : undefined;
+}
+
 function ensureLoader(): Promise<void> {
     if (!loaderInitPromise) {
         loaderInitPromise = import(/* webpackIgnore: true */ "virtual:cloudflare-next-intl-image-loader")
-            .then((mod) => {
-                const loaderMod = mod as {
-                    defaultLoader?: Loader;
-                    default?: Loader;
-                };
-                const candidate = loaderMod?.defaultLoader ?? loaderMod?.default;
-                defaultCustomLoader = typeof candidate === "function" ? candidate : undefined;
-            })
+            .then(applyLoaderModule)
             .catch(() => undefined);
     }
     return loaderInitPromise;

@@ -3,6 +3,19 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.0] - 2026-11-06
+
+### Added
+
+- Image optimizer `pruneUnusedFromBuild` option (default `true`): images in `dirs` that nothing in the project references are not optimized and are removed from the build output. Comments and Markdown docs outside `public/` do not count as references; SQL and Python files do.
+- Dev and preview servers serve `/cdn-cgi/image/<options>/<path>` from the local file, so a Cloudflare image loader works outside a Cloudflare zone.
+
+### Fixed
+
+- `<Image>` read the image manifest and the auto-detected loader through `import()`, so a client component's first render used the original `src` (pruned from the build, so 404). The plugin now makes both available while the module evaluates.
+- Image originals are pruned only when `<Image>` is their only use: an imported or `const` image that is also used elsewhere, exported, or referenced from another file (including `${baseUrl}/images/...` and absolute URLs) keeps its original.
+- Apple touch icons in metadata keep their original file (iOS does not accept WebP); rewritten icons get a matching `type`.
+
 ## [0.13.6] - 2026-10-26
 
 ### Changed

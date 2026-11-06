@@ -31,6 +31,7 @@ export default defineConfig({
                 'src/firebase_auth/**',
                 'src/firebase_auth_check/**',
                 'src/image_optimizer/next_image_shim.tsx',
+                'src/**/*.tmp.tsx',
                 'src/test_utils/**',
                 'src/**/*.bench.ts',
                 'src/**/*.bench.tsx',

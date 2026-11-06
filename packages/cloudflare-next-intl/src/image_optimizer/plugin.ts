@@ -13,7 +13,7 @@ import {
 } from "./detect_loader.js";
 import { transformMetadataImageUrls } from "./metadata_transform.js";
 import { pruneBuildOutput } from "./prune_build.js";
-import { classifyImageUsages, getPrunableOriginalPaths } from "./scan_used.js";
+import { classifyImageUsages, collectUnusedImages, getPrunableOriginalPaths } from "./scan_used.js";
 
 export const VIRTUAL_IMAGE_SHIM_ID = "virtual:cloudflare-next-intl-image";
 export const VIRTUAL_MANIFEST_ID = "virtual:cloudflare-next-intl-images-manifest";
@@ -21,6 +21,52 @@ const RESOLVED_MANIFEST_ID = "\0" + VIRTUAL_MANIFEST_ID;
 
 const sharedPrunableByRoot = new Map<string, string[]>();
 const sharedManifestByRoot = new Map<string, Record<string, { src: string }>>();
+
+const SHIM_FILE_RE = /[\\/]image_optimizer[\\/]next_image_shim\.(?:js|tsx)$/;
+const CLIENT_FILE_RE = /[\\/]image_optimizer[\\/]next_image_client\.(?:js|tsx)$/;
+
+/**
+ * The shim and client read the manifest and the auto-detected loader through
+ * `import()` so they still load where no plugin answers the virtual ids (a
+ * consumer's own vitest run). Under this plugin the virtual modules always
+ * resolve, so a static import is added and applied while the module evaluates:
+ * otherwise the first render — a client component mounting right after its
+ * chunk loads — runs before the `import()` settles and gets the original src.
+ */
+export function injectSyncVirtualImports(code: string, id: string): string | undefined {
+    const file = id.split("?")[0];
+    if (SHIM_FILE_RE.test(file)) {
+        if (!code.includes("applyManifestModule") || !code.includes("applyLoaderModule")) return undefined;
+        return `${code}
+import * as __cfniManifestModule from "${VIRTUAL_MANIFEST_ID}";
+import * as __cfniLoaderModule from "${VIRTUAL_IMAGE_LOADER_ID}";
+applyManifestModule(__cfniManifestModule);
+applyLoaderModule(__cfniLoaderModule);
+`;
+    }
+    if (CLIENT_FILE_RE.test(file)) {
+        if (!code.includes("applyLoaderModule")) return undefined;
+        return `${code}
+import * as __cfniLoaderModule from "${VIRTUAL_IMAGE_LOADER_ID}";
+applyLoaderModule(__cfniLoaderModule);
+`;
+    }
+    return undefined;
+}
+
+const CDN_CGI_IMAGE_RE = /^\/cdn-cgi\/image\/[^/]+\/(?!https?:|\/)(.+)$/;
+
+/**
+ * Cloudflare Image Transformations (`/cdn-cgi/image/<options>/<path>`, what a
+ * Cloudflare `next/image` loader returns) only exist on a Cloudflare zone. On a
+ * local dev or preview server the request 404s, so serve the source asset as is.
+ */
+export function rewriteCdnCgiImage(req: { url?: string; originalUrl?: string }): void {
+    const match = req.url ? CDN_CGI_IMAGE_RE.exec(req.url) : null;
+    if (!match) return;
+    req.url = `/${match[1]}`;
+    if (req.originalUrl !== undefined) req.originalUrl = req.url;
+}
 
 export function getShimPath(
     dir: string = path.dirname(fileURLToPath(import.meta.url)),
@@ -71,6 +117,13 @@ export function imageOptimizerPlugin(
                         // ignore and fall through
                     }
                 }
+                rewriteCdnCgiImage(req);
+                next();
+            });
+        },
+        configurePreviewServer(server) {
+            server.middlewares.use((req, _res, next) => {
+                rewriteCdnCgiImage(req);
                 next();
             });
         },
@@ -106,6 +159,8 @@ export function imageOptimizerPlugin(
             return undefined;
         },
         transform(code: string, id: string): { code: string; map: null } | undefined {
+            const injected = injectSyncVirtualImports(code, id);
+            if (injected !== undefined) return { code: injected, map: null };
             if (!resolved.enabled) return undefined;
             if (id.includes("node_modules")) return undefined;
             if (id === getShimPath()) return undefined;
@@ -159,18 +214,24 @@ export function imageOptimizerPlugin(
 
             this.info?.(`[cloudflare-next-intl] image-optimizer: ${entries.length} images in ${resolved.manifest}`);
 
-            if (command === "build" && resolved.pruneOriginalsFromBuild) {
-                const classifications = await classifyImageUsages(root, "public");
-                const prunableOriginals = getPrunableOriginalPaths(
-                    classifications,
-                    manifestImages,
-                    resolved.optimizeMetadata,
-                );
-                sharedPrunableByRoot.set(root, prunableOriginals);
+            if (command === "build" && (resolved.pruneOriginalsFromBuild || resolved.pruneUnusedFromBuild)) {
+                const prunable = new Set<string>();
+                if (resolved.pruneOriginalsFromBuild) {
+                    const classifications = await classifyImageUsages(root, "public");
+                    for (const rel of getPrunableOriginalPaths(classifications, manifestImages, resolved.optimizeMetadata)) {
+                        prunable.add(rel);
+                    }
+                }
+                if (resolved.pruneUnusedFromBuild) {
+                    for (const rel of await collectUnusedImages(root, resolved.dirs, "public")) {
+                        prunable.add(rel);
+                    }
+                }
+                sharedPrunableByRoot.set(root, [...prunable].sort());
             }
         },
         closeBundle(): void {
-            if (command !== "build" || !resolved.enabled || !resolved.pruneOriginalsFromBuild) return;
+            if (command !== "build" || !resolved.enabled || !(resolved.pruneOriginalsFromBuild || resolved.pruneUnusedFromBuild)) return;
             const root = process.cwd();
             const prunable = sharedPrunableByRoot.get(root);
             if (!prunable || prunable.length === 0) return;
@@ -197,7 +258,7 @@ export function imageOptimizerPlugin(
                 const mb = (bytesSaved / (1024 * 1024)).toFixed(2);
                 const kb = (bytesSaved / 1024).toFixed(1);
                 const sizeStr = bytesSaved >= 1024 * 1024 ? `${mb} MB` : `${kb} kB`;
-                this.info?.(`[cloudflare-next-intl] image-optimizer: pruned ${prunedFiles.length} unoptimized images from build output (${sizeStr} saved)`);
+                this.info?.(`[cloudflare-next-intl] image-optimizer: pruned ${prunedFiles.length} unoptimized or unused images from build output (${sizeStr} saved)`);
             }
         },
     };

@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { getMetadataRanges } from "./metadata_transform.js";
+import { getMetadataRanges, isAppleIconAt } from "./metadata_transform.js";
 import type { ImageFormat, ImageOverrideOptions } from "./types.js";
 
 export const CODE_EXTENSIONS: readonly string[] = [
@@ -24,6 +24,8 @@ export const ASSET_EXTENSIONS: readonly string[] = [
     ".less",
     ".json",
     ".md",
+    ".sql",
+    ".py",
 ];
 
 export const SCANNED_EXTENSIONS: readonly string[] = [
@@ -243,7 +245,11 @@ async function collectCodeFiles(
 }
 
 function resolvePublicSrc(ref: string): string {
-    const cleanRef = ref.split("?")[0].split("#")[0];
+    const cleanRef = ref
+        .split("?")[0]
+        .split("#")[0]
+        .replace(/^\$\{[^}]*\}/, "")
+        .replace(/^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/]+/i, "");
     let relative = cleanRef;
     const publicIdx = relative.indexOf("public/");
     if (publicIdx !== -1) {
@@ -340,7 +346,65 @@ export interface ImageUsageClassification {
     inOtherPlace: boolean;
 }
 
-export function extractImageUsageDetails(code: string, filePath?: string): ImageUsageDetails {
+const SCRIPT_COMMENT_EXTENSIONS: ReadonlySet<string> = new Set([
+    ".tsx", ".ts", ".jsx", ".js", ".mjs", ".cjs", ".astro", ".vue", ".svelte", ".mdx", ".scss", ".sass", ".less",
+]);
+const BLOCK_COMMENT_EXTENSIONS: ReadonlySet<string> = new Set([...SCRIPT_COMMENT_EXTENSIONS, ".css"]);
+const HTML_COMMENT_EXTENSIONS: ReadonlySet<string> = new Set([".html", ".vue", ".svelte", ".astro", ".svg", ".xml", ".md", ".mdx"]);
+
+/**
+ * Replaces comments with spaces (newlines kept, so offsets and line numbers stay
+ * the same). An image named only in a comment is not a use of it.
+ */
+export function blankComments(code: string, filePath = ""): string {
+    const ext = path.extname(filePath).toLowerCase();
+    const lineComments = SCRIPT_COMMENT_EXTENSIONS.has(ext);
+    const blockComments = BLOCK_COMMENT_EXTENSIONS.has(ext);
+    const htmlComments = HTML_COMMENT_EXTENSIONS.has(ext);
+    if (!lineComments && !blockComments && !htmlComments) return code;
+
+    const out = code.split("");
+    const blank = (from: number, to: number): void => {
+        for (let k = from; k < to && k < out.length; k++) {
+            if (out[k] !== "\n") out[k] = " ";
+        }
+    };
+    let quote: string | null = null;
+    for (let i = 0; i < code.length; i++) {
+        const char = code[i];
+        if (quote) {
+            if (char === "\\") i++;
+            else if (char === quote || (char === "\n" && quote !== "`")) quote = null;
+            continue;
+        }
+        if (htmlComments && code.startsWith("<!--", i)) {
+            const end = code.indexOf("-->", i + 4);
+            const stop = end === -1 ? code.length : end + 3;
+            blank(i, stop);
+            i = stop - 1;
+            continue;
+        }
+        if (blockComments && char === "/" && code[i + 1] === "*") {
+            const end = code.indexOf("*/", i + 2);
+            const stop = end === -1 ? code.length : end + 2;
+            blank(i, stop);
+            i = stop - 1;
+            continue;
+        }
+        if (lineComments && char === "/" && code[i + 1] === "/" && code[i - 1] !== ":") {
+            const end = code.indexOf("\n", i);
+            const stop = end === -1 ? code.length : end;
+            blank(i, stop);
+            i = stop - 1;
+            continue;
+        }
+        if (lineComments && (char === "'" || char === '"' || char === "`")) quote = char;
+    }
+    return out.join("");
+}
+
+export function extractImageUsageDetails(rawCode: string, filePath?: string): ImageUsageDetails {
+    const code = blankComments(rawCode, filePath);
     const imageComponentRefs = new Set<string>();
     const metadataRefs = new Set<string>();
     const otherRefs = new Set<string>();
@@ -356,14 +420,9 @@ export function extractImageUsageDetails(code: string, filePath?: string): Image
         return { imageComponentRefs, metadataRefs, otherRefs };
     }
 
-    // 0. Identify all import/require statements of images (these are bundled image assets, not raw unoptimizable strings)
+    // 0. Image imports are not special: `import logo from "./logo.png"` counts as an <Image>-only
+    //    use below only when `logo` is used nowhere but in <Image src={logo}>.
     const importRanges: { start: number; end: number }[] = [];
-    const importRegex = /(?:import\s+(?:type\s+)?[\w\s{},*]+\s+from\s*|require\s*\(\s*)["'`]([^"'`\s\n\r#?]+\.(?:png|jpg|jpeg|webp|avif))["'`]\)?/g;
-    let impMatch: RegExpExecArray | null;
-    while ((impMatch = importRegex.exec(code)) !== null) {
-        importRanges.push({ start: impMatch.index, end: impMatch.index + impMatch[0].length });
-        imageComponentRefs.add(impMatch[1]);
-    }
 
     // 1. Identify <Image ...> ranges and references
     const imageRanges: { start: number; end: number }[] = [];
@@ -397,17 +456,19 @@ export function extractImageUsageDetails(code: string, filePath?: string): Image
                         : null;
 
                 if (matchedSrc && matchedRange) {
-                    // Check occurrences of identifier across code
-                    const identRegex = new RegExp(`\\b${varName}\\b`, "g");
+                    // Used only for <Image> when every other occurrence of the name sits in an
+                    // <Image src={name}> and the name is not exported for use in other files.
+                    const identRegex = new RegExp(`(?<![\\w$.])${escapeRegExp(varName)}(?![\\w$])`, "g");
                     const totalMatches = code.match(identRegex)!.length;
-                    // Count how many times varName appears inside <Image ...> tags
-                    let inImageCount = 0;
-                    const allTags = code.matchAll(/<Image\b([^>]*)\/?>/gs);
-                    for (const m of allTags) {
-                        if (m[1].includes(varName)) inImageCount++;
+                    let inImageSrcCount = 0;
+                    const srcRegex = new RegExp(`\\bsrc\\s*=\\s*\\{\\s*${escapeRegExp(varName)}\\s*\\}`, "g");
+                    for (const m of code.matchAll(/<Image\b([^>]*)\/?>/gs)) {
+                        inImageSrcCount += m[1].match(srcRegex)?.length ?? 0;
                     }
-                    // If total matches == 1 (the declaration or import) + inImageCount, it is used only for <Image>
-                    if (totalMatches <= inImageCount + 1) {
+                    const exported = new RegExp(
+                        `\\bexport\\s+(?:const|let|var)\\s+${escapeRegExp(varName)}\\b|\\bexport\\s*\\{[^}]*(?<![\\w$])${escapeRegExp(varName)}(?![\\w$])|\\bexport\\s+default\\s+${escapeRegExp(varName)}\\b`,
+                    ).test(code);
+                    if (!exported && totalMatches === inImageSrcCount + 1) {
                         imageComponentRefs.add(matchedSrc);
                         imageRanges.push(matchedRange);
                     }
@@ -420,9 +481,14 @@ export function extractImageUsageDetails(code: string, filePath?: string): Image
     const metadataRanges = getMetadataRanges(code);
     for (const range of metadataRanges) {
         const block = code.slice(range.start, range.end + 1);
-        const refs = extractImageReferences(block);
-        for (const ref of refs) {
-            metadataRefs.add(ref);
+        const refPattern = /(?:["'`])([^"'`\s\n\r#?]+\.(?:png|jpg|jpeg|webp|avif))(?:\?[^"'`\s]*|#[^"'`\s]*)?(?:["'`])/gi;
+        let refMatch: RegExpExecArray | null;
+        while ((refMatch = refPattern.exec(block)) !== null) {
+            if (isAppleIconAt(block, refMatch.index)) {
+                otherRefs.add(refMatch[1]);
+            } else {
+                metadataRefs.add(refMatch[1]);
+            }
         }
     }
 
@@ -508,4 +574,110 @@ export function getPrunableOriginalPaths(
     }
 
     return prunable.sort();
+}
+
+export const UNUSED_CANDIDATE_EXTENSIONS: readonly string[] = [
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".webp",
+    ".avif",
+    ".gif",
+    ".svg",
+];
+
+const PUBLIC_TEXT_EXTENSIONS: readonly string[] = [
+    ...SCANNED_EXTENSIONS,
+    ".webmanifest",
+    ".xml",
+    ".svg",
+    ".txt",
+];
+
+async function walkFiles(dir: string, extensions: readonly string[], found: string[]): Promise<void> {
+    let items;
+    try {
+        items = await readdir(dir, { withFileTypes: true });
+    } catch {
+        return;
+    }
+    for (const item of items) {
+        const full = path.join(dir, item.name);
+        if (item.isDirectory()) {
+            if (IGNORED_DIRS.has(item.name)) continue;
+            await walkFiles(full, extensions, found);
+        } else if (extensions.includes(path.extname(item.name).toLowerCase())) {
+            found.push(full);
+        }
+    }
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isNameMentioned(text: string, name: string): boolean {
+    return new RegExp(`(?<![A-Za-z0-9_-])${escapeRegExp(name)}(?![A-Za-z0-9_-])`).test(text);
+}
+
+function isDirBuiltDynamically(text: string, dirRel: string): boolean {
+    const dir = escapeRegExp(dirRel);
+    const dynamicTail = "(?:\\$\\{|[\"'`])";
+    return new RegExp(`(?<=/)${dir}/?${dynamicTail}|["'\`]${dir}/${dynamicTail}`).test(text);
+}
+
+/**
+ * Lists images inside `dirs` that nothing in the project references, as paths
+ * relative to `publicDir` (no leading slash). Comments and Markdown docs outside
+ * `publicDir` do not count as references. Conservative otherwise: an image
+ * counts as used when any scanned file mentions its file name or its file name
+ * without extension, or builds a path dynamically from its directory or any
+ * parent directory under `publicDir`.
+ */
+export async function collectUnusedImages(
+    root: string,
+    dirs: readonly string[],
+    publicDir = "public",
+): Promise<string[]> {
+    const publicRoot = path.resolve(root, publicDir);
+    const candidates: string[] = [];
+    for (const dir of dirs) {
+        const abs = path.resolve(root, dir);
+        if (abs !== publicRoot && !abs.startsWith(publicRoot + path.sep)) continue;
+        await walkFiles(abs, UNUSED_CANDIDATE_EXTENSIONS, candidates);
+    }
+    if (candidates.length === 0) return [];
+
+    const textFiles = await collectCodeFiles(root, publicDir, SCANNED_EXTENSIONS);
+    const publicTextFiles: string[] = [];
+    await walkFiles(publicRoot, PUBLIC_TEXT_EXTENSIONS, publicTextFiles);
+    const contents = await Promise.all(
+        [...textFiles.filter((file) => path.extname(file).toLowerCase() !== ".md"), ...publicTextFiles]
+            .filter((file) => !IGNORED_FILES.has(path.basename(file)))
+            .map(async (file) => blankComments(await readFile(file, "utf8").catch(() => ""), file)),
+    );
+    const text = contents.join("\n");
+
+    const dynamicDirs = new Map<string, boolean>();
+    const unused: string[] = [];
+    const uniqueCandidates = [...new Set(candidates)].sort();
+    for (const file of uniqueCandidates) {
+        const rel = path.relative(publicRoot, file).split(path.sep).join("/");
+        const base = path.basename(rel);
+        const stem = base.slice(0, base.length - path.extname(base).length);
+        if (text.includes(base) || isNameMentioned(text, stem)) continue;
+
+        const parts = rel.split("/").slice(0, -1);
+        let dynamic = false;
+        for (let i = parts.length; i > 0 && !dynamic; i--) {
+            const dirRel = parts.slice(0, i).join("/");
+            if (!dynamicDirs.has(dirRel)) dynamicDirs.set(dirRel, isDirBuiltDynamically(text, dirRel));
+            dynamic = dynamicDirs.get(dirRel)!;
+        }
+        if (dynamic) continue;
+
+        unused.push(rel);
+    }
+    // Nothing referenced at all means the scan could not see how images are used: prune nothing.
+    return unused.length === uniqueCandidates.length ? [] : unused;
 }

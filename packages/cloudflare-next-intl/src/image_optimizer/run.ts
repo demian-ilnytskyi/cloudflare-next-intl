@@ -5,7 +5,7 @@ import { isFresh, loadCache, saveCache } from "./cache.js";
 import type { CacheData } from "./cache.js";
 import { writeManifest } from "./manifest.js";
 import { EXTENSION_BY_FORMAT, processImage, toGeneratedPath, toPublicSrc, withWidthSuffix } from "./process_image.js";
-import { collectUsedImageOverrides, collectUsedImages } from "./scan_used.js";
+import { collectUnusedImages, collectUsedImageOverrides, collectUsedImages } from "./scan_used.js";
 import { resolveImageConfig, SUPPORTED_EXTENSIONS } from "./types.js";
 import type { ImageFormat, ImageOverrideOptions, OptimizedImage, ResolvedOptions } from "./types.js";
 import type { CacheEntry } from "./cache.js";
@@ -159,6 +159,13 @@ export async function run(
         }
     } else {
         files = await collectImages(options.dirs, root);
+    }
+
+    if (options.pruneUnusedFromBuild) {
+        const unused = new Set(
+            (await collectUnusedImages(root, options.dirs, "public")).map((rel) => path.resolve(publicRoot, rel)),
+        );
+        files = files.filter((file) => !unused.has(file));
     }
 
     const scannedOverrides = await collectUsedImageOverrides(root, "public");

@@ -127,9 +127,11 @@ import intlMiddleware from "cloudflare-next-intl/middleware";
 export const middleware = intlMiddleware;
 
 export const config = {
-    matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+    matcher: ["/((?!_next/static|_next/image|favicon.ico|generated).*)"],
 };
 ```
+
+Keep `generated` (the image optimizer's `outDir`) out of the matcher: `/_next/image` fetches optimized files through the request handler, and a locale redirect on `/generated/...` makes it answer 400.
 
 ## Usage
 
@@ -316,6 +318,7 @@ export default defineConfig({
                 },
                 optimizeMetadata: true,           // Optimize images in Next.js metadata (OG, twitter, icons) & rewrite URLs (default: true)
                 pruneOriginalsFromBuild: true,    // Prune unoptimized originals from build output when replaced (default: true)
+                pruneUnusedFromBuild: true,       // Prune images in `dirs` nothing references from build output, skip optimizing them (default: true)
                 autoImageLoader: true,            // Auto-detect custom image loader for standalone imageOptimizer usages (default: true, or false/options)
             },
             autoImageLoader: true,                // Auto-detect custom image loader (from next.config.* loaderFile or image-loader.ts; default: true, or options object)

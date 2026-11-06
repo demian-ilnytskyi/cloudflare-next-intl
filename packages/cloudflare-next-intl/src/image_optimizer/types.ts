@@ -88,6 +88,18 @@ export interface ImageOptimizerPluginOptions {
      * @default true
      */
     pruneOriginalsFromBuild?: boolean;
+    /**
+     * Prune images from the final build output (e.g. dist/client) when nothing in the
+     * project references them: no code, CSS, JSON, HTML or Markdown file mentions their
+     * path, file name or file name without extension, and no dynamic path is built from
+     * their directory (e.g. `` `/images/flags/${code}.png` ``). Such images are not optimized.
+     * Only files inside `dirs` are checked, so root `public/` files (favicon.ico,
+     * robots.txt, …) are never touched. Does NOT touch source repository files.
+     * Set to false when images are referenced from outside the repository (a database,
+     * a CMS, another site).
+     * @default true
+     */
+    pruneUnusedFromBuild?: boolean;
 }
 
 export interface ResolvedBlurOptions {
@@ -115,6 +127,7 @@ export interface ResolvedOptions {
     autoImageLoader: boolean | AutoImageLoaderOptions;
     optimizeMetadata: boolean;
     pruneOriginalsFromBuild: boolean;
+    pruneUnusedFromBuild: boolean;
 }
 
 export interface ResolvedImageConfig {
@@ -184,6 +197,7 @@ export const DEFAULT_OPTIONS: ResolvedOptions = {
     autoImageLoader: true,
     optimizeMetadata: true,
     pruneOriginalsFromBuild: true,
+    pruneUnusedFromBuild: true,
 };
 
 export function resolveBlurOptions(
@@ -233,6 +247,7 @@ export function resolveOptions(
         autoImageLoader: raw.autoImageLoader ?? DEFAULT_OPTIONS.autoImageLoader,
         optimizeMetadata: raw.optimizeMetadata ?? DEFAULT_OPTIONS.optimizeMetadata,
         pruneOriginalsFromBuild: raw.pruneOriginalsFromBuild ?? DEFAULT_OPTIONS.pruneOriginalsFromBuild,
+        pruneUnusedFromBuild: raw.pruneUnusedFromBuild ?? DEFAULT_OPTIONS.pruneUnusedFromBuild,
     };
 }
 
