@@ -5,6 +5,7 @@ export {
     VIRTUAL_MANIFEST_ID,
     getShimPath,
     rewriteCdnCgiImage,
+    redirectCdnCgiRemoteImage,
     injectSyncVirtualImports,
     default,
 } from "./plugin.js";

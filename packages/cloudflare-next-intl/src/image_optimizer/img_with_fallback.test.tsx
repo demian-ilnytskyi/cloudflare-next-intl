@@ -1,3 +1,4 @@
+import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
 import { ImgWithFallback } from "./img_with_fallback.js";
@@ -8,7 +9,43 @@ describe("ImgWithFallback", () => {
         const img = container.querySelector("img");
         expect(img?.getAttribute("src")).toBe("/a.avif");
         expect(img?.getAttribute("alt")).toBe("a");
-        expect(img?.style.color).toBe("");
+        expect(img?.style.color).toBe("transparent");
+    });
+
+    it("hides the alt text until the image loads, and shows it when the image cannot load", () => {
+        const { container } = render(<ImgWithFallback src="/a.avif" alt="a" />);
+        const img = container.querySelector("img") as HTMLImageElement;
+        expect(img.style.color).toBe("transparent");
+        fireEvent.load(img);
+        expect(img.style.color).toBe("");
+
+        const { container: broken } = render(<ImgWithFallback src="/b.avif" alt="b" />);
+        const brokenImg = broken.querySelector("img") as HTMLImageElement;
+        fireEvent.error(brokenImg);
+        expect(brokenImg.style.color).toBe("");
+    });
+
+    it("keeps the alt text hidden while it retries the original after an error", () => {
+        const { container } = render(<ImgWithFallback src="/a.avif" alt="a" originalSrc="/a.png" />);
+        const img = container.querySelector("img") as HTMLImageElement;
+        fireEvent.error(img);
+        expect(img.style.color).toBe("transparent");
+        fireEvent.error(img);
+        expect(img.style.color).toBe("");
+    });
+
+    it("passes the <img> to a caller's function or object ref", () => {
+        const fnRef = vi.fn();
+        const objRef = React.createRef<HTMLImageElement>();
+        const { container } = render(
+            <>
+                <ImgWithFallback {...({ ref: fnRef } as object)} src="/a.avif" alt="a" />
+                <ImgWithFallback {...({ ref: objRef } as object)} src="/b.avif" alt="b" />
+            </>,
+        );
+        const [a, b] = Array.from(container.querySelectorAll("img"));
+        expect(fnRef).toHaveBeenCalledWith(a);
+        expect(objRef.current).toBe(b);
     });
 
     it("falls back to originalSrc on a load error", () => {
@@ -111,7 +148,7 @@ describe("ImgWithFallback", () => {
         }
     });
 
-    it("keeps blur if complete is true but naturalWidth is 0 on mount", () => {
+    it("treats complete with naturalWidth 0 on mount as a failure that already happened", () => {
         const blurDataURL = "data:image/svg+xml;base64,testblur";
         const origComplete = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "complete");
         const origNaturalWidth = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "naturalWidth");
@@ -121,10 +158,19 @@ describe("ImgWithFallback", () => {
 
         try {
             const { container } = render(
-                <ImgWithFallback src="/a.avif" alt="a" blurDataURL={blurDataURL} />,
+                <ImgWithFallback src="/a.avif" alt="a" blurDataURL={blurDataURL} originalSrc="/a.png" />,
             );
             const img = container.querySelector("img") as HTMLImageElement;
+            expect(img.getAttribute("src")).toBe("/a.png");
             expect(img.style.backgroundImage).toContain(blurDataURL);
+            expect(img.style.color).toBe("transparent");
+
+            const { container: noFallback } = render(
+                <ImgWithFallback src="/b.avif" alt="b" blurDataURL={blurDataURL} />,
+            );
+            const broken = noFallback.querySelector("img") as HTMLImageElement;
+            expect(broken.style.backgroundImage).toBe("");
+            expect(broken.style.color).toBe("");
         } finally {
             if (origComplete) {
                 Object.defineProperty(HTMLImageElement.prototype, "complete", origComplete);

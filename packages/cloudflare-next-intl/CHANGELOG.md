@@ -3,6 +3,18 @@
 All notable changes to this package are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.16.0] - 2026-11-07
+
+### Added
+
+- `cloudflare-next-intl/image-loader`: `createCloudflareImageLoader({ minWidth = 160, localPassthrough = true })` builds a `next/image` loader for Cloudflare Image Transformations (`/cdn-cgi/image/...`) with a configurable smallest requested width.
+
+### Fixed
+
+- `<Image>` hides its alt text (`color: transparent`) while the image loads, not only while a blur placeholder shows; the alt text shows again if the image fails. An image that already failed before hydration is detected on mount (the `<picture>` path retries the original first).
+- A caller's `ref` on `<Image>` no longer replaces the component's own ref (React 19 passes `ref` as a prop); both now receive the `<img>`.
+- Dev and preview servers redirect `/cdn-cgi/image/<options>/https://...` to the remote image instead of answering 404.
+
 ## [0.15.0] - 2026-11-06
 
 ### Added

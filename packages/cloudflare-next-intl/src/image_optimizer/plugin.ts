@@ -68,6 +68,25 @@ export function rewriteCdnCgiImage(req: { url?: string; originalUrl?: string }):
     if (req.originalUrl !== undefined) req.originalUrl = req.url;
 }
 
+const CDN_CGI_REMOTE_IMAGE_RE = /^\/cdn-cgi\/image\/[^/]+\/(https?:\/\/.+)$/;
+
+/**
+ * The remote counterpart of `rewriteCdnCgiImage`: `/cdn-cgi/image/<options>/https://…`
+ * (e.g. a Firebase Storage photo) has no local file, so redirect to the remote image.
+ * Returns true when it answered the request.
+ */
+export function redirectCdnCgiRemoteImage(
+    req: { url?: string },
+    res: { statusCode: number; setHeader(name: string, value: string): unknown; end(): unknown },
+): boolean {
+    const match = req.url ? CDN_CGI_REMOTE_IMAGE_RE.exec(req.url) : null;
+    if (!match) return false;
+    res.statusCode = 302;
+    res.setHeader("Location", match[1]);
+    res.end();
+    return true;
+}
+
 export function getShimPath(
     dir: string = path.dirname(fileURLToPath(import.meta.url)),
 ): string {
@@ -117,12 +136,14 @@ export function imageOptimizerPlugin(
                         // ignore and fall through
                     }
                 }
+                if (redirectCdnCgiRemoteImage(req, res)) return;
                 rewriteCdnCgiImage(req);
                 next();
             });
         },
         configurePreviewServer(server) {
-            server.middlewares.use((req, _res, next) => {
+            server.middlewares.use((req, res, next) => {
+                if (redirectCdnCgiRemoteImage(req, res)) return;
                 rewriteCdnCgiImage(req);
                 next();
             });

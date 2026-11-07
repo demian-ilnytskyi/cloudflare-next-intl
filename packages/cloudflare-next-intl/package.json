@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-next-intl",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "Optimized Next Intl Package Special for App Router and Cloudflare",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -31,6 +31,10 @@
     "./image": {
       "types": "./dist/src/image.d.ts",
       "import": "./dist/src/image.js"
+    },
+    "./image-loader": {
+      "types": "./dist/src/image_optimizer/cloudflare_loader.d.ts",
+      "import": "./dist/src/image_optimizer/cloudflare_loader.js"
     },
     "./Image": {
       "types": "./dist/src/image.d.ts",

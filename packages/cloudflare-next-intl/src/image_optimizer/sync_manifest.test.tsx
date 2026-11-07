@@ -2,7 +2,7 @@ import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { imageOptimizerPlugin, injectSyncVirtualImports, rewriteCdnCgiImage } from "./plugin.js";
+import { imageOptimizerPlugin, injectSyncVirtualImports, redirectCdnCgiRemoteImage, rewriteCdnCgiImage } from "./plugin.js";
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const shimSource = path.join(dir, "next_image_shim.tsx");
@@ -115,6 +115,32 @@ describe("rewriteCdnCgiImage", () => {
         const req: { url?: string } = {};
         rewriteCdnCgiImage(req);
         expect(req.url).toBeUndefined();
+    });
+
+    it("redirects a remote image to its source and leaves local ones to the rewrite", () => {
+        const res = { statusCode: 200, setHeader: vi.fn(), end: vi.fn() };
+        expect(redirectCdnCgiRemoteImage({ url: "/cdn-cgi/image/width=160,format=auto/https://firebasestorage.googleapis.com/v0/b/x/o/a.jpg?alt=media" }, res)).toBe(true);
+        expect(res.statusCode).toBe(302);
+        expect(res.setHeader).toHaveBeenCalledWith("Location", "https://firebasestorage.googleapis.com/v0/b/x/o/a.jpg?alt=media");
+        expect(res.end).toHaveBeenCalledOnce();
+
+        const untouched = { statusCode: 200, setHeader: vi.fn(), end: vi.fn() };
+        expect(redirectCdnCgiRemoteImage({ url: "/cdn-cgi/image/width=160/images/a.png" }, untouched)).toBe(false);
+        expect(redirectCdnCgiRemoteImage({}, untouched)).toBe(false);
+        expect(untouched.end).not.toHaveBeenCalled();
+    });
+
+    it("redirects remote images from both the dev and the preview server", () => {
+        const plugin = imageOptimizerPlugin();
+        for (const hook of [plugin.configureServer, plugin.configurePreviewServer]) {
+            let middleware: ((req: { url?: string }, res: unknown, next: () => void) => void) | undefined;
+            (hook as (server: unknown) => void)({ middlewares: { use: (fn: typeof middleware) => { middleware = fn; } } });
+            const res = { statusCode: 200, setHeader: vi.fn(), end: vi.fn() };
+            const next = vi.fn();
+            middleware!({ url: "/cdn-cgi/image/width=160/http://cdn.example.com/a.png" }, res, next);
+            expect(res.statusCode).toBe(302);
+            expect(next).not.toHaveBeenCalled();
+        }
     });
 
     it("is served by both the dev and the preview server", () => {

@@ -1,3 +1,4 @@
+import React from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
 import { NextImageClient, safeLoader } from "./next_image_client.js";
@@ -11,6 +12,51 @@ describe("next_image_client", () => {
         const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
         expect(safeLoader(() => { throw new Error("boom"); })({ src: "/a.png", width: 10 })).toBe("/a.png");
         spy.mockRestore();
+    });
+
+    it("hides the alt text while the image loads, without a blur placeholder too", async () => {
+        const { container } = render(<NextImageClient src="/arrow.png" alt="arrow" width={24} height={24} style={{ color: "red" }} />);
+        const img = container.querySelector("img") as HTMLImageElement;
+        expect(img.style.color).toBe("transparent");
+        fireEvent.load(img);
+        await new Promise((r) => setTimeout(r, 50));
+        expect(img.style.color).toBe("red");
+    });
+
+    it("shows the alt text once the image fails to load, and stops listening after unmount", () => {
+        const { container, unmount } = render(<NextImageClient src="/missing.png" alt="missing" width={24} height={24} style={{ color: "red" }} />);
+        const img = container.querySelector("img") as HTMLImageElement;
+        expect(img.style.color).toBe("transparent");
+        fireEvent.error(img);
+        expect(img.style.color).toBe("red");
+        unmount();
+    });
+
+    it("shows the alt text when the image already failed before mount", () => {
+        const origComplete = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "complete");
+        Object.defineProperty(HTMLImageElement.prototype, "complete", { value: true, configurable: true });
+        try {
+            const { container } = render(<NextImageClient src="/missing.png" alt="missing" width={24} height={24} style={{ color: "red" }} />);
+            expect((container.querySelector("img") as HTMLImageElement).style.color).toBe("red");
+        } finally {
+            if (origComplete) Object.defineProperty(HTMLImageElement.prototype, "complete", origComplete);
+            else delete (HTMLImageElement.prototype as { complete?: unknown }).complete;
+        }
+    });
+
+    it("passes the <img> to a caller's function or object ref and still tracks loading", () => {
+        const fnRef = vi.fn();
+        const objRef = React.createRef<HTMLImageElement>();
+        const { container } = render(
+            <>
+                <NextImageClient {...({ ref: fnRef } as object)} src="/a.png" alt="a" width={24} height={24} />
+                <NextImageClient {...({ ref: objRef } as object)} src="/b.png" alt="b" width={24} height={24} />
+            </>,
+        );
+        const [a, b] = Array.from(container.querySelectorAll("img"));
+        expect(fnRef).toHaveBeenCalledWith(a);
+        expect(objRef.current).toBe(b);
+        expect(a.style.color).toBe("transparent");
     });
 
     it("falls back to the original src when the loader returns an empty or non-string value", () => {
